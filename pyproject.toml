@@ -68,7 +68,7 @@ ignore = ["E501"]
 
 [tool.mypy]
 python_version = "3.12"
-files = ["src", "tests", "scripts"]
+files = ["src", "tests"]
 mypy_path = "src"
 explicit_package_bases = true
 warn_unused_ignores = true

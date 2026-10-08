@@ -9,12 +9,10 @@ Moduł nie zależy od elementów GUI.
 
 from __future__ import annotations
 
-import os
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-APP_DIR_NAME = "transkryptor"
+from transkryptor.paths import user_data_dir
 
 
 @dataclass(frozen=True)
@@ -64,15 +62,7 @@ REQUIRED_FILES = (
 
 def default_models_root() -> Path:
     """Katalog danych użytkownika na modele ASR (per OS, bez zmian globalnych)."""
-    if sys.platform.startswith("win"):
-        base = os.environ.get("APPDATA")
-        if base:
-            return Path(base) / "Transkryptor" / "models"
-        return Path.home() / "AppData" / "Roaming" / "Transkryptor" / "models"
-    base = os.environ.get("XDG_DATA_HOME")
-    if base:
-        return Path(base) / APP_DIR_NAME / "models"
-    return Path.home() / ".local" / "share" / APP_DIR_NAME / "models"
+    return user_data_dir() / "models"
 
 
 def format_size(size_bytes: int) -> str:

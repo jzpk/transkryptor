@@ -70,6 +70,7 @@ from transkryptor.ui.settings_store import SettingsStore
 from transkryptor.ui.shortcuts import tooltip_with_shortcut as _tooltip
 from transkryptor.ui.theme import set_props
 from transkryptor.ui.toolbar import MainToolbar, ToolbarHandlers
+from transkryptor.ui.update_controller import UpdateController
 from transkryptor.ui.warnings_panel import WarningsPanel
 
 # Stałe przeniesione do kontrolerów, re-eksportowane dla zgodności importów.
@@ -151,6 +152,9 @@ class MainWindow(QMainWindow):
         self._validation_timer = self.notation.timer
 
         self._build_layout()
+        # Bez połączeń sieciowych przy tworzeniu okna: sprawdzanie startuje
+        # punkt wejścia (``__main__.main``) przez ``updates.start_automatic``.
+        self.updates = UpdateController(self)
         self._build_toolbar()
         self.player_controller = PlayerController(self, self.player, self.player_bar)
         self.player_actions = self.player_controller.actions
@@ -230,6 +234,7 @@ class MainWindow(QMainWindow):
         bar = MainToolbar(
             self,
             self.asr_dock.toggleViewAction(),
+            self.updates.check_action,
             ToolbarHandlers(
                 superscript=self._on_superscript,
                 marker=self.notation.insert_marker,

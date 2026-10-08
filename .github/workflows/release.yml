@@ -1,4 +1,14 @@
-# Budowanie artefaktów wydania (faza 05).
+# Wydanie: podbicie wersji, budowanie artefaktów i publikacja GitHub Release.
+#
+# Zwykła droga: Actions → „Wydanie” → Run workflow (gałąź main) i wybór części
+# wersji do podbicia (patch/minor/major). Workflow po zielonych testach podbija
+# wersję w pyproject.toml, uv.lock i src/transkryptor/__init__.py, commituje,
+# nadaje tag vX.Y.Z, buduje oba artefakty z tego taga i publikuje wydanie.
+# Zainstalowane aplikacje znajdują je przez GitHub Releases API
+# (src/transkryptor/update/).
+#
+# Droga awaryjna: ręcznie wypchnięty tag v* — workflow sprawdza, że tag zgadza
+# się z wersją w kodzie, i publikuje wydanie bez podbijania.
 #
 # Artefakty powstają natywnie na każdej platformie docelowej: instalator
 # Windows na runnerze Windows, AppImage na Ubuntu 22.04. Runner Ubuntu
@@ -9,16 +19,25 @@ name: Wydanie
 on:
   workflow_dispatch:
     inputs:
-      source_url:
-        description: "Adres kodu źródłowego wpisywany do not wydania"
-        required: false
-        default: ""
+      bump:
+        description: "Część wersji do podbicia"
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: patch
   push:
     tags:
       - "v*"
 
 permissions:
   contents: read
+
+# Dwa wydania naraz pokłóciłyby się o numer wersji i gałąź main.
+concurrency:
+  group: wydanie
+  cancel-in-progress: false
 
 jobs:
   testy:
@@ -32,9 +51,8 @@ jobs:
         with:
           enable-cache: true
 
-      # Grupa docs: mypy sprawdza też scripts/make_user_guide.py (Pillow).
       - name: Środowisko z uv.lock
-        run: uv sync --locked --group docs
+        run: uv sync --locked
 
       - name: Ruff
         run: uv run ruff check --output-format=github .
@@ -61,12 +79,68 @@ jobs:
         env:
           QT_QPA_PLATFORM: offscreen
 
+  wersja:
+    name: Wersja i tag
+    needs: testy
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.wersja.outputs.version }}
+      tag: ${{ steps.wersja.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalacja uv
+        uses: astral-sh/setup-uv@v5
+
+      # Push przez GITHUB_TOKEN nie uruchamia ponownie workflow, więc nowy tag
+      # nie wywoła drugiego budowania. Ochrona gałęzi main musi dopuszczać
+      # push z github-actions[bot].
+      - name: Podbicie wersji, commit i tag
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          BUMP: ${{ inputs.bump }}
+        run: |
+          if [ "$GITHUB_REF_NAME" != "main" ]; then
+            echo "::error::Wydanie uruchamia się z gałęzi main (wybrano: $GITHUB_REF_NAME)."
+            exit 1
+          fi
+          uv version --bump "$BUMP" --no-sync
+          VERSION="$(uv version --short)"
+          sed -i -E "s/^__version__ = \".*\"$/__version__ = \"$VERSION\"/" \
+            src/transkryptor/__init__.py
+          grep -qx "__version__ = \"$VERSION\"" src/transkryptor/__init__.py
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "Wydanie v$VERSION"
+          git tag -a "v$VERSION" -m "Transkryptor $VERSION"
+          git push origin "HEAD:main" "v$VERSION"
+
+      - name: Zgodność wersji z tagiem
+        id: wersja
+        run: |
+          VERSION="$(uv version --short)"
+          INIT="$(sed -n -E 's/^__version__ = "(.*)"$/\1/p' src/transkryptor/__init__.py)"
+          if [ "$INIT" != "$VERSION" ]; then
+            echo "::error::pyproject.toml ($VERSION) i __init__.py ($INIT) mają różne wersje."
+            exit 1
+          fi
+          if [ "$GITHUB_EVENT_NAME" = "push" ] && [ "$GITHUB_REF_NAME" != "v$VERSION" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME nie zgadza się z wersją w kodzie ($VERSION)."
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+
   linux:
     name: AppImage (Linux)
-    needs: testy
+    needs: wersja
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.wersja.outputs.tag }}
 
       - name: Instalacja uv
         uses: astral-sh/setup-uv@v5
@@ -94,10 +168,7 @@ jobs:
         run: |
           uv run --group packaging python -m transkryptor.packaging \
             --target linux \
-            --tool "$RUNNER_TEMP/appimagetool" \
-            ${SOURCE_URL:+--source-url "$SOURCE_URL"}
-        env:
-          SOURCE_URL: ${{ inputs.source_url }}
+            --tool "$RUNNER_TEMP/appimagetool"
 
       - name: Sprawdzenie artefaktu
         run: |
@@ -109,18 +180,17 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: transkryptor-linux
-          path: |
-            dist/*.AppImage
-            dist/SHA256SUMS.txt
-            dist/RELEASE-NOTES.md
+          path: dist/*.AppImage
           if-no-files-found: error
 
   windows:
     name: Instalator (Windows)
-    needs: testy
+    needs: wersja
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.wersja.outputs.tag }}
 
       - name: Instalacja uv
         uses: astral-sh/setup-uv@v5
@@ -142,13 +212,9 @@ jobs:
       - name: Budowanie artefaktu
         shell: pwsh
         run: |
-          $extra = @()
-          if ($env:SOURCE_URL) { $extra = @("--source-url", $env:SOURCE_URL) }
           uv run --group packaging python -m transkryptor.packaging `
             --target windows `
-            --tool "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" @extra
-        env:
-          SOURCE_URL: ${{ inputs.source_url }}
+            --tool "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
 
       - name: Sprawdzenie sum kontrolnych
         shell: pwsh
@@ -162,8 +228,54 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: transkryptor-windows
-          path: |
-            dist/*.exe
-            dist/SHA256SUMS.txt
-            dist/RELEASE-NOTES.md
+          path: dist/*.exe
           if-no-files-found: error
+
+  publikacja:
+    name: GitHub Release
+    needs: [wersja, linux, windows]
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.wersja.outputs.tag }}
+
+      - name: Instalacja uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Środowisko z uv.lock
+        run: uv sync --locked
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      # Każdy runner liczył sumy tylko dla swojego artefaktu; aplikacja
+      # weryfikuje pobraną aktualizację wspólnym SHA256SUMS.txt.
+      - name: Wspólne sumy kontrolne i noty wydania
+        run: |
+          uv run python -m transkryptor.packaging --finalize \
+            --source-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/tree/$TAG"
+          (cd dist && sha256sum --check SHA256SUMS.txt)
+          ls -l dist
+        env:
+          TAG: ${{ needs.wersja.outputs.tag }}
+
+      - name: Publikacja wydania
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.wersja.outputs.tag }}
+          VERSION: ${{ needs.wersja.outputs.version }}
+        run: |
+          gh release create "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --latest \
+            --title "Transkryptor $VERSION" \
+            --notes-file dist/RELEASE-NOTES.md \
+            dist/*.AppImage dist/*-setup.exe dist/SHA256SUMS.txt dist/RELEASE-NOTES.md

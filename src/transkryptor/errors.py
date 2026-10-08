@@ -25,3 +25,7 @@ class ExportError(AppError):
 
 class ModelDownloadError(AppError):
     """Nie udało się pobrać lub zweryfikować lokalnego modelu ASR."""
+
+
+class UpdateError(AppError):
+    """Nie udało się sprawdzić, pobrać lub zweryfikować nowej wersji aplikacji."""

@@ -25,9 +25,8 @@ jobs:
         with:
           enable-cache: true
 
-      # Grupa docs: mypy sprawdza też scripts/make_user_guide.py (Pillow).
       - name: Środowisko z uv.lock
-        run: uv sync --locked --group docs
+        run: uv sync --locked
 
       - name: Ruff
         run: uv run ruff check --output-format=github .

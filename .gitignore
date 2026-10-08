@@ -221,4 +221,6 @@ __marimo__/
 
 test/
 specs/
-packaging/
+
+# Specyfikacja PyInstallera jest częścią procesu wydania.
+!packaging/transkryptor.spec

@@ -159,6 +159,7 @@ def main(argv: list[str] | None = None) -> int:
     apply_theme(app)
     window = MainWindow()
     window.show()
+    window.updates.start_automatic()
     return app.exec()
 
 

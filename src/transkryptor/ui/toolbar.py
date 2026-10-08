@@ -1,4 +1,4 @@
-"""Pasek narzędzi okna głównego: notacja, panel ASR, ustawienia i sesja.
+"""Pasek narzędzi okna głównego: notacja, ASR, aktualizacje, ustawienia, sesja.
 
 Akcje notacji mają kontekst całej aplikacji i są dodane do okna, więc ich
 skróty działają z fokusem w edytorze. Definicje markerów i skrótów pochodzą
@@ -43,7 +43,11 @@ class MainToolbar:
     """Pasek narzędzi i jego akcje (dostępne jako atrybuty)."""
 
     def __init__(
-        self, window: QMainWindow, asr_toggle: QAction, handlers: ToolbarHandlers
+        self,
+        window: QMainWindow,
+        asr_toggle: QAction,
+        update_action: QAction,
+        handlers: ToolbarHandlers,
     ) -> None:
         t = tokens()
         toolbar = QToolBar("Pasek narzędzi", window)
@@ -99,6 +103,11 @@ class MainToolbar:
         asr_toggle.setIcon(icons.icon("sparkles", t.text, t.text_muted))
         asr_toggle.setToolTip("Pokaż lub ukryj panel Szkic ASR")
         toolbar.addAction(asr_toggle)
+
+        self.update_action = update_action
+        update_action.setIcon(icons.icon("download", t.text, t.text_muted))
+        toolbar.addAction(update_action)
+        _icon_only(toolbar, update_action)
 
         self.settings_action = _action(
             window,
