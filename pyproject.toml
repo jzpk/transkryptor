@@ -1,0 +1,80 @@
+[project]
+name = "transkryptor"
+version = "0.2.0"
+description = "Lokalna aplikacja desktopowa do ręcznej transkrypcji fonetycznej języka polskiego"
+readme = "README.md"
+license = "GPL-3.0-or-later"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "PySide6>=6.7",
+    "python-docx>=1.1",
+    "faster-whisper>=1.1",
+    # PyAV dekoduje nagranie dla silnika ASR. faster-whisper 1.2.1 woła
+    # av.open(..., metadata_errors=...), a PyAV 19.0.0 usunął ten argument —
+    # bez ograniczenia transkrypcja pliku kończy się TypeError. Granicę
+    # potwierdza test tests/asr/test_engine.py::TestAudioDecodingContract.
+    "av>=11,<19",
+    # Pobieranie modelu ASR: lista plików z API Hugging Face i strumieniowy
+    # odczyt HTTP (transkryptor.asr.manager importuje oba wprost).
+    "huggingface-hub>=0.30",
+    "httpx>=0.27",
+]
+
+[project.scripts]
+transkryptor = "transkryptor.__main__:main"
+
+[dependency-groups]
+dev = [
+    "black>=26.10.0",
+    "mypy>=2.4.0",
+    "pytest>=8.0",
+    "pytest-qt>=4.5.0",
+    "ruff>=0.16.10",
+]
+docs = [
+    "reportlab>=4.2",
+]
+packaging = [
+    "pyinstaller>=6.11",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/transkryptor"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+markers = [
+    "asr_model: wymaga pobranego modelu ASR; pomijany, gdy modelu nie ma (ACC-11)",
+]
+
+[tool.black]
+line-length = 88
+target-version = ["py312"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+src = ["src", "tests", "scripts"]
+
+[tool.ruff.lint]
+# Formatowanie należy do black — ruff tylko lintuje (E501 pilnuje black).
+select = ["E", "W", "F", "I", "B", "UP"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["src", "tests", "scripts"]
+mypy_path = "src"
+explicit_package_bases = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+
+# Biblioteki bez wskazówek typów (brak py.typed i pakietu stubów w uv.lock).
+[[tool.mypy.overrides]]
+module = ["faster_whisper", "faster_whisper.*", "ctranslate2", "reportlab", "reportlab.*"]
+ignore_missing_imports = true

@@ -1,0 +1,169 @@
+# Budowanie artefaktów wydania (faza 05).
+#
+# Artefakty powstają natywnie na każdej platformie docelowej: instalator
+# Windows na runnerze Windows, AppImage na Ubuntu 22.04. Runner Ubuntu
+# wyznacza najstarszą obsługiwaną glibc (2.35) — po jego zmianie trzeba
+# poprawić LINUX_GLIBC_BASELINE w src/transkryptor/packaging/metadata.py.
+name: Wydanie
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_url:
+        description: "Adres kodu źródłowego wpisywany do not wydania"
+        required: false
+        default: ""
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  testy:
+    name: Testy
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalacja uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      # Grupa docs: mypy sprawdza też scripts/make_user_guide.py (Pillow).
+      - name: Środowisko z uv.lock
+        run: uv sync --locked --group docs
+
+      - name: Ruff
+        run: uv run ruff check --output-format=github .
+
+      - name: Black
+        run: uv run black --check --diff .
+
+      - name: Mypy
+        run: uv run mypy
+
+      # Testy UI działają w trybie offscreen (tests/ui/conftest.py), ale
+      # wtyczka platformy Qt i tak linkuje się z tymi bibliotekami.
+      - name: Biblioteki systemowe Qt
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            libegl1 libgl1 libxkbcommon-x11-0 libdbus-1-3
+
+      # Test oznaczony asr_model wymaga pobranego modelu (1.53 GB) i jest
+      # pomijany w CI. Bramka wydania wymaga wykonania go przed publikacją —
+      # patrz docs/release-process.md.
+      - name: Testy jednostkowe i integracyjne
+        run: uv run pytest -m "not asr_model"
+        env:
+          QT_QPA_PLATFORM: offscreen
+
+  linux:
+    name: AppImage (Linux)
+    needs: testy
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalacja uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Środowisko budowania
+        run: uv sync --locked --group packaging
+
+      # AppImage montuje obraz przez FUSE; libfuse2 nie ma w obrazie runnera.
+      # Pozostałe biblioteki są potrzebne, aby uruchomić --self-test artefaktu.
+      - name: Zależności systemowe
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            libfuse2 libegl1 libgl1 libxkbcommon-x11-0 libdbus-1-3
+
+      - name: Pobranie appimagetool
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/appimagetool" \
+            https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x "$RUNNER_TEMP/appimagetool"
+
+      - name: Budowanie artefaktu
+        run: |
+          uv run --group packaging python -m transkryptor.packaging \
+            --target linux \
+            --tool "$RUNNER_TEMP/appimagetool" \
+            ${SOURCE_URL:+--source-url "$SOURCE_URL"}
+        env:
+          SOURCE_URL: ${{ inputs.source_url }}
+
+      - name: Sprawdzenie artefaktu
+        run: |
+          dist/Transkryptor-*-x86_64.AppImage --self-test
+          (cd dist && sha256sum --check SHA256SUMS.txt)
+        env:
+          QT_QPA_PLATFORM: offscreen
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: transkryptor-linux
+          path: |
+            dist/*.AppImage
+            dist/SHA256SUMS.txt
+            dist/RELEASE-NOTES.md
+          if-no-files-found: error
+
+  windows:
+    name: Instalator (Windows)
+    needs: testy
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalacja uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Środowisko budowania
+        run: uv sync --locked --group packaging
+
+      # Runnery Windows mają Inno Setup 6 w obrazie; instalacja przez Chocolatey
+      # jest zabezpieczeniem na wypadek zmiany obrazu.
+      - name: Inno Setup
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe")) {
+            choco install innosetup --no-progress -y
+          }
+
+      - name: Budowanie artefaktu
+        shell: pwsh
+        run: |
+          $extra = @()
+          if ($env:SOURCE_URL) { $extra = @("--source-url", $env:SOURCE_URL) }
+          uv run --group packaging python -m transkryptor.packaging `
+            --target windows `
+            --tool "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" @extra
+        env:
+          SOURCE_URL: ${{ inputs.source_url }}
+
+      - name: Sprawdzenie sum kontrolnych
+        shell: pwsh
+        run: |
+          Get-Content dist\SHA256SUMS.txt | ForEach-Object {
+            $expected, $name = $_ -split '\s+', 2
+            $actual = (Get-FileHash "dist\$($name.Trim())" -Algorithm SHA256).Hash.ToLower()
+            if ($actual -ne $expected) { throw "Niezgodna suma kontrolna: $name" }
+          }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: transkryptor-windows
+          path: |
+            dist/*.exe
+            dist/SHA256SUMS.txt
+            dist/RELEASE-NOTES.md
+          if-no-files-found: error

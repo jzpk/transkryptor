@@ -1,0 +1,67 @@
+# Kontrola jakości przy każdej zmianie: lint, formatowanie, typy i testy.
+#
+# Workflow wydania (release.yml) powtarza te same kontrole przed budowaniem
+# artefaktów — tag nie ominie bramki.
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  jakosc:
+    name: Ruff, black, mypy
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalacja uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      # Grupa docs: mypy sprawdza też scripts/make_user_guide.py (Pillow).
+      - name: Środowisko z uv.lock
+        run: uv sync --locked --group docs
+
+      - name: Ruff
+        run: uv run ruff check --output-format=github .
+
+      - name: Black
+        run: uv run black --check --diff .
+
+      - name: Mypy
+        run: uv run mypy
+
+  testy:
+    name: Testy
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalacja uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Środowisko z uv.lock
+        run: uv sync --locked
+
+      # Testy UI działają w trybie offscreen (tests/ui/conftest.py), ale
+      # wtyczka platformy Qt i tak linkuje się z tymi bibliotekami.
+      - name: Biblioteki systemowe Qt
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            libegl1 libgl1 libxkbcommon-x11-0 libdbus-1-3
+
+      # Test oznaczony asr_model wymaga pobranego modelu (1.53 GB).
+      - name: Testy jednostkowe i integracyjne
+        run: uv run pytest -m "not asr_model"
+        env:
+          QT_QPA_PLATFORM: offscreen
