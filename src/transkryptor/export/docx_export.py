@@ -27,8 +27,8 @@ from transkryptor.document.metadata import (
 )
 from transkryptor.document.model import Document
 from transkryptor.errors import ExportError
+from transkryptor.i18n import tr
 
-DEFAULT_TITLE = "Transkrypcja fonetyczna"
 METADATA_TABLE_STYLE = "Table Grid"
 
 
@@ -55,13 +55,17 @@ def export_docx(
         raise
     except OSError as exc:
         raise ExportError(
-            user_message=f"Nie udało się zapisać pliku „{target.name}”: {exc.strerror or exc}.",
-            retry_hint="Sprawdź uprawnienia katalogu i spróbuj ponownie.",
+            user_message=tr(
+                "docx_export.error.write",
+                name=target.name,
+                reason=exc.strerror or exc,
+            ),
+            retry_hint=tr("docx_export.error.write.hint"),
         ) from exc
     except Exception as exc:
         raise ExportError(
-            user_message=f"Nie udało się wyeksportować dokumentu: {exc}.",
-            retry_hint="Spróbuj ponownie lub wybierz inną lokalizację.",
+            user_message=tr("docx_export.error.other", reason=exc),
+            retry_hint=tr("docx_export.error.other.hint"),
         ) from exc
 
 
@@ -76,7 +80,7 @@ def _write(
     values = {field.key: value for field, value in items}
 
     docx.core_properties.author = document.author
-    docx.core_properties.title = values.get(SIGNATURE, DEFAULT_TITLE)
+    docx.core_properties.title = values.get(SIGNATURE, tr("docx.default_title"))
     docx.core_properties.keywords = values.get(PLACE, "")
 
     if items:
@@ -84,11 +88,14 @@ def _write(
         table.style = METADATA_TABLE_STYLE
         for field, value in items:
             label_cell, value_cell = table.add_row().cells
-            label_cell.text = field.label
+            label_cell.text = field.display_label
             value_cell.text = value
 
     if document.author or document.date:
-        docx.add_paragraph(f"Autor: {document.author}    Data: {document.date}")
+        docx.add_paragraph(
+            f"{tr('docx.author')}: {document.author}    "
+            f"{tr('docx.date')}: {document.date}"
+        )
 
     paragraph = docx.add_paragraph()
     for start, end, is_superscript in _split_runs(document):

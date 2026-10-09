@@ -25,11 +25,16 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from transkryptor.errors import ProjectError
+from transkryptor.i18n import tr
 
 SCHEMA_VERSION = 1
 PROJECT_SUFFIX = ".transkr"
-FILE_DIALOG_FILTER = f"Projekty Transkryptora (*{PROJECT_SUFFIX})"
 _HASH_CHUNK = 1 << 20
+
+
+def file_dialog_filter() -> str:
+    """Filtr okna wyboru pliku projektu."""
+    return tr("project.file_filter", pattern=f"*{PROJECT_SUFFIX}")
 
 
 @dataclass(frozen=True)
@@ -225,11 +230,10 @@ def migrate(data: Any) -> dict[str, Any]:
         raise _invalid()
     if version > SCHEMA_VERSION:
         raise ProjectError(
-            user_message=(
-                "Projekt został zapisany w nowszej wersji Transkryptora "
-                f"(format {version}, obsługiwany {SCHEMA_VERSION})."
+            user_message=tr(
+                "project.error.newer", version=version, supported=SCHEMA_VERSION
             ),
-            retry_hint="Zaktualizuj aplikację i otwórz projekt ponownie.",
+            retry_hint=tr("project.error.newer.hint"),
         )
     while version < SCHEMA_VERSION:
         data = _MIGRATIONS[version](data)
@@ -252,11 +256,10 @@ def load_project(path: str | Path) -> ProjectState:
         raw = source.read_bytes()
     except OSError as exc:
         raise ProjectError(
-            user_message=(
-                f"Nie udało się otworzyć projektu „{source.name}”: "
-                f"{exc.strerror or exc}."
+            user_message=tr(
+                "project.error.open", name=source.name, reason=exc.strerror or exc
             ),
-            retry_hint="Sprawdź, czy plik istnieje i czy masz do niego dostęp.",
+            retry_hint=tr("project.error.open.hint"),
         ) from exc
     try:
         text = raw.decode("utf-8")
@@ -283,12 +286,10 @@ def write_atomic(target: Path, payload: bytes) -> None:
         temp_name = None
     except OSError as exc:
         raise ProjectError(
-            user_message=(
-                f"Nie udało się zapisać projektu „{target.name}”: "
-                f"{exc.strerror or exc}."
+            user_message=tr(
+                "project.error.save", name=target.name, reason=exc.strerror or exc
             ),
-            retry_hint="Sprawdź uprawnienia katalogu i wolne miejsce, "
-            "a potem spróbuj ponownie.",
+            retry_hint=tr("project.error.save.hint"),
         ) from exc
     finally:
         if temp_name is not None:
@@ -347,10 +348,13 @@ class InvalidProjectError(ProjectError):
 
 
 def _invalid(name: str = "") -> InvalidProjectError:
-    subject = f"Plik „{name}”" if name else "Plik"
     return InvalidProjectError(
-        user_message=f"{subject} nie jest poprawnym projektem Transkryptora.",
-        retry_hint="Wybierz plik z rozszerzeniem .transkr zapisany przez aplikację.",
+        user_message=(
+            tr("project.error.invalid_named", name=name)
+            if name
+            else tr("project.error.invalid")
+        ),
+        retry_hint=tr("project.error.invalid.hint"),
     )
 
 

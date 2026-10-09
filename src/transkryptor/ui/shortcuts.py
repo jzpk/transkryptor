@@ -11,14 +11,20 @@ from dataclasses import dataclass
 
 from PySide6.QtGui import QKeySequence
 
+from transkryptor.i18n import tr
+
 
 @dataclass(frozen=True)
 class PlayerAction:
     """Akcja odtwarzacza dostępna z klawiatury przy fokusie w edytorze."""
 
     key: str
-    label: str
+    label_key: str
     shortcuts: tuple[str, ...]
+
+    @property
+    def label(self) -> str:
+        return tr(self.label_key)
 
 
 SETTINGS_SHORTCUT = "Ctrl+,"
@@ -41,14 +47,14 @@ LOOP_TOGGLE = "loop_toggle"
 # Ctrl+←/→ zostaje dla skoku o słowo w edytorze. F4 jest zapasowe dla
 # Ctrl+Spacja, które na Linuksie bywa przechwytywane przez metodę wprowadzania.
 PLAYER_ACTIONS: tuple[PlayerAction, ...] = (
-    PlayerAction(PLAY_PAUSE, "Odtwórz / pauza", ("Ctrl+Space", "F4")),
-    PlayerAction(SKIP_BACK, "Cofnij nagranie", ("Alt+Left",)),
-    PlayerAction(SKIP_FORWARD, "Przewiń nagranie", ("Alt+Right",)),
-    PlayerAction(RATE_DOWN, "Wolniej", ("Ctrl+Shift+,",)),
-    PlayerAction(RATE_UP, "Szybciej", ("Ctrl+Shift+.",)),
-    PlayerAction(LOOP_A, "Początek pętli (A)", ("Ctrl+Shift+A",)),
-    PlayerAction(LOOP_B, "Koniec pętli (B)", ("Ctrl+Shift+B",)),
-    PlayerAction(LOOP_TOGGLE, "Pętla wł./wył.", ("Ctrl+Shift+L",)),
+    PlayerAction(PLAY_PAUSE, "player.action.play_pause", ("Ctrl+Space", "F4")),
+    PlayerAction(SKIP_BACK, "player.action.skip_back", ("Alt+Left",)),
+    PlayerAction(SKIP_FORWARD, "player.action.skip_forward", ("Alt+Right",)),
+    PlayerAction(RATE_DOWN, "player.action.rate_down", ("Ctrl+Shift+,",)),
+    PlayerAction(RATE_UP, "player.action.rate_up", ("Ctrl+Shift+.",)),
+    PlayerAction(LOOP_A, "player.action.loop_a", ("Ctrl+Shift+A",)),
+    PlayerAction(LOOP_B, "player.action.loop_b", ("Ctrl+Shift+B",)),
+    PlayerAction(LOOP_TOGGLE, "player.action.loop_toggle", ("Ctrl+Shift+L",)),
 )
 
 PLAYER_ACTIONS_BY_KEY: dict[str, PlayerAction] = {

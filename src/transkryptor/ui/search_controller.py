@@ -22,6 +22,7 @@ from transkryptor.document.search import (
     find_all,
     parse_replacement,
 )
+from transkryptor.i18n import tr
 from transkryptor.ui.editor import SEARCH_LAYER, TranscriptionEditor, highlight
 from transkryptor.ui.search_bar import SearchBar
 from transkryptor.ui.shortcuts import (
@@ -67,12 +68,22 @@ class SearchController(QObject):
     def create_actions(self, owner: QWidget) -> dict[str, QAction]:
         """Ctrl+F / Ctrl+H / F3 / Shift+F3 z fokusem w edytorze (poza paskiem)."""
         definitions = (
-            ("find", "Szukaj", FIND_SHORTCUT, self.open_find),
-            ("replace", "Zamień", REPLACE_SHORTCUT, self.open_replace),
-            ("find_next", "Następne trafienie", FIND_NEXT_SHORTCUT, self.find_next),
+            ("find", tr("search.action.find"), FIND_SHORTCUT, self.open_find),
+            (
+                "replace",
+                tr("search.action.replace"),
+                REPLACE_SHORTCUT,
+                self.open_replace,
+            ),
+            (
+                "find_next",
+                tr("search.action.next"),
+                FIND_NEXT_SHORTCUT,
+                self.find_next,
+            ),
             (
                 "find_previous",
-                "Poprzednie trafienie",
+                tr("search.action.previous"),
                 FIND_PREVIOUS_SHORTCUT,
                 self.find_previous,
             ),
@@ -269,5 +280,5 @@ class SearchController(QObject):
         count = len(cursors)
         self._current = None
         self.refresh()
-        self.bar.count_label.setText(f"Zamieniono: {count}")
+        self.bar.count_label.setText(tr("search.replaced", count=count))
         return count

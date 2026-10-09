@@ -2,6 +2,7 @@
 
 from PySide6.QtWidgets import QDialog, QWidget
 
+from transkryptor import i18n
 from transkryptor.settings import (
     AppearanceSettings,
     EditorSettings,
@@ -121,6 +122,34 @@ class TestSettingsDialog:
         assert dialog.settings().appearance.theme == "system"
         dialog.theme_combo.setCurrentIndex(dialog.theme_combo.findData("light"))
         assert dialog.settings().appearance.theme == "light"
+
+    def test_language_choice_announces_restart(self, qtbot) -> None:
+        dialog = SettingsDialog(Settings())
+        qtbot.addWidget(dialog)
+        assert dialog.settings().appearance.language == "system"
+        assert dialog.language_hint.isHidden()
+        dialog.language_combo.setCurrentIndex(dialog.language_combo.findData("en"))
+        assert dialog.settings().appearance.language == "en"
+        assert not dialog.language_hint.isHidden()
+        assert "ponownym uruchomieniu" in dialog.language_hint.text()
+
+    def test_language_names_are_shown_in_their_own_language(self, qtbot) -> None:
+        dialog = SettingsDialog(Settings())
+        qtbot.addWidget(dialog)
+        names = [
+            dialog.language_combo.itemText(i)
+            for i in range(dialog.language_combo.count())
+        ]
+        assert names == ["Zgodny z systemem", "Polski", "English"]
+
+    def test_metadata_labels_follow_the_language(self, qtbot) -> None:
+        """Pola domyślne pokazują tłumaczenie, a zapis zostaje kanoniczny."""
+        i18n.set_language(i18n.ENGLISH)
+        dialog = SettingsDialog(Settings())
+        qtbot.addWidget(dialog)
+        item = dialog.metadata_table.item(0, 0)
+        assert item is not None and item.text() == "Reference code"
+        assert dialog.settings() == Settings()
 
 
 class TestMainWindowSettings:

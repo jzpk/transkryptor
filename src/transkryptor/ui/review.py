@@ -16,6 +16,7 @@ from PySide6.QtGui import QTextCursor
 from PySide6.QtWidgets import QMessageBox, QWidget
 
 from transkryptor.document.project import ReviewEntry
+from transkryptor.i18n import tr
 from transkryptor.notation.ellipsis import EllipsisStyle, normalize_ellipses
 from transkryptor.notation.suggestions import Suggestion, propose, without_overlaps
 from transkryptor.ui.asr_panel import AsrPanel
@@ -107,9 +108,8 @@ class ReviewController(QObject):
         if not cursor.hasSelection():
             QMessageBox.information(
                 self._dialog_parent,
-                "Przegląd zmian",
-                "Tego fragmentu nie ma już w tekście — został usunięty "
-                "albo cofnięty.",
+                tr("review.title"),
+                tr("review.gone"),
             )
             return
         self.editor.setTextCursor(QTextCursor(cursor))
@@ -129,9 +129,8 @@ class ReviewController(QObject):
         if item.cursor.selectedText() != suggestion.original:
             QMessageBox.information(
                 self._dialog_parent,
-                "Zastosowanie propozycji",
-                f"Fragment „{suggestion.original}” zmienił się od transkrypcji, "
-                "więc propozycja nie jest już aktualna. Popraw go ręcznie.",
+                tr("review.apply.title"),
+                tr("review.apply.stale", fragment=suggestion.original),
             )
             return
         self.editor.apply_tracked_replacements(
@@ -221,16 +220,14 @@ def draft_placement_box(parent: QWidget) -> tuple[QMessageBox, object, object]:
     """Dialog wyboru miejsca szkicu: (okno, „Zastąp całość”, „Dopisz”)."""
     box = QMessageBox(parent)
     box.setIcon(QMessageBox.Icon.Question)
-    box.setWindowTitle("Wstawienie szkicu ASR")
-    box.setText(
-        "Edytor zawiera już tekst. Co zrobić ze szkicem ASR?\n\n"
-        "Obie operacje można cofnąć (Ctrl+Z). Po anulowaniu szkic można "
-        "wstawić później przyciskiem „Wstaw szkic ponownie”."
-    )
+    box.setWindowTitle(tr("review.placement.title"))
+    box.setText(tr("review.placement.text"))
     replace_button = box.addButton(
-        "Zastąp całość", QMessageBox.ButtonRole.DestructiveRole
+        tr("review.placement.replace"), QMessageBox.ButtonRole.DestructiveRole
     )
-    append_button = box.addButton("Dopisz na końcu", QMessageBox.ButtonRole.AcceptRole)
+    append_button = box.addButton(
+        tr("review.placement.append"), QMessageBox.ButtonRole.AcceptRole
+    )
     box.addButton(QMessageBox.StandardButton.Cancel)
     box.setDefaultButton(append_button)
     return box, replace_button, append_button

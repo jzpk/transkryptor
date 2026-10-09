@@ -14,6 +14,7 @@ from PySide6.QtGui import QAction, QTextCursor
 from PySide6.QtWidgets import QLabel, QWidget
 
 from transkryptor.document.model import Document
+from transkryptor.i18n import tr
 from transkryptor.notation.ellipsis import (
     EllipsisStyle,
     ellipsis_text,
@@ -55,11 +56,8 @@ class NotationController(QObject):
         warnings_panel.warning_activated.connect(self.go_to_range)
 
     def create_unify_action(self, owner: QWidget) -> QAction:
-        action = QAction("Ujednolić wielokropki", owner)
-        action.setToolTip(
-            "Zamień wszystkie wielokropki na zapis wybrany w ustawieniach "
-            "(jeden krok cofania)"
-        )
+        action = QAction(tr("notation.unify"), owner)
+        action.setToolTip(tr("notation.unify.tooltip"))
         action.triggered.connect(lambda _checked=False: self.unify_ellipses())
         owner.addAction(action)
         return action
@@ -76,9 +74,11 @@ class NotationController(QObject):
             [(self.editor.track_range(start, end), wanted, ()) for start, end in ranges]
         )
         if ranges:
-            self._show_message(f"Ujednolicono wielokropki: {len(ranges)} → „{wanted}”")
+            self._show_message(
+                tr("notation.unify.done", count=len(ranges), wanted=wanted)
+            )
         else:
-            self._show_message(f"Wszystkie wielokropki mają już zapis „{wanted}”")
+            self._show_message(tr("notation.unify.nothing", wanted=wanted))
         self.run_validation()
         return len(ranges)
 

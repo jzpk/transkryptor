@@ -23,11 +23,12 @@ from PySide6.QtWidgets import (
 )
 
 from transkryptor.audio.player import (
-    FILE_DIALOG_FILTER,
     SUPPORTED_FORMATS_LABEL,
     AudioPlayer,
+    file_dialog_filter,
 )
 from transkryptor.document.project import PlayerState
+from transkryptor.i18n import tr
 from transkryptor.settings import PlayerSettings
 from transkryptor.ui import icons
 from transkryptor.ui.layout import shrinkable
@@ -51,9 +52,6 @@ PLAYBACK_RATES: tuple[tuple[str, float], ...] = (
     ("2x", 2.0),
 )
 DEFAULT_RATE_INDEX = 2  # 1x
-
-NO_MEDIA_TITLE = "Nie wczytano nagrania"
-NO_MEDIA_HINT = "Zaimportuj nagranie audio, aby odsłuchiwać i tworzyć szkic ASR."
 
 
 def _clamp(value: int | None, maximum: int) -> int | None:
@@ -100,13 +98,13 @@ class PlayerBar(QFrame):
         set_props(self, card=True)
         self.setObjectName("player_bar")
 
-        self.import_button = QPushButton("Import nagrania…")
+        self.import_button = QPushButton(tr("player.import"))
         icons.set_icon(self.import_button, "import", "text", "text_muted")
         self.import_button.setIconSize(icons.ICON_SIZE)
         self.import_button.setToolTip(
-            f"Wybierz nagranie do odsłuchu ({SUPPORTED_FORMATS_LABEL})"
+            tr("player.import.tooltip", formats=SUPPORTED_FORMATS_LABEL)
         )
-        self.play_button = QPushButton("Odtwórz")
+        self.play_button = QPushButton(tr("player.play"))
         set_props(self.play_button, variant="primary")
         self._set_play_icon(playing=False)
         self.play_button.setIconSize(icons.ICON_SIZE)
@@ -128,7 +126,8 @@ class PlayerBar(QFrame):
         self.rate_combo.setCurrentIndex(DEFAULT_RATE_INDEX)
         self.rate_combo.setEnabled(False)
         self.rate_combo.setToolTip(
-            "Prędkość odtwarzania\n"
+            tr("player.rate.tooltip")
+            + "\n"
             + action_tooltip(RATE_DOWN)
             + "\n"
             + action_tooltip(RATE_UP)
@@ -136,21 +135,20 @@ class PlayerBar(QFrame):
 
         self.loop_a_button = QPushButton("A")
         self.loop_a_button.setToolTip(
-            action_tooltip(LOOP_A, "Początek pętli w bieżącym miejscu")
+            action_tooltip(LOOP_A, tr("player.loop_a.tooltip"))
         )
         self.loop_b_button = QPushButton("B")
         self.loop_b_button.setToolTip(
-            action_tooltip(LOOP_B, "Koniec pętli w bieżącym miejscu")
+            action_tooltip(LOOP_B, tr("player.loop_b.tooltip"))
         )
-        self.loop_button = QPushButton("Pętla")
+        self.loop_button = QPushButton(tr("player.loop"))
         self.loop_button.setCheckable(True)
         icons.set_icon(self.loop_button, "loop", "text", "text_muted")
         self.loop_button.setIconSize(icons.ICON_SIZE)
         self.loop_button.setToolTip(
             action_tooltip(
                 LOOP_TOGGLE,
-                "Odtwarzaj fragment A–B w kółko (bez B — do końca nagrania); "
-                "wyłączenie czyści znaczniki",
+                tr("player.loop.tooltip"),
             )
         )
         for button in (self.loop_a_button, self.loop_b_button):
@@ -163,9 +161,9 @@ class PlayerBar(QFrame):
 
         file_icon = QLabel()
         icons.set_pixmap(file_icon, "audio_file", "accent", 28)
-        self.file_label = QLabel(NO_MEDIA_TITLE)
+        self.file_label = QLabel(tr("player.no_media"))
         set_props(self.file_label, role="title")
-        self.file_hint_label = QLabel(NO_MEDIA_HINT)
+        self.file_hint_label = QLabel(tr("player.no_media.hint"))
         set_props(self.file_hint_label, role="muted")
         # Długa nazwa nagrania nie może poszerzać okna (pełna ścieżka w podpowiedzi).
         shrinkable(self.file_label)
@@ -181,7 +179,7 @@ class PlayerBar(QFrame):
         header.addLayout(file_text, stretch=1)
         header.addWidget(self.import_button)
 
-        rate_caption = QLabel("TEMPO")
+        rate_caption = QLabel(tr("player.rate"))
         set_props(rate_caption, role="caption")
         transport = QHBoxLayout()
         transport.setSpacing(12)
@@ -265,7 +263,7 @@ class PlayerBar(QFrame):
 
     def _on_import_clicked(self) -> None:
         path, _selected_filter = QFileDialog.getOpenFileName(
-            self, "Import nagrania", "", FILE_DIALOG_FILTER
+            self, tr("player.import.dialog"), "", file_dialog_filter()
         )
         if path:
             self.import_requested.emit(path)
@@ -385,12 +383,16 @@ class PlayerBar(QFrame):
         if has_media and source is not None:
             self.file_label.setText(source.name)
             self.file_label.setToolTip(str(source))
-            self.file_hint_label.setText(f"Długość {format_ms(duration_ms)}")
+            self.file_hint_label.setText(
+                tr("player.duration", duration=format_ms(duration_ms))
+            )
         if has_media and self._pending_state is not None:
             self.restore_state(self._pending_state)
 
     def _on_playback_changed(self, is_playing: bool) -> None:
-        self.play_button.setText("Pauza" if is_playing else "Odtwórz")
+        self.play_button.setText(
+            tr("player.pause") if is_playing else tr("player.play")
+        )
         self._set_play_icon(is_playing)
 
     def _set_play_icon(self, playing: bool) -> None:
@@ -405,14 +407,14 @@ class PlayerBar(QFrame):
         self.position_slider.setValue(0)
         self.position_slider.setEnabled(False)
         self.play_button.setEnabled(False)
-        self.play_button.setText("Odtwórz")
+        self.play_button.setText(tr("player.play"))
         self._set_play_icon(playing=False)
         self.rate_combo.setEnabled(False)
         self.rate_combo.setCurrentIndex(DEFAULT_RATE_INDEX)
         self._update_time_label(0, 0)
-        self.file_label.setText(NO_MEDIA_TITLE)
+        self.file_label.setText(tr("player.no_media"))
         self.file_label.setToolTip("")
-        self.file_hint_label.setText(NO_MEDIA_HINT)
+        self.file_hint_label.setText(tr("player.no_media.hint"))
         self._loop_a = None
         self._loop_b = None
         self._pending_state = None

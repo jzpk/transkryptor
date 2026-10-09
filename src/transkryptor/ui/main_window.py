@@ -31,6 +31,7 @@ from transkryptor.asr.manager import ModelManager
 from transkryptor.audio.player import AudioPlayer
 from transkryptor.document.model import Document
 from transkryptor.errors import AppError
+from transkryptor.i18n import tr
 from transkryptor.notation.ellipsis import EllipsisStyle
 from transkryptor.settings import Settings
 from transkryptor.ui import icons
@@ -64,13 +65,7 @@ from transkryptor.ui.review import (
 )
 from transkryptor.ui.search_bar import SearchBar
 from transkryptor.ui.search_controller import SearchController
-from transkryptor.ui.session import (
-    DISCARD_TEXT,
-    DISCARD_TITLE,
-    STATUS_CLEAN,
-    STATUS_DIRTY,
-    SessionController,
-)
+from transkryptor.ui.session import SessionController
 from transkryptor.ui.settings_dialog import SettingsDialog
 from transkryptor.ui.settings_store import SettingsStore
 from transkryptor.ui.shortcuts import tooltip_with_shortcut as _tooltip
@@ -81,12 +76,8 @@ from transkryptor.ui.warnings_panel import WarningsPanel
 
 # Stałe przeniesione do kontrolerów, re-eksportowane dla zgodności importów.
 __all__ = [
-    "DISCARD_TEXT",
-    "DISCARD_TITLE",
     "DRAFT_APPEND",
     "DRAFT_REPLACE",
-    "STATUS_CLEAN",
-    "STATUS_DIRTY",
     "MainWindow",
 ]
 
@@ -196,13 +187,13 @@ class MainWindow(QMainWindow):
         self.word_count_label = label("", "badge")
         header = header_row(
             (16, 10, 12, 10),
-            label("Transkrypcja", "section"),
+            label(tr("main.transcription"), "section"),
             self.word_count_label,
             None,
-            buddy_caption("AUTOR", self.author_edit),
+            buddy_caption(tr("main.author"), self.author_edit),
             self.author_edit,
             8,
-            buddy_caption("DATA", self.date_edit),
+            buddy_caption(tr("main.date"), self.date_edit),
             self.date_edit,
         )
         editor_card = card(
@@ -214,10 +205,10 @@ class MainWindow(QMainWindow):
         unify_button.setDefaultAction(self.unify_ellipses_action)
         warnings_header = header_row(
             (16, 8, 16, 8),
-            label("Ostrzeżenia zapisu", "section"),
+            label(tr("main.warnings"), "section"),
             self.warning_count_label,
             None,
-            shrinkable(label("Kliknij pozycję, aby przejść do fragmentu", "muted")),
+            shrinkable(label(tr("main.warnings.hint"), "muted")),
             unify_button,
         )
         warnings_card = card(warnings_header, self.warnings_panel)
@@ -245,7 +236,7 @@ class MainWindow(QMainWindow):
         self._central = container
         self.resize(1280, 800)
 
-        self.asr_dock = side_dock(self, "Szkic ASR", "asr_dock", self.asr_panel)
+        self.asr_dock = side_dock(self, tr("main.asr_dock"), "asr_dock", self.asr_panel)
 
     def _build_toolbar(self) -> None:
         bar = MainToolbar(
@@ -303,7 +294,7 @@ class MainWindow(QMainWindow):
             app.styleHints().colorSchemeChanged.connect(self._on_color_scheme_changed)
         self.asr_panel.seek_requested.connect(self.player_controller.seek_to_segment)
         self.player.playback_error.connect(
-            lambda error: self._show_error("Odtwarzanie nagrania", error)
+            lambda error: self._show_error(tr("main.playback_error"), error)
         )
         self.asr_panel.draft_ready.connect(self._on_draft_ready)
         self.asr_panel.review_item_activated.connect(self.review.activate)
@@ -334,7 +325,11 @@ class MainWindow(QMainWindow):
         # ACC-25: tekst się nie zmienia — tylko kolejne wstawienia i walidacja.
         pause = self.marker_actions["pause"]
         pause_marker = marker_text("pause", settings.notation.ellipsis).strip()
-        pause.setToolTip(_tooltip(f"Wstaw {pause_marker}", pause.shortcut().toString()))
+        pause.setToolTip(
+            _tooltip(
+                tr("toolbar.insert", marker=pause_marker), pause.shortcut().toString()
+            )
+        )
         self.notation.schedule_validation()
 
     def _on_color_scheme_changed(self, _scheme: Qt.ColorScheme) -> None:
@@ -469,7 +464,9 @@ class MainWindow(QMainWindow):
         )
         words = len(self.document.text.split())
         self.word_count_label.setText(f"{words} {words_label(words)}")
-        self.export_status_label.setText(STATUS_DIRTY if dirty else STATUS_CLEAN)
+        self.export_status_label.setText(
+            tr("session.status_dirty") if dirty else tr("session.status_clean")
+        )
         set_props(
             self.export_status_label, role="badge", tone="warning" if dirty else ""
         )

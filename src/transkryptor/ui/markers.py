@@ -10,6 +10,7 @@ from dataclasses import dataclass
 
 from PySide6.QtGui import QKeySequence
 
+from transkryptor.i18n import tr
 from transkryptor.notation.ellipsis import EllipsisStyle, pause_text
 
 
@@ -18,9 +19,13 @@ class MarkerAction:
     """Akcja edytora: wstawienie markera lub przełączenie formatowania."""
 
     key: str
-    label: str
+    label_key: str
     inserted_text: str
     shortcut: str
+
+    @property
+    def label(self) -> str:
+        return tr(self.label_key)
 
 
 SUPERSCRIPT_SHORTCUT = "Ctrl+Shift+Up"
@@ -36,31 +41,31 @@ ASIDE_TEXT = "[...]"  # stała postać, niezależna od stylu wielokropka
 MARKERS: tuple[MarkerAction, ...] = (
     MarkerAction(
         key="pause",
-        label="Pauza",
+        label_key="marker.pause",
         inserted_text=PAUSE_TEXT,
         shortcut="Ctrl+.",
     ),
     MarkerAction(
         key="oddity",
-        label="Osobliwość (!)",
+        label_key="marker.oddity",
         inserted_text=ODDITY_TEXT,
         shortcut="Ctrl+1",
     ),
     MarkerAction(
         key="doubt",
-        label="Wątpliwość (?)",
+        label_key="marker.doubt",
         inserted_text=DOUBT_TEXT,
         shortcut="Ctrl+2",
     ),
     MarkerAction(
         key="omitted",
-        label="Pominięty […?]",
+        label_key="marker.omitted",
         inserted_text=OMITTED_TEXT,
         shortcut="Ctrl+3",
     ),
     MarkerAction(
         key="aside",
-        label="Dopisek [...]",
+        label_key="marker.aside",
         inserted_text=ASIDE_TEXT,
         shortcut="Ctrl+[",
     ),

@@ -13,6 +13,7 @@ from PySide6.QtCore import QObject, QTimer, QUrl, Signal
 from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
 
 from transkryptor.errors import ImportAudioError
+from transkryptor.i18n import tr
 
 # Formaty dekodowane zarówno przez Qt Multimedia (odtwarzanie), jak i przez
 # PyAV/FFmpeg (ASR). Oba backendy korzystają z FFmpeg.
@@ -29,9 +30,13 @@ SUPPORTED_SUFFIXES: tuple[str, ...] = (
 SUPPORTED_FORMATS_LABEL = ", ".join(
     suffix.removeprefix(".").upper() for suffix in SUPPORTED_SUFFIXES
 )
-FILE_DIALOG_FILTER = (
-    "Nagrania audio (" + " ".join(f"*{suffix}" for suffix in SUPPORTED_SUFFIXES) + ")"
-)
+
+
+def file_dialog_filter() -> str:
+    """Filtr okna wyboru pliku dla obsługiwanych nagrań."""
+    patterns = " ".join(f"*{suffix}" for suffix in SUPPORTED_SUFFIXES)
+    return tr("player.file_filter", patterns=patterns)
+
 
 # ``positionChanged`` Qt Multimedia przychodzi z ograniczoną częstotliwością;
 # przy aktywnej pętli pozycja jest dodatkowo sprawdzana tym interwałem, aby
@@ -124,16 +129,17 @@ class AudioPlayer(QObject):
         candidate = Path(path)
         if candidate.suffix.lower() not in SUPPORTED_SUFFIXES:
             raise ImportAudioError(
-                user_message=(
-                    f"Plik „{candidate.name}” nie jest obsługiwanym nagraniem. "
-                    f"Aplikacja obsługuje formaty: {SUPPORTED_FORMATS_LABEL}."
+                user_message=tr(
+                    "player.error.unsupported",
+                    name=candidate.name,
+                    formats=SUPPORTED_FORMATS_LABEL,
                 ),
-                retry_hint="Wybierz plik audio w jednym z obsługiwanych formatów.",
+                retry_hint=tr("player.error.unsupported.hint"),
             )
         if not candidate.is_file():
             raise ImportAudioError(
-                user_message=f"Nie znaleziono pliku „{candidate.name}”.",
-                retry_hint="Sprawdź ścieżkę i wybierz plik ponownie.",
+                user_message=tr("player.error.not_found", name=candidate.name),
+                retry_hint=tr("player.error.not_found.hint"),
             )
         self._last_error = None
         self.clear_loop()
@@ -241,9 +247,10 @@ class AudioPlayer(QObject):
         if error == QMediaPlayer.Error.NoError:
             return
         self._last_error = ImportAudioError(
-            user_message=(
-                f"Nie udało się odczytać nagrania: {error_string or 'nieznany błąd'}."
+            user_message=tr(
+                "player.error.read",
+                reason=error_string or tr("player.error.unknown"),
             ),
-            retry_hint="Sprawdź, czy plik nie jest uszkodzony, i spróbuj ponownie.",
+            retry_hint=tr("player.error.read.hint"),
         )
         self.playback_error.emit(self._last_error)

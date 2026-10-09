@@ -4,11 +4,11 @@ import pytest
 from PySide6.QtTest import QSignalSpy
 from PySide6.QtWidgets import QWidget
 
+from transkryptor.i18n import tr
 from transkryptor.ui.loading_overlay import (
-    ETA_PENDING_TEXT,
-    LOADING_MESSAGES,
     LoadingOverlay,
     format_remaining,
+    loading_messages,
 )
 
 
@@ -20,18 +20,18 @@ def make_overlay(qtbot, **kwargs) -> tuple[QWidget, LoadingOverlay]:
 
 
 def test_has_thirty_distinct_messages() -> None:
-    assert len(LOADING_MESSAGES) == 30
-    assert len(set(LOADING_MESSAGES)) == 30
+    assert len(loading_messages()) == 30
+    assert len(set(loading_messages())) == 30
 
 
 def test_every_message_shown_before_any_repeats(qtbot) -> None:
     _host, overlay = make_overlay(qtbot)
     overlay.start()
     seen = [overlay.message_label.text()]
-    for _ in range(len(LOADING_MESSAGES) - 1):
+    for _ in range(len(loading_messages()) - 1):
         overlay.next_message()
         seen.append(overlay.message_label.text())
-    assert sorted(seen) == sorted(LOADING_MESSAGES)
+    assert sorted(seen) == sorted(loading_messages())
     overlay.stop()
 
 
@@ -127,10 +127,10 @@ def test_eta_waits_for_stable_rate_then_extrapolates(qtbot) -> None:
     # Pierwsza próbka po ładowaniu modelu — tempo jeszcze nieznane.
     clock.now += 60
     overlay.set_progress(0.1)
-    assert overlay.eta_label.text() == ETA_PENDING_TEXT
+    assert overlay.eta_label.text() == tr("loading.eta_pending")
     clock.now += 5  # za krótko na wiarygodny szacunek
     overlay.set_progress(0.12)
-    assert overlay.eta_label.text() == ETA_PENDING_TEXT
+    assert overlay.eta_label.text() == tr("loading.eta_pending")
     # 0.1 nagrania w 60 s → pozostałe 0.8 to ok. 480 s = 8 min.
     clock.now += 55
     overlay.set_progress(0.2)
@@ -141,5 +141,5 @@ def test_eta_waits_for_stable_rate_then_extrapolates(qtbot) -> None:
     assert overlay.eta_label.text() == "Pozostało ok. 2 min"
     overlay.stop()
     overlay.start()
-    assert overlay.eta_label.text() == ETA_PENDING_TEXT
+    assert overlay.eta_label.text() == tr("loading.eta_pending")
     overlay.stop()

@@ -18,6 +18,7 @@ from pathlib import Path
 import httpx
 
 from transkryptor.errors import UpdateError
+from transkryptor.i18n import tr
 from transkryptor.paths import user_cache_dir
 from transkryptor.update.releases import ReleaseInfo
 
@@ -68,9 +69,7 @@ def download_release(
     artifact, checksums = release.artifact, release.checksums
     if artifact is None or checksums is None:
         raise UpdateError(
-            user_message=(
-                f"Wydanie {release.version} nie zawiera pliku dla tego systemu."
-            )
+            user_message=tr("update.error.no_artifact", version=release.version)
         )
     root = root or default_download_root()
     target_dir = root / release.version
@@ -79,16 +78,13 @@ def download_release(
     response = client.get(checksums.url)
     if response.status_code != 200:
         raise UpdateError(
-            user_message=(
-                "Nie udało się pobrać sum kontrolnych wydania "
-                f"(HTTP {response.status_code})."
-            ),
-            retry_hint="Spróbuj ponownie później.",
+            user_message=tr("update.error.checksums", status=response.status_code),
+            retry_hint=tr("update.error.later.hint"),
         )
     expected = parse_checksums(response.text).get(artifact.name)
     if expected is None:
         raise UpdateError(
-            user_message=f"Brak sumy kontrolnej pliku {artifact.name} w wydaniu."
+            user_message=tr("update.error.no_checksum", name=artifact.name)
         )
 
     _remove_other_versions(root, keep=release.version)
@@ -102,11 +98,12 @@ def download_release(
         with client.stream("GET", artifact.url) as stream:
             if stream.status_code != 200:
                 raise UpdateError(
-                    user_message=(
-                        f"Nie udało się pobrać wersji {release.version} "
-                        f"(HTTP {stream.status_code})."
+                    user_message=tr(
+                        "update.error.download",
+                        version=release.version,
+                        status=stream.status_code,
                     ),
-                    retry_hint="Spróbuj ponownie później.",
+                    retry_hint=tr("update.error.later.hint"),
                 )
             with partial.open("wb") as handle:
                 for chunk in stream.iter_bytes(chunk_size=CHUNK_SIZE):
@@ -120,11 +117,8 @@ def download_release(
     if digest.hexdigest() != expected:
         partial.unlink(missing_ok=True)
         raise UpdateError(
-            user_message=(
-                f"Pobrany plik wersji {release.version} ma niezgodną sumę "
-                "kontrolną i został odrzucony."
-            ),
-            retry_hint="Aktualizacja zostanie pobrana ponownie przy kolejnym starcie.",
+            user_message=tr("update.error.checksum_mismatch", version=release.version),
+            retry_hint=tr("update.error.checksum_mismatch.hint"),
         )
     os.replace(partial, target)
     return target

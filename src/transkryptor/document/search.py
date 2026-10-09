@@ -14,6 +14,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from transkryptor.i18n import tr
+
 MAX_PATTERN_LENGTH = 200
 MAX_MATCHES = 10_000
 
@@ -40,9 +42,7 @@ class ParsedReplacement:
 def compile_query(query: str, options: SearchOptions) -> re.Pattern[str]:
     """Kompiluje zapytanie; rzuca ``SearchError`` z czytelnym komunikatem."""
     if len(query) > MAX_PATTERN_LENGTH:
-        raise SearchError(
-            f"Wzorzec jest za długi (maksymalnie {MAX_PATTERN_LENGTH} znaków)."
-        )
+        raise SearchError(tr("search.error.too_long", limit=MAX_PATTERN_LENGTH))
     pattern = query if options.regex else re.escape(query)
     if options.whole_words:
         pattern = rf"(?<!\w)(?:{pattern})(?!\w)"
@@ -50,7 +50,7 @@ def compile_query(query: str, options: SearchOptions) -> re.Pattern[str]:
     try:
         return re.compile(pattern, flags)
     except re.error as error:
-        raise SearchError(f"Niepoprawne wyrażenie regularne: {error.msg}.") from error
+        raise SearchError(tr("search.error.regex", reason=error.msg)) from error
 
 
 def find_all(text: str, pattern: re.Pattern[str]) -> list[tuple[int, int]]:
@@ -81,9 +81,7 @@ def parse_replacement(template: str) -> ParsedReplacement:
             continue
         if char == "^":
             if i + 1 >= len(template):
-                raise SearchError(
-                    "Po „^” brakuje znaku do indeksu górnego (dosłowny „^” to „\\^”)."
-                )
+                raise SearchError(tr("search.error.caret"))
             position = len(chars)
             chars.append(template[i + 1])
             if ranges and ranges[-1][1] == position:

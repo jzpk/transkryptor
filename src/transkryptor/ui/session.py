@@ -20,8 +20,8 @@ from PySide6.QtCore import QDate, QObject
 from PySide6.QtWidgets import QDateEdit, QFileDialog, QLineEdit, QMessageBox, QWidget
 
 from transkryptor.asr.engine import SegmentResult, TranscriptionResult
-from transkryptor.audio.player import FILE_DIALOG_FILTER as AUDIO_FILTER
 from transkryptor.audio.player import AudioPlayer
+from transkryptor.audio.player import file_dialog_filter as audio_filter
 from transkryptor.document.metadata import (
     SIGNATURE,
     MetadataField,
@@ -30,13 +30,13 @@ from transkryptor.document.metadata import (
 )
 from transkryptor.document.model import Document
 from transkryptor.document.project import (
-    FILE_DIALOG_FILTER,
     PROJECT_SUFFIX,
     AsrDraft,
     AsrSegment,
     AudioRef,
     ProjectState,
     audio_ref,
+    file_dialog_filter,
     file_sha256,
     load_project,
     resolve_audio,
@@ -44,6 +44,7 @@ from transkryptor.document.project import (
 )
 from transkryptor.errors import AppError
 from transkryptor.export.docx_import import import_docx
+from transkryptor.i18n import tr
 from transkryptor.ui.asr_panel import AsrPanel
 from transkryptor.ui.autosave import AutosaveController, RecoveryDialog, find_orphans
 from transkryptor.ui.editor import TranscriptionEditor
@@ -53,22 +54,7 @@ from transkryptor.ui.player_bar import PlayerBar
 from transkryptor.ui.review import ReviewController
 from transkryptor.ui.settings_store import SettingsStore
 
-DISCARD_TITLE = "Niewyeksportowane zmiany"
-DISCARD_TEXT = (
-    "Transkrypcja zawiera zmiany, które nie zostały wyeksportowane. "
-    "Zamknięcie lub rozpoczęcie nowej pracy spowoduje ich utratę."
-)
-UNSAVED_TITLE = "Niezapisane zmiany"
-UNSAVED_TEXT = (
-    "Projekt „{name}” zawiera niezapisane zmiany. "
-    "Zamknięcie lub rozpoczęcie nowej pracy spowoduje ich utratę."
-)
-
-STATUS_CLEAN = "Brak niewyeksportowanych zmian"
-STATUS_DIRTY = "Niewyeksportowane zmiany — eksportuj DOCX (Ctrl+E)"
-
 DATE_FORMAT = "yyyy-MM-dd"
-IMPORT_DOCX_TITLE = "Import DOCX"
 
 
 class SessionController(QObject):
@@ -134,10 +120,11 @@ class SessionController(QObject):
         if not self.has_unsaved_work:
             return True
         if self.project_path is not None:
-            title = UNSAVED_TITLE
-            text = UNSAVED_TEXT.format(name=self.project_name)
+            title = tr("session.unsaved.title")
+            text = tr("session.unsaved.text", name=self.project_name)
         else:
-            title, text = DISCARD_TITLE, DISCARD_TEXT
+            title = tr("session.discard.title")
+            text = tr("session.discard.text")
         answer = QMessageBox.question(
             self._parent,
             title,
@@ -184,7 +171,7 @@ class SessionController(QObject):
         try:
             self._player.load(path)
         except AppError as error:
-            show_error(self._parent, "Import nagrania", error)
+            show_error(self._parent, tr("session.import_audio.error"), error)
             return
         self._player_bar.reset()
         self._asr_panel.set_audio_available(True)
@@ -206,8 +193,8 @@ class SessionController(QObject):
             # Działający QThread nie może zostać zniszczony razem z oknem.
             QMessageBox.information(
                 self._parent,
-                "Transkrypcja w toku",
-                "Najpierw anuluj transkrypcję albo poczekaj na jej zakończenie.",
+                tr("session.transcribing.title"),
+                tr("session.transcribing.text"),
             )
             return False
         if not self.maybe_discard_changes():
@@ -227,9 +214,9 @@ class SessionController(QObject):
     def save_project_as(self) -> bool:
         path, _selected_filter = QFileDialog.getSaveFileName(
             self._parent,
-            "Zapisz projekt",
+            tr("session.save.dialog"),
             self._default_project_name(),
-            FILE_DIALOG_FILTER,
+            file_dialog_filter(),
         )
         if not path:
             return False
@@ -246,13 +233,13 @@ class SessionController(QObject):
         source = self._player.source_path
         if source is not None:
             return str(source.with_suffix(PROJECT_SUFFIX))
-        return f"transkrypcja{PROJECT_SUFFIX}"
+        return f"{tr('session.default_project_name')}{PROJECT_SUFFIX}"
 
     def _write_project(self, path: Path) -> bool:
         try:
             save_project(self.capture_state(), path)
         except AppError as error:
-            show_error(self._parent, "Zapis projektu", error)
+            show_error(self._parent, tr("session.save.error"), error)
             return False
         self.document.mark_saved()
         self.project_path = path
@@ -297,7 +284,7 @@ class SessionController(QObject):
             return
         start = str(self.project_path.parent) if self.project_path else ""
         path, _selected_filter = QFileDialog.getOpenFileName(
-            self._parent, "Otwórz projekt", start, FILE_DIALOG_FILTER
+            self._parent, tr("session.open.dialog"), start, file_dialog_filter()
         )
         if path:
             self.open_project(path, confirm=False)
@@ -310,7 +297,7 @@ class SessionController(QObject):
         try:
             state = load_project(project_path)
         except AppError as error:
-            show_error(self._parent, "Otwarcie projektu", error)
+            show_error(self._parent, tr("session.open.error"), error)
             if not project_path.exists():
                 self._settings_store.remove_recent_project(str(project_path))
             return False
@@ -333,10 +320,12 @@ class SessionController(QObject):
         if found is None:
             answer = QMessageBox.question(
                 self._parent,
-                "Nie znaleziono nagrania",
-                f"Nie znaleziono nagrania „{ref.name}” projektu "
-                f"(ostatnio: {ref.absolute_path}). Czy wskazać plik nagrania?\n\n"
-                "Bez nagrania projekt otworzy się do edycji tekstu.",
+                tr("session.audio_missing.title"),
+                tr(
+                    "session.audio_missing.text",
+                    name=ref.name,
+                    path=ref.absolute_path,
+                ),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.Yes,
             )
@@ -344,7 +333,10 @@ class SessionController(QObject):
                 return None
             start = str(project_path.parent) if project_path else ""
             chosen, _selected_filter = QFileDialog.getOpenFileName(
-                self._parent, f"Wskaż nagranie „{ref.name}”", start, AUDIO_FILTER
+                self._parent,
+                tr("session.audio_locate.dialog", name=ref.name),
+                start,
+                audio_filter(),
             )
             if not chosen:
                 return None
@@ -357,12 +349,8 @@ class SessionController(QObject):
             return found
         answer = QMessageBox.question(
             self._parent,
-            "Inne nagranie",
-            f"Plik „{found.name}” różni się od nagrania zapisanego w projekcie "
-            "(inna suma kontrolna SHA-256) — mógł zostać podmieniony lub "
-            "zmieniony. Czasy segmentów ASR i pozycja odtwarzania mogą nie "
-            "pasować.\n\nCzy mimo to użyć tego nagrania? Bez nagrania projekt "
-            "otworzy się do edycji tekstu.",
+            tr("session.audio_changed.title"),
+            tr("session.audio_changed.text", name=found.name),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
         )
@@ -393,7 +381,7 @@ class SessionController(QObject):
             try:
                 self._player.load(audio_path)
             except AppError as error:
-                show_error(self._parent, "Nagranie projektu", error)
+                show_error(self._parent, tr("session.project_audio.error"), error)
             else:
                 self._player_bar.reset()
                 self._asr_panel.set_audio_available(True)
@@ -424,7 +412,7 @@ class SessionController(QObject):
         if not self.maybe_discard_changes():
             return
         path, _selected_filter = QFileDialog.getOpenFileName(
-            self._parent, "Importuj DOCX", "", "Dokumenty DOCX (*.docx)"
+            self._parent, tr("session.import_docx.dialog"), "", tr("export.filter")
         )
         if path:
             self.import_docx(path, confirm=False)
@@ -436,7 +424,7 @@ class SessionController(QObject):
         try:
             imported = import_docx(path, self._metadata_fields())
         except AppError as error:
-            show_error(self._parent, "Import DOCX", error)
+            show_error(self._parent, tr("session.import_docx.title"), error)
             return False
         state = ProjectState(
             text=imported.text,
@@ -448,7 +436,7 @@ class SessionController(QObject):
         self.apply_state(state, None, None, saved=False)
         QMessageBox.information(
             self._parent,
-            IMPORT_DOCX_TITLE,
+            tr("session.import_docx.title"),
             import_summary(Path(path).name, imported.report.lines()),
         )
         return True
@@ -478,14 +466,11 @@ class SessionController(QObject):
 def import_summary(name: str, skipped: list[str]) -> str:
     """Treść raportu po imporcie DOCX (pozycje z ``ImportReport.lines``)."""
     summary = (
-        "Pominięte elementy:\n• " + "\n• ".join(skipped)
+        tr("session.import_docx.skipped", items="\n• ".join(skipped))
         if skipped
-        else "Dokument zaimportowano bez pominięć."
+        else tr("session.import_docx.lossless")
     )
-    return (
-        f"Zaimportowano „{name}” jako nowy, niezapisany projekt bez nagrania."
-        f"\n\n{summary}"
-    )
+    return f"{tr('session.import_docx.summary', name=name)}\n\n{summary}"
 
 
 def _audio_ref_or_none(path: str | Path) -> AudioRef | None:

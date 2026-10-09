@@ -15,15 +15,14 @@ from transkryptor.asr.engine import SegmentResult, TranscriptionResult
 from transkryptor.asr.manager import DownloadCancelled, ModelManager
 from transkryptor.asr.models import REQUIRED_FILES
 from transkryptor.export.docx_export import export_docx
+from transkryptor.i18n import tr
 from transkryptor.notation.suggestions import RULES
 from transkryptor.ui.asr_panel import (
     APPLIED_MARK,
-    MODEL_READY_STATUS,
-    NO_MODEL_STATUS,
     PENDING_MARK,
     AsrPanel,
 )
-from transkryptor.ui.loading_overlay import LOADING_MESSAGES
+from transkryptor.ui.loading_overlay import loading_messages
 from transkryptor.ui.main_window import DRAFT_APPEND, DRAFT_REPLACE, MainWindow
 
 
@@ -94,7 +93,7 @@ def accept_consent(monkeypatch) -> None:
 class TestModelMissingState:
     def test_missing_model_shows_clear_status(self, panel) -> None:
         """Brak modelu to czytelny status i propozycja pobrania, nie awaria."""
-        assert panel.model_status_label.text() == NO_MODEL_STATUS
+        assert panel.model_status_label.text() == tr("asr.model.missing")
         assert panel.download_button.isVisibleTo(panel)
         assert not panel.transcribe_button.isEnabled()
 
@@ -109,7 +108,7 @@ class TestModelMissingState:
         )
         panel.download_button.click()
         assert panel._download_thread is None
-        assert panel.model_status_label.text() == NO_MODEL_STATUS
+        assert panel.model_status_label.text() == tr("asr.model.missing")
 
 
 class TestDownloadFlow:
@@ -123,7 +122,7 @@ class TestDownloadFlow:
         wait_until(
             lambda: panel._download_thread is None, what="zakończenie pobierania"
         )
-        assert panel.model_status_label.text() == MODEL_READY_STATUS
+        assert panel.model_status_label.text() == tr("asr.model.ready")
         assert not panel.transcribe_button.isEnabled()  # brak nagrania
 
     def test_download_error_shows_retryable_message(
@@ -148,7 +147,7 @@ class TestDownloadFlow:
             lambda: panel._download_thread is None, what="zakończenie pobierania"
         )
         assert shown and "Sprawdź połączenie" in shown[0]
-        assert panel.model_status_label.text() == NO_MODEL_STATUS
+        assert panel.model_status_label.text() == tr("asr.model.missing")
         assert panel.download_button.isEnabled()  # można ponowić
 
     def test_download_can_be_cancelled(self, qtbot, tmp_path, monkeypatch) -> None:
@@ -262,7 +261,7 @@ class TestTranscriptionFlow:
         assert overlay.isVisibleTo(window)
         assert overlay.is_active()
         assert overlay.spinner.is_spinning()
-        assert overlay.message_label.text() in LOADING_MESSAGES
+        assert overlay.message_label.text() in loading_messages()
         assert not window.editor.isEnabled()
         assert not panel.isEnabled()
         assert not window.export_action.isEnabled()

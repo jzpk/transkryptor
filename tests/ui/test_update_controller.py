@@ -8,12 +8,8 @@ from pathlib import Path
 import pytest
 
 from transkryptor.errors import UpdateError
+from transkryptor.i18n import tr
 from transkryptor.ui.main_window import MainWindow
-from transkryptor.ui.update_controller import (
-    INSTALL_BUTTON_TEXT,
-    OFFLINE_TEXT,
-    QUOTA_TEXT,
-)
 from transkryptor.update.releases import ReleaseInfo
 from transkryptor.update.service import UpdateOutcome, UpdateStatus
 
@@ -65,7 +61,7 @@ def test_ready_update_shows_banner_with_install_button(qtbot, window) -> None:
     run_check(qtbot, window, outcome, manual=False)
     assert window.updates.banner.isVisibleTo(window)
     assert "9.0.0" in window.updates.banner_label.text()
-    assert window.updates.install_button.text() == INSTALL_BUTTON_TEXT
+    assert window.updates.install_button.text() == tr("update.install")
     assert window.updates.install_button.isVisibleTo(window)
 
 
@@ -97,8 +93,8 @@ def test_automatic_check_is_silent(qtbot, window, no_blocking_dialogs, status) -
 @pytest.mark.parametrize(
     ("status", "kind", "text"),
     [
-        (UpdateStatus.OFFLINE, "warning", OFFLINE_TEXT),
-        (UpdateStatus.QUOTA_EXHAUSTED, "information", QUOTA_TEXT),
+        (UpdateStatus.OFFLINE, "warning", tr("update.offline")),
+        (UpdateStatus.QUOTA_EXHAUSTED, "information", tr("update.quota")),
     ],
 )
 def test_manual_check_always_answers(

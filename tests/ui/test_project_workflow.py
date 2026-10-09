@@ -17,11 +17,11 @@ from transkryptor.document.metadata import DEFAULT_FIELDS, encode_fields
 from transkryptor.document.model import Document
 from transkryptor.document.project import PlayerState, ProjectState, save_project
 from transkryptor.export.docx_export import export_docx
+from transkryptor.i18n import tr
 from transkryptor.settings import MetadataSettings, ProjectSettings, Settings
 from transkryptor.ui.asr_panel import APPLIED_MARK, PENDING_MARK
 from transkryptor.ui.autosave import RecoveryDialog
 from transkryptor.ui.main_window import DRAFT_REPLACE, MainWindow
-from transkryptor.ui.session import DISCARD_TITLE, UNSAVED_TITLE
 from transkryptor.ui.settings_dialog import SettingsDialog
 
 SAMPLE_MP3 = Path("tests/fixtures/audio/sample.mp3")
@@ -187,7 +187,7 @@ class TestSaveAndOpen:
         save_dialog(monkeypatch, path)
         assert window.session.save_project()
         window.editor.setPlainText("zmieniony")
-        answer_questions(monkeypatch, {UNSAVED_TITLE: Button.Discard})
+        answer_questions(monkeypatch, {tr("session.unsaved.title"): Button.Discard})
         open_dialog(monkeypatch, path)
         window.open_action.trigger()
         assert window.editor.toPlainText() == "sama edycja tekstu"
@@ -302,13 +302,15 @@ class TestCloseQuestions:
         window.editor.setPlainText("wersja 2")
         assert window.windowTitle().endswith("p.transkr*")
 
-        calls = answer_questions(monkeypatch, {UNSAVED_TITLE: Button.Cancel})
+        calls = answer_questions(
+            monkeypatch, {tr("session.unsaved.title"): Button.Cancel}
+        )
         assert not window.session.can_close()
         title, buttons = calls[0]
-        assert title == UNSAVED_TITLE
+        assert title == tr("session.unsaved.title")
         assert buttons & Button.Save and buttons & Button.Discard
 
-        answer_questions(monkeypatch, {UNSAVED_TITLE: Button.Save})
+        answer_questions(monkeypatch, {tr("session.unsaved.title"): Button.Save})
         assert window.session.can_close()
         assert "wersja 2" in path.read_text(encoding="utf-8")
 
@@ -316,11 +318,13 @@ class TestCloseQuestions:
         self, window, tmp_path, monkeypatch
     ) -> None:
         window.editor.setPlainText("bez projektu")
-        calls = answer_questions(monkeypatch, {DISCARD_TITLE: Button.Save})
+        calls = answer_questions(
+            monkeypatch, {tr("session.discard.title"): Button.Save}
+        )
         target = tmp_path / "z-pytania.transkr"
         save_dialog(monkeypatch, target)
         assert window.session.can_close()
-        assert calls[0][0] == DISCARD_TITLE
+        assert calls[0][0] == tr("session.discard.title")
         assert target.is_file()  # „Zapisz” w oknie pytania zapisało projekt
 
 
@@ -535,7 +539,7 @@ class TestImportDocx:
         self, window, tmp_path, monkeypatch
     ) -> None:
         window.editor.setPlainText("niewyeksportowana praca")
-        answer_questions(monkeypatch, {DISCARD_TITLE: Button.Cancel})
+        answer_questions(monkeypatch, {tr("session.discard.title"): Button.Cancel})
         path = tmp_path / "x.docx"
         export_docx(Document(text="x"), path)
         assert not window.session.import_docx(path)

@@ -52,17 +52,18 @@ def test_word_count_label_declension(count, label) -> None:
 
 
 def test_status_bar_and_word_count_follow_document(qtbot, add_window) -> None:
-    from transkryptor.ui.main_window import STATUS_CLEAN, STATUS_DIRTY, MainWindow
+    from transkryptor.i18n import tr
+    from transkryptor.ui.main_window import MainWindow
 
     window = add_window(MainWindow())
-    assert window.export_status_label.text() == STATUS_CLEAN
+    assert window.export_status_label.text() == tr("session.status_clean")
     assert window.word_count_label.text() == "0 słów"
     window.editor.setPlainText("bendzie uod rana")
-    assert window.export_status_label.text() == STATUS_DIRTY
+    assert window.export_status_label.text() == tr("session.status_dirty")
     assert window.word_count_label.text() == "3 słowa"
     window.document.mark_exported()
     window._update_title()
-    assert window.export_status_label.text() == STATUS_CLEAN
+    assert window.export_status_label.text() == tr("session.status_clean")
 
 
 def test_rules_summary_counts_enabled_rules(qtbot, add_window) -> None:

@@ -26,6 +26,7 @@ import httpx
 
 from transkryptor import __version__
 from transkryptor.errors import UpdateError
+from transkryptor.i18n import tr
 from transkryptor.update.download import (
     DownloadCancelled,
     clear_downloads,
@@ -129,9 +130,7 @@ class UpdateService:
                 failure = (
                     error
                     if isinstance(error, UpdateError)
-                    else UpdateError(
-                        user_message=f"Nie udało się zapisać aktualizacji: {error}"
-                    )
+                    else UpdateError(user_message=tr("update.error.save", reason=error))
                 )
                 return UpdateOutcome(UpdateStatus.ERROR, release, error=failure)
             return UpdateOutcome(UpdateStatus.READY, release, artifact)

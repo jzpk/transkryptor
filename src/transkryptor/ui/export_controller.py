@@ -12,9 +12,8 @@ from transkryptor.document.metadata import SIGNATURE, MetadataField
 from transkryptor.document.model import Document
 from transkryptor.errors import AppError
 from transkryptor.export.docx_export import export_docx
+from transkryptor.i18n import tr
 from transkryptor.ui.messages import show_error
-
-ANONYMIZED_SUFFIX = "-anonim"
 
 
 class ExportController(QObject):
@@ -40,9 +39,9 @@ class ExportController(QObject):
         document = self._document()
         path, _selected_filter = QFileDialog.getSaveFileName(
             self._parent,
-            "Eksport do DOCX (anonimizowany)" if anonymize else "Eksport do DOCX",
+            tr("export.dialog.anonymized") if anonymize else tr("export.dialog"),
             self._default_name(document, anonymize),
-            "Dokumenty DOCX (*.docx)",
+            tr("export.filter"),
         )
         if not path:
             return
@@ -51,13 +50,15 @@ class ExportController(QObject):
         try:
             export_docx(document, Path(path), self._fields(), anonymize=anonymize)
         except AppError as error:
-            show_error(self._parent, "Eksport DOCX", error)
+            show_error(self._parent, tr("export.error.title"), error)
             return
         document.mark_exported()
         self._on_exported()
 
     def _default_name(self, document: Document, anonymize: bool) -> str:
-        base = document.metadata.get(SIGNATURE, "").strip() or (
-            f"transkrypcja-{self._date_edit.date().toString('yyyy-MM-dd')}"
+        base = document.metadata.get(SIGNATURE, "").strip() or tr(
+            "export.default_name",
+            date=self._date_edit.date().toString("yyyy-MM-dd"),
         )
-        return f"{base}{ANONYMIZED_SUFFIX if anonymize else ''}.docx"
+        suffix = tr("export.anonymized_suffix") if anonymize else ""
+        return f"{base}{suffix}.docx"

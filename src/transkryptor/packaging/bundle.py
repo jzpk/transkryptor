@@ -75,7 +75,10 @@ EXCLUDED_MODULES = (
 # ``faster_whisper/assets`` zawiera model wykrywania mowy (Silero VAD),
 # wywoływany przez ``vad_filter=True`` w ``asr.engine.transcribe``. Bez tego
 # pliku transkrypcja w artefakcie kończy się błędem otwarcia pliku.
-PACKAGE_DATA = (("faster_whisper", "assets"),)
+#
+# ``transkryptor/i18n/locales`` to katalogi tłumaczeń interfejsu (JSON)
+# wczytywane przez ``importlib.resources`` przy starcie.
+PACKAGE_DATA = (("faster_whisper", "assets"), ("transkryptor", "i18n/locales"))
 
 
 def package_directory(package: str) -> Path:

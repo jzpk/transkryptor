@@ -23,6 +23,7 @@ from transkryptor.asr.models import (
     format_size,
 )
 from transkryptor.errors import ModelDownloadError
+from transkryptor.i18n import tr
 
 COMPLETE_MARKER = ".complete"
 
@@ -96,11 +97,12 @@ class ModelManager:
         except Exception as error:  # noqa: BLE001 — normalizacja do AppError
             self._cleanup_partial(dest)
             raise ModelDownloadError(
-                user_message=(
-                    f"Nie udało się pobrać modelu {self.model.display_name}: "
-                    f"{error}"
+                user_message=tr(
+                    "asr.error.download",
+                    model=self.model.display_name,
+                    reason=error,
                 ),
-                retry_hint="Sprawdź połączenie z Internetem i spróbuj ponownie.",
+                retry_hint=tr("asr.error.network.hint"),
             ) from error
         if cancel():
             self._cleanup_partial(dest)
@@ -109,11 +111,8 @@ class ModelManager:
         if missing:
             self._cleanup_partial(dest)
             raise ModelDownloadError(
-                user_message=(
-                    "Pobranie zakończyło się, ale model jest niekompletny "
-                    f"(brak: {', '.join(missing)})."
-                ),
-                retry_hint="Ponów pobieranie modelu.",
+                user_message=tr("asr.error.incomplete", missing=", ".join(missing)),
+                retry_hint=tr("asr.error.incomplete.hint"),
             )
         (dest / COMPLETE_MARKER).write_text(self.model.hf_repo_id, encoding="utf-8")
         return dest
@@ -144,8 +143,8 @@ def hf_streaming_download(
         info = HfApi().model_info(repo_id, files_metadata=True)
     except Exception as error:  # noqa: BLE001
         raise ModelDownloadError(
-            user_message=(f"Nie można pobrać informacji o modelu {repo_id}: {error}"),
-            retry_hint="Sprawdź połączenie z Internetem i spróbuj ponownie.",
+            user_message=tr("asr.error.model_info", model=repo_id, reason=error),
+            retry_hint=tr("asr.error.network.hint"),
         ) from error
     siblings = [s for s in info.siblings or () if s.rfilename]
     total = sum(s.size or 0 for s in siblings) or None
@@ -172,10 +171,8 @@ def hf_streaming_download(
                 raise
             except Exception as error:  # noqa: BLE001
                 raise ModelDownloadError(
-                    user_message=(
-                        f"Nie udało się pobrać pliku „{name}” modelu: {error}"
-                    ),
-                    retry_hint="Sprawdź połączenie z Internetem i spróbuj ponownie.",
+                    user_message=tr("asr.error.file", name=name, reason=error),
+                    retry_hint=tr("asr.error.network.hint"),
                 ) from error
 
 

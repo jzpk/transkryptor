@@ -17,6 +17,8 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, replace
 from pathlib import Path
 
+from transkryptor.i18n import all_translations, tr
+
 SIGNATURE = "signature"
 PLACE = "place"
 
@@ -33,6 +35,28 @@ class MetadataField:
     @property
     def is_custom(self) -> bool:
         return self.key not in DEFAULT_KEYS
+
+    @property
+    def display_label(self) -> str:
+        """Etykieta do pokazania: pola domyślne w języku interfejsu.
+
+        ``label`` pól domyślnych to wartość kanoniczna (zapis ustawień
+        i projektów); zespół nie może jej zmienić, więc wyświetla się
+        tłumaczenie. Pola własne mają etykietę nadaną przez zespół.
+        """
+        return self.label if self.is_custom else tr(label_key(self.key))
+
+
+def label_key(key: str) -> str:
+    """Klucz tłumaczenia etykiety pola domyślnego."""
+    return f"metadata.field.{key}"
+
+
+def label_variants(field: MetadataField) -> tuple[str, ...]:
+    """Etykiety, pod którymi pole może wystąpić w dokumencie (wszystkie języki)."""
+    if field.is_custom:
+        return (field.label,)
+    return (field.label, *all_translations(label_key(field.key)))
 
 
 DEFAULT_FIELDS: tuple[MetadataField, ...] = (

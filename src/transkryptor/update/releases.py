@@ -17,6 +17,7 @@ import httpx
 
 from transkryptor import __version__
 from transkryptor.errors import UpdateError
+from transkryptor.i18n import tr
 
 # Jedyne miejsce z adresem repozytorium. GitHub przekierowuje stare adresy po
 # zmianie nazwy, a klient podąża za przekierowaniami.
@@ -109,9 +110,7 @@ def parse_release(payload: Mapping[str, Any], platform: str | None) -> ReleaseIn
     tag = payload.get("tag_name")
     version = parse_version(tag) if isinstance(tag, str) else None
     if version is None:
-        raise UpdateError(
-            user_message=f"Najnowsze wydanie ma nieobsługiwany numer wersji: {tag!r}."
-        )
+        raise UpdateError(user_message=tr("update.error.version", tag=repr(tag)))
     assets: list[Asset] = []
     for raw in payload.get("assets") or ():
         if not isinstance(raw, Mapping):
@@ -154,17 +153,13 @@ def fetch_latest(client: httpx.Client, platform: str | None) -> ReleaseInfo | No
         return None
     if response.status_code != 200:
         raise UpdateError(
-            user_message=(
-                "Serwer wydań odpowiedział błędem " f"(HTTP {response.status_code})."
-            ),
-            retry_hint="Spróbuj ponownie później.",
+            user_message=tr("update.error.server", status=response.status_code),
+            retry_hint=tr("update.error.later.hint"),
         )
     try:
         payload = response.json()
     except ValueError as error:
-        raise UpdateError(
-            user_message="Serwer wydań zwrócił nieczytelną odpowiedź."
-        ) from error
+        raise UpdateError(user_message=tr("update.error.unreadable")) from error
     if not isinstance(payload, Mapping):
-        raise UpdateError(user_message="Serwer wydań zwrócił nieczytelną odpowiedź.")
+        raise UpdateError(user_message=tr("update.error.unreadable"))
     return parse_release(payload, platform)

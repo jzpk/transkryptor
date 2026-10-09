@@ -17,6 +17,8 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
+from transkryptor.i18n import tr
+
 _WORD_RE = re.compile(r"[A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż]+")
 
 # Spółgłoski wyzwalające asymilację nosowości (dentalne/przedniojęzykowe
@@ -53,15 +55,19 @@ class RuleInfo:
     """Opis reguły dla UI: wybór reguł stosowanych automatycznie (REQ-15)."""
 
     code: str
-    label: str
+    label_key: str
     confidence: float
+
+    @property
+    def label(self) -> str:
+        return tr(self.label_key)
 
 
 @dataclass(frozen=True)
 class _Rule:
     code: str
-    label: str
-    message: str
+    label_key: str
+    message_key: str
     confidence: float
     transform: Callable[[str], list[_Edit]]
 
@@ -97,7 +103,7 @@ def propose(text: str) -> list[Suggestion]:
                         replacement=edit.replacement,
                         superscript_ranges=edit.superscript_ranges,
                         confidence=rule.confidence,
-                        message=rule.message,
+                        message=tr(rule.message_key),
                         word=word,
                         word_start=base,
                     )
@@ -164,46 +170,43 @@ def _labial_initial_o(word: str) -> list[_Edit]:
 _RULES = (
     _Rule(
         code="SUG-NAS-A-FINAL",
-        label="Nosowość: końcowe „ą” → „oᵐ” (są → soᵐ)",
-        message="Nosowość: końcowe „ą” jako „oᵐ” (przykład ze specyfikacji: są → som).",
+        label_key="rule.nasal_a_final",
+        message_key="rule.nasal_a_final.message",
         confidence=0.5,
         transform=_nasal_final_a,
     ),
     _Rule(
         code="SUG-NAS-E-DENT",
-        label="Nosowość: „ę” przed d/t/s/c/z → „eⁿ” (będzie → beⁿdzie)",
-        message=(
-            "Nosowość: „ę” przed spółgłoską dentalną jako „eⁿ” "
-            "(przykład: będzie → bendzie)."
-        ),
+        label_key="rule.nasal_e_dental",
+        message_key="rule.nasal_e_dental.message",
         confidence=0.4,
         transform=_nasal_e_dental,
     ),
     _Rule(
         code="SUG-NAS-E-LAB",
-        label="Nosowość: „ę” przed p/b → „eᵐ”",
-        message="Nosowość: „ę” przed p/b jako „eᵐ” (asymilacja wargowa).",
+        label_key="rule.nasal_e_labial",
+        message_key="rule.nasal_e_labial.message",
         confidence=0.4,
         transform=_nasal_e_labial,
     ),
     _Rule(
         code="SUG-NAS-A-LAB",
-        label="Nosowość: „ą” przed p/b → „oᵐ”",
-        message="Nosowość: „ą” przed p/b jako „oᵐ” (asymilacja wargowa).",
+        label_key="rule.nasal_a_labial",
+        message_key="rule.nasal_a_labial.message",
         confidence=0.4,
         transform=_nasal_a_labial,
     ),
     _Rule(
         code="SUG-LAB-U-INIT",
-        label="Labializacja: początkowe „o-” → „ᵘo” (od → ᵘod)",
-        message="Labializacja: początkowe „o-” jako „uo” (przykład: od → uod).",
+        label_key="rule.labial_o_initial",
+        message_key="rule.labial_o_initial.message",
         confidence=0.3,
         transform=_labial_initial_o,
     ),
 )
 
 RULES: tuple[RuleInfo, ...] = tuple(
-    RuleInfo(rule.code, rule.label, rule.confidence) for rule in _RULES
+    RuleInfo(rule.code, rule.label_key, rule.confidence) for rule in _RULES
 )
 
 __all__ = ["RULES", "RuleInfo", "Suggestion", "propose", "without_overlaps"]

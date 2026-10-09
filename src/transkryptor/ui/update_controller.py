@@ -30,23 +30,13 @@ from PySide6.QtWidgets import (
 
 from transkryptor import __version__
 from transkryptor.errors import UpdateError
+from transkryptor.i18n import tr
 from transkryptor.ui.messages import show_error
 from transkryptor.ui.theme import set_props
 from transkryptor.update.install import apply_update
 from transkryptor.update.releases import is_newer
 from transkryptor.update.service import UpdateOutcome, UpdateService, UpdateStatus
 
-DIALOG_TITLE = "Aktualizacje"
-CHECK_ACTION_TEXT = "Sprawdź aktualizacje"
-INSTALL_BUTTON_TEXT = "Uruchom ponownie i zaktualizuj"
-UP_TO_DATE_TEXT = "Masz najnowszą wersję Transkryptora ({version})."
-QUOTA_TEXT = (
-    "Limit sprawdzeń aktualizacji na dziś został wyczerpany. " "Spróbuj ponownie jutro."
-)
-OFFLINE_TEXT = (
-    "Nie udało się połączyć z serwerem wydań. "
-    "Sprawdź połączenie z Internetem i spróbuj ponownie."
-)
 # Zamykanie aplikacji czeka na wątek co najwyżej tyle (limit połączenia to 10 s).
 SHUTDOWN_WAIT_MS = 15_000
 
@@ -70,9 +60,7 @@ class UpdateThread(QThread):
         except Exception as error:  # noqa: BLE001 — wątek nie może przepaść
             outcome = UpdateOutcome(
                 UpdateStatus.ERROR,
-                error=UpdateError(
-                    user_message=f"Nie udało się sprawdzić aktualizacji: {error}"
-                ),
+                error=UpdateError(user_message=tr("update.error.check", reason=error)),
             )
         self.finished_with.emit(outcome)
 
@@ -94,8 +82,8 @@ class UpdateController(QObject):
         self._thread: UpdateThread | None = None
         self._artifact: Path | None = None
 
-        self.check_action = QAction(CHECK_ACTION_TEXT, window)
-        self.check_action.setToolTip("Sprawdź, czy jest nowsza wersja programu")
+        self.check_action = QAction(tr("update.check"), window)
+        self.check_action.setToolTip(tr("update.check.tooltip"))
         self.check_action.triggered.connect(lambda _checked=False: self.check_now())
 
         self.banner = QWidget()
@@ -104,7 +92,7 @@ class UpdateController(QObject):
         self.banner_label = QLabel()
         set_props(self.banner_label, role="status", tone="accent")
         self.banner_label.setOpenExternalLinks(True)
-        self.install_button = QPushButton(INSTALL_BUTTON_TEXT)
+        self.install_button = QPushButton(tr("update.install"))
         set_props(self.install_button, variant="primary")
         self.install_button.clicked.connect(self.install_now)
         layout.addWidget(self.banner_label)
@@ -127,7 +115,7 @@ class UpdateController(QObject):
     def check_now(self) -> None:
         """Jawne sprawdzenie przez użytkownika (ten sam dzienny limit)."""
         if self.is_running:
-            self._window.statusBar().showMessage("Sprawdzanie aktualizacji trwa…", 5000)
+            self._window.statusBar().showMessage(tr("update.in_progress"), 5000)
             return
         self._start(manual=True)
 
@@ -158,26 +146,24 @@ class UpdateController(QObject):
         if not manual:
             return
         if status is UpdateStatus.UP_TO_DATE:
-            self._inform(UP_TO_DATE_TEXT.format(version=__version__))
+            self._inform(tr("update.up_to_date", version=__version__))
         elif status is UpdateStatus.QUOTA_EXHAUSTED:
-            self._inform(QUOTA_TEXT)
+            self._inform(tr("update.quota"))
         elif status is UpdateStatus.OFFLINE:
-            self._warn(OFFLINE_TEXT)
+            self._warn(tr("update.offline"))
         elif status is UpdateStatus.ERROR and outcome.error is not None:
-            show_error(self._window, DIALOG_TITLE, outcome.error)
+            show_error(self._window, tr("update.title"), outcome.error)
 
     def _show_ready(self, version: str, artifact: Path) -> None:
         self._artifact = artifact
-        self.banner_label.setText(f"Pobrano nową wersję {version}.")
+        self.banner_label.setText(tr("update.ready", version=version))
         self.install_button.setVisible(True)
         self.banner.setVisible(True)
 
     def _show_available(self, version: str, url: str) -> None:
         if self._artifact is not None:
             return
-        self.banner_label.setText(
-            f'Dostępna nowa wersja {version}: <a href="{url}">pobierz</a>'
-        )
+        self.banner_label.setText(tr("update.available", version=version, url=url))
         self.install_button.setVisible(False)
         self.banner.setVisible(True)
 
@@ -189,7 +175,7 @@ class UpdateController(QObject):
         try:
             self._apply(artifact)
         except UpdateError as error:
-            show_error(self._window, DIALOG_TITLE, error)
+            show_error(self._window, tr("update.title"), error)
 
     def shutdown(self) -> None:
         """Przerywa pobieranie przy zamykaniu aplikacji i czeka na wątek."""
@@ -208,7 +194,7 @@ class UpdateController(QObject):
 
     # Komunikaty jako metody — testy podmieniają je bez okien modalnych.
     def _inform(self, text: str) -> None:
-        QMessageBox.information(self._window, DIALOG_TITLE, text)
+        QMessageBox.information(self._window, tr("update.title"), text)
 
     def _warn(self, text: str) -> None:
-        QMessageBox.warning(self._window, DIALOG_TITLE, text)
+        QMessageBox.warning(self._window, tr("update.title"), text)

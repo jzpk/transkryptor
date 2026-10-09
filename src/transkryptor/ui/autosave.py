@@ -43,6 +43,7 @@ from transkryptor.document.project import (
     write_atomic,
 )
 from transkryptor.errors import AppError
+from transkryptor.i18n import tr
 from transkryptor.settings import ProjectSettings
 from transkryptor.ui.layout import words_label
 
@@ -165,8 +166,8 @@ class RecoveryCandidate:
     def label(self) -> str:
         when = self.modified.strftime("%d.%m.%Y %H:%M")
         if self.state is None:
-            return f"{when} — pliku nie da się odczytać"
-        audio = self.state.audio.name if self.state.audio else "bez nagrania"
+            return tr("recovery.unreadable", when=when)
+        audio = self.state.audio.name if self.state.audio else tr("recovery.no_audio")
         words = self.state.word_count
         return f"{when} — {audio} — {words} {words_label(words)}"
 
@@ -226,16 +227,14 @@ class RecoveryDialog(QDialog):
         self, candidates: list[RecoveryCandidate], parent: QWidget | None = None
     ) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Odzyskać pracę?")
+        self.setWindowTitle(tr("recovery.title"))
         self.candidates = list(candidates)
         self.chosen: RecoveryCandidate | None = None
 
         intro = QLabel(
-            "Poprzednia sesja nie zakończyła się poprawnie. Znaleziono kopię "
-            "autozapisu — odzyskana praca otworzy się jako niezapisany projekt."
+            tr("recovery.intro.one")
             if len(candidates) == 1
-            else "Poprzednie sesje nie zakończyły się poprawnie. Wybierz kopię "
-            "autozapisu — odzyskana praca otworzy się jako niezapisany projekt."
+            else tr("recovery.intro.many")
         )
         intro.setWordWrap(True)
         self.list = QListWidget()
@@ -249,13 +248,13 @@ class RecoveryDialog(QDialog):
 
         buttons = QDialogButtonBox()
         self.recover_button: QPushButton = buttons.addButton(
-            "Odzyskaj", QDialogButtonBox.ButtonRole.AcceptRole
+            tr("recovery.recover"), QDialogButtonBox.ButtonRole.AcceptRole
         )
         self.discard_button: QPushButton = buttons.addButton(
-            "Odrzuć", QDialogButtonBox.ButtonRole.DestructiveRole
+            tr("recovery.discard"), QDialogButtonBox.ButtonRole.DestructiveRole
         )
         self.later_button: QPushButton = buttons.addButton(
-            "Później", QDialogButtonBox.ButtonRole.RejectRole
+            tr("recovery.later"), QDialogButtonBox.ButtonRole.RejectRole
         )
         self.recover_button.clicked.connect(self.recover_selected)
         self.discard_button.clicked.connect(self.discard_selected)

@@ -6,9 +6,9 @@ import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QTextCursor
 
+from transkryptor.i18n import tr
 from transkryptor.settings import NotationSettings
 from transkryptor.ui.main_window import MainWindow
-from transkryptor.ui.warnings_panel import EMPTY_MESSAGE
 
 
 @pytest.fixture
@@ -124,7 +124,7 @@ class TestWarningsPanel:
     def test_acc04_cut_off_words_show_no_warnings(self, qtbot, window) -> None:
         self.type_and_validate(qtbot, window, "jeż... kam... kamionka")
         assert window.warnings_panel.warning_count() == 0
-        assert panel_texts(window) == [EMPTY_MESSAGE]
+        assert panel_texts(window) == [tr("warnings.empty")]
 
     def test_acc05_pause_without_following_space(self, qtbot, window) -> None:
         self.type_and_validate(qtbot, window, "rzeczy ...bo")
@@ -221,3 +221,17 @@ class TestEllipsisStyle:
         assert not window.unify_ellipses_action.isEnabled()
         window._set_ui_locked(False)
         assert window.unify_ellipses_action.isEnabled()
+
+
+def test_window_in_english_has_no_polish_toolbar_texts(add_window) -> None:
+    """Język wczytany przy starcie obejmuje cały interfejs (pasek narzędzi)."""
+    from transkryptor import i18n
+
+    i18n.set_language(i18n.ENGLISH)
+    window = add_window(MainWindow())
+    texts = [action.text() for action in window.main_toolbar.toolbar.actions()]
+    texts += [window.export_action.text(), window.save_action.text()]
+    assert "Export DOCX…" in texts
+    assert "Save project" in texts
+    assert not any(set(text) & set("ąćęłńóśźż") for text in texts)
+    assert window.player_bar.play_button.text() == "Play"

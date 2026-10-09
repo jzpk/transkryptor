@@ -14,6 +14,7 @@ from PySide6.QtGui import QColor, QFont, QTextCharFormat, QTextCursor
 from PySide6.QtWidgets import QTextEdit
 
 from transkryptor.document.model import Document
+from transkryptor.i18n import tr
 from transkryptor.settings import EditorSettings
 from transkryptor.ui.markers import ASIDE_TEXT
 
@@ -25,9 +26,6 @@ REVIEW_LAYER = "review"
 SEARCH_LAYER = "search"
 _LAYER_ORDER = (REVIEW_LAYER, SEARCH_LAYER)
 
-PLACEHOLDER = (
-    "Zacznij pisać transkrypcję albo utwórz szkic ASR z nagrania " "w panelu po prawej…"
-)
 # Tekst transkrypcji czyta się godzinami — większy niż reszta interfejsu.
 EDITOR_FONT_SCALE = 1.25
 
@@ -42,7 +40,7 @@ class TranscriptionEditor(QTextEdit):
         # nie może być normalizowany (ACC-01).
         self.setAutoFormatting(QTextEdit.AutoFormattingFlag.AutoNone)
         self.setObjectName("editor")
-        self.setPlaceholderText(PLACEHOLDER)
+        self.setPlaceholderText(tr("editor.placeholder"))
         self._base_font = QFont(self.font())
         self._layers: dict[str, list[QTextEdit.ExtraSelection]] = {}
         self.apply_settings(EditorSettings())

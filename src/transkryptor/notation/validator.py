@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from transkryptor.i18n import tr
 from transkryptor.notation.ellipsis import (
     EllipsisStyle,
     ellipsis_text,
@@ -79,7 +80,7 @@ def _check_pause_spacing(text: str) -> list[Warning]:
                     code=VAL_01,
                     start=i,
                     end=end,
-                    message=f"Brak odstępu po pauzie `{ellipsis}`.",
+                    message=tr("validator.pause_spacing", ellipsis=ellipsis),
                 )
             )
         i = end
@@ -94,9 +95,8 @@ def _check_ellipsis_style(text: str, style: EllipsisStyle) -> list[Warning]:
             code=VAL_05,
             start=start,
             end=end,
-            message=(
-                f"Wielokropek `{text[start:end]}` w zapisie innym niż wybrany "
-                f"(`{wanted}`) — użyj „Ujednolić wielokropki”."
+            message=tr(
+                "validator.ellipsis_style", found=text[start:end], wanted=wanted
             ),
             severity=SEVERITY_HINT,
         )
@@ -121,7 +121,7 @@ def _check_brackets(text: str) -> list[Warning]:
                 code=VAL_02,
                 start=open_index,
                 end=n,
-                message="Niedomknięty dopisek: brak zamykającego `]`.",
+                message=tr("validator.unclosed_bracket"),
             )
         )
     i = 0
@@ -135,10 +135,7 @@ def _check_brackets(text: str) -> list[Warning]:
                         code=VAL_03,
                         start=i,
                         end=end,
-                        message=(
-                            "Marker pominiętego tekstu powinien mieć "
-                            "dokładną postać `[…?]`."
-                        ),
+                        message=tr("validator.omission_marker"),
                     )
                 )
             i += 2

@@ -22,12 +22,11 @@ from PySide6.QtWidgets import (
 )
 
 from transkryptor.document.search import ParsedReplacement, SearchOptions
+from transkryptor.i18n import tr
 from transkryptor.ui import icons
 from transkryptor.ui.shortcuts import FIND_NEXT_SHORTCUT, FIND_PREVIOUS_SHORTCUT
 from transkryptor.ui.shortcuts import tooltip_with_shortcut as _tooltip
 from transkryptor.ui.theme import set_props
-
-REPLACE_PLACEHOLDER = "Zamień na… (^n — indeks górny, \\^ — znak ^)"
 
 
 class SearchBar(QWidget):
@@ -46,21 +45,21 @@ class SearchBar(QWidget):
         self.setObjectName("search_bar")
 
         self.find_edit = QLineEdit()
-        self.find_edit.setPlaceholderText("Szukaj…")
+        self.find_edit.setPlaceholderText(tr("search.find.placeholder"))
         self.find_edit.setClearButtonEnabled(True)
         search_action = self.find_edit.addAction(
             QIcon(), QLineEdit.ActionPosition.LeadingPosition
         )
         icons.set_icon(search_action, "search", "text_muted")
         self.replace_edit = QLineEdit()
-        self.replace_edit.setPlaceholderText(REPLACE_PLACEHOLDER)
+        self.replace_edit.setPlaceholderText(tr("search.replace.placeholder"))
         self.replace_edit.setClearButtonEnabled(True)
 
         self.case_check = QCheckBox("Aa")
-        self.case_check.setToolTip("Uwzględniaj wielkość liter")
-        self.whole_words_check = QCheckBox("Całe słowa")
+        self.case_check.setToolTip(tr("search.case.tooltip"))
+        self.whole_words_check = QCheckBox(tr("search.whole_words"))
         self.regex_check = QCheckBox(".*")
-        self.regex_check.setToolTip("Wyrażenie regularne")
+        self.regex_check.setToolTip(tr("search.regex.tooltip"))
 
         self.count_label = QLabel()
         set_props(self.count_label, role="muted")
@@ -69,23 +68,23 @@ class SearchBar(QWidget):
         self.error_label.hide()
         self.preview_label = QLabel()
         self.preview_label.setTextFormat(Qt.TextFormat.RichText)
-        self.preview_label.setToolTip("Podgląd zamiennika z indeksem górnym")
+        self.preview_label.setToolTip(tr("search.preview.tooltip"))
         set_props(self.preview_label, role="muted")
 
-        self.previous_button = QPushButton("Poprzedni")
+        self.previous_button = QPushButton(tr("search.previous"))
         self.previous_button.setToolTip(
-            _tooltip("Poprzednie trafienie", FIND_PREVIOUS_SHORTCUT)
+            _tooltip(tr("search.action.previous"), FIND_PREVIOUS_SHORTCUT)
         )
-        self.next_button = QPushButton("Następny")
-        self.next_button.setToolTip(_tooltip("Następne trafienie", FIND_NEXT_SHORTCUT))
-        self.replace_button = QPushButton("Zamień")
-        self.replace_all_button = QPushButton("Zamień wszystkie")
-        self.replace_all_button.setToolTip(
-            "Zamień wszystkie trafienia (jedno cofnięcie)"
+        self.next_button = QPushButton(tr("search.next"))
+        self.next_button.setToolTip(
+            _tooltip(tr("search.action.next"), FIND_NEXT_SHORTCUT)
         )
+        self.replace_button = QPushButton(tr("search.replace"))
+        self.replace_all_button = QPushButton(tr("search.replace_all"))
+        self.replace_all_button.setToolTip(tr("search.replace_all.tooltip"))
         self.close_button = QToolButton()
         icons.set_icon(self.close_button, "close", "text_muted")
-        self.close_button.setToolTip(_tooltip("Zamknij wyszukiwanie", "Esc"))
+        self.close_button.setToolTip(_tooltip(tr("search.close"), "Esc"))
         self.close_button.setAutoRaise(True)
 
         layout = QGridLayout(self)
@@ -153,11 +152,13 @@ class SearchBar(QWidget):
         if not self.find_edit.text():
             self.count_label.setText("")
         elif total == 0:
-            self.count_label.setText("Brak wyników")
+            self.count_label.setText(tr("search.no_results"))
         elif current is None:
-            self.count_label.setText(f"{total} wyn.")
+            self.count_label.setText(tr("search.total", total=total))
         else:
-            self.count_label.setText(f"{current + 1} z {total}")
+            self.count_label.setText(
+                tr("search.position", current=current + 1, total=total)
+            )
         has_matches = total > 0
         for button in (
             self.previous_button,

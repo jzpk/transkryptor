@@ -32,6 +32,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from transkryptor.i18n import tr
 from transkryptor.ui import icons
 from transkryptor.ui.markers import MARKERS, SUPERSCRIPT_SHORTCUT
 from transkryptor.ui.shortcuts import SETTINGS_SHORTCUT
@@ -117,7 +118,7 @@ class MainToolbar:
         update_action: QAction,
         handlers: ToolbarHandlers,
     ) -> None:
-        toolbar = _ToolBar("Pasek narzędzi", window)
+        toolbar = _ToolBar(tr("toolbar.title"), window)
         toolbar.setObjectName("main_toolbar")
         toolbar.setMovable(False)
         toolbar.setFloatable(False)
@@ -129,13 +130,13 @@ class MainToolbar:
         self._buttons: dict[QAction, QToolButton] = {}
         self._slots: dict[str, _Slot] = {}
 
-        caption = toolbar.addWidget(_caption("NOTACJA"))
+        caption = toolbar.addWidget(_caption(tr("toolbar.notation")))
         self.superscript_action = _action(
             window,
-            "Indeks górny",
+            tr("toolbar.superscript"),
             "superscript",
             SUPERSCRIPT_SHORTCUT,
-            "Indeks górny zaznaczonych liter",
+            tr("toolbar.superscript.tooltip"),
             handlers.superscript,
         )
         self._slots["superscript"] = _Slot(
@@ -152,7 +153,7 @@ class MainToolbar:
                 marker.label,
                 icon,
                 marker.shortcut,
-                f"Wstaw {marker.inserted_text.strip()}",
+                tr("toolbar.insert", marker=marker.inserted_text.strip()),
                 partial(handlers.marker, marker.key),
             )
             # Bez jawnego iconText Qt wycina „...”/„…” z napisu przycisku,
@@ -169,9 +170,9 @@ class MainToolbar:
 
         # Zamknięty panel ASR wraca tym przełącznikiem.
         self.asr_panel_action = asr_toggle
-        asr_toggle.setText("Szkic ASR")
+        asr_toggle.setText(tr("main.asr_dock"))
         icons.set_icon(asr_toggle, "sparkles", "text", "text_muted")
-        asr_toggle.setToolTip("Pokaż lub ukryj panel Szkic ASR")
+        asr_toggle.setToolTip(tr("toolbar.asr.tooltip"))
         self._slots["asr"] = _Slot("tools", asr_toggle, (self._add(asr_toggle),))
 
         self.update_action = update_action
@@ -182,10 +183,10 @@ class MainToolbar:
 
         self.settings_action = _action(
             window,
-            "Ustawienia…",
+            tr("toolbar.settings"),
             "settings",
             SETTINGS_SHORTCUT,
-            "Wygląd, odtwarzacz, notacja i projekt — preferencje",
+            tr("toolbar.settings.tooltip"),
             handlers.settings,
         )
         self._slots["settings"] = _Slot(
@@ -197,12 +198,10 @@ class MainToolbar:
             ),
         )
 
-        self.new_action = QAction("Nowy dokument", window)
+        self.new_action = QAction(tr("toolbar.new"), window)
         icons.set_icon(self.new_action, "new", "text", "text_muted")
         self.new_action.setShortcut(QKeySequence.StandardKey.New)
-        self.new_action.setToolTip(
-            _tooltip("Wyczyść edytor i zacznij od nowa", "Ctrl+N")
-        )
+        self.new_action.setToolTip(_tooltip(tr("toolbar.new.tooltip"), "Ctrl+N"))
         self.new_action.triggered.connect(
             lambda _checked=False: handlers.new_document()
         )
@@ -214,25 +213,23 @@ class MainToolbar:
         self._open_recent = handlers.open_recent
         self.open_action = _window_action(
             window,
-            "Otwórz projekt…",
+            tr("toolbar.open"),
             "open",
             OPEN_PROJECT_SHORTCUT,
-            "Otwórz zapisany projekt (.transkr)",
+            tr("toolbar.open.tooltip"),
             handlers.open_project,
         )
-        self.import_docx_action = QAction("Importuj DOCX…", window)
-        self.import_docx_action.setToolTip(
-            "Wczytaj tekst i metryczkę z dokumentu Word jako nowy projekt"
-        )
+        self.import_docx_action = QAction(tr("toolbar.import_docx"), window)
+        self.import_docx_action.setToolTip(tr("toolbar.import_docx.tooltip"))
         self.import_docx_action.triggered.connect(
             lambda _checked=False: handlers.import_docx()
         )
-        self.clear_recent_action = QAction("Wyczyść listę ostatnich", window)
+        self.clear_recent_action = QAction(tr("toolbar.clear_recent"), window)
         self.clear_recent_action.triggered.connect(
             lambda _checked=False: handlers.clear_recent()
         )
         # Tytuł menu widać, gdy jest podmenu „Więcej poleceń”.
-        self.open_menu = QMenu("Ostatnie projekty", window)
+        self.open_menu = QMenu(tr("toolbar.recent"), window)
         self.open_menu.aboutToShow.connect(self.refresh_recent_menu)
         self._slots["open"] = _Slot(
             "session",
@@ -244,18 +241,18 @@ class MainToolbar:
 
         self.save_action = _window_action(
             window,
-            "Zapisz projekt",
+            tr("toolbar.save"),
             "save",
             SAVE_PROJECT_SHORTCUT,
-            "Zapisz tekst, metryczkę, szkic ASR i stan odtwarzacza",
+            tr("toolbar.save.tooltip"),
             handlers.save_project,
         )
         self.save_as_action = _window_action(
             window,
-            "Zapisz projekt jako…",
+            tr("toolbar.save_as"),
             None,
             SAVE_PROJECT_AS_SHORTCUT,
-            "Zapisz projekt w nowym pliku",
+            tr("toolbar.save_as.tooltip"),
             handlers.save_project_as,
         )
         save_menu = QMenu(window)
@@ -267,18 +264,14 @@ class MainToolbar:
             (self.save_as_action,),
         )
 
-        self.export_action = QAction("Eksportuj DOCX…", window)
+        self.export_action = QAction(tr("toolbar.export"), window)
         icons.set_icon(self.export_action, "export", "on_accent", "text_muted")
         self.export_action.setShortcut(QKeySequence("Ctrl+E"))
-        self.export_action.setToolTip(
-            _tooltip("Zapisz transkrypcję jako plik Word", "Ctrl+E")
-        )
+        self.export_action.setToolTip(_tooltip(tr("toolbar.export.tooltip"), "Ctrl+E"))
         self.export_action.triggered.connect(lambda _checked=False: handlers.export())
-        self.export_anonymized_action = QAction(
-            "Eksportuj DOCX z anonimizacją…", window
-        )
+        self.export_anonymized_action = QAction(tr("toolbar.export_anonymized"), window)
         self.export_anonymized_action.setToolTip(
-            "Eksport bez pól metryczki oznaczonych jako dane osobowe"
+            tr("toolbar.export_anonymized.tooltip")
         )
         self.export_anonymized_action.triggered.connect(
             lambda _checked=False: handlers.export_anonymized()
@@ -288,10 +281,10 @@ class MainToolbar:
         self._add(self.export_action, menu=export_menu)
         set_props(self._buttons[self.export_action], variant="primary")
 
-        self.close_action = QAction("Zamknij", window)
+        self.close_action = QAction(tr("toolbar.close"), window)
         icons.set_icon(self.close_action, "close", "text_muted", "text_muted")
         self.close_action.setShortcut(QKeySequence.StandardKey.Close)
-        self.close_action.setToolTip(_tooltip("Zamknij aplikację", "Ctrl+W"))
+        self.close_action.setToolTip(_tooltip(tr("toolbar.close.tooltip"), "Ctrl+W"))
         self.close_action.triggered.connect(lambda _checked=False: handlers.close())
         self._slots["close"] = _Slot(
             "session",
@@ -310,8 +303,8 @@ class MainToolbar:
         self.more_button.setObjectName("more_button")
         icons.set_icon(self.more_button, "menu", "text", "text_muted")
         self.more_button.setIconSize(icons.ICON_SIZE)
-        self.more_button.setToolTip("Więcej poleceń")
-        self.more_button.setAccessibleName("Więcej poleceń")
+        self.more_button.setToolTip(tr("toolbar.more"))
+        self.more_button.setAccessibleName(tr("toolbar.more"))
         self.more_button.setAutoRaise(True)
         self.more_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.more_button.setMenu(self.more_menu)
@@ -359,7 +352,7 @@ class MainToolbar:
                 lambda _checked=False, chosen=path: self._open_recent(chosen)
             )
         if not recent:
-            placeholder = menu.addAction("Brak ostatnich projektów")
+            placeholder = menu.addAction(tr("toolbar.recent.empty"))
             placeholder.setEnabled(False)
         menu.addSeparator()
         menu.addAction(self.import_docx_action)

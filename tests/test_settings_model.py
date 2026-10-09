@@ -144,3 +144,13 @@ def test_theme_defaults_to_system_and_validates() -> None:
     assert to_mapping(settings)["appearance/theme"] == "dark"
     assert from_mapping(to_mapping(settings)) == settings
     assert from_mapping({"appearance/theme": "różowy"}) == Settings()
+
+
+def test_language_defaults_to_system_and_validates() -> None:
+    from transkryptor.settings import AppearanceSettings
+
+    assert Settings().appearance.language == "system"
+    settings = Settings(appearance=AppearanceSettings(language="en"))
+    assert to_mapping(settings)["appearance/language"] == "en"
+    assert from_mapping(to_mapping(settings)) == settings
+    assert from_mapping({"appearance/language": "klingoński"}) == Settings()

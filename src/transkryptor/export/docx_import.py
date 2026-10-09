@@ -24,10 +24,23 @@ from docx.text.hyperlink import Hyperlink
 from docx.text.paragraph import Paragraph
 from docx.text.run import Run
 
-from transkryptor.document.metadata import DEFAULT_FIELDS, PLACE, MetadataField
+from transkryptor.document.metadata import (
+    DEFAULT_FIELDS,
+    PLACE,
+    MetadataField,
+    label_variants,
+)
 from transkryptor.errors import ImportDocxError
+from transkryptor.i18n import all_translations, tr
 
-_HEADER_RE = re.compile(r"^\s*Autor:\s*(?P<author>.*?)\s*Data:\s*(?P<date>.*?)\s*$")
+
+def _header_re() -> re.Pattern[str]:
+    """Akapit „Autor: … Data: …” w dowolnym języku eksportu."""
+    author = "|".join(map(re.escape, all_translations("docx.author")))
+    date = "|".join(map(re.escape, all_translations("docx.date")))
+    return re.compile(
+        rf"^\s*(?:{author}):\s*(?P<author>.*?)\s*(?:{date}):\s*(?P<date>.*?)\s*$"
+    )
 
 
 @dataclass(frozen=True)
@@ -50,26 +63,28 @@ class ImportReport:
         lines: list[str] = []
         if self.merged_paragraphs:
             lines.append(
-                f"Złączono {self.merged_paragraphs} {_paragraphs(self.merged_paragraphs)} "
-                "w jeden tekst "
-                "(granice akapitów zachowano jako nowe linie)."
+                tr(
+                    _paragraphs_key(self.merged_paragraphs),
+                    count=self.merged_paragraphs,
+                )
             )
         if self.formatted_runs:
             kinds = ", ".join(
                 f"{name} ({count})" for name, count in self.formatted_runs.items()
             )
-            lines.append(f"Pominięto formatowanie inne niż indeks górny: {kinds}.")
+            lines.append(tr("docx_import.report.formatting", kinds=kinds))
         if self.skipped_tables:
-            lines.append(f"Pominięto tabele poza metryczką: {self.skipped_tables}.")
+            lines.append(tr("docx_import.report.tables", count=self.skipped_tables))
         if self.images:
-            lines.append(f"Pominięto obrazy: {self.images}.")
+            lines.append(tr("docx_import.report.images", count=self.images))
         if self.footnotes:
-            lines.append(f"Pominięto przypisy: {self.footnotes}.")
+            lines.append(tr("docx_import.report.footnotes", count=self.footnotes))
         if self.unknown_metadata:
             lines.append(
-                "Pominięto nieznane pola metryczki: "
-                + ", ".join(self.unknown_metadata)
-                + "."
+                tr(
+                    "docx_import.report.unknown_metadata",
+                    fields=", ".join(self.unknown_metadata),
+                )
             )
         return lines
 
@@ -93,9 +108,8 @@ def import_docx(
         docx = DocxDocument(str(source))
     except Exception as exc:  # python-docx zgłasza różne wyjątki dla złego pliku
         raise ImportDocxError(
-            user_message=f"Nie udało się odczytać pliku „{source.name}” jako DOCX.",
-            retry_hint="Sprawdź, czy plik nie jest uszkodzony i ma format .docx "
-            "(nie .doc).",
+            user_message=tr("docx_import.error.unreadable", name=source.name),
+            retry_hint=tr("docx_import.error.unreadable.hint"),
         ) from exc
     return _Reader(docx, fields).read()
 
@@ -105,8 +119,10 @@ class _Reader:
         self._docx = docx
         labels: dict[str, str] = {}
         for metadata_field in (*DEFAULT_FIELDS, *fields):
-            labels[_label_key(metadata_field.label)] = metadata_field.key
+            for label in label_variants(metadata_field):
+                labels[_label_key(label)] = metadata_field.key
         self._labels = labels
+        self._header_re = _header_re()
         self._formatted: dict[str, int] = {}
 
     def read(self) -> ImportedDocument:
@@ -124,7 +140,7 @@ class _Reader:
                 skipped_tables += 1
                 continue
             if in_header:
-                match = _HEADER_RE.match(block.text)
+                match = self._header_re.match(block.text)
                 if match and author is None:
                     author, date = match["author"], match["date"]
                     continue
@@ -198,13 +214,14 @@ class _Reader:
     def _count_formatting(self, run: Run) -> None:
         font = run.font
         for name, present in (
-            ("pogrubienie", font.bold),
-            ("kursywa", font.italic),
-            ("podkreślenie", font.underline),
-            ("przekreślenie", font.strike),
-            ("indeks dolny", font.subscript),
+            ("docx_import.format.bold", font.bold),
+            ("docx_import.format.italic", font.italic),
+            ("docx_import.format.underline", font.underline),
+            ("docx_import.format.strike", font.strike),
+            ("docx_import.format.subscript", font.subscript),
         ):
             if present:
+                name = tr(name)
                 self._formatted[name] = self._formatted.get(name, 0) + 1
 
 
@@ -230,11 +247,11 @@ def _is_superscript(run: Run) -> bool:
     return False
 
 
-def _paragraphs(count: int) -> str:
+def _paragraphs_key(count: int) -> str:
     """Odmiana „akapit” po liczebniku większym od 1 (2 akapity, 5 akapitów)."""
     if count % 10 in (2, 3, 4) and count % 100 not in (12, 13, 14):
-        return "akapity"
-    return "akapitów"
+        return "docx_import.report.merged_few"
+    return "docx_import.report.merged_many"
 
 
 def _label_key(label: str) -> str:

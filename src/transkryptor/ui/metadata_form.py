@@ -21,8 +21,8 @@ from PySide6.QtWidgets import (
 )
 
 from transkryptor.document.metadata import MetadataField, enabled_fields
+from transkryptor.i18n import tr
 
-TOGGLE_TEXT = "Metryczka nagrania"
 # Pary etykieta–pole w dwóch kolumnach: rozwinięta metryczka nie zabiera
 # edytorowi połowy wysokości karty.
 COLUMNS = 2
@@ -41,9 +41,7 @@ class MetadataForm(QWidget):
         self.toggle.setCheckable(True)
         self.toggle.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.toggle.setArrowType(Qt.ArrowType.RightArrow)
-        self.toggle.setToolTip(
-            "Dane opisowe nagrania; trafiają do projektu i do tabeli w DOCX"
-        )
+        self.toggle.setToolTip(tr("metadata_form.tooltip"))
         self.toggle.toggled.connect(self._on_toggled)
 
         self.details = QWidget()
@@ -82,9 +80,9 @@ class MetadataForm(QWidget):
             edit = QLineEdit()
             edit.setClearButtonEnabled(True)
             if metadata_field.personal:
-                edit.setToolTip("Dane osobowe — pomijane w eksporcie anonimizowanym")
+                edit.setToolTip(tr("metadata_form.personal_tooltip"))
             edit.textChanged.connect(self._on_edited)
-            caption = QLabel(f"{metadata_field.label}:")
+            caption = QLabel(f"{metadata_field.display_label}:")
             caption.setBuddy(edit)
             row, column = divmod(index, COLUMNS)
             self._grid.addWidget(caption, row, column * 2)
@@ -132,4 +130,6 @@ class MetadataForm(QWidget):
 
     def _update_summary(self) -> None:
         filled = sum(1 for edit in self.edits.values() if edit.text().strip())
-        self.toggle.setText(f"{TOGGLE_TEXT} ({filled} z {len(self.edits)})")
+        self.toggle.setText(
+            tr("metadata_form.toggle", filled=filled, total=len(self.edits))
+        )

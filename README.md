@@ -29,4 +29,6 @@ i startuje aplikację):
 
 ## User guide
 
-PL: [User guide](docs/user_guide_pl.pdf)
+PL: [Instrukcja użytkownika](docs/user_guide_pl.pdf)
+
+EN: [User guide](docs/user_guide_en.pdf)

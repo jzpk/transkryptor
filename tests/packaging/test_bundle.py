@@ -22,6 +22,17 @@ def test_vad_asset_is_collected() -> None:
     assert "faster_whisper/assets" in destinations
 
 
+def test_translation_catalogs_are_collected() -> None:
+    """Bez katalogów JSON interfejs w artefakcie pokazywałby klucze tłumaczeń."""
+    datas = bundle.collect_datas()
+    collected = {
+        Path(source).name
+        for source, destination in datas
+        if destination == "transkryptor/i18n/locales"
+    }
+    assert {"pl.json", "en.json"} <= collected
+
+
 def test_collected_data_sources_exist() -> None:
     for source, _ in bundle.collect_datas():
         assert Path(source).is_file()

@@ -3,6 +3,7 @@
 import pytest
 from docx import Document as DocxDocument
 
+from transkryptor import i18n
 from transkryptor.document.metadata import DEFAULT_FIELDS, new_custom_field
 from transkryptor.document.model import Document
 from transkryptor.errors import ImportDocxError
@@ -33,6 +34,31 @@ def test_round_trip_of_exported_document(tmp_path) -> None:
 
     assert imported.text == doc.text
     assert imported.superscript_ranges == doc.superscript_ranges
+    assert imported.author == doc.author
+    assert imported.date == doc.date
+    assert imported.metadata == doc.metadata
+    assert imported.report.is_lossless
+
+
+def test_english_export_uses_english_labels_and_imports_back(tmp_path) -> None:
+    """Eksport w języku interfejsu; import rozpoznaje dokument po angielsku."""
+    doc = Document(
+        text="som",
+        author="Anna Kowalska",
+        date="2026-10-09",
+        metadata={"signature": "AdK_1954", "informant": "KA"},
+    )
+    path = tmp_path / "english.docx"
+    i18n.set_language(i18n.ENGLISH)
+    export_docx(doc, path)
+
+    docx = DocxDocument(str(path))
+    labels = [row.cells[0].text for row in docx.tables[0].rows]
+    assert labels == ["Reference code", "Informant (code)"]
+    assert docx.paragraphs[0].text.startswith("Author: Anna Kowalska")
+
+    i18n.set_language(i18n.POLISH)
+    imported = import_docx(path)
     assert imported.author == doc.author
     assert imported.date == doc.date
     assert imported.metadata == doc.metadata

@@ -11,11 +11,10 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QListWidget, QListWidgetItem
 
+from transkryptor.i18n import tr
 from transkryptor.notation.validator import SEVERITY_HINT, Warning
 from transkryptor.ui import icons
 from transkryptor.ui.theme import set_props, tokens
-
-EMPTY_MESSAGE = "Brak ostrzeżeń"
 
 
 class WarningsPanel(QListWidget):
@@ -38,7 +37,9 @@ class WarningsPanel(QListWidget):
         self.clear()
         if not self._warnings:
             t = tokens()
-            item = QListWidgetItem(icons.icon("check_circle", t.success), EMPTY_MESSAGE)
+            item = QListWidgetItem(
+                icons.icon("check_circle", t.success), tr("warnings.empty")
+            )
             item.setFlags(Qt.ItemFlag.NoItemFlags)
             self.addItem(item)
             return
@@ -49,12 +50,17 @@ class WarningsPanel(QListWidget):
             is_hint = warning.severity == SEVERITY_HINT
             item = QListWidgetItem(
                 hint if is_hint else alert,
-                f"{warning.code} — {warning.message} (poz. {warning.start})",
+                tr(
+                    "warnings.item",
+                    code=warning.code,
+                    message=warning.message,
+                    position=warning.start,
+                ),
             )
             if is_hint:
                 # Wskazówka (np. VAL-05) ma niższą rangę niż błąd struktury.
                 item.setForeground(QColor(t.text_muted))
-            item.setToolTip("Kliknij, aby zaznaczyć ten fragment w tekście")
+            item.setToolTip(tr("warnings.item.tooltip"))
             self.addItem(item)
 
     def warning_count(self) -> int:

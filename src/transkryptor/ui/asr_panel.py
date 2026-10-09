@@ -39,18 +39,15 @@ from transkryptor.asr.engine import SegmentResult, TranscriptionResult
 from transkryptor.asr.manager import DownloadCancelled, ModelManager
 from transkryptor.asr.models import format_size
 from transkryptor.errors import AppError
+from transkryptor.i18n import tr
 from transkryptor.notation.suggestions import RULES, Suggestion
 from transkryptor.ui import icons
 from transkryptor.ui.theme import set_props, tokens
 
-NO_MODEL_STATUS = "Model nie został pobrany."
-MODEL_READY_STATUS = "Model gotowy do pracy offline."
-DOWNLOAD_DIALOG_TITLE = "Pobieranie modelu ASR"
 APPLIED_MARK = "✓"
 PENDING_MARK = "○"
 # Segmenty poniżej tej pewności są wyróżnione jako warte uważnego odsłuchu.
 LOW_CONFIDENCE = 0.6
-LOW_CONFIDENCE_TOOLTIP = "Niska pewność — kliknij, aby odsłuchać ten fragment"
 # Czasy po VAD bywają przesunięte o ułamki sekundy — start nieco wcześniej.
 DEFAULT_SEGMENT_PREROLL_MS = 500
 
@@ -167,42 +164,44 @@ class AsrPanel(QWidget):
         self.setObjectName("asr_panel")
         model = manager.model
         self.info_label = QLabel(
-            f"{model.display_name}\n"
-            f"Licencja {model.license_id} · ok. {format_size(model.approx_size_bytes)}"
+            tr(
+                "asr.model.info",
+                model=model.display_name,
+                license=model.license_id,
+                size=format_size(model.approx_size_bytes),
+            )
         )
         self.info_label.setToolTip(
-            f"Źródło: {model.source_url}\nLokalizacja: {manager.model_dir}"
+            tr("asr.model.info.tooltip", url=model.source_url, path=manager.model_dir)
         )
         self.info_label.setWordWrap(True)
         set_props(self.info_label, role="muted")
         self.model_status_label = QLabel()
         self.model_status_label.setWordWrap(True)
         set_props(self.model_status_label, role="status")
-        self.download_button = QPushButton("Pobierz model…")
+        self.download_button = QPushButton(tr("asr.download"))
         set_props(self.download_button, variant="primary")
         icons.set_icon(self.download_button, "download", "on_accent", "text_muted")
         self.download_progress = QProgressBar()
         self.download_progress.setTextVisible(False)
         self.download_progress.setVisible(False)
-        self.cancel_download_button = QPushButton("Anuluj pobieranie")
+        self.cancel_download_button = QPushButton(tr("asr.download.cancel"))
         set_props(self.cancel_download_button, variant="danger")
         self.cancel_download_button.setVisible(False)
 
-        self.transcribe_button = QPushButton("Utwórz szkic ASR z nagrania")
+        self.transcribe_button = QPushButton(tr("asr.transcribe"))
         set_props(self.transcribe_button, variant="primary")
         icons.set_icon(self.transcribe_button, "sparkles", "on_accent", "text_muted")
         self.transcribe_button.setIconSize(icons.ICON_SIZE)
-        self.cancel_transcribe_button = QPushButton("Anuluj transkrypcję")
+        self.cancel_transcribe_button = QPushButton(tr("loading.cancel"))
         set_props(self.cancel_transcribe_button, variant="danger")
         self.cancel_transcribe_button.setVisible(False)
         self.transcribe_status_label = _AutoHideLabel()
         self.transcribe_status_label.setWordWrap(True)
         set_props(self.transcribe_status_label, role="muted")
-        self.reinsert_draft_button = QPushButton("Wstaw szkic ponownie")
+        self.reinsert_draft_button = QPushButton(tr("asr.reinsert"))
         icons.set_icon(self.reinsert_draft_button, "redo", "text", "text_muted")
-        self.reinsert_draft_button.setToolTip(
-            "Wstawia ostatni szkic ASR do edytora bez powtarzania transkrypcji"
-        )
+        self.reinsert_draft_button.setToolTip(tr("asr.reinsert.tooltip"))
         self.reinsert_draft_button.setEnabled(False)
 
         self.rule_checkboxes: dict[str, QCheckBox] = {}
@@ -211,19 +210,12 @@ class AsrPanel(QWidget):
         for rule in RULES:
             checkbox = QCheckBox(_rule_text(rule.label, rule.confidence))
             checkbox.setChecked(True)
-            checkbox.setToolTip(
-                "Zaznaczona reguła zostanie zastosowana do szkicu od razu; "
-                "niezaznaczona pojawi się na liście jako propozycja."
-            )
+            checkbox.setToolTip(tr("asr.rule.tooltip"))
             rules_layout.addWidget(checkbox)
             self.rule_checkboxes[rule.code] = checkbox
 
         self.segments_list = QListWidget()
-        self.segments_list.setToolTip(
-            "Fragmenty szkicu z przybliżoną pewnością modelu; "
-            "wyróżnione warto odsłuchać szczególnie uważnie. "
-            "Kliknij segment, aby odsłuchać nagranie od jego początku."
-        )
+        self.segments_list.setToolTip(tr("asr.segments.tooltip"))
         self.segments_list.setMinimumHeight(110)
         self.segments_list.setWordWrap(True)
         self.segments_list.setHorizontalScrollBarPolicy(
@@ -231,23 +223,19 @@ class AsrPanel(QWidget):
         )
         self.suggestions_list = QListWidget()
         self.suggestions_list.setToolTip(
-            f"{APPLIED_MARK} zmiana zastosowana automatycznie, "
-            f"{PENDING_MARK} propozycja do decyzji. Kliknięcie zaznacza "
-            "fragment w edytorze, dwuklik stosuje propozycję."
+            tr("asr.review.tooltip", applied=APPLIED_MARK, pending=PENDING_MARK)
         )
         self.suggestions_list.setMinimumHeight(130)
         self.suggestions_list.setWordWrap(True)
         self.suggestions_list.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff
         )
-        self.apply_suggestion_button = QPushButton("Zastosuj propozycję")
+        self.apply_suggestion_button = QPushButton(tr("asr.review.apply"))
         icons.set_icon(self.apply_suggestion_button, "check", "text", "text_muted")
         self.apply_suggestion_button.setEnabled(False)
-        self.finish_review_button = QPushButton("Zakończ przegląd")
+        self.finish_review_button = QPushButton(tr("asr.review.finish"))
         set_props(self.finish_review_button, variant="ghost")
-        self.finish_review_button.setToolTip(
-            "Usuwa podświetlenia i listę zmian; tekst pozostaje bez zmian"
-        )
+        self.finish_review_button.setToolTip(tr("asr.review.finish.tooltip"))
         self.finish_review_button.setEnabled(False)
 
         # Krok 1: model.
@@ -257,7 +245,7 @@ class AsrPanel(QWidget):
         download_row.addStretch(1)
         model_step = _step(
             "1",
-            "Model rozpoznawania mowy",
+            tr("asr.step.model"),
             [
                 self.info_label,
                 self.model_status_label,
@@ -266,10 +254,7 @@ class AsrPanel(QWidget):
             ],
         )
         # Krok 2: reguły.
-        rules_hint = QLabel(
-            "Zaznaczone reguły są stosowane od razu po wstawieniu szkicu; "
-            "pozostałe trafią na listę jako propozycje."
-        )
+        rules_hint = QLabel(tr("asr.rules.hint"))
         rules_hint.setWordWrap(True)
         set_props(rules_hint, role="muted")
         # Reguły są zwinięte do podsumowania: rozwinięte wypychały listę
@@ -294,7 +279,7 @@ class AsrPanel(QWidget):
         self._update_rules_summary()
         rules_step = _step(
             "2",
-            "Reguły zapisu fonetycznego",
+            tr("asr.step.rules"),
             [self.rules_toggle, self.rules_details],
         )
         # Krok 3: szkic.
@@ -303,7 +288,7 @@ class AsrPanel(QWidget):
         transcribe_row.addWidget(self.cancel_transcribe_button)
         draft_step = _step(
             "3",
-            "Szkic z nagrania",
+            tr("asr.step.draft"),
             [transcribe_row, self.transcribe_status_label, self.reinsert_draft_button],
         )
 
@@ -323,12 +308,12 @@ class AsrPanel(QWidget):
         layout.addWidget(_divider())
         segments_box = QVBoxLayout()
         segments_box.setSpacing(6)
-        segments_box.addWidget(_section_label("Segmenty i pewność"))
+        segments_box.addWidget(_section_label(tr("asr.segments")))
         segments_box.addWidget(self.segments_list, stretch=1)
         layout.addLayout(segments_box, stretch=2)
         review_box = QVBoxLayout()
         review_box.setSpacing(6)
-        review_box.addWidget(_section_label("Zmiany i propozycje do przeglądu"))
+        review_box.addWidget(_section_label(tr("asr.review")))
         review_box.addWidget(self.suggestions_list, stretch=1)
         review_box.addLayout(review_row)
         layout.addLayout(review_box, stretch=3)
@@ -369,7 +354,7 @@ class AsrPanel(QWidget):
         """Aktualizuje status modelu i dostępność akcji."""
         ready = self._manager.is_downloaded()
         self._set_model_status(
-            MODEL_READY_STATUS if ready else NO_MODEL_STATUS,
+            tr("asr.model.ready") if ready else tr("asr.model.missing"),
             "success" if ready else "neutral",
         )
         self.download_button.setVisible(not ready)
@@ -384,9 +369,18 @@ class AsrPanel(QWidget):
 
     def _update_rules_summary(self) -> None:
         enabled = len(self.selected_rule_codes())
-        action = "zwiń" if self.rules_toggle.isChecked() else "zmień"
+        action = (
+            tr("asr.rules.collapse")
+            if self.rules_toggle.isChecked()
+            else tr("asr.rules.change")
+        )
         self.rules_toggle.setText(
-            f"Stosowane automatycznie: {enabled} z {len(self.rule_checkboxes)} ({action})"
+            tr(
+                "asr.rules.summary",
+                enabled=enabled,
+                total=len(self.rule_checkboxes),
+                action=action,
+            )
         )
 
     def _set_model_status(self, text: str, tone: str) -> None:
@@ -425,7 +419,7 @@ class AsrPanel(QWidget):
         """Żąda pobrania modelu po jawnej zgodzie użytkownika (REQ-10)."""
         answer = QMessageBox.question(
             self,
-            DOWNLOAD_DIALOG_TITLE,
+            tr("asr.download.title"),
             self.download_consent_text(),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
@@ -437,15 +431,13 @@ class AsrPanel(QWidget):
     def download_consent_text(self) -> str:
         """Treść pytania o zgodę: nazwa, źródło, licencja, rozmiar, katalog."""
         model = self._manager.model
-        return (
-            "Transkryptor pobierze jednorazowo model rozpoznawania mowy.\n\n"
-            f"Model: {model.display_name}\n"
-            f"Źródło: {model.source_url}\n"
-            f"Licencja: {model.license_id}\n"
-            f"Rozmiar: ok. {format_size(model.approx_size_bytes)}\n"
-            f"Lokalizacja: {self._manager.model_dir}\n\n"
-            "Po pobraniu nagrania są przetwarzane w pełni lokalnie, "
-            "bez połączenia z Internetem. Czy pobrać model teraz?"
+        return tr(
+            "asr.download.consent",
+            model=model.display_name,
+            url=model.source_url,
+            license=model.license_id,
+            size=format_size(model.approx_size_bytes),
+            path=self._manager.model_dir,
         )
 
     def _start_download(self) -> None:
@@ -453,7 +445,7 @@ class AsrPanel(QWidget):
         self.download_progress.setRange(0, 0)
         self.download_progress.setVisible(True)
         self.cancel_download_button.setVisible(True)
-        self._set_model_status("Pobieranie modelu…", "accent")
+        self._set_model_status(tr("asr.download.progress"), "accent")
         thread = DownloadThread(self._manager, self)
         thread.progressed.connect(self._on_download_progress)
         thread.succeeded.connect(self._on_download_succeeded)
@@ -468,7 +460,13 @@ class AsrPanel(QWidget):
             self.download_progress.setValue(int(done))
         percent = f" — {done / total:.0%}" if total else ""
         self._set_model_status(
-            f"Pobieranie „{name}”… ({format_size(done)}{percent})", "accent"
+            tr(
+                "asr.download.file",
+                name=name,
+                done=format_size(done),
+                percent=percent,
+            ),
+            "accent",
         )
 
     def _on_download_succeeded(self) -> None:
@@ -477,12 +475,12 @@ class AsrPanel(QWidget):
 
     def _on_download_failed(self, error: AppError) -> None:
         self._finish_download()
-        self._set_model_status(NO_MODEL_STATUS, "danger")
-        self._show_error("Pobieranie modelu", error)
+        self._set_model_status(tr("asr.model.missing"), "danger")
+        self._show_error(tr("asr.download.error"), error)
 
     def _on_download_cancelled(self) -> None:
         self._finish_download()
-        self._set_model_status("Pobieranie anulowane.", "neutral")
+        self._set_model_status(tr("asr.download.cancelled"), "neutral")
 
     def _finish_download(self) -> None:
         thread = self._download_thread
@@ -505,11 +503,11 @@ class AsrPanel(QWidget):
     def _on_transcribe_clicked(self) -> None:
         audio_path = self._audio_path_provider()
         if audio_path is None:
-            self.transcribe_status_label.setText("Najpierw zaimportuj nagranie audio.")
+            self.transcribe_status_label.setText(tr("asr.no_audio"))
             return
         self.transcribe_button.setEnabled(False)
         self.cancel_transcribe_button.setVisible(True)
-        self.transcribe_status_label.setText("Transkrypcja w toku…")
+        self.transcribe_status_label.setText(tr("asr.transcribing"))
         self.segments_list.clear()
         self.reinsert_draft_button.setEnabled(False)
         thread = TranscribeThread(
@@ -526,7 +524,7 @@ class AsrPanel(QWidget):
 
     def _on_transcribe_progress(self, fraction: float) -> None:
         self.transcribe_status_label.setText(
-            f"Transkrypcja w toku… {int(fraction * 100)}%"
+            tr("asr.transcribing.percent", percent=int(fraction * 100))
         )
         self.transcription_progress.emit(fraction)
 
@@ -538,7 +536,7 @@ class AsrPanel(QWidget):
         item.setData(Qt.ItemDataRole.UserRole, int(segment.start_s * 1000))
         if segment.confidence < LOW_CONFIDENCE:
             item.setForeground(QColor(tokens().warning))
-            item.setToolTip(LOW_CONFIDENCE_TOOLTIP)
+            item.setToolTip(tr("asr.low_confidence.tooltip"))
         self.segments_list.addItem(item)
 
     def _on_transcribe_succeeded(self, result: TranscriptionResult) -> None:
@@ -546,24 +544,20 @@ class AsrPanel(QWidget):
         self._last_draft = result.text
         self._last_result = result
         if not result.text.strip():
-            self.transcribe_status_label.setText(
-                "Transkrypcja nie rozpoznała mowy w nagraniu."
-            )
+            self.transcribe_status_label.setText(tr("asr.no_speech"))
             return
         self.reinsert_draft_button.setEnabled(True)
-        self.transcribe_status_label.setText(
-            "Szkic gotowy — sprawdź podświetlone zmiany w edytorze."
-        )
+        self.transcribe_status_label.setText(tr("asr.draft_ready"))
         self.draft_ready.emit(result.text)
 
     def _on_transcribe_failed(self, error: AppError) -> None:
         self._finish_transcribe()
-        self.transcribe_status_label.setText("Transkrypcja nie powiodła się.")
-        self._show_error("Transkrypcja ASR", error)
+        self.transcribe_status_label.setText(tr("asr.failed"))
+        self._show_error(tr("asr.failed.title"), error)
 
     def _on_transcribe_cancelled(self) -> None:
         self._finish_transcribe()
-        self.transcribe_status_label.setText("Transkrypcja anulowana.")
+        self.transcribe_status_label.setText(tr("asr.cancelled"))
 
     def _finish_transcribe(self) -> None:
         thread = self._transcribe_thread
@@ -595,7 +589,7 @@ class AsrPanel(QWidget):
                 self._on_segment_ready(segment)
         self.reinsert_draft_button.setEnabled(bool(self._last_draft.strip()))
         self.transcribe_status_label.setText(
-            "Szkic ASR wczytany z projektu." if self._last_draft.strip() else ""
+            tr("asr.restored") if self._last_draft.strip() else ""
         )
 
     def is_transcribing(self) -> bool:
@@ -626,7 +620,7 @@ class AsrPanel(QWidget):
         self._review_applied = [applied for _suggestion, applied in items]
         self.suggestions_list.clear()
         if not items:
-            item = QListWidgetItem("Brak dopasowań reguł zapisu fonetycznego")
+            item = QListWidgetItem(tr("asr.review.empty"))
             item.setFlags(Qt.ItemFlag.NoItemFlags)
             self.suggestions_list.addItem(item)
         for suggestion, applied in items:
@@ -690,7 +684,7 @@ def _rule_text(label: str, confidence: float) -> str:
     """Dwie linie: reguła, potem przykład i pewność — mieszczą się w panelu."""
     rule, has_example, example = label.partition(" (")
     detail = f"{example.removesuffix(')')} · " if has_example else ""
-    return f"{rule}\n{detail}pewność {confidence:.0%}"
+    return f"{rule}\n{detail}{tr('asr.confidence', confidence=f'{confidence:.0%}')}"
 
 
 def _section_label(text: str) -> QLabel:

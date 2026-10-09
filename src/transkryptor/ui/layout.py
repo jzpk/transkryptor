@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from transkryptor.i18n import tr, tr_plural
 from transkryptor.ui.theme import set_props
 
 
@@ -78,7 +79,7 @@ def buddy_caption(text: str, buddy: QWidget) -> QLabel:
 
 def author_field() -> QLineEdit:
     field = QLineEdit()
-    field.setPlaceholderText("Imię i nazwisko transkrybenta")
+    field.setPlaceholderText(tr("main.author.placeholder"))
     field.setClearButtonEnabled(True)
     field.setMinimumWidth(220)
     return field
@@ -111,8 +112,4 @@ def side_dock(
 
 def words_label(count: int) -> str:
     """Odmiana „słowo” po liczebniku (1 słowo, 2 słowa, 5 słów)."""
-    if count == 1:
-        return "słowo"
-    if count % 10 in (2, 3, 4) and count % 100 not in (12, 13, 14):
-        return "słowa"
-    return "słów"
+    return tr_plural("main.words", count)

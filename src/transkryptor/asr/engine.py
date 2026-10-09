@@ -18,6 +18,7 @@ from typing import Any, Protocol
 
 from transkryptor.asr.models import DEFAULT_MODEL, AsrModelInfo
 from transkryptor.errors import AppError, ModelDownloadError
+from transkryptor.i18n import tr
 
 LANGUAGE = "pl"
 
@@ -96,14 +97,14 @@ def transcribe(
     audio = Path(audio_path)
     if not audio.is_file():
         raise TranscriptionError(
-            user_message=f"Nie znaleziono pliku nagrania „{audio.name}”.",
-            retry_hint="Zaimportuj nagranie ponownie.",
+            user_message=tr("asr.error.audio_missing", name=audio.name),
+            retry_hint=tr("asr.error.audio_missing.hint"),
         )
     model_path = Path(model_dir)
     if not (model_path / ".complete").is_file():
         raise ModelDownloadError(
-            user_message=(f"Model {model.display_name} nie został jeszcze pobrany."),
-            retry_hint="Pobierz model w panelu ASR i spróbuj ponownie.",
+            user_message=tr("asr.error.not_downloaded", model=model.display_name),
+            retry_hint=tr("asr.error.not_downloaded.hint"),
         )
     if cancel():
         raise TranscriptionCancelled()
@@ -119,8 +120,8 @@ def transcribe(
         raise
     except Exception as error:  # noqa: BLE001 — normalizacja do AppError
         raise TranscriptionError(
-            user_message=f"Nie udało się wykonać transkrypcji: {error}",
-            retry_hint="Spróbuj ponownie lub pobierz model jeszcze raz.",
+            user_message=tr("asr.error.transcribe", reason=error),
+            retry_hint=tr("asr.error.transcribe.hint"),
         ) from error
     duration = float(getattr(info, "duration", 0) or 0)
     progress = 0.0

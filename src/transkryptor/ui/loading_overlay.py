@@ -30,61 +30,38 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from transkryptor.i18n import tr
+
 MESSAGE_INTERVAL_MS = 12_000
 SPINNER_INTERVAL_MS = 16
 ETA_TICK_MS = 1_000
 # Szacunek pokazujemy dopiero po tylu sekundach od pierwszego postępu —
 # wcześniej tempo jest zbyt chwiejne, by cokolwiek obiecywać.
 ETA_MIN_SAMPLE_S = 10.0
-ETA_PENDING_TEXT = "Szacowanie pozostałego czasu…"
+LOADING_MESSAGE_COUNT = 30
 
-LOADING_MESSAGES: tuple[str, ...] = (
-    "Szukanie zgubionych przecinków…",
-    "Odkurzanie samogłosek…",
-    "Prostowanie pogiętych spółgłosek…",
-    "Liczenie „yyy” i „eee”…",
-    "Tłumaczenie mruczenia na polski…",
-    "Wyciąganie słów ze szumu…",
-    "Parzenie kawy dla modelu…",
-    "Rozplątywanie zdań wielokrotnie złożonych…",
-    "Polerowanie ogonków przy ą i ę…",
-    "Dopasowywanie kropek do końców zdań…",
-    "Przesłuchiwanie podejrzanie cichych fragmentów…",
-    "Łapanie słów, które uciekły mówiącemu…",
-    "Sortowanie „sz”, „cz” i „rz”…",
-    "Nastawianie uszu na maksimum…",
-    "Odróżnianie „ż” od „rz” na słuch…",
-    "Wymiatanie echa z kątów nagrania…",
-    "Konsultacje z duchem Słownika Języka Polskiego…",
-    "Ważenie każdej sylaby z osobna…",
-    "Przewijanie taśmy ołówkiem…",
-    "Wyjaśnianie modelowi, czym jest „no weź”…",
-    "Rozdzielanie sklejonych wyrazów…",
-    "Doklejanie urwanych końcówek…",
-    "Układanie słów w kolejności alfabetycznej… (żart)",
-    "Sprawdzanie, czy „tego” to słowo, czy westchnienie…",
-    "Negocjacje z pauzami o ich długość…",
-    "Wyławianie sensu z potoku słów…",
-    "Ostrzenie ołówka transkrybenta…",
-    "Uspokajanie rozgadanych neuronów…",
-    "Zaglądanie między wiersze…",
-    "Jeszcze tylko chwilka, słowo daję…",
-)
+
+def loading_messages() -> tuple[str, ...]:
+    """Żartobliwe komunikaty pokazywane w trakcie transkrypcji."""
+    return tuple(
+        tr(f"loading.message.{number:02d}")
+        for number in range(1, LOADING_MESSAGE_COUNT + 1)
+    )
 
 
 def format_remaining(seconds: float) -> str:
     """Zgrubny, zaokrąglony w górę opis pozostałego czasu."""
     if seconds <= 0:
-        return "Jeszcze chwila…"
+        return tr("loading.eta.soon")
     if seconds < 60:
-        return "Pozostało mniej niż minuta"
+        return tr("loading.eta.under_minute")
     minutes = math.ceil(seconds / 60)
     if minutes < 60:
-        return f"Pozostało ok. {minutes} min"
+        return tr("loading.eta.minutes", minutes=minutes)
     hours, minutes = divmod(minutes, 60)
     if not minutes:
-        return f"Pozostało ok. {hours} godz."
-    return f"Pozostało ok. {hours} godz. {minutes} min"
+        return tr("loading.eta.hours", hours=hours)
+    return tr("loading.eta.hours_minutes", hours=hours, minutes=minutes)
 
 
 class Spinner(QWidget):
@@ -207,7 +184,7 @@ class LoadingOverlay(QWidget):
     def __init__(
         self,
         parent: QWidget,
-        messages: tuple[str, ...] = LOADING_MESSAGES,
+        messages: tuple[str, ...] | None = None,
         interval_ms: int = MESSAGE_INTERVAL_MS,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
@@ -219,7 +196,7 @@ class LoadingOverlay(QWidget):
         # modelu nie zawyżało szacunku.
         self._first_sample: tuple[float, float] | None = None
         self._eta_deadline: float | None = None
-        self._messages = list(messages)
+        self._messages = list(loading_messages() if messages is None else messages)
         self._queue: list[str] = []
         self.setObjectName("loading_overlay")
         self.setStyleSheet(
@@ -231,12 +208,12 @@ class LoadingOverlay(QWidget):
         card.setObjectName("loading_card")
         card.setFixedWidth(420)
         self.spinner = Spinner(card)
-        self.title_label = QLabel("Trwa transkrypcja nagrania")
+        self.title_label = QLabel(tr("loading.title"))
         title_font = self.title_label.font()
         title_font.setBold(True)
         title_font.setPointSizeF(title_font.pointSizeF() * 1.2)
         self.title_label.setFont(title_font)
-        self.eta_label = QLabel(ETA_PENDING_TEXT)
+        self.eta_label = QLabel(tr("loading.eta_pending"))
         self.message_label = QLabel()
         self.message_label.setWordWrap(True)
         message_font = self.message_label.font()
@@ -246,11 +223,9 @@ class LoadingOverlay(QWidget):
         self.message_label.setMinimumHeight(
             self.message_label.fontMetrics().lineSpacing() * 2
         )
-        self.hint_label = QLabel(
-            "Przetwarzanie odbywa się lokalnie i może potrwać kilka minut."
-        )
+        self.hint_label = QLabel(tr("loading.hint"))
         self.hint_label.setWordWrap(True)
-        self.cancel_button = QPushButton("Anuluj transkrypcję")
+        self.cancel_button = QPushButton(tr("loading.cancel"))
 
         card_layout = QVBoxLayout(card)
         card_layout.setContentsMargins(32, 28, 32, 24)
@@ -290,7 +265,7 @@ class LoadingOverlay(QWidget):
         self.spinner.set_progress(None)
         self._first_sample = None
         self._eta_deadline = None
-        self.eta_label.setText(ETA_PENDING_TEXT)
+        self.eta_label.setText(tr("loading.eta_pending"))
         self._queue = []
         self.next_message()
         self.setGeometry(self._host.rect())
@@ -344,7 +319,7 @@ class LoadingOverlay(QWidget):
 
     def _on_cancel_clicked(self) -> None:
         self.cancel_button.setEnabled(False)
-        self.message_label.setText("Anulowanie… kończymy bieżący fragment.")
+        self.message_label.setText(tr("loading.cancelling"))
         self._message_timer.stop()
         self._eta_timer.stop()
         self.eta_label.setText("")

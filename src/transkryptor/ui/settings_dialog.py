@@ -39,11 +39,13 @@ from transkryptor.document.metadata import (
     encode_fields,
     new_custom_field,
 )
+from transkryptor.i18n import LANGUAGES, tr
 from transkryptor.notation.ellipsis import EllipsisStyle
 from transkryptor.settings import (
     AUTO_REWIND_RANGE_MS,
     AUTOSAVE_INTERVAL_RANGE_S,
     FONT_SIZE_RANGE_PT,
+    LANGUAGE_SYSTEM,
     SEGMENT_PREROLL_RANGE_MS,
     SKIP_RANGE_MS,
     THEME_DARK,
@@ -59,23 +61,25 @@ from transkryptor.settings import (
 )
 from transkryptor.ui.theme import set_props
 
-DIALOG_TITLE = "Ustawienia"
-THEME_LABELS = {
-    THEME_SYSTEM: "Zgodny z systemem",
-    THEME_LIGHT: "Jasny",
-    THEME_DARK: "Ciemny",
-}
-DEFAULT_FONT_LABEL = "Domyślna"
-DEFAULT_SIZE_LABEL = "Domyślny"
-ELLIPSIS_STYLE_LABELS = {
-    EllipsisStyle.UNICODE: "…  (jeden znak, U+2026)",
-    EllipsisStyle.ASCII: "...  (trzy kropki)",
-}
-ELLIPSIS_CHANGE_HINT = (
-    "Istniejący tekst się nie zmienia — nowe pauzy i walidacja użyją "
-    "nowego zapisu. Starsze wielokropki zamienisz akcją "
-    "„Ujednolić wielokropki” nad listą ostrzeżeń."
-)
+
+def theme_labels() -> dict[str, str]:
+    return {
+        THEME_SYSTEM: tr("settings.theme.system"),
+        THEME_LIGHT: tr("settings.theme.light"),
+        THEME_DARK: tr("settings.theme.dark"),
+    }
+
+
+def language_labels() -> dict[str, str]:
+    """Nazwy języków w nich samych — rozpoznawalne niezależnie od bieżącego."""
+    return {LANGUAGE_SYSTEM: tr("settings.language.system"), **LANGUAGES}
+
+
+def ellipsis_style_labels() -> dict[EllipsisStyle, str]:
+    return {
+        EllipsisStyle.UNICODE: tr("settings.ellipsis.unicode"),
+        EllipsisStyle.ASCII: tr("settings.ellipsis.ascii"),
+    }
 
 
 class SettingsDialog(QDialog):
@@ -83,22 +87,24 @@ class SettingsDialog(QDialog):
 
     def __init__(self, settings: Settings, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle(DIALOG_TITLE)
+        self.setWindowTitle(tr("settings.title"))
         self.setObjectName("settings_dialog")
 
         self.skip_spin = _seconds_spin(SKIP_RANGE_MS)
-        self.auto_rewind_check = QCheckBox("Cofaj nagranie przy wznowieniu po pauzie")
+        self.auto_rewind_check = QCheckBox(tr("settings.player.auto_rewind"))
         self.auto_rewind_spin = _seconds_spin(AUTO_REWIND_RANGE_MS)
         self.auto_rewind_check.toggled.connect(self.auto_rewind_spin.setEnabled)
         self.preroll_spin = _seconds_spin(SEGMENT_PREROLL_RANGE_MS)
 
         player_form = _form()
-        player_form.addRow("Skok w przód i w tył:", self.skip_spin)
+        player_form.addRow(tr("settings.player.skip"), self.skip_spin)
         player_form.addRow(self.auto_rewind_check)
-        player_form.addRow("Długość auto-cofania:", self.auto_rewind_spin)
-        player_form.addRow("Start przed segmentem ASR:", self.preroll_spin)
+        player_form.addRow(
+            tr("settings.player.auto_rewind_length"), self.auto_rewind_spin
+        )
+        player_form.addRow(tr("settings.player.preroll"), self.preroll_spin)
 
-        self.default_font_check = QCheckBox(f"{DEFAULT_FONT_LABEL} czcionka edytora")
+        self.default_font_check = QCheckBox(tr("settings.editor.default_font"))
         self.font_combo = QFontComboBox()
         self.default_font_check.toggled.connect(
             lambda checked: self.font_combo.setEnabled(not checked)
@@ -106,38 +112,41 @@ class SettingsDialog(QDialog):
         self.font_size_spin = QSpinBox()
         # Wartość 0 („Domyślny”) leży tuż pod zakresem rozmiarów.
         self.font_size_spin.setRange(FONT_SIZE_RANGE_PT[0] - 1, FONT_SIZE_RANGE_PT[1])
-        self.font_size_spin.setSpecialValueText(DEFAULT_SIZE_LABEL)
+        self.font_size_spin.setSpecialValueText(tr("settings.editor.default_size"))
         self.font_size_spin.setSuffix(" pt")
 
         self.theme_combo = QComboBox()
-        for value, theme_label in THEME_LABELS.items():
+        for value, theme_label in theme_labels().items():
             self.theme_combo.addItem(theme_label, value)
-        self.theme_combo.setToolTip(
-            "„Zgodny z systemem” przełącza się razem z trybem jasnym/ciemnym "
-            "systemu operacyjnego"
-        )
+        self.theme_combo.setToolTip(tr("settings.theme.tooltip"))
+        self.language_combo = QComboBox()
+        for code, language_label in language_labels().items():
+            self.language_combo.addItem(language_label, code)
+        self.language_hint = QLabel(tr("settings.language.restart_hint"))
+        self.language_hint.setWordWrap(True)
+        set_props(self.language_hint, role="muted")
+        self.language_combo.currentIndexChanged.connect(self._update_language_hint)
         appearance_form = _form()
-        appearance_form.addRow("Motyw:", self.theme_combo)
+        appearance_form.addRow(tr("settings.language"), self.language_combo)
+        appearance_form.addRow(self.language_hint)
+        appearance_form.addRow(tr("settings.theme"), self.theme_combo)
         appearance_form.addRow(self.default_font_check)
-        appearance_form.addRow("Czcionka edytora:", self.font_combo)
-        appearance_form.addRow("Rozmiar tekstu:", self.font_size_spin)
+        appearance_form.addRow(tr("settings.editor.font"), self.font_combo)
+        appearance_form.addRow(tr("settings.editor.size"), self.font_size_spin)
 
         self.ellipsis_combo = QComboBox()
-        for style, label in ELLIPSIS_STYLE_LABELS.items():
+        for style, label in ellipsis_style_labels().items():
             self.ellipsis_combo.addItem(label, style.value)
-        self.ellipsis_hint = QLabel(ELLIPSIS_CHANGE_HINT)
+        self.ellipsis_hint = QLabel(tr("settings.ellipsis.change_hint"))
         self.ellipsis_hint.setWordWrap(True)
         set_props(self.ellipsis_hint, role="muted")
         self.ellipsis_combo.currentIndexChanged.connect(self._update_ellipsis_hint)
         notation_form = _form()
-        notation_form.addRow("Styl wielokropka:", self.ellipsis_combo)
+        notation_form.addRow(tr("settings.ellipsis.style"), self.ellipsis_combo)
         notation_form.addRow(self.ellipsis_hint)
 
-        self.autosave_check = QCheckBox("Autozapis bieżącej pracy")
-        self.autosave_check.setToolTip(
-            "Kopia stanu pracy w katalogu danych aplikacji, usuwana po "
-            "poprawnym zamknięciu; pozwala odzyskać pracę po awarii"
-        )
+        self.autosave_check = QCheckBox(tr("settings.autosave"))
+        self.autosave_check.setToolTip(tr("settings.autosave.tooltip"))
         self.autosave_spin = QSpinBox()
         self.autosave_spin.setRange(*AUTOSAVE_INTERVAL_RANGE_S)
         self.autosave_spin.setSingleStep(30)
@@ -145,10 +154,12 @@ class SettingsDialog(QDialog):
         self.autosave_check.toggled.connect(self.autosave_spin.setEnabled)
         project_form = _form()
         project_form.addRow(self.autosave_check)
-        project_form.addRow("Interwał autozapisu:", self.autosave_spin)
+        project_form.addRow(tr("settings.autosave.interval"), self.autosave_spin)
 
         self.metadata_table = QTableWidget(0, 2)
-        self.metadata_table.setHorizontalHeaderLabels(["Pole", "Dane osobowe"])
+        self.metadata_table.setHorizontalHeaderLabels(
+            [tr("settings.metadata.field"), tr("settings.metadata.personal")]
+        )
         self.metadata_table.verticalHeader().setVisible(False)
         header = self.metadata_table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
@@ -160,17 +171,14 @@ class SettingsDialog(QDialog):
             QAbstractItemView.SelectionMode.SingleSelection
         )
         self.metadata_table.setMinimumWidth(320)
-        metadata_hint = QLabel(
-            "Zaznaczone pola są w formularzu metryczki i w eksporcie DOCX, "
-            "w tej kolejności. Pola osobowe pomija eksport anonimizowany."
-        )
+        metadata_hint = QLabel(tr("settings.metadata.hint"))
         metadata_hint.setWordWrap(True)
         set_props(metadata_hint, role="muted")
-        self.field_up_button = QPushButton("Wyżej")
-        self.field_down_button = QPushButton("Niżej")
-        self.add_field_button = QPushButton("Dodaj pole…")
-        self.remove_field_button = QPushButton("Usuń pole")
-        self.remove_field_button.setToolTip("Usuwa pole dodane przez zespół")
+        self.field_up_button = QPushButton(tr("settings.metadata.up"))
+        self.field_down_button = QPushButton(tr("settings.metadata.down"))
+        self.add_field_button = QPushButton(tr("settings.metadata.add"))
+        self.remove_field_button = QPushButton(tr("settings.metadata.remove"))
+        self.remove_field_button.setToolTip(tr("settings.metadata.remove.tooltip"))
         self.field_up_button.clicked.connect(lambda: self._move_field(-1))
         self.field_down_button.clicked.connect(lambda: self._move_field(1))
         self.add_field_button.clicked.connect(self._on_add_field)
@@ -194,11 +202,11 @@ class SettingsDialog(QDialog):
         metadata_layout.addLayout(field_buttons)
 
         self.tabs = QTabWidget()
-        self.tabs.addTab(_page(appearance_form), "Wygląd")
-        self.tabs.addTab(_page(player_form), "Odtwarzacz")
-        self.tabs.addTab(_page(notation_form), "Notacja")
-        self.tabs.addTab(_page(project_form), "Projekt")
-        self.tabs.addTab(metadata_page, "Metryczka")
+        self.tabs.addTab(_page(appearance_form), tr("settings.tab.appearance"))
+        self.tabs.addTab(_page(player_form), tr("settings.tab.player"))
+        self.tabs.addTab(_page(notation_form), tr("settings.tab.notation"))
+        self.tabs.addTab(_page(project_form), tr("settings.tab.project"))
+        self.tabs.addTab(metadata_page, tr("settings.tab.metadata"))
 
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok
@@ -210,7 +218,7 @@ class SettingsDialog(QDialog):
         self.restore_defaults_button: QPushButton = buttons.button(
             QDialogButtonBox.StandardButton.RestoreDefaults
         )
-        self.restore_defaults_button.setText("Przywróć domyślne")
+        self.restore_defaults_button.setText(tr("settings.restore_defaults"))
         self.restore_defaults_button.clicked.connect(
             lambda: self.set_settings(Settings())
         )
@@ -221,12 +229,16 @@ class SettingsDialog(QDialog):
         self.setMinimumSize(520, 420)
 
         self._initial_ellipsis_style = settings.notation.ellipsis_style
+        self._initial_language = settings.appearance.language
         self.set_settings(settings)
 
     def set_settings(self, settings: Settings) -> None:
         """Wypełnia pola wartościami ``settings``."""
         index = self.theme_combo.findData(settings.appearance.theme)
         self.theme_combo.setCurrentIndex(max(index, 0))
+        index = self.language_combo.findData(settings.appearance.language)
+        self.language_combo.setCurrentIndex(max(index, 0))
+        self._update_language_hint()
 
         player = settings.player
         self.skip_spin.setValue(player.skip_ms / 1000)
@@ -271,7 +283,11 @@ class SettingsDialog(QDialog):
             if name_item is None or personal_item is None:
                 continue
             key = str(name_item.data(Qt.ItemDataRole.UserRole))
-            label = name_item.text().strip() or _default_label(key)
+            label = (
+                _default_label(key)
+                if key in DEFAULT_KEYS
+                else name_item.text().strip() or key
+            )
             fields.append(
                 MetadataField(
                     key,
@@ -292,7 +308,7 @@ class SettingsDialog(QDialog):
     def _append_field(self, metadata_field: MetadataField) -> None:
         row = self.metadata_table.rowCount()
         self.metadata_table.insertRow(row)
-        name_item = QTableWidgetItem(metadata_field.label)
+        name_item = QTableWidgetItem(metadata_field.display_label)
         flags = (
             Qt.ItemFlag.ItemIsEnabled
             | Qt.ItemFlag.ItemIsSelectable
@@ -314,7 +330,9 @@ class SettingsDialog(QDialog):
         self.metadata_table.setItem(row, 1, personal_item)
 
     def _on_add_field(self) -> None:
-        label, accepted = QInputDialog.getText(self, "Nowe pole metryczki", "Etykieta:")
+        label, accepted = QInputDialog.getText(
+            self, tr("settings.metadata.new_title"), tr("settings.metadata.new_label")
+        )
         if accepted:
             self.add_custom_field(label)
 
@@ -351,6 +369,11 @@ class SettingsDialog(QDialog):
         changed = self.ellipsis_combo.currentData() != self._initial_ellipsis_style
         self.ellipsis_hint.setVisible(changed)
 
+    def _update_language_hint(self) -> None:
+        """Komunikat o restarcie tylko po zmianie języka względem bieżącego."""
+        changed = self.language_combo.currentData() != self._initial_language
+        self.language_hint.setVisible(changed)
+
     def settings(self) -> Settings:
         """Ustawienia odpowiadające bieżącym wartościom pól."""
         size = self.font_size_spin.value()
@@ -377,7 +400,10 @@ class SettingsDialog(QDialog):
                 autosave_interval_s=self.autosave_spin.value(),
             ),
             metadata=MetadataSettings(fields_spec=_fields_spec(self.metadata_fields())),
-            appearance=AppearanceSettings(theme=str(self.theme_combo.currentData())),
+            appearance=AppearanceSettings(
+                theme=str(self.theme_combo.currentData()),
+                language=str(self.language_combo.currentData()),
+            ),
         )
 
 

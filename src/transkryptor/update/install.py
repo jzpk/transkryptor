@@ -22,6 +22,7 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
 from transkryptor.errors import UpdateError
+from transkryptor.i18n import tr
 
 # /SILENT pokazuje tylko pasek postępu (użytkownik widzi, że coś się dzieje);
 # /SUPPRESSMSGBOXES przyjmuje domyślne odpowiedzi na pytania instalatora.
@@ -74,8 +75,8 @@ def replace_appimage(new: Path, current: Path) -> None:
     except OSError as error:
         staged.unlink(missing_ok=True)
         raise UpdateError(
-            user_message=f"Nie udało się podmienić pliku {current.name}: {error}",
-            retry_hint="Sprawdź uprawnienia do katalogu z programem.",
+            user_message=tr("update.error.replace", name=current.name, reason=error),
+            retry_hint=tr("update.error.replace.hint"),
         ) from error
 
 
@@ -92,7 +93,7 @@ def apply_update(
         return
     current = appimage_path(environ)
     if current is None:
-        raise UpdateError(user_message="Ta instalacja nie obsługuje aktualizacji.")
+        raise UpdateError(user_message=tr("update.error.unsupported"))
     replace_appimage(artifact, current)
     artifact.unlink(missing_ok=True)
     start = launcher or _start_detached
@@ -113,7 +114,7 @@ def _run_windows_installer(installer: Path) -> None:
     """``ShellExecuteW`` zamiast ``Popen``: obsługuje monit UAC, gdy program
     zainstalowano dla wszystkich użytkowników."""
     if sys.platform != "win32":
-        raise UpdateError(user_message="Instalator .exe wymaga systemu Windows.")
+        raise UpdateError(user_message=tr("update.error.windows_only"))
     import ctypes
 
     result = ctypes.windll.shell32.ShellExecuteW(
@@ -122,6 +123,6 @@ def _run_windows_installer(installer: Path) -> None:
     # Wartość ≤ 32 oznacza błąd (także odmowę w monicie UAC).
     if int(result) <= 32:
         raise UpdateError(
-            user_message="Nie udało się uruchomić instalatora aktualizacji.",
-            retry_hint=f"Możesz uruchomić go ręcznie: {installer}",
+            user_message=tr("update.error.installer"),
+            retry_hint=tr("update.error.installer.hint", path=installer),
         )

@@ -21,6 +21,7 @@ from transkryptor.document.metadata import (
     MetadataField,
     decode_fields,
 )
+from transkryptor.i18n import LANGUAGES
 from transkryptor.notation.ellipsis import DEFAULT_ELLIPSIS_STYLE, EllipsisStyle
 
 SCHEMA_VERSION = 1
@@ -42,12 +43,20 @@ THEME_LIGHT = "light"
 THEME_DARK = "dark"
 THEMES = (THEME_SYSTEM, THEME_LIGHT, THEME_DARK)
 
+# Język interfejsu: ``system`` (za językiem systemu) albo kod z ``i18n.LANGUAGES``.
+LANGUAGE_SYSTEM = "system"
+LANGUAGE_CHOICES = (LANGUAGE_SYSTEM, *LANGUAGES)
+
 
 @dataclass(frozen=True)
 class AppearanceSettings:
-    """Motyw interfejsu: ``system`` (za ustawieniem systemu), ``light``, ``dark``."""
+    """Motyw (``system``, ``light``, ``dark``) i język interfejsu.
+
+    Język działa od następnego uruchomienia programu.
+    """
 
     theme: str = THEME_SYSTEM
+    language: str = LANGUAGE_SYSTEM
 
 
 @dataclass(frozen=True)
@@ -143,6 +152,7 @@ _FIELDS: tuple[_Field, ...] = (
         validate=lambda raw: decode_fields(raw) is not None,
     ),
     _Field("appearance", "theme", str, choices=THEMES),
+    _Field("appearance", "language", str, choices=LANGUAGE_CHOICES),
 )
 
 

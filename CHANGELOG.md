@@ -7,6 +7,14 @@ Pusta sekcja blokuje wydanie.
 
 ## Nieopublikowane
 
+- Interfejs po angielsku: w **Ustawieniach…** (zakładka **Wygląd**) można
+  wybrać język **Polski**, **English** albo **Zgodny z systemem**
+  (domyślnie — polski w polskim systemie, w pozostałych angielski). Zmiana
+  działa po ponownym uruchomieniu programu.
+- Eksport DOCX używa języka interfejsu (etykiety metryczki, akapit
+  „Autor/Data”, tytuł domyślny); import DOCX rozpoznaje dokumenty
+  wyeksportowane po polsku i po angielsku.
+- Instrukcja użytkownika po angielsku (`docs/user_guide_en.pdf`).
 - Motyw jasny i ciemny: w **Ustawieniach…** (zakładka **Wygląd**) można
   wybrać motyw **Jasny**, **Ciemny** albo **Zgodny z systemem** (domyślnie).
   Zmiana działa od razu, bez ponownego uruchamiania.
