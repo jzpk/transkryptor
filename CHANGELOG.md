@@ -7,6 +7,13 @@ Pusta sekcja blokuje wydanie.
 
 ## Nieopublikowane
 
+- W wąskim oknie pasek narzędzi nie ucina już przycisków: te, które się nie
+  mieszczą, trafiają do menu **Więcej poleceń** (☰) na końcu paska — najpierw
+  rzadziej używane, a **Eksportuj DOCX** zostaje zawsze widoczny. Skróty
+  klawiszowe działają także dla schowanych przycisków.
+- Długa nazwa pliku nagrania nie poszerza już okna (pełna ścieżka jest
+  w podpowiedzi).
+
 ## 0.2.3 — 2026-10-09
 
 - Okno **Ustawienia…** (`Ctrl+,`): skok i auto-cofanie odtwarzacza,

@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QMainWindow,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -58,6 +59,14 @@ def header_row(
 def label(text: str, role: str) -> QLabel:
     widget = QLabel(text)
     set_props(widget, role=role)
+    return widget
+
+
+def shrinkable(widget: QLabel) -> QLabel:
+    """Napis, który w wąskim oknie ucina się zamiast poszerzać okno."""
+    policy = widget.sizePolicy()
+    policy.setHorizontalPolicy(QSizePolicy.Policy.Ignored)
+    widget.setSizePolicy(policy)
     return widget
 
 

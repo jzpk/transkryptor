@@ -42,6 +42,7 @@ from transkryptor.ui.layout import (
     date_field,
     header_row,
     label,
+    shrinkable,
     side_dock,
     words_label,
 )
@@ -214,7 +215,7 @@ class MainWindow(QMainWindow):
             label("Ostrzeżenia zapisu", "section"),
             self.warning_count_label,
             None,
-            label("Kliknij pozycję, aby przejść do fragmentu", "muted"),
+            shrinkable(label("Kliknij pozycję, aby przejść do fragmentu", "muted")),
             unify_button,
         )
         warnings_card = card(warnings_header, self.warnings_panel)

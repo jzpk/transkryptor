@@ -389,6 +389,12 @@ QToolButton[variant="primary"]:disabled {{
     color: {t.text_muted};
 }}
 
+/* Menu „Więcej poleceń”: ikona ☰ sama mówi, że to lista — bez strzałki. */
+QToolButton#more_button::menu-indicator {{
+    image: none;
+    width: 0;
+}}
+
 QToolButton#rules_toggle {{
     color: {t.accent_text};
     padding: 3px 6px;

@@ -6,6 +6,11 @@ DOCX, zapisz / zapisz jako), eksport DOCX (zwykły i anonimizowany), zamknij.
 Akcje notacji mają kontekst całej aplikacji i są dodane do okna, więc ich
 skróty działają z fokusem w edytorze. Definicje markerów i skrótów pochodzą
 z ``ui/markers.py`` i ``ui/shortcuts.py``.
+
+W wąskim oknie pasek chowa przyciski według priorytetu (najpierw rzadko
+używane; eksport DOCX zostaje zawsze) do menu „Więcej poleceń” (☰) na końcu
+paska. Wszystkie akcje są dodane do okna, więc skróty działają także wtedy,
+gdy przycisk jest schowany.
 """
 
 from __future__ import annotations
@@ -16,7 +21,7 @@ from functools import partial
 from pathlib import Path
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction, QKeySequence
+from PySide6.QtGui import QAction, QKeySequence, QResizeEvent
 from PySide6.QtWidgets import (
     QLabel,
     QMainWindow,
@@ -52,6 +57,56 @@ class ToolbarHandlers:
     export_anonymized: Callable[[], None]
 
 
+@dataclass(frozen=True)
+class _Slot:
+    """Pozycja paska, którą w wąskim oknie przejmuje menu „Więcej poleceń”.
+
+    ``handles`` to uchwyty w pasku (przycisk, opis, separator); w menu trafia
+    ``action`` i jej ``extras`` (polecenia z rozwijanej części przycisku).
+    """
+
+    section: str
+    action: QAction
+    handles: tuple[QAction, ...]
+    extras: tuple[QAction | QMenu, ...] = ()
+
+    @property
+    def shown(self) -> bool:
+        return self.handles[0].isVisible()
+
+    def set_shown(self, shown: bool) -> None:
+        for handle in self.handles:
+            handle.setVisible(shown)
+
+
+# Kolejność chowania przy zwężaniu okna: najpierw rzadko klikane, na końcu
+# zapis. Markery chowają się od końca paska. Eksport DOCX (przycisk główny)
+# i menu „Więcej” zostają zawsze.
+COLLAPSE_ORDER = (
+    "update",
+    *(f"marker:{marker.key}" for marker in reversed(MARKERS)),
+    "superscript",
+    "asr",
+    "settings",
+    "new",
+    "close",
+    "open",
+    "save",
+)
+
+
+class _ToolBar(QToolBar):
+    """``QToolBar``, który po zmianie szerokości dopasowuje zestaw przycisków."""
+
+    def __init__(self, title: str, parent: QWidget) -> None:
+        super().__init__(title, parent)
+        self.on_resize: Callable[[], None] = lambda: None
+
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        super().resizeEvent(event)
+        self.on_resize()
+
+
 class MainToolbar:
     """Pasek narzędzi i jego akcje (dostępne jako atrybuty)."""
 
@@ -63,7 +118,7 @@ class MainToolbar:
         handlers: ToolbarHandlers,
     ) -> None:
         t = tokens()
-        toolbar = QToolBar("Pasek narzędzi", window)
+        toolbar = _ToolBar("Pasek narzędzi", window)
         toolbar.setObjectName("main_toolbar")
         toolbar.setMovable(False)
         toolbar.setFloatable(False)
@@ -72,8 +127,10 @@ class MainToolbar:
         toolbar.toggleViewAction().setEnabled(False)
         window.addToolBar(toolbar)
         self.toolbar = toolbar
+        self._buttons: dict[QAction, QToolButton] = {}
+        self._slots: dict[str, _Slot] = {}
 
-        toolbar.addWidget(_caption("NOTACJA"))
+        caption = toolbar.addWidget(_caption("NOTACJA"))
         self.superscript_action = _action(
             window,
             "Indeks górny",
@@ -82,9 +139,12 @@ class MainToolbar:
             "Indeks górny zaznaczonych liter",
             handlers.superscript,
         )
-        toolbar.addAction(self.superscript_action)
+        self._slots["superscript"] = _Slot(
+            "notation",
+            self.superscript_action,
+            (caption, self._add(self.superscript_action), toolbar.addSeparator()),
+        )
 
-        toolbar.addSeparator()
         self.marker_actions: dict[str, QAction] = {}
         for marker in MARKERS:
             icon = (
@@ -103,7 +163,9 @@ class MainToolbar:
             # Bez jawnego iconText Qt wycina „...”/„…” z napisu przycisku,
             # przez co „Dopisek [...]” wyświetlał się jako „Dopisek []”.
             action.setIconText(marker.label)
-            toolbar.addAction(action)
+            self._slots[f"marker:{marker.key}"] = _Slot(
+                "notation", action, (self._add(action),)
+            )
             self.marker_actions[marker.key] = action
 
         spacer = QWidget()
@@ -115,12 +177,13 @@ class MainToolbar:
         asr_toggle.setText("Szkic ASR")
         asr_toggle.setIcon(icons.icon("sparkles", t.text, t.text_muted))
         asr_toggle.setToolTip("Pokaż lub ukryj panel Szkic ASR")
-        toolbar.addAction(asr_toggle)
+        self._slots["asr"] = _Slot("tools", asr_toggle, (self._add(asr_toggle),))
 
         self.update_action = update_action
         update_action.setIcon(icons.icon("download", t.text, t.text_muted))
-        toolbar.addAction(update_action)
-        _icon_only(toolbar, update_action)
+        self._slots["update"] = _Slot(
+            "tools", update_action, (self._add(update_action, icon_only=True),)
+        )
 
         self.settings_action = _action(
             window,
@@ -130,9 +193,14 @@ class MainToolbar:
             "Odtwarzacz, edytor i notacja — preferencje",
             handlers.settings,
         )
-        toolbar.addAction(self.settings_action)
-        _icon_only(toolbar, self.settings_action)
-        toolbar.addSeparator()
+        self._slots["settings"] = _Slot(
+            "tools",
+            self.settings_action,
+            (
+                self._add(self.settings_action, icon_only=True),
+                toolbar.addSeparator(),
+            ),
+        )
 
         self.new_action = QAction("Nowy dokument", window)
         self.new_action.setIcon(icons.icon("new", t.text, t.text_muted))
@@ -143,8 +211,9 @@ class MainToolbar:
         self.new_action.triggered.connect(
             lambda _checked=False: handlers.new_document()
         )
-        toolbar.addAction(self.new_action)
-        _icon_only(toolbar, self.new_action)
+        self._slots["new"] = _Slot(
+            "session", self.new_action, (self._add(self.new_action, icon_only=True),)
+        )
 
         self._recent_provider = handlers.recent_projects
         self._open_recent = handlers.open_recent
@@ -156,8 +225,6 @@ class MainToolbar:
             "Otwórz zapisany projekt (.transkr)",
             handlers.open_project,
         )
-        toolbar.addAction(self.open_action)
-        _icon_only(toolbar, self.open_action)
         self.import_docx_action = QAction("Importuj DOCX…", window)
         self.import_docx_action.setToolTip(
             "Wczytaj tekst i metryczkę z dokumentu Word jako nowy projekt"
@@ -169,9 +236,15 @@ class MainToolbar:
         self.clear_recent_action.triggered.connect(
             lambda _checked=False: handlers.clear_recent()
         )
-        self.open_menu = QMenu(window)
+        # Tytuł menu widać, gdy jest podmenu „Więcej poleceń”.
+        self.open_menu = QMenu("Ostatnie projekty", window)
         self.open_menu.aboutToShow.connect(self.refresh_recent_menu)
-        _menu_button(toolbar, self.open_action, self.open_menu)
+        self._slots["open"] = _Slot(
+            "session",
+            self.open_action,
+            (self._add(self.open_action, icon_only=True, menu=self.open_menu),),
+            (self.open_menu,),
+        )
         self.refresh_recent_menu()
 
         self.save_action = _window_action(
@@ -182,8 +255,6 @@ class MainToolbar:
             "Zapisz tekst, metryczkę, szkic ASR i stan odtwarzacza",
             handlers.save_project,
         )
-        toolbar.addAction(self.save_action)
-        _icon_only(toolbar, self.save_action)
         self.save_as_action = _window_action(
             window,
             "Zapisz projekt jako…",
@@ -194,7 +265,12 @@ class MainToolbar:
         )
         save_menu = QMenu(window)
         save_menu.addAction(self.save_as_action)
-        _menu_button(toolbar, self.save_action, save_menu)
+        self._slots["save"] = _Slot(
+            "session",
+            self.save_action,
+            (self._add(self.save_action, icon_only=True, menu=save_menu),),
+            (self.save_as_action,),
+        )
 
         self.export_action = QAction("Eksportuj DOCX…", window)
         self.export_action.setIcon(icons.icon("export", t.on_accent, t.text_muted))
@@ -203,8 +279,6 @@ class MainToolbar:
             _tooltip("Zapisz transkrypcję jako plik Word", "Ctrl+E")
         )
         self.export_action.triggered.connect(lambda _checked=False: handlers.export())
-        toolbar.addAction(self.export_action)
-        set_props(toolbar.widgetForAction(self.export_action), variant="primary")
         self.export_anonymized_action = QAction(
             "Eksportuj DOCX z anonimizacją…", window
         )
@@ -216,15 +290,66 @@ class MainToolbar:
         )
         export_menu = QMenu(window)
         export_menu.addAction(self.export_anonymized_action)
-        _menu_button(toolbar, self.export_action, export_menu)
+        self._add(self.export_action, menu=export_menu)
+        set_props(self._buttons[self.export_action], variant="primary")
 
         self.close_action = QAction("Zamknij", window)
         self.close_action.setIcon(icons.icon("close", t.text_muted, t.text_muted))
         self.close_action.setShortcut(QKeySequence.StandardKey.Close)
         self.close_action.setToolTip(_tooltip("Zamknij aplikację", "Ctrl+W"))
         self.close_action.triggered.connect(lambda _checked=False: handlers.close())
-        toolbar.addAction(self.close_action)
-        _icon_only(toolbar, self.close_action)
+        self._slots["close"] = _Slot(
+            "session",
+            self.close_action,
+            (self._add(self.close_action, icon_only=True),),
+        )
+
+        # Skrót akcji działa tylko, gdy akcja należy do widocznego widżetu —
+        # samo okno, bo przycisk w pasku może być schowany.
+        for action in self._buttons:
+            window.addAction(action)
+
+        self.more_menu = QMenu(window)
+        self.more_menu.aboutToShow.connect(self._fill_more_menu)
+        self.more_button = QToolButton()
+        self.more_button.setObjectName("more_button")
+        self.more_button.setIcon(icons.icon("menu", t.text, t.text_muted))
+        self.more_button.setIconSize(icons.ICON_SIZE)
+        self.more_button.setToolTip("Więcej poleceń")
+        self.more_button.setAccessibleName("Więcej poleceń")
+        self.more_button.setAutoRaise(True)
+        self.more_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.more_button.setMenu(self.more_menu)
+        self.more_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        self._more_handle = toolbar.addWidget(self.more_button)
+
+        toolbar.on_resize = self.fit_to_width
+        self.fit_to_width()
+
+    def button_for(self, action: QAction) -> QToolButton:
+        """Przycisk paska wywołujący ``action``."""
+        return self._buttons[action]
+
+    def collapsed_actions(self) -> list[QAction]:
+        """Akcje, których przyciski są teraz schowane w menu „Więcej poleceń”."""
+        return [slot.action for slot in self._slots.values() if not slot.shown]
+
+    def fit_to_width(self) -> None:
+        """Chowa do menu „Więcej poleceń” przyciski, które się nie mieszczą.
+
+        Własne dopasowanie zamiast rozszerzenia ``QToolBar``: Qt chowa zawsze
+        końcowe przyciski (czyli zapis i eksport), a jego wąski przycisk »
+        ginie w stylu motywu.
+        """
+        toolbar = self.toolbar
+        for slot in self._slots.values():
+            slot.set_shown(True)
+        self._more_handle.setVisible(False)
+        for key in COLLAPSE_ORDER:
+            if toolbar.sizeHint().width() <= toolbar.width():
+                return
+            self._slots[key].set_shown(False)
+            self._more_handle.setVisible(True)
 
     def refresh_recent_menu(self) -> None:
         """Menu „Otwórz”: ostatnie projekty, import DOCX, czyszczenie listy."""
@@ -245,6 +370,48 @@ class MainToolbar:
         menu.addAction(self.import_docx_action)
         menu.addAction(self.clear_recent_action)
         self.clear_recent_action.setEnabled(bool(recent))
+
+    def _fill_more_menu(self) -> None:
+        """Schowane pozycje w kolejności paska, sekcje oddzielone kreską."""
+        menu = self.more_menu
+        menu.clear()
+        section = None
+        for slot in self._slots.values():
+            if slot.shown:
+                continue
+            if section is not None and slot.section != section:
+                menu.addSeparator()
+            section = slot.section
+            menu.addAction(slot.action)
+            for extra in slot.extras:
+                if isinstance(extra, QMenu):
+                    menu.addMenu(extra)
+                else:
+                    menu.addAction(extra)
+
+    def _add(
+        self, action: QAction, *, icon_only: bool = False, menu: QMenu | None = None
+    ) -> QAction:
+        """Dodaje przycisk akcji; zwraca uchwyt, którym można go schować.
+
+        Przycisk powstaje ręcznie, a nie przez ``addAction``: wtedy uchwytem
+        byłaby sama akcja, a jej schowanie wyłączyłoby skrót i wpis w menu.
+        """
+        button = QToolButton()
+        button.setDefaultAction(action)
+        button.setAutoRaise(True)
+        button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        button.setIconSize(self.toolbar.iconSize())
+        button.setToolButtonStyle(
+            Qt.ToolButtonStyle.ToolButtonIconOnly
+            if icon_only
+            else self.toolbar.toolButtonStyle()
+        )
+        if menu is not None:
+            button.setMenu(menu)
+            button.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup)
+        self._buttons[action] = button
+        return self.toolbar.addWidget(button)
 
 
 OPEN_PROJECT_SHORTCUT = "Ctrl+O"
@@ -271,14 +438,6 @@ def _window_action(
     return action
 
 
-def _menu_button(toolbar: QToolBar, action: QAction, menu: QMenu) -> None:
-    """Przycisk akcji z rozwijanym menu dodatkowych poleceń."""
-    button = toolbar.widgetForAction(action)
-    if isinstance(button, QToolButton):
-        button.setMenu(menu)
-        button.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup)
-
-
 def _action(
     window: QMainWindow,
     label: str,
@@ -297,12 +456,6 @@ def _action(
     action.triggered.connect(lambda _checked=False: handler())
     window.addAction(action)
     return action
-
-
-def _icon_only(toolbar: QToolBar, action: QAction) -> None:
-    button = toolbar.widgetForAction(action)
-    if isinstance(button, QToolButton):
-        button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
 
 
 def _caption(text: str) -> QLabel:

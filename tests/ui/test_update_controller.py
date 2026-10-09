@@ -116,7 +116,9 @@ def test_manual_check_reports_up_to_date(qtbot, window, no_blocking_dialogs) -> 
 
 
 def test_check_action_is_in_the_toolbar(window) -> None:
-    assert window.updates.check_action in window.toolbar.actions()
+    button = window.main_toolbar.button_for(window.updates.check_action)
+    assert button.defaultAction() is window.updates.check_action
+    assert button.parent() is window.toolbar
 
 
 def test_install_respects_unsaved_work(qtbot, window, no_blocking_dialogs) -> None:

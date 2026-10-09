@@ -30,6 +30,7 @@ from transkryptor.audio.player import (
 from transkryptor.document.project import PlayerState
 from transkryptor.settings import PlayerSettings
 from transkryptor.ui import icons
+from transkryptor.ui.layout import shrinkable
 from transkryptor.ui.shortcuts import (
     LOOP_A,
     LOOP_B,
@@ -171,6 +172,9 @@ class PlayerBar(QFrame):
         set_props(self.file_label, role="title")
         self.file_hint_label = QLabel(NO_MEDIA_HINT)
         set_props(self.file_hint_label, role="muted")
+        # Długa nazwa nagrania nie może poszerzać okna (pełna ścieżka w podpowiedzi).
+        shrinkable(self.file_label)
+        shrinkable(self.file_hint_label)
         file_text = QVBoxLayout()
         file_text.setSpacing(0)
         file_text.addWidget(self.file_label)

@@ -69,6 +69,7 @@ _PATHS: dict[str, str] = {
         '<path d="M3.5 6l1.5 1.5L8 4.5M3.5 12l1.5 1.5L8 10.5"/>'
         '<circle cx="5.5" cy="18" r="1.4"/>'
     ),
+    "menu": '<path d="M4 6h16M4 12h16M4 18h16"/>',
     "search": '<circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/>',
     "settings": (
         '<path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/>'
