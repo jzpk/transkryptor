@@ -27,6 +27,16 @@ Pusta sekcja blokuje wydanie.
   klawiszowe działają także dla schowanych przycisków.
 - Długa nazwa pliku nagrania nie poszerza już okna (pełna ścieżka jest
   w podpowiedzi).
+- Emoji i inne znaki spoza podstawowego zakresu Unicode (np. znaki
+  matematyczne `𝑎`) nie przesuwają już indeksu górnego: DOCX i projekt
+  mają indeks górny dokładnie na tych znakach, które widać w edytorze.
+  Poprawnie działają też za nimi nawigacja do ostrzeżeń i lista przeglądu
+  szkicu ASR.
+- Niełamliwa spacja (wklejona albo przeniesiona z DOCX) nie jest już
+  zamieniana na zwykłą spację w projekcie i eksporcie DOCX.
+- Pisanie w długich transkrypcjach jest płynniejsze: licznik słów
+  odświeża się po krótkiej przerwie w pisaniu, a zmiana, która nic nie
+  zmienia w tekście, nie oznacza pracy jako niezapisanej.
 
 ## 0.2.3 — 2026-10-09
 

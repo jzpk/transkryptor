@@ -60,7 +60,8 @@ def test_status_bar_and_word_count_follow_document(qtbot, add_window) -> None:
     assert window.word_count_label.text() == "0 słów"
     window.editor.setPlainText("bendzie uod rana")
     assert window.export_status_label.text() == tr("session.status_dirty")
-    assert window.word_count_label.text() == "3 słowa"
+    # Licznik słów odświeża się po przerwie w pisaniu (PERF-02).
+    qtbot.waitUntil(lambda: window.word_count_label.text() == "3 słowa")
     window.document.mark_exported()
     window._update_title()
     assert window.export_status_label.text() == tr("session.status_clean")

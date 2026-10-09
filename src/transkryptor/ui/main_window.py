@@ -13,7 +13,7 @@ walidację ``notation.validate`` z debounce — reguły pozostają w module
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QApplication,
@@ -82,6 +82,9 @@ __all__ = [
 ]
 
 STATUS_MESSAGE_MS = 5000
+# Pełna synchronizacja edytora z dokumentem (licznik słów, stan) po przerwie
+# w pisaniu; zapis, eksport i walidacja synchronizują od razu.
+SYNC_DEBOUNCE_MS = 300
 WINDOW_TITLE = "Transkryptor"
 
 
@@ -156,6 +159,10 @@ class MainWindow(QMainWindow):
             self,
         )
         self._validation_timer = self.notation.timer
+        self._sync_timer = QTimer(self)
+        self._sync_timer.setSingleShot(True)
+        self._sync_timer.setInterval(SYNC_DEBOUNCE_MS)
+        self._sync_timer.timeout.connect(self._update_title)
 
         self._build_layout()
         # Bez połączeń sieciowych przy tworzeniu okna: sprawdzanie startuje
@@ -349,12 +356,15 @@ class MainWindow(QMainWindow):
         self.notation.schedule_validation()
 
     def _on_superscript(self) -> None:
+        # ``mergeCharFormat`` emituje ``contentsChanged`` — synchronizacja
+        # idzie przez ``_on_editor_changed``.
         self.editor.toggle_superscript()
-        self._on_editor_changed()
 
     def _on_editor_changed(self) -> None:
-        self.editor.sync_to_document(self.document)
-        self._update_title()
+        """Każde naciśnięcie klawisza: tylko znacznik zmiany i debounce (PERF-02)."""
+        self.session.mark_editor_changed()
+        self._show_dirty_state(unsaved=True, dirty=True)
+        self._sync_timer.start()
         self.notation.schedule_validation()
 
     def _on_metadata_changed(self) -> None:
@@ -456,14 +466,19 @@ class MainWindow(QMainWindow):
         Gwiazdka w tytule: niezapisane zmiany projektu, a bez pliku
         projektu — niewyeksportowane zmiany.
         """
-        dirty = self.document.is_dirty
-        marker = "*" if self.session.has_unsaved_work else ""
+        self._sync_timer.stop()
+        document = self.document
+        words = len(document.text.split())
+        self.word_count_label.setText(f"{words} {words_label(words)}")
+        self._show_dirty_state(self.session.has_unsaved_work, document.is_dirty)
+
+    def _show_dirty_state(self, unsaved: bool, dirty: bool) -> None:
+        """Gwiazdka w tytule i stan eksportu w pasku stanu."""
+        marker = "*" if unsaved else ""
         name = self.session.project_name
         self.setWindowTitle(
             f"{WINDOW_TITLE} — {name}{marker}" if name else f"{WINDOW_TITLE}{marker}"
         )
-        words = len(self.document.text.split())
-        self.word_count_label.setText(f"{words} {words_label(words)}")
         self.export_status_label.setText(
             tr("session.status_dirty") if dirty else tr("session.status_clean")
         )

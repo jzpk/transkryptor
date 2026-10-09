@@ -76,7 +76,9 @@ class SessionController(QObject):
         on_state_changed: Callable[[], None],
     ) -> None:
         super().__init__(dialog_parent)
-        self.document = Document()
+        self._document = Document()
+        # Edytor zmienił się od ostatniej synchronizacji z ``_document``.
+        self._editor_pending = False
         self.project_path: Path | None = None
         self._audio: AudioRef | None = None
         self._parent = dialog_parent
@@ -94,6 +96,34 @@ class SessionController(QObject):
         self.autosave = AutosaveController(
             self.capture_state, lambda: self.document, self
         )
+
+    @property
+    def document(self) -> Document:
+        """Dokument sesji zsynchronizowany z edytorem.
+
+        Edycja tylko zaznacza zmianę (:meth:`mark_editor_changed`); pełna
+        synchronizacja odbywa się tu, przy pierwszym odczycie — zapis,
+        eksport, autozapis i walidacja zawsze widzą bieżący tekst.
+        """
+        self.flush_editor()
+        return self._document
+
+    @document.setter
+    def document(self, document: Document) -> None:
+        self._document = document
+        # Nowy dokument przychodzi razem z treścią edytora.
+        self._editor_pending = False
+
+    def mark_editor_changed(self) -> None:
+        """Tani znacznik zmiany w edytorze (wołany przy każdym klawiszu)."""
+        self._editor_pending = True
+
+    def flush_editor(self) -> bool:
+        """Przepisuje oczekujące zmiany edytora do dokumentu."""
+        if not self._editor_pending:
+            return False
+        self._editor_pending = False
+        return self._editor.sync_to_document(self._document)
 
     @property
     def project_name(self) -> str | None:

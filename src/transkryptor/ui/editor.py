@@ -4,11 +4,16 @@ Edytor jest źródłem prawdy dla tekstu i formatowania w fazie 02: natywny
 stos undo/redo QTextDocument obsługuje cofanie (NFR-04), a model ``Document``
 jest synchronizowaną projekcją używaną przez walidator i metadane.
 
+Publiczne API edytora przyjmuje i zwraca pozycje Pythona (punkty kodowe);
+przeliczenie na pozycje Qt (UTF-16) odbywa się tutaj (``ui/positions.py``).
+
 UI nie zawiera reguł lingwistycznych — jedynie wstawia markery i formatowanie
 zdefiniowane w ``ui/markers.py`` oraz prezentuje wyniki ``notation``.
 """
 
 from __future__ import annotations
+
+from collections.abc import Iterable
 
 from PySide6.QtGui import QColor, QFont, QTextCharFormat, QTextCursor
 from PySide6.QtWidgets import QTextEdit
@@ -17,6 +22,7 @@ from transkryptor.document.model import Document
 from transkryptor.i18n import tr
 from transkryptor.settings import EditorSettings
 from transkryptor.ui.markers import ASIDE_TEXT
+from transkryptor.ui.positions import PositionMap, utf16_len
 
 # Półprzezroczyste tło czytelne w jasnym i ciemnym motywie.
 REVIEW_HIGHLIGHT = QColor(255, 200, 0, 90)
@@ -28,6 +34,12 @@ _LAYER_ORDER = (REVIEW_LAYER, SEARCH_LAYER)
 
 # Tekst transkrypcji czyta się godzinami — większy niż reszta interfejsu.
 EDITOR_FONT_SCALE = 1.25
+
+# ``toRawText`` zachowuje znaki specjalne Qt; separatory akapitów, wierszy
+# i ramek zamieniamy 1:1 na ``\n`` (jak ``toPlainText``), ale NBSP zostaje.
+_RAW_SEPARATORS = str.maketrans(
+    {"\u2029": "\n", "\u2028": "\n", "\ufdd0": "\n", "\ufdd1": "\n"}
+)
 
 
 class TranscriptionEditor(QTextEdit):
@@ -60,6 +72,18 @@ class TranscriptionEditor(QTextEdit):
         else:
             font.setPointSizeF(self._base_font.pointSizeF() * EDITOR_FONT_SCALE)
         self.setFont(font)
+
+    def plain_text(self) -> str:
+        """Tekst edytora bez normalizacji (NBSP zostaje, ACC-01).
+
+        ``toPlainText()`` zamienia niełamliwą spację na zwykłą, dlatego tekst
+        dla modelu, walidacji i wyszukiwania pochodzi stąd.
+        """
+        return self.document().toRawText().translate(_RAW_SEPARATORS)
+
+    def position_map(self) -> PositionMap:
+        """Przeliczenie pozycji dla bieżącego tekstu edytora."""
+        return PositionMap(self.plain_text())
 
     def toggle_superscript(self) -> None:
         """Przełącza indeks górny na zaznaczeniu (lub w punkcie kursora)."""
@@ -95,7 +119,8 @@ class TranscriptionEditor(QTextEdit):
 
         ``append=False`` zastępuje całą treść, ``append=True`` dopisuje szkic
         w nowym akapicie na końcu. Szkic dostaje zwykły format znaków, nawet
-        gdy tekst kończy się indeksem górnym. Zwraca pozycję początku szkicu.
+        gdy tekst kończy się indeksem górnym. Zwraca pozycję początku szkicu
+        (w punktach kodowych).
         """
         cursor = QTextCursor(self.document())
         cursor.beginEditBlock()
@@ -111,9 +136,11 @@ class TranscriptionEditor(QTextEdit):
         cursor.endEditBlock()
         cursor.setPosition(start)
         self.setTextCursor(cursor)
-        return start
+        return self.position_map().to_py(start)
 
-    def load_content(self, text: str, superscript_ranges) -> None:
+    def load_content(
+        self, text: str, superscript_ranges: Iterable[tuple[int, int]]
+    ) -> None:
         """Wczytuje tekst z zakresami indeksu górnego (projekt, import DOCX).
 
         Wczytanie zaczyna nową historię cofania — stan sprzed otwarcia
@@ -124,15 +151,39 @@ class TranscriptionEditor(QTextEdit):
         superscript_format.setVerticalAlignment(
             QTextCharFormat.VerticalAlignment.AlignSuperScript
         )
+        positions = PositionMap(text)
         for start, end in superscript_ranges:
-            self.track_range(start, end).mergeCharFormat(superscript_format)
+            self.track_range(start, end, positions).mergeCharFormat(superscript_format)
         self.document().clearUndoRedoStacks()
         cursor = self.textCursor()
         cursor.movePosition(QTextCursor.MoveOperation.Start)
         self.setTextCursor(cursor)
 
-    def track_range(self, start: int, end: int) -> QTextCursor:
-        """Zwraca kursor obejmujący zakres i przesuwający się razem z edycją."""
+    def track_range(
+        self, start: int, end: int, positions: PositionMap | None = None
+    ) -> QTextCursor:
+        """Zwraca kursor obejmujący zakres i przesuwający się razem z edycją.
+
+        ``start`` i ``end`` to pozycje Pythona w tekście edytora. Przy wielu
+        wywołaniach na niezmienionym tekście warto przekazać jedną mapę
+        ``positions`` (:meth:`position_map`).
+        """
+        if positions is None:
+            positions = self.position_map()
+        return self._qt_cursor(positions.to_qt(start), positions.to_qt(end))
+
+    def selection_range(
+        self, cursor: QTextCursor, positions: PositionMap | None = None
+    ) -> tuple[int, int]:
+        """Zaznaczenie kursora jako zakres pozycji Pythona."""
+        if positions is None:
+            positions = self.position_map()
+        return (
+            positions.to_py(cursor.selectionStart()),
+            positions.to_py(cursor.selectionEnd()),
+        )
+
+    def _qt_cursor(self, start: int, end: int) -> QTextCursor:
         cursor = QTextCursor(self.document())
         cursor.setPosition(start)
         cursor.setPosition(end, QTextCursor.MoveMode.KeepAnchor)
@@ -170,15 +221,21 @@ class TranscriptionEditor(QTextEdit):
         plain_format = cursor.charFormat()
         plain_format.setVerticalAlignment(QTextCharFormat.VerticalAlignment.AlignNormal)
         cursor.insertText(replacement, plain_format)
+        # Zakresy są względne w punktach kodowych zamiennika.
+        positions = PositionMap(replacement)
         for rel_start, rel_end in superscript_ranges:
-            format_cursor = self.track_range(start + rel_start, start + rel_end)
+            format_cursor = self._qt_cursor(
+                start + positions.to_qt(rel_start), start + positions.to_qt(rel_end)
+            )
             superscript_format = QTextCharFormat()
             superscript_format.setVerticalAlignment(
                 QTextCharFormat.VerticalAlignment.AlignSuperScript
             )
             format_cursor.mergeCharFormat(superscript_format)
         cursor.setPosition(start)
-        cursor.setPosition(start + len(replacement), QTextCursor.MoveMode.KeepAnchor)
+        cursor.setPosition(
+            start + utf16_len(replacement), QTextCursor.MoveMode.KeepAnchor
+        )
 
     def set_review_highlights(self, cursors: list[QTextCursor]) -> None:
         """Podświetla zakresy do przeglądu (REQ-16).
@@ -206,11 +263,14 @@ class TranscriptionEditor(QTextEdit):
             ]
         )
 
-    def sync_to_document(self, doc: Document) -> None:
-        """Przepisuje tekst i zakresy indeksu górnego z edytora do dokumentu."""
-        doc.text = self.toPlainText()
-        doc.superscript_ranges = _collect_superscript_ranges(self)
-        doc.revision += 1
+    def sync_to_document(self, doc: Document) -> bool:
+        """Przepisuje tekst i zakresy indeksu górnego z edytora do dokumentu.
+
+        Zwraca True, gdy dokument się zmienił (rewizja rośnie tylko wtedy).
+        """
+        text = self.plain_text()
+        ranges = _collect_superscript_ranges(self, PositionMap(text))
+        return doc.replace_all(text, ranges)
 
 
 def highlight(cursor: QTextCursor, color: QColor) -> QTextEdit.ExtraSelection:
@@ -221,8 +281,13 @@ def highlight(cursor: QTextCursor, color: QColor) -> QTextEdit.ExtraSelection:
     return selection
 
 
-def _collect_superscript_ranges(editor: QTextEdit) -> list[tuple[int, int]]:
-    """Skanuje dokument edytora i zbiera półotwarte zakresy indeksu górnego."""
+def _collect_superscript_ranges(
+    editor: QTextEdit, positions: PositionMap
+) -> list[tuple[int, int]]:
+    """Skanuje dokument edytora i zbiera półotwarte zakresy indeksu górnego.
+
+    Zwraca pozycje Pythona; sąsiednie fragmenty scala ``Document``.
+    """
     ranges: list[tuple[int, int]] = []
     document = editor.document()
     block = document.begin()
@@ -234,8 +299,12 @@ def _collect_superscript_ranges(editor: QTextEdit) -> list[tuple[int, int]]:
                 fragment.charFormat().verticalAlignment()
                 == QTextCharFormat.VerticalAlignment.AlignSuperScript
             ):
+                start = fragment.position()
                 ranges.append(
-                    (fragment.position(), fragment.position() + fragment.length())
+                    (
+                        positions.to_py(start),
+                        positions.to_py(start + fragment.length()),
+                    )
                 )
             iterator += 1
         block = block.next()

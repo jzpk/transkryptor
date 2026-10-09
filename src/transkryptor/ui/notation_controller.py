@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from PySide6.QtCore import QObject, QTimer
-from PySide6.QtGui import QAction, QTextCursor
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QLabel, QWidget
 
 from transkryptor.document.model import Document
@@ -23,6 +23,7 @@ from transkryptor.notation.ellipsis import (
 from transkryptor.notation.validator import validate
 from transkryptor.ui.editor import TranscriptionEditor
 from transkryptor.ui.markers import marker_text
+from transkryptor.ui.positions import PositionMap
 from transkryptor.ui.theme import set_props
 from transkryptor.ui.warnings_panel import WarningsPanel
 
@@ -69,9 +70,14 @@ class NotationController(QObject):
     def unify_ellipses(self) -> int:
         """ACC-24: wszystkie wielokropki w stylu z ustawień, jeden krok cofania."""
         wanted = ellipsis_text(self._style())
-        ranges = foreign_ellipses(self.editor.toPlainText(), self._style())
+        text = self.editor.plain_text()
+        ranges = foreign_ellipses(text, self._style())
+        positions = PositionMap(text)
         self.editor.apply_tracked_replacements(
-            [(self.editor.track_range(start, end), wanted, ()) for start, end in ranges]
+            [
+                (self.editor.track_range(start, end, positions), wanted, ())
+                for start, end in ranges
+            ]
         )
         if ranges:
             self._show_message(
@@ -101,9 +107,7 @@ class NotationController(QObject):
         set_props(self._count_label, tone=tone if count else "success")
 
     def go_to_range(self, start: int, end: int) -> None:
-        cursor = self.editor.textCursor()
-        cursor.setPosition(start)
-        cursor.setPosition(end, QTextCursor.MoveMode.KeepAnchor)
-        self.editor.setTextCursor(cursor)
+        """Zaznacza fragment ostrzeżenia (pozycje walidatora to punkty kodowe)."""
+        self.editor.setTextCursor(self.editor.track_range(start, end))
         self.editor.ensureCursorVisible()
         self.editor.setFocus()

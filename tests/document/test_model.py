@@ -149,3 +149,29 @@ class TestMetadataAndSaveState:
         doc.mark_exported()
         doc.touch()
         assert doc.is_unsaved and doc.is_dirty
+
+
+class TestInvariant:
+    """BUG-09: zakresy indeksu górnego zawsze posortowane i bez nakładania."""
+
+    def test_constructor_normalizes_ranges(self) -> None:
+        doc = Document(
+            text="bendzie", superscript_ranges=[(4, 6), (1, 2), (2, 3), (5, 7)]
+        )
+        assert doc.superscript_ranges == [(1, 3), (4, 7)]
+
+    def test_constructor_clips_ranges_to_text(self) -> None:
+        doc = Document(text="uóna", superscript_ranges=[(2, 10), (6, 8)])
+        assert doc.superscript_ranges == [(2, 4)]
+
+    def test_replace_all_normalizes_and_bumps_revision(self) -> None:
+        doc = Document()
+        assert doc.replace_all("bendzie", [(3, 4), (1, 2), (2, 3)])
+        assert doc.text == "bendzie"
+        assert doc.superscript_ranges == [(1, 4)]
+        assert doc.revision == 1
+
+    def test_replace_all_without_change_keeps_revision(self) -> None:
+        doc = Document(text="bendzie", superscript_ranges=[(1, 4)])
+        assert not doc.replace_all("bendzie", [(1, 2), (2, 4)])
+        assert doc.revision == 0

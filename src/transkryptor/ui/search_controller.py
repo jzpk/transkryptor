@@ -169,7 +169,7 @@ class SearchController(QObject):
         self._timer.stop()
         pattern = self._pattern()
         self._matches = (
-            find_all(self.editor.toPlainText(), pattern) if pattern is not None else []
+            find_all(self.editor.plain_text(), pattern) if pattern is not None else []
         )
         if self._current is not None and self._current >= len(self._matches):
             self._current = None

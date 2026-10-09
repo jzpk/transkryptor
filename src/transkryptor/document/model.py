@@ -23,7 +23,8 @@ class Document:
 
     ``superscript_ranges`` to lista półotwartych zakresów znaków
     ``(start, end)`` sformatowanych indeksem górnym, posortowana i bez
-    nakładających się elementów. ``metadata`` to metryczka nagrania (klucze
+    nakładających się elementów — niezmiennik pilnują konstruktor
+    i :meth:`replace_all`. ``metadata`` to metryczka nagrania (klucze
     z ``document/metadata.py``) bez pustych wartości.
     """
 
@@ -35,6 +36,9 @@ class Document:
     revision: int = 0
     exported_revision: int = 0
     saved_revision: int = 0
+
+    def __post_init__(self) -> None:
+        self.superscript_ranges = _clean(self.superscript_ranges, len(self.text))
 
     @property
     def is_dirty(self) -> bool:
@@ -73,6 +77,20 @@ class Document:
             return
         self.metadata = merged
         self.revision += 1
+
+    def replace_all(self, text: str, superscript_ranges: list[tuple[int, int]]) -> bool:
+        """Zastępuje cały tekst i zakresy indeksu górnego (np. z edytora).
+
+        Zakresy są normalizowane; rewizja rośnie tylko przy faktycznej
+        zmianie. Zwraca True, gdy dokument się zmienił.
+        """
+        ranges = _clean(superscript_ranges, len(text))
+        if text == self.text and ranges == self.superscript_ranges:
+            return False
+        self.text = text
+        self.superscript_ranges = ranges
+        self.revision += 1
+        return True
 
     def replace(self, start: int, end: int, new_text: str) -> None:
         """Zastępuje ``text[start:end]`` przez ``new_text``.
@@ -114,6 +132,11 @@ def _normalize(ranges: list[tuple[int, int]]) -> list[tuple[int, int]]:
         else:
             result.append((start, end))
     return result
+
+
+def _clean(ranges: list[tuple[int, int]], length: int) -> list[tuple[int, int]]:
+    """Normalizuje zakresy i przycina je do długości tekstu."""
+    return _normalize([(max(start, 0), min(end, length)) for start, end in ranges])
 
 
 def _adjust_ranges(

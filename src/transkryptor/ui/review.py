@@ -66,7 +66,7 @@ class ReviewController(QObject):
         """
         if not text.strip():
             return
-        if self.editor.toPlainText().strip():
+        if self.editor.plain_text().strip():
             placement = self._ask_placement()
             if placement is None:
                 return
@@ -78,11 +78,12 @@ class ReviewController(QObject):
         start = self.editor.insert_draft(text, append=placement == DRAFT_APPEND)
 
         selected_codes = self.asr_panel.selected_rule_codes()
+        positions = self.editor.position_map()
         self.items = [
             ReviewItem(
                 suggestion,
                 self.editor.track_range(
-                    start + suggestion.start, start + suggestion.end
+                    start + suggestion.start, start + suggestion.end, positions
                 ),
                 applied=suggestion.code in selected_codes,
             )
@@ -150,23 +151,9 @@ class ReviewController(QObject):
 
     def entries(self) -> list[ReviewEntry]:
         """Stan przeglądu do zapisu w projekcie (bieżące zakresy w tekście)."""
+        positions = self.editor.position_map()
         return [
-            ReviewEntry(
-                start=item.cursor.selectionStart(),
-                end=item.cursor.selectionEnd(),
-                applied=item.applied,
-                code=item.suggestion.code,
-                suggestion_start=item.suggestion.start,
-                suggestion_end=item.suggestion.end,
-                original=item.suggestion.original,
-                replacement=item.suggestion.replacement,
-                superscript_ranges=item.suggestion.superscript_ranges,
-                source=item.suggestion.source,
-                confidence=item.suggestion.confidence,
-                message=item.suggestion.message,
-                word=item.suggestion.word,
-                word_start=item.suggestion.word_start,
-            )
+            _entry(item, *self.editor.selection_range(item.cursor, positions))
             for item in self.items
         ]
 
@@ -175,6 +162,7 @@ class ReviewController(QObject):
         self.finish()
         if not entries:
             return
+        positions = self.editor.position_map()
         self.items = [
             ReviewItem(
                 Suggestion(
@@ -190,7 +178,7 @@ class ReviewController(QObject):
                     word=entry.word,
                     word_start=entry.word_start,
                 ),
-                self.editor.track_range(entry.start, entry.end),
+                self.editor.track_range(entry.start, entry.end, positions),
                 applied=entry.applied,
             )
             for entry in entries
@@ -202,6 +190,26 @@ class ReviewController(QObject):
         self.items = []
         self.editor.clear_review_highlights()
         self.asr_panel.clear_review()
+
+
+def _entry(item: ReviewItem, start: int, end: int) -> ReviewEntry:
+    """Wpis przeglądu z bieżącym zakresem fragmentu (pozycje Pythona)."""
+    return ReviewEntry(
+        start=start,
+        end=end,
+        applied=item.applied,
+        code=item.suggestion.code,
+        suggestion_start=item.suggestion.start,
+        suggestion_end=item.suggestion.end,
+        original=item.suggestion.original,
+        replacement=item.suggestion.replacement,
+        superscript_ranges=item.suggestion.superscript_ranges,
+        source=item.suggestion.source,
+        confidence=item.suggestion.confidence,
+        message=item.suggestion.message,
+        word=item.suggestion.word,
+        word_start=item.suggestion.word_start,
+    )
 
 
 def ask_draft_placement(parent: QWidget) -> str | None:
