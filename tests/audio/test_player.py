@@ -19,7 +19,11 @@ SAMPLE_AAC = "tests/fixtures/audio/sample.aac"
 
 @pytest.fixture
 def player(qapp):
-    return AudioPlayer()
+    player = AudioPlayer()
+    yield player
+    # Zniszczenie QMediaPlayer w trakcie odtwarzania wywraca wątek dekodera
+    # FFmpeg (segfault w CI) — najpierw zatrzymanie i zwolnienie źródła.
+    player.stop_and_unload()
 
 
 class TestLoad:

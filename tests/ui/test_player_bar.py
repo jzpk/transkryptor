@@ -17,7 +17,10 @@ def player_bar(qtbot):
     player = AudioPlayer()
     bar = PlayerBar(player)
     qtbot.addWidget(bar)
-    return bar, player
+    yield bar, player
+    # Zniszczenie QMediaPlayer w trakcie odtwarzania wywraca wątek dekodera
+    # FFmpeg (segfault w CI) — najpierw zatrzymanie i zwolnienie źródła.
+    player.stop_and_unload()
 
 
 def test_format_ms() -> None:
