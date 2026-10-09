@@ -15,6 +15,7 @@ from PySide6.QtCore import QObject
 from PySide6.QtGui import QTextCursor
 from PySide6.QtWidgets import QMessageBox, QWidget
 
+from transkryptor.document.project import ReviewEntry
 from transkryptor.notation.ellipsis import EllipsisStyle, normalize_ellipses
 from transkryptor.notation.suggestions import Suggestion, propose, without_overlaps
 from transkryptor.ui.asr_panel import AsrPanel
@@ -147,6 +148,55 @@ class ReviewController(QObject):
         self.asr_panel.set_review_items(
             [(item.suggestion, item.applied) for item in self.items]
         )
+
+    def entries(self) -> list[ReviewEntry]:
+        """Stan przeglądu do zapisu w projekcie (bieżące zakresy w tekście)."""
+        return [
+            ReviewEntry(
+                start=item.cursor.selectionStart(),
+                end=item.cursor.selectionEnd(),
+                applied=item.applied,
+                code=item.suggestion.code,
+                suggestion_start=item.suggestion.start,
+                suggestion_end=item.suggestion.end,
+                original=item.suggestion.original,
+                replacement=item.suggestion.replacement,
+                superscript_ranges=item.suggestion.superscript_ranges,
+                source=item.suggestion.source,
+                confidence=item.suggestion.confidence,
+                message=item.suggestion.message,
+                word=item.suggestion.word,
+                word_start=item.suggestion.word_start,
+            )
+            for item in self.items
+        ]
+
+    def restore(self, entries: list[ReviewEntry] | tuple[ReviewEntry, ...]) -> None:
+        """Odtwarza nieukończony przegląd z projektu (podświetlenia i listę)."""
+        self.finish()
+        if not entries:
+            return
+        self.items = [
+            ReviewItem(
+                Suggestion(
+                    code=entry.code,
+                    start=entry.suggestion_start,
+                    end=entry.suggestion_end,
+                    original=entry.original,
+                    replacement=entry.replacement,
+                    superscript_ranges=entry.superscript_ranges,
+                    source=entry.source,
+                    confidence=entry.confidence,
+                    message=entry.message,
+                    word=entry.word,
+                    word_start=entry.word_start,
+                ),
+                self.editor.track_range(entry.start, entry.end),
+                applied=entry.applied,
+            )
+            for entry in entries
+        ]
+        self.refresh()
 
     def finish(self) -> None:
         """Usuwa podświetlenia i listę przeglądu; tekst się nie zmienia."""

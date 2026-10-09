@@ -97,3 +97,40 @@ def test_ellipsis_style_round_trip_and_unknown_value() -> None:
     assert mapping["notation/ellipsis_style"] == "ascii"
     assert from_mapping(mapping) == settings
     assert from_mapping({"notation/ellipsis_style": "kropki"}) == Settings()
+
+
+def test_project_and_metadata_settings_round_trip() -> None:
+    from transkryptor.document.metadata import DEFAULT_FIELDS, encode_fields
+    from transkryptor.settings import MetadataSettings, ProjectSettings
+
+    spec = encode_fields(reversed(DEFAULT_FIELDS))
+    settings = Settings(
+        project=ProjectSettings(autosave_enabled=False, autosave_interval_s=120),
+        metadata=MetadataSettings(fields_spec=spec),
+    )
+    restored = from_mapping(to_mapping(settings))
+    assert restored == settings
+    assert restored.metadata.fields[0].key == DEFAULT_FIELDS[-1].key
+
+
+def test_invalid_project_and_metadata_values_fall_back() -> None:
+    settings = from_mapping(
+        {
+            "project/autosave_interval_s": 5,  # poniżej 30 s
+            "project/autosave_enabled": "nie wiem",
+            "metadata/fields_spec": "[zepsute",
+        }
+    )
+    assert settings == Settings()
+    assert Settings().project.autosave_enabled
+    assert Settings().project.autosave_interval_s == 60
+
+
+def test_push_recent_moves_to_front_without_duplicates() -> None:
+    from transkryptor.settings import push_recent
+
+    paths = [f"/p/{i}.transkr" for i in range(8)]
+    result = push_recent(paths, "/p/3.transkr")
+    assert result[0] == "/p/3.transkr"
+    assert len(result) == 8 and len(set(result)) == 8
+    assert push_recent(paths, "/p/nowy.transkr")[-1] == "/p/6.transkr"

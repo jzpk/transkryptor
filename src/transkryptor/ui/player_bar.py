@@ -27,6 +27,7 @@ from transkryptor.audio.player import (
     SUPPORTED_FORMATS_LABEL,
     AudioPlayer,
 )
+from transkryptor.document.project import PlayerState
 from transkryptor.settings import PlayerSettings
 from transkryptor.ui import icons
 from transkryptor.ui.shortcuts import (
@@ -52,6 +53,10 @@ DEFAULT_RATE_INDEX = 2  # 1x
 
 NO_MEDIA_TITLE = "Nie wczytano nagrania"
 NO_MEDIA_HINT = "Zaimportuj nagranie audio, aby odsłuchiwać i tworzyć szkic ASR."
+
+
+def _clamp(value: int | None, maximum: int) -> int | None:
+    return None if value is None else max(0, min(value, maximum))
 
 
 def format_ms(milliseconds: int) -> str:
@@ -89,6 +94,7 @@ class PlayerBar(QFrame):
         self._has_media = False
         self._loop_a: int | None = None
         self._loop_b: int | None = None
+        self._pending_state: PlayerState | None = None
 
         t = tokens()
         set_props(self, card=True)
@@ -219,6 +225,41 @@ class PlayerBar(QFrame):
         """Czy załadowane nagranie ma znany czas trwania (można nim sterować)."""
         return self._has_media
 
+    def state(self) -> PlayerState:
+        """Pozycja i pętla A–B do zapisu w projekcie."""
+        if self._pending_state is not None:
+            return self._pending_state
+        return PlayerState(
+            position_ms=self._player.position_ms if self._has_media else 0,
+            loop_a_ms=self._loop_a,
+            loop_b_ms=self._loop_b,
+            loop_active=self._player.loop_range is not None,
+        )
+
+    def restore_state(self, state: PlayerState) -> None:
+        """Przywraca pozycję i pętlę z projektu.
+
+        Qt Multimedia ładuje nagranie asynchronicznie — gdy czas trwania nie
+        jest jeszcze znany, stan czeka na ``duration_changed``.
+        """
+        if not self._has_media:
+            self._pending_state = state
+            return
+        self._pending_state = None
+        duration = self._player.duration_ms
+        self._player.set_position(min(state.position_ms, duration))
+        self._loop_a = _clamp(state.loop_a_ms, duration)
+        self._loop_b = _clamp(state.loop_b_ms, duration)
+        if self._loop_a is not None and self._loop_b is not None:
+            if self._loop_b <= self._loop_a:
+                self._loop_b = None
+        self._player.clear_loop()
+        if state.loop_active and self._loop_a is not None:
+            end = self._loop_b if self._loop_b is not None else duration
+            if end > self._loop_a:
+                self._player.set_loop(self._loop_a, end)
+        self._update_loop_controls()
+
     def apply_settings(self, settings: PlayerSettings) -> None:
         """Przyjmuje nowe ustawienia odtwarzacza bez restartu."""
         self._settings = settings
@@ -346,6 +387,8 @@ class PlayerBar(QFrame):
             self.file_label.setText(source.name)
             self.file_label.setToolTip(str(source))
             self.file_hint_label.setText(f"Długość {format_ms(duration_ms)}")
+        if has_media and self._pending_state is not None:
+            self.restore_state(self._pending_state)
 
     def _on_playback_changed(self, is_playing: bool) -> None:
         self.play_button.setText("Pauza" if is_playing else "Odtwórz")
@@ -369,6 +412,7 @@ class PlayerBar(QFrame):
         self.file_hint_label.setText(NO_MEDIA_HINT)
         self._loop_a = None
         self._loop_b = None
+        self._pending_state = None
         if self._has_media:
             self._has_media = False
             self.media_available_changed.emit(False)

@@ -2,7 +2,8 @@
 
 Import nagrania → ASR (prawdziwy ``asr.engine.transcribe`` z atrapą backendu)
 → szkic w edytorze → automatyczne reguły → przegląd → wyszukaj i zamień
-z indeksem górnym → ujednolicenie wielokropków → eksport DOCX → odczyt DOCX.
+z indeksem górnym → ujednolicenie wielokropków → metryczka → zapis projektu
+i ponowne otwarcie w nowym oknie (faza 08) → eksport DOCX → odczyt DOCX.
 """
 
 from functools import partial
@@ -70,7 +71,7 @@ def superscripts(window: MainWindow) -> list[str]:
     return [text[start:end] for start, end in window.document.superscript_ranges]
 
 
-def test_full_workflow(qtbot, window, tmp_path, monkeypatch) -> None:
+def test_full_workflow(qtbot, window, add_window, tmp_path, monkeypatch) -> None:
     # 1. Import nagrania.
     window._on_import_audio(SAMPLE_MP3)
     qtbot.waitUntil(lambda: window.player_bar.has_media, timeout=10000)
@@ -126,9 +127,29 @@ def test_full_workflow(qtbot, window, tmp_path, monkeypatch) -> None:
     assert window.editor.toPlainText() == expected
     assert window.warnings_panel.warning_count() == 0
 
-    # 7. Metadane i eksport DOCX.
+    # 7. Metadane i metryczka (sygnatura podpowiedziana z nazwy nagrania).
     window.author_edit.setText("Anna Nowak")
     window.date_edit.setDate(QDate(2026, 10, 8))
+    window.metadata_form.set_value("place", "Ocieszyn")
+    assert window.metadata_form.value("signature") == "sample"
+
+    # 8. Zapis projektu i ponowne otwarcie przed eksportem (ACC-28).
+    project = tmp_path / "praca.transkr"
+    monkeypatch.setattr(
+        QFileDialog,
+        "getSaveFileName",
+        staticmethod(lambda *args, **kwargs: (str(project), "")),
+    )
+    window.save_action.trigger()
+    assert not window.document.is_unsaved
+    window = add_window(MainWindow())
+    assert window.session.open_project(project)
+    assert window.editor.toPlainText() == expected
+    assert superscripts(window) == ["u", "n", "m", "n"]
+    assert window.asr_panel.segments_list.count() == len(SEGMENTS)
+    qtbot.waitUntil(lambda: window.player_bar.has_media, timeout=10000)
+
+    # 9. Eksport DOCX z ponownie otwartego projektu.
     path = tmp_path / "wynik.docx"
     monkeypatch.setattr(
         QFileDialog,
@@ -138,7 +159,7 @@ def test_full_workflow(qtbot, window, tmp_path, monkeypatch) -> None:
     window.export_action.trigger()
     assert not window.document.is_dirty
 
-    # 8. Odczyt DOCX: tekst, indeksy górne i metadane.
+    # 10. Odczyt DOCX: tekst, indeksy górne, metadane i metryczka.
     docx = DocxDocument(str(path))
     assert docx.core_properties.author == "Anna Nowak"
     paragraphs = [p for p in docx.paragraphs if "tego czasu" in p.text]
@@ -148,3 +169,6 @@ def test_full_workflow(qtbot, window, tmp_path, monkeypatch) -> None:
     assert any(
         "Anna Nowak" in p.text and "2026-10-08" in p.text for p in docx.paragraphs
     )
+    assert docx.core_properties.title == "sample"
+    rows = [[cell.text for cell in row.cells] for row in docx.tables[0].rows]
+    assert rows == [["Sygnatura", "sample"], ["Miejscowość", "Ocieszyn"]]

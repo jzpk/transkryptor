@@ -1,9 +1,10 @@
 """Główne okno ręcznej transkrypcji.
 
 Składa pasek narzędzi (``ui/toolbar.py``), kartę odtwarzacza, kartę edytora
-z polami metadanych i paskiem wyszukiwania, panel ostrzeżeń, panel ASR oraz
-pasek stanu. Logikę deleguje do kontrolerów: przegląd szkicu ASR
-(``ui/review.py``), stan sesji (``ui/session.py``), eksport
+z polami metadanych, metryczką i paskiem wyszukiwania, panel ostrzeżeń,
+panel ASR oraz pasek stanu. Logikę deleguje do kontrolerów: przegląd szkicu
+ASR (``ui/review.py``), stan sesji, projekt i autozapis (``ui/session.py``,
+``ui/autosave.py``), eksport
 (``ui/export_controller.py``), odtwarzacz (``ui/player_controller.py``)
 i wyszukiwanie (``ui/search_controller.py``). Okno uruchamia nieblokującą
 walidację ``notation.validate`` z debounce — reguły pozostają w module
@@ -42,10 +43,12 @@ from transkryptor.ui.layout import (
     header_row,
     label,
     side_dock,
+    words_label,
 )
 from transkryptor.ui.loading_overlay import LoadingOverlay
 from transkryptor.ui.markers import marker_text
 from transkryptor.ui.messages import show_error
+from transkryptor.ui.metadata_form import MetadataForm
 from transkryptor.ui.notation_controller import NotationController
 from transkryptor.ui.player_bar import PlayerBar
 from transkryptor.ui.player_controller import PlayerController
@@ -104,6 +107,7 @@ class MainWindow(QMainWindow):
 
         self.author_edit = author_field()
         self.date_edit = date_field()
+        self.metadata_form = MetadataForm(settings_store.current.metadata.fields)
 
         self.editor = TranscriptionEditor()
         self.search_bar = SearchBar()
@@ -118,16 +122,6 @@ class MainWindow(QMainWindow):
             audio_path_provider=lambda: self.player.source_path,
         )
 
-        self.session = SessionController(
-            self,
-            self.editor,
-            self.player,
-            self.player_bar,
-            self.asr_panel,
-            self.author_edit,
-            self.date_edit,
-            on_reset=self._on_session_reset,
-        )
         self.review = ReviewController(
             self.editor,
             self.asr_panel,
@@ -136,8 +130,26 @@ class MainWindow(QMainWindow):
             ask_placement=lambda: self._ask_draft_placement(),
             ellipsis_style=lambda: self._ellipsis_style,
         )
+        self.session = SessionController(
+            self,
+            self.editor,
+            self.player,
+            self.player_bar,
+            self.asr_panel,
+            self.review,
+            self.author_edit,
+            self.date_edit,
+            self.metadata_form,
+            settings_store,
+            on_reset=self._on_session_reset,
+            on_state_changed=self._on_session_state_changed,
+        )
         self.exporter = ExportController(
-            self, lambda: self.document, self.date_edit, self._update_title
+            self,
+            lambda: self.document,
+            self.date_edit,
+            lambda: self.settings_store.current.metadata.fields,
+            self._update_title,
         )
         self.search = SearchController(self.editor, self.search_bar, self)
         self.notation = NotationController(
@@ -190,7 +202,9 @@ class MainWindow(QMainWindow):
             buddy_caption("DATA", self.date_edit),
             self.date_edit,
         )
-        editor_card = card(header, self.editor, self.search_bar, stretch_first=True)
+        editor_card = card(
+            header, self.metadata_form, self.editor, self.search_bar, stretch_index=1
+        )
 
         self.unify_ellipses_action = self.notation.create_unify_action(self)
         unify_button = QToolButton()
@@ -242,6 +256,14 @@ class MainWindow(QMainWindow):
                 new_document=self._on_new_document,
                 export=self._on_export,
                 close=self.close,
+                open_project=self.session.open_project_dialog,
+                open_recent=lambda path: self.session.open_project(path),
+                clear_recent=self.settings_store.clear_recent_projects,
+                recent_projects=self.settings_store.recent_projects,
+                save_project=self.session.save_project,
+                save_project_as=self.session.save_project_as,
+                import_docx=self.session.import_docx_dialog,
+                export_anonymized=lambda: self.exporter.export(anonymize=True),
             ),
         )
         self.toolbar = bar.toolbar
@@ -251,7 +273,13 @@ class MainWindow(QMainWindow):
         self.settings_action = bar.settings_action
         self.new_action = bar.new_action
         self.export_action = bar.export_action
+        self.export_anonymized_action = bar.export_anonymized_action
         self.close_action = bar.close_action
+        self.open_action = bar.open_action
+        self.save_action = bar.save_action
+        self.save_as_action = bar.save_as_action
+        self.import_docx_action = bar.import_docx_action
+        self.main_toolbar = bar
 
     def _build_status_bar(self) -> None:
         status = self.statusBar()
@@ -263,6 +291,7 @@ class MainWindow(QMainWindow):
         self.editor.document().contentsChanged.connect(self._on_editor_changed)
         self.author_edit.textChanged.connect(self._on_metadata_changed)
         self.date_edit.dateChanged.connect(self._on_metadata_changed)
+        self.metadata_form.changed.connect(self._on_metadata_changed)
         self.player_bar.import_requested.connect(self._on_import_audio)
         self.settings_store.settings_changed.connect(self._apply_settings)
         self.asr_panel.seek_requested.connect(self.player_controller.seek_to_segment)
@@ -291,6 +320,8 @@ class MainWindow(QMainWindow):
         """Stosuje ustawienia do komponentów bez restartu (ACC-17)."""
         self.player_bar.apply_settings(settings.player)
         self.editor.apply_settings(settings.editor)
+        self.metadata_form.set_fields(settings.metadata.fields)
+        self.session.autosave.configure(settings.project)
         self.asr_panel.set_segment_preroll_ms(settings.player.segment_preroll_ms)
         # ACC-25: tekst się nie zmienia — tylko kolejne wstawienia i walidacja.
         pause = self.marker_actions["pause"]
@@ -320,6 +351,11 @@ class MainWindow(QMainWindow):
         self.notation.clear()
         self.review.finish()
         self._update_title()
+
+    def _on_session_state_changed(self) -> None:
+        """Projekt otwarty, zapisany, odzyskany albo zaimportowany."""
+        self._update_title()
+        self.notation.schedule_validation()
 
     def _on_import_audio(self, path: str) -> None:
         self.session.import_audio(path)
@@ -362,11 +398,13 @@ class MainWindow(QMainWindow):
         klawiaturę i skróty (także te o zasięgu całej aplikacji).
         """
         self._set_ui_locked(True)
+        self.session.autosave.pause()
         self.loading_overlay.start()
 
     def _on_transcription_finished(self) -> None:
         self.loading_overlay.stop()
         self._set_ui_locked(False)
+        self.session.autosave.resume()
 
     def _set_ui_locked(self, locked: bool) -> None:
         self._ui_locked = locked
@@ -378,7 +416,12 @@ class MainWindow(QMainWindow):
             self.superscript_action,
             *self.marker_actions.values(),
             self.new_action,
+            self.open_action,
+            self.save_action,
+            self.save_as_action,
+            self.import_docx_action,
             self.export_action,
+            self.export_anonymized_action,
             self.settings_action,
             self.unify_ellipses_action,
             *self.search_actions.values(),
@@ -389,11 +432,19 @@ class MainWindow(QMainWindow):
     # --- stan --------------------------------------------------------------
 
     def _update_title(self) -> None:
-        """Odświeża tytuł okna, licznik słów i stan eksportu w pasku stanu."""
+        """Odświeża tytuł okna, licznik słów i stan eksportu w pasku stanu.
+
+        Gwiazdka w tytule: niezapisane zmiany projektu, a bez pliku
+        projektu — niewyeksportowane zmiany.
+        """
         dirty = self.document.is_dirty
-        self.setWindowTitle(f"{WINDOW_TITLE}{'*' if dirty else ''}")
+        marker = "*" if self.session.has_unsaved_work else ""
+        name = self.session.project_name
+        self.setWindowTitle(
+            f"{WINDOW_TITLE} — {name}{marker}" if name else f"{WINDOW_TITLE}{marker}"
+        )
         words = len(self.document.text.split())
-        self.word_count_label.setText(f"{words} {_words_label(words)}")
+        self.word_count_label.setText(f"{words} {words_label(words)}")
         self.export_status_label.setText(STATUS_DIRTY if dirty else STATUS_CLEAN)
         set_props(
             self.export_status_label, role="badge", tone="warning" if dirty else ""
@@ -402,12 +453,3 @@ class MainWindow(QMainWindow):
     def run_validation_now(self) -> None:
         """Pomocnicze dla testów: natychmiastowa walidacja bez debounce."""
         self.notation.run_validation()
-
-
-def _words_label(count: int) -> str:
-    """Odmiana „słowo” po liczebniku (1 słowo, 2 słowa, 5 słów)."""
-    if count == 1:
-        return "słowo"
-    if count % 10 in (2, 3, 4) and count % 100 not in (12, 13, 14):
-        return "słowa"
-    return "słów"

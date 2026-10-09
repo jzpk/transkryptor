@@ -12,10 +12,15 @@ i wpis w ``_FIELDS`` — bez zmian w mechanizmie zapisu.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
 from typing import Any
 
+from transkryptor.document.metadata import (
+    DEFAULT_FIELDS,
+    MetadataField,
+    decode_fields,
+)
 from transkryptor.notation.ellipsis import DEFAULT_ELLIPSIS_STYLE, EllipsisStyle
 
 SCHEMA_VERSION = 1
@@ -52,10 +57,35 @@ class NotationSettings:
 
 
 @dataclass(frozen=True)
+class ProjectSettings:
+    """Autozapis bieżącej pracy (sekundy)."""
+
+    autosave_enabled: bool = True
+    autosave_interval_s: int = 60
+
+
+@dataclass(frozen=True)
+class MetadataSettings:
+    """Pola metryczki zespołu: JSON z ``document.metadata.encode_fields``.
+
+    Pusty napis oznacza zestaw domyślny.
+    """
+
+    fields_spec: str = ""
+
+    @property
+    def fields(self) -> tuple[MetadataField, ...]:
+        decoded = decode_fields(self.fields_spec)
+        return decoded if decoded is not None else DEFAULT_FIELDS
+
+
+@dataclass(frozen=True)
 class Settings:
     player: PlayerSettings = field(default_factory=PlayerSettings)
     editor: EditorSettings = field(default_factory=EditorSettings)
     notation: NotationSettings = field(default_factory=NotationSettings)
+    project: ProjectSettings = field(default_factory=ProjectSettings)
+    metadata: MetadataSettings = field(default_factory=MetadataSettings)
 
 
 @dataclass(frozen=True)
@@ -68,6 +98,7 @@ class _Field:
     minimum: int | None = None
     maximum: int | None = None
     choices: tuple[str, ...] | None = None
+    validate: Callable[[str], bool] | None = None
 
     @property
     def key(self) -> str:
@@ -78,6 +109,7 @@ SKIP_RANGE_MS = (500, 30_000)
 AUTO_REWIND_RANGE_MS = (0, 10_000)
 SEGMENT_PREROLL_RANGE_MS = (0, 5_000)
 FONT_SIZE_RANGE_PT = (6, 48)  # 0 = domyślny, poza zakresem
+AUTOSAVE_INTERVAL_RANGE_S = (30, 600)
 ELLIPSIS_STYLES = tuple(style.value for style in EllipsisStyle)
 
 _FIELDS: tuple[_Field, ...] = (
@@ -88,6 +120,14 @@ _FIELDS: tuple[_Field, ...] = (
     _Field("editor", "font_family", str),
     _Field("editor", "font_size_pt", int, *FONT_SIZE_RANGE_PT),
     _Field("notation", "ellipsis_style", str, choices=ELLIPSIS_STYLES),
+    _Field("project", "autosave_enabled", bool),
+    _Field("project", "autosave_interval_s", int, *AUTOSAVE_INTERVAL_RANGE_S),
+    _Field(
+        "metadata",
+        "fields_spec",
+        str,
+        validate=lambda raw: decode_fields(raw) is not None,
+    ),
 )
 
 
@@ -109,6 +149,8 @@ def from_mapping(mapping: Mapping[str, Any]) -> Settings:
         "player": {},
         "editor": {},
         "notation": {},
+        "project": {},
+        "metadata": {},
     }
     for spec in _FIELDS:
         if spec.key not in mapping:
@@ -122,6 +164,12 @@ def from_mapping(mapping: Mapping[str, Any]) -> Settings:
         notation=replace(
             NotationSettings(), **sections["notation"]  # type: ignore[arg-type]
         ),
+        project=replace(
+            ProjectSettings(), **sections["project"]  # type: ignore[arg-type]
+        ),
+        metadata=replace(
+            MetadataSettings(), **sections["metadata"]  # type: ignore[arg-type]
+        ),
     )
 
 
@@ -133,6 +181,8 @@ def _coerce(spec: _Field, raw: object) -> object | None:
         if not isinstance(raw, str):
             return None
         if spec.choices is not None and raw not in spec.choices:
+            return None
+        if spec.validate is not None and not spec.validate(raw):
             return None
         return raw
     number = _coerce_int(raw)
@@ -170,3 +220,13 @@ def _coerce_int(raw: object) -> int | None:
         except ValueError:
             return None
     return None
+
+
+RECENT_PROJECTS_LIMIT = 8
+
+
+def push_recent(
+    paths: list[str], path: str, limit: int = RECENT_PROJECTS_LIMIT
+) -> list[str]:
+    """Lista ostatnich projektów z ``path`` na początku, bez duplikatów."""
+    return [path, *(p for p in paths if p != path)][:limit]

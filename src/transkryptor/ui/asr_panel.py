@@ -160,6 +160,7 @@ class AsrPanel(QWidget):
         self._transcribe_thread: TranscribeThread | None = None
         self._review_applied: list[bool] = []
         self._last_draft = ""
+        self._last_result: TranscriptionResult | None = None
         self._audio_available = False
         self._segment_preroll_ms = DEFAULT_SEGMENT_PREROLL_MS
 
@@ -546,6 +547,7 @@ class AsrPanel(QWidget):
     def _on_transcribe_succeeded(self, result: TranscriptionResult) -> None:
         self._finish_transcribe()
         self._last_draft = result.text
+        self._last_result = result
         if not result.text.strip():
             self.transcribe_status_label.setText(
                 "Transkrypcja nie rozpoznała mowy w nagraniu."
@@ -577,6 +579,27 @@ class AsrPanel(QWidget):
         self.cancel_transcribe_button.setEnabled(True)
         self._update_transcribe_availability()
         self.transcription_finished.emit()
+
+    @property
+    def last_result(self) -> TranscriptionResult | None:
+        """Ostatni udany wynik ASR (do zapisu w projekcie)."""
+        return self._last_result
+
+    def restore_result(self, result: TranscriptionResult | None) -> None:
+        """Odtwarza wynik ASR z projektu: segmenty i „Wstaw szkic ponownie”.
+
+        Nie emituje ``draft_ready`` — tekst dokumentu pochodzi z projektu.
+        """
+        self.segments_list.clear()
+        self._last_result = result
+        self._last_draft = result.text if result is not None else ""
+        if result is not None:
+            for segment in result.segments:
+                self._on_segment_ready(segment)
+        self.reinsert_draft_button.setEnabled(bool(self._last_draft.strip()))
+        self.transcribe_status_label.setText(
+            "Szkic ASR wczytany z projektu." if self._last_draft.strip() else ""
+        )
 
     def is_transcribing(self) -> bool:
         return self._transcribe_thread is not None

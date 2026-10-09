@@ -17,15 +17,17 @@ def add_window(qtbot):
     niewyeksportowane zmiany, ``MainWindow.closeEvent`` otwiera modalny dialog
     ochrony sesji (ACC-10), a w trybie offscreen nie ma kto na niego
     odpowiedzieć — test wisi w nieskończoność. ``before_close_func`` oznacza
-    rewizję jako wyeksportowaną bezpośrednio przed zamknięciem, więc dialog nie
+    rewizję jako wyeksportowaną i zapisaną bezpośrednio przed zamknięciem, więc dialog nie
     jest potrzebny; samo ostrzeżenie jest testowane jawnie w
     ``test_session_guard.py``.
     """
 
     def register(window):
-        qtbot.addWidget(
-            window, before_close_func=lambda win: win.document.mark_exported()
-        )
+        def before_close(win) -> None:
+            win.document.mark_exported()
+            win.document.mark_saved()
+
+        qtbot.addWidget(window, before_close_func=before_close)
         return window
 
     return register
@@ -95,3 +97,13 @@ def isolated_settings(monkeypatch, tmp_path):
 
     monkeypatch.setattr(settings_store, "default_qsettings", factory)
     return factory
+
+
+@pytest.fixture(autouse=True)
+def isolated_autosave(monkeypatch, tmp_path):
+    """Autozapis w katalogu tymczasowym, nie w danych użytkownika."""
+    from transkryptor import paths
+
+    directory = tmp_path / "autosave"
+    monkeypatch.setattr(paths, "autosave_dir", lambda: directory)
+    return directory

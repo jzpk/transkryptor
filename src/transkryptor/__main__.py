@@ -146,6 +146,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.self_test:
         return self_test()
 
+    from PySide6.QtCore import QTimer
     from PySide6.QtWidgets import QApplication
 
     from transkryptor.ui.main_window import MainWindow
@@ -160,6 +161,8 @@ def main(argv: list[str] | None = None) -> int:
     window = MainWindow()
     window.show()
     window.updates.start_automatic()
+    # ACC-30: propozycja odzyskania pracy po awarii — gdy okno już widać.
+    QTimer.singleShot(0, window.session.offer_recovery)
     return app.exec()
 
 

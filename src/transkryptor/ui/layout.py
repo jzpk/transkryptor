@@ -18,8 +18,15 @@ from PySide6.QtWidgets import (
 from transkryptor.ui.theme import set_props
 
 
-def card(header: QHBoxLayout, *widgets: QWidget, stretch_first: bool = False) -> QFrame:
-    """Karta z nagłówkiem i widżetami pod nim (pierwszy może się rozciągać)."""
+def card(
+    header: QHBoxLayout,
+    *widgets: QWidget,
+    stretch_first: bool = False,
+    stretch_index: int | None = None,
+) -> QFrame:
+    """Karta z nagłówkiem i widżetami pod nim (jeden może się rozciągać)."""
+    if stretch_first:
+        stretch_index = 0
     frame = QFrame()
     set_props(frame, card=True)
     layout = QVBoxLayout(frame)
@@ -27,7 +34,7 @@ def card(header: QHBoxLayout, *widgets: QWidget, stretch_first: bool = False) ->
     layout.setSpacing(0)
     layout.addLayout(header)
     for index, widget in enumerate(widgets):
-        layout.addWidget(widget, stretch=1 if stretch_first and index == 0 else 0)
+        layout.addWidget(widget, stretch=1 if index == stretch_index else 0)
     return frame
 
 
@@ -91,3 +98,12 @@ def side_dock(
     window.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
     window.resizeDocks([dock], [420], Qt.Orientation.Horizontal)
     return dock
+
+
+def words_label(count: int) -> str:
+    """Odmiana „słowo” po liczebniku (1 słowo, 2 słowa, 5 słów)."""
+    if count == 1:
+        return "słowo"
+    if count % 10 in (2, 3, 4) and count % 100 not in (12, 13, 14):
+        return "słowa"
+    return "słów"

@@ -3,7 +3,7 @@
 import pytest
 
 from transkryptor.ui import icons, theme
-from transkryptor.ui.main_window import _words_label
+from transkryptor.ui.layout import words_label as _words_label
 
 
 @pytest.mark.parametrize("name", icons.available())

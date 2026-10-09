@@ -32,6 +32,14 @@ _PATHS: dict[str, str] = {
         '<path d="M14 3v5h5M12 11v6M9.5 14.5L12 17l2.5-2.5"/>'
     ),
     "close": '<path d="M6 6l12 12M18 6L6 18"/>',
+    "open": (
+        '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5'
+        'a2 2 0 0 1-2-2z"/>'
+    ),
+    "save": (
+        '<path d="M5 3h11l3 3v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2z"/>'
+        '<path d="M8 3v5h7V3M8 21v-7h8v7"/>'
+    ),
     "import": (
         '<path d="M9 18V6l11-2v12"/>'
         '<circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/>'

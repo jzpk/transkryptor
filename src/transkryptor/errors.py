@@ -29,3 +29,11 @@ class ModelDownloadError(AppError):
 
 class UpdateError(AppError):
     """Nie udało się sprawdzić, pobrać lub zweryfikować nowej wersji aplikacji."""
+
+
+class ProjectError(AppError):
+    """Nie udało się zapisać lub otworzyć pliku projektu."""
+
+
+class ImportDocxError(AppError):
+    """Nie udało się zaimportować dokumentu DOCX."""

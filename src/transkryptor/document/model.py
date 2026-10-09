@@ -1,9 +1,11 @@
 """Model dokumentu transkrypcji.
 
 Dokument to ciągły tekst z zakresami indeksu górnego, metadanymi (autor,
-data) oraz stanem zmian od ostatniego eksportu. Stan zmian jest licznikiem
-rewizji: każda mutacja zwiększa ``revision``, a moduł eksportu po udanym
-zapisie wywołuje :meth:`Document.mark_exported`.
+data i metryczka nagrania) oraz stanem zmian. Stan zmian jest licznikiem
+rewizji: każda mutacja zwiększa ``revision``. Dwa znaczniki zapamiętują
+rewizję ostatniego eksportu DOCX (:meth:`Document.mark_exported`) i ostatniego
+zapisu pliku projektu (:meth:`Document.mark_saved`) — dokument może być
+zapisany, ale niewyeksportowany, i odwrotnie.
 
 Moduł nie odczytuje audio ani nie eksportuje plików.
 """
@@ -12,6 +14,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from transkryptor.document.metadata import normalized
+
 
 @dataclass
 class Document:
@@ -19,24 +23,40 @@ class Document:
 
     ``superscript_ranges`` to lista półotwartych zakresów znaków
     ``(start, end)`` sformatowanych indeksem górnym, posortowana i bez
-    nakładających się elementów.
+    nakładających się elementów. ``metadata`` to metryczka nagrania (klucze
+    z ``document/metadata.py``) bez pustych wartości.
     """
 
     text: str = ""
     superscript_ranges: list[tuple[int, int]] = field(default_factory=list)
     author: str = ""
     date: str = ""
+    metadata: dict[str, str] = field(default_factory=dict)
     revision: int = 0
     exported_revision: int = 0
+    saved_revision: int = 0
 
     @property
     def is_dirty(self) -> bool:
         """Czy od ostatniego eksportu wprowadzono zmiany."""
         return self.revision != self.exported_revision
 
+    @property
+    def is_unsaved(self) -> bool:
+        """Czy od ostatniego zapisu projektu wprowadzono zmiany."""
+        return self.revision != self.saved_revision
+
     def mark_exported(self) -> None:
         """Oznacza bieżącą rewizję jako wyeksportowaną."""
         self.exported_revision = self.revision
+
+    def mark_saved(self) -> None:
+        """Oznacza bieżącą rewizję jako zapisaną w pliku projektu."""
+        self.saved_revision = self.revision
+
+    def touch(self) -> None:
+        """Zmiana stanu projektu poza tekstem (np. inne nagranie)."""
+        self.revision += 1
 
     def set_metadata(self, author: str, date: str) -> None:
         """Ustawia autora i datę transkrypcji."""
@@ -44,6 +64,14 @@ class Document:
             return
         self.author = author
         self.date = date
+        self.revision += 1
+
+    def set_metadata_values(self, values: dict[str, str]) -> None:
+        """Ustawia pola metryczki; puste wartości usuwają pole."""
+        merged = normalized({**self.metadata, **values})
+        if merged == self.metadata:
+            return
+        self.metadata = merged
         self.revision += 1
 
     def replace(self, start: int, end: int, new_text: str) -> None:

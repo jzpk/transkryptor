@@ -9,10 +9,13 @@ from __future__ import annotations
 
 from PySide6.QtCore import QObject, QSettings, Signal
 
-from transkryptor.settings import Settings, from_mapping, to_mapping
+from transkryptor.settings import Settings, from_mapping, push_recent, to_mapping
 
 SETTINGS_ORGANIZATION = "transkryptor"
 SETTINGS_APPLICATION = "transkryptor"
+# Poza modelem ``Settings``: lista zmienia się przy każdym zapisie projektu,
+# a nie w oknie „Ustawienia…”.
+RECENT_PROJECTS_KEY = "project/recent"
 
 
 def default_qsettings() -> QSettings:
@@ -54,3 +57,28 @@ class SettingsStore(QObject):
         self._qsettings.sync()
         self._current = settings
         self.settings_changed.emit(settings)
+
+    def recent_projects(self) -> list[str]:
+        """Ostatnio używane projekty (najnowszy pierwszy)."""
+        try:
+            raw = self._qsettings.value(RECENT_PROJECTS_KEY)
+        except Exception:  # noqa: BLE001 — uszkodzony magazyn nie blokuje pracy
+            return []
+        if isinstance(raw, str):
+            raw = [raw] if raw else []
+        if not isinstance(raw, list):
+            return []
+        return [item for item in raw if isinstance(item, str) and item]
+
+    def add_recent_project(self, path: str) -> None:
+        self._set_recent(push_recent(self.recent_projects(), path))
+
+    def remove_recent_project(self, path: str) -> None:
+        self._set_recent([p for p in self.recent_projects() if p != path])
+
+    def clear_recent_projects(self) -> None:
+        self._set_recent([])
+
+    def _set_recent(self, paths: list[str]) -> None:
+        self._qsettings.setValue(RECENT_PROJECTS_KEY, paths)
+        self._qsettings.sync()

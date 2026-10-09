@@ -124,3 +124,28 @@ class TestDirtyState:
         doc.set_superscript(0, 1)
         assert doc.revision == 3
         assert doc.exported_revision == 0
+
+
+class TestMetadataAndSaveState:
+    """Faza 08: metryczka i rozróżnienie „niezapisany” / „niewyeksportowany”."""
+
+    def test_metadata_values_bump_revision_only_on_change(self) -> None:
+        doc = Document()
+        doc.set_metadata_values({"signature": "AdK_1954", "place": ""})
+        assert doc.metadata == {"signature": "AdK_1954"}
+        assert doc.revision == 1
+        doc.set_metadata_values({"place": ""})
+        assert doc.revision == 1
+        doc.set_metadata_values({"signature": ""})
+        assert doc.metadata == {}
+        assert doc.revision == 2
+
+    def test_saved_and_exported_are_independent(self) -> None:
+        doc = Document(text="sóm")
+        doc.replace(3, 3, " pani")
+        doc.mark_saved()
+        assert not doc.is_unsaved
+        assert doc.is_dirty  # zapisany, ale niewyeksportowany
+        doc.mark_exported()
+        doc.touch()
+        assert doc.is_unsaved and doc.is_dirty

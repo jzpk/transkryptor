@@ -63,6 +63,10 @@ class AudioPlayer(QObject):
         self._player.durationChanged.connect(self.duration_changed)
         self._player.playbackStateChanged.connect(self._on_state_changed)
         self._player.errorOccurred.connect(self._on_error)
+        self._player.mediaStatusChanged.connect(self._on_media_status)
+        # Przewinięcie zlecone, zanim nagranie się załadowało (np. pozycja
+        # z projektu) — Qt by je zignorował, więc czeka na ``LoadedMedia``.
+        self._pending_position: int | None = None
         self._source_path: Path | None = None
         self._last_error: ImportAudioError | None = None
         self._loop: tuple[int, int] | None = None
@@ -134,6 +138,7 @@ class AudioPlayer(QObject):
         self._last_error = None
         self.clear_loop()
         self._rewind_armed = False
+        self._pending_position = None
         self._player.setSource(QUrl.fromLocalFile(str(candidate.resolve())))
         self._source_path = candidate
 
@@ -158,6 +163,8 @@ class AudioPlayer(QObject):
         position_ms = max(0, position_ms)
         if self.duration_ms > 0:
             position_ms = min(position_ms, self.duration_ms)
+        if self._player.mediaStatus() == QMediaPlayer.MediaStatus.LoadingMedia:
+            self._pending_position = position_ms
         self._player.setPosition(position_ms)
 
     def set_loop(self, start_ms: int, end_ms: int) -> None:
@@ -187,12 +194,21 @@ class AudioPlayer(QObject):
         """Zatrzymuje odtwarzanie i zwalnia załadowane nagranie."""
         self.clear_loop()
         self._rewind_armed = False
+        self._pending_position = None
         # Bez ``stop()``: pusty ``setSource`` sam zatrzymuje odtwarzanie, a
         # PySide6 zwalnia przy nim GIL (allow-thread). ``stop()`` wołany z GIL
         # potrafi się zakleszczyć z wątkiem ``QFFmpeg::AudioRenderer``, który
         # w ``~QObject`` trzyma mutex połączeń Qt i czeka na GIL.
         self._player.setSource(QUrl())
         self._source_path = None
+
+    def _on_media_status(self, status: QMediaPlayer.MediaStatus) -> None:
+        if (
+            status == QMediaPlayer.MediaStatus.LoadedMedia
+            and self._pending_position is not None
+        ):
+            position_ms, self._pending_position = self._pending_position, None
+            self._player.setPosition(position_ms)
 
     def _on_position_changed(self, position_ms: int) -> None:
         self.position_changed.emit(position_ms)

@@ -115,6 +115,24 @@ class TranscriptionEditor(QTextEdit):
         self.setTextCursor(cursor)
         return start
 
+    def load_content(self, text: str, superscript_ranges) -> None:
+        """Wczytuje tekst z zakresami indeksu górnego (projekt, import DOCX).
+
+        Wczytanie zaczyna nową historię cofania — stan sprzed otwarcia
+        należy do innego dokumentu.
+        """
+        self.setPlainText(text)
+        superscript_format = QTextCharFormat()
+        superscript_format.setVerticalAlignment(
+            QTextCharFormat.VerticalAlignment.AlignSuperScript
+        )
+        for start, end in superscript_ranges:
+            self.track_range(start, end).mergeCharFormat(superscript_format)
+        self.document().clearUndoRedoStacks()
+        cursor = self.textCursor()
+        cursor.movePosition(QTextCursor.MoveOperation.Start)
+        self.setTextCursor(cursor)
+
     def track_range(self, start: int, end: int) -> QTextCursor:
         """Zwraca kursor obejmujący zakres i przesuwający się razem z edycją."""
         cursor = QTextCursor(self.document())

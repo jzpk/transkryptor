@@ -59,3 +59,52 @@ class TestExport:
         read = DocxReader(str(target))
         assert "żółć gęślą jaźń" in read.paragraphs[1].text
         assert "Łukasz Żółw" in read.paragraphs[0].text
+
+
+class TestMetadataTable:
+    """ACC-32: tabela metryczki i eksport anonimizowany."""
+
+    METADATA = {
+        "signature": "AdK_1954",
+        "place": "Ocieszyn",
+        "informant": "KA",
+        "informant_birth_year": "1954",
+        "notes": "",
+    }
+
+    def _export(self, tmp_path, anonymize: bool):
+        doc = Document(
+            text="pamientam", author="Anna", date="2026-10-09", metadata=self.METADATA
+        )
+        doc.superscript_ranges = [(5, 6)]
+        target = tmp_path / ("anonim.docx" if anonymize else "pelny.docx")
+        export_docx(doc, target, anonymize=anonymize)
+        return DocxReader(str(target))
+
+    def test_table_contains_only_non_empty_fields(self, tmp_path) -> None:
+        read = self._export(tmp_path, anonymize=False)
+        rows = [[c.text for c in row.cells] for row in read.tables[0].rows]
+        assert rows == [
+            ["Sygnatura", "AdK_1954"],
+            ["Miejscowość", "Ocieszyn"],
+            ["Informator (kod)", "KA"],
+            ["Rok urodzenia informatora", "1954"],
+        ]
+        assert read.core_properties.title == "AdK_1954"
+        assert read.core_properties.keywords == "Ocieszyn"
+
+    def test_anonymized_export_drops_personal_fields_only(self, tmp_path) -> None:
+        read = self._export(tmp_path, anonymize=True)
+        labels = [row.cells[0].text for row in read.tables[0].rows]
+        assert labels == ["Sygnatura", "Miejscowość"]
+        assert "KA" not in "".join(p.text for p in read.paragraphs)
+        text = read.paragraphs[1]
+        assert text.text == "pamientam"
+        assert [r.text for r in text.runs if r.font.superscript] == ["n"]
+
+    def test_without_metadata_there_is_no_table(self, tmp_path) -> None:
+        target = tmp_path / "bez.docx"
+        export_docx(Document(text="x"), target)
+        read = DocxReader(str(target))
+        assert read.tables == []
+        assert read.core_properties.title == "Transkrypcja fonetyczna"

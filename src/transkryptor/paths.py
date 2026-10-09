@@ -38,3 +38,8 @@ def user_cache_dir() -> Path:
     if base:
         return Path(base) / APP_DIR_NAME
     return Path.home() / ".cache" / APP_DIR_NAME
+
+
+def autosave_dir() -> Path:
+    """Kopie autozapisu bieżącej pracy (usuwane po poprawnym zamknięciu)."""
+    return user_data_dir() / "autosave"
