@@ -47,6 +47,11 @@ packages = ["src/transkryptor"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Bez przechwytywania logów Qt przez pytest-qt: jego handler w Pythonie jest
+# wołany z wątków FFmpeg Qt Multimedia (np. ostrzeżenie o braku wyjścia audio
+# na runnerze CI) i wywraca interpreter (segfault). Komunikaty Qt trafiają
+# wtedy na stderr, który pytest i tak przechwytuje.
+addopts = "--no-qt-log"
 pythonpath = ["src"]
 markers = [
     "asr_model: wymaga pobranego modelu ASR; pomijany, gdy modelu nie ma (ACC-11)",

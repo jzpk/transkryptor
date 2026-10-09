@@ -187,7 +187,10 @@ class AudioPlayer(QObject):
         """Zatrzymuje odtwarzanie i zwalnia załadowane nagranie."""
         self.clear_loop()
         self._rewind_armed = False
-        self._player.stop()
+        # Bez ``stop()``: pusty ``setSource`` sam zatrzymuje odtwarzanie, a
+        # PySide6 zwalnia przy nim GIL (allow-thread). ``stop()`` wołany z GIL
+        # potrafi się zakleszczyć z wątkiem ``QFFmpeg::AudioRenderer``, który
+        # w ``~QObject`` trzyma mutex połączeń Qt i czeka na GIL.
         self._player.setSource(QUrl())
         self._source_path = None
 

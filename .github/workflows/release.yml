@@ -43,6 +43,9 @@ jobs:
   testy:
     name: Testy
     runs-on: ubuntu-22.04
+    # Zawieszony test (np. zakleszczenie Qt Multimedia) nie może blokować
+    # runnera przez domyślne 6 godzin.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
