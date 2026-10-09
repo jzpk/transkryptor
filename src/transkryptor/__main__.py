@@ -37,6 +37,7 @@ REQUIRED_MODULES = (
     "httpx",
     "huggingface_hub",
     "regex",
+    "cryptography.hazmat.primitives.asymmetric.ed25519",
 )
 
 

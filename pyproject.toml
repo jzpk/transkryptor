@@ -19,6 +19,8 @@ dependencies = [
     "huggingface-hub>=0.30",
     "httpx>=0.27",
     "regex>=2024.11.6",
+    # Weryfikacja podpisu Ed25519 (minisign) sum kontrolnych aktualizacji.
+    "cryptography>=44",
 ]
 
 [project.scripts]

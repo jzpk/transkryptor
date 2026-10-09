@@ -153,3 +153,20 @@ def test_failed_install_is_reported(qtbot, window, no_blocking_dialogs) -> None:
     )
     window.updates.install_button.click()
     assert [k for k, _t, _x in no_blocking_dialogs] == ["warning"]
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        'https://github.com/jzpk/transkryptor/releases/tag/v9"><b>x</b>',
+        "javascript:alert(1)",
+        "https://evil.example/releases",
+    ],
+)
+def test_banner_link_is_escaped_and_limited_to_github(window, url) -> None:
+    window.updates._show_available("9.0.0", url)
+    text = window.updates.banner_label.text()
+    assert "<b>" not in text
+    assert "javascript:" not in text
+    assert "evil.example" not in text
+    assert 'href="https://github.com/' in text

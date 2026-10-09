@@ -79,6 +79,14 @@ Pusta sekcja blokuje wydanie.
   na ekranie, a licznik pokazuje wszystkie.
 - **F3** / **Shift+F3** za emoji i innymi znakami spoza podstawowego
   zakresu Unicode przechodzą do właściwego trafienia.
+- Automatyczne aktualizacje instalują tylko wydania podpisane kluczem
+  autorów: wersja bez podpisu albo z niepasującym podpisem zostaje
+  odrzucona z komunikatem, nawet jeśli plik i jego suma kontrolna
+  w wydaniu zostały podmienione razem.
+- Tuż przed instalacją aktualizacji pobrany plik jest sprawdzany ponownie;
+  plik zmieniony od pobrania nie zostanie uruchomiony, a aktualizacja
+  pobierze się od nowa przy kolejnym starcie.
+- Link „pobierz” w pasku stanu prowadzi wyłącznie do strony wydań na GitHub.
 
 ## 0.2.3 — 2026-10-09
 

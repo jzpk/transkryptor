@@ -3,6 +3,11 @@
 Zapytanie zawiera wyłącznie standardowe nagłówki HTTP (``User-Agent`` z wersją
 aplikacji wymaga GitHub) — bez identyfikatora instalacji i bez telemetrii.
 Endpoint ``/releases/latest`` sam pomija wydania wstępne i szkice.
+
+Dane wydania (z API albo z pliku stanu) są walidowane, zanim trafią do
+ścieżek i adresów: wersja ``X.Y.Z``, nazwa pliku bez separatorów ścieżki,
+adresy wyłącznie ``https`` z hostów GitHub. Autentyczność plików potwierdza
+dopiero podpis sum kontrolnych (``update/signature.py``).
 """
 
 from __future__ import annotations
@@ -12,6 +17,7 @@ import sys
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from typing import Any
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -27,6 +33,15 @@ RELEASES_PAGE_URL = f"https://github.com/{GITHUB_REPO}/releases/latest"
 USER_AGENT = f"Transkryptor/{__version__}"
 
 CHECKSUMS_ASSET = "SHA256SUMS.txt"
+SIGNATURE_ASSET = f"{CHECKSUMS_ASSET}.minisig"
+# Pliki wydań: adres z API (github.com) i hosty, na które GitHub przekierowuje.
+DOWNLOAD_HOSTS = frozenset(
+    {
+        "github.com",
+        "objects.githubusercontent.com",
+        "release-assets.githubusercontent.com",
+    }
+)
 # Sufiksy nazw artefaktów z ``packaging.metadata.targets`` (zgodność pilnuje
 # test; kod uruchomieniowy nie importuje narzędzia wydania).
 ASSET_SUFFIXES = {
@@ -53,6 +68,36 @@ def is_newer(candidate: str, current: str = __version__) -> bool:
     return new is not None and old is not None and new > old
 
 
+def is_safe_asset_name(name: str) -> bool:
+    """Sama nazwa pliku: bez katalogów, separatorów i nazw specjalnych."""
+    return (
+        bool(name)
+        and name not in {".", ".."}
+        and not any(char in name for char in "/\\\0:")
+    )
+
+
+def is_safe_url(url: str, hosts: frozenset[str] = DOWNLOAD_HOSTS) -> bool:
+    """Adres ``https`` na jednym z podanych hostów (bez danych logowania)."""
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        return False
+    return (
+        parts.scheme == "https"
+        and parts.hostname in hosts
+        and parts.username is None
+        and parts.password is None
+    )
+
+
+def safe_page_url(url: object) -> str:
+    """Strona wydania do pokazania użytkownikowi; inny adres → lista wydań."""
+    if isinstance(url, str) and is_safe_url(url, frozenset({"github.com"})):
+        return url
+    return RELEASES_PAGE_URL
+
+
 def current_platform(platform: str = sys.platform) -> str | None:
     """Klucz platformy wydania (``windows``/``linux``) albo None."""
     if platform.startswith("win"):
@@ -70,6 +115,12 @@ class Asset:
     url: str
     size: int
 
+    def __post_init__(self) -> None:
+        if not is_safe_asset_name(self.name):
+            raise ValueError(f"niebezpieczna nazwa pliku wydania: {self.name!r}")
+        if not is_safe_url(self.url):
+            raise ValueError(f"niedozwolony adres pliku wydania: {self.url!r}")
+
 
 @dataclass(frozen=True)
 class ReleaseInfo:
@@ -79,13 +130,25 @@ class ReleaseInfo:
     page_url: str
     artifact: Asset | None
     checksums: Asset | None
+    signature: Asset | None = None
+
+    def __post_init__(self) -> None:
+        # Wersja trafia do ścieżki katalogu pobrań — tylko postać X.Y.Z.
+        parsed = parse_version(self.version)
+        if parsed is None or ".".join(map(str, parsed)) != self.version:
+            raise ValueError(f"niepoprawna wersja wydania: {self.version!r}")
+        if safe_page_url(self.page_url) != self.page_url:
+            raise ValueError(f"niedozwolony adres strony wydania: {self.page_url!r}")
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> ReleaseInfo:
-        """Odtwarza wydanie zapisane przez ``to_dict``; błędne dane → ValueError."""
+        """Odtwarza wydanie zapisane przez ``to_dict``.
+
+        Błędne albo niebezpieczne dane (np. wersja ``../x``) → ValueError.
+        """
         try:
 
             def asset(raw: object) -> Asset | None:
@@ -100,8 +163,9 @@ class ReleaseInfo:
                 page_url=str(data["page_url"]),
                 artifact=asset(data.get("artifact")),
                 checksums=asset(data.get("checksums")),
+                signature=asset(data.get("signature")),
             )
-        except (KeyError, TypeError) as error:
+        except (KeyError, TypeError, AttributeError) as error:
             raise ValueError(f"niepoprawny zapis wydania: {error}") from error
 
 
@@ -116,9 +180,12 @@ def parse_release(payload: Mapping[str, Any], platform: str | None) -> ReleaseIn
         if not isinstance(raw, Mapping):
             continue
         name, url = raw.get("name"), raw.get("browser_download_url")
-        if isinstance(name, str) and isinstance(url, str):
-            size = raw.get("size")
-            assets.append(Asset(name, url, size if isinstance(size, int) else 0))
+        if not isinstance(name, str) or not isinstance(url, str):
+            continue
+        if not is_safe_asset_name(name) or not is_safe_url(url):
+            continue  # zasób spoza GitHub albo z nazwą-ścieżką jest pomijany
+        size = raw.get("size")
+        assets.append(Asset(name, url, size if isinstance(size, int) else 0))
 
     suffix = ASSET_SUFFIXES.get(platform or "")
     artifact = next(
@@ -126,12 +193,13 @@ def parse_release(payload: Mapping[str, Any], platform: str | None) -> ReleaseIn
         None,
     )
     checksums = next((a for a in assets if a.name == CHECKSUMS_ASSET), None)
-    page = payload.get("html_url")
+    signature = next((a for a in assets if a.name == SIGNATURE_ASSET), None)
     return ReleaseInfo(
         version=".".join(str(part) for part in version),
-        page_url=page if isinstance(page, str) else RELEASES_PAGE_URL,
+        page_url=safe_page_url(payload.get("html_url")),
         artifact=artifact,
         checksums=checksums,
+        signature=signature,
     )
 
 

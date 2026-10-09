@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
+from dataclasses import replace
+
 import pytest
 
 from transkryptor.errors import UpdateError
@@ -10,14 +13,23 @@ from transkryptor.update.download import (
     clear_downloads,
     download_release,
     parse_checksums,
+    verify_downloaded,
 )
 from transkryptor.update.releases import parse_release
+from transkryptor.update.signature import trusted_comment_for
 
 ASSET = "Transkryptor-1.0.0-x86_64.AppImage"
 
 
+SIGNED_SUMS = ["SHA256SUMS.txt", "SHA256SUMS.txt.minisig"]
+
+
 def release_from(github):
     return parse_release(github.payload(), "linux")
+
+
+def names_in(directory) -> list[str]:
+    return sorted(path.name for path in directory.iterdir())
 
 
 def test_parse_checksums_accepts_sha256sum_format() -> None:
@@ -39,7 +51,7 @@ def test_checksum_mismatch_rejects_the_file(github, tmp_path) -> None:
     github.checksums_override = f"{'0' * 64}  {ASSET}\n"
     with github.client() as client, pytest.raises(UpdateError):
         download_release(release_from(github), client, tmp_path)
-    assert not any((tmp_path / "1.0.0").iterdir())
+    assert names_in(tmp_path / "1.0.0") == SIGNED_SUMS
 
 
 def test_missing_checksum_entry_is_an_error(github, tmp_path) -> None:
@@ -74,10 +86,73 @@ def test_cancelled_download_leaves_no_partial_file(github, tmp_path) -> None:
     github.publish("1.0.0", {ASSET: b"obraz"})
     with github.client() as client, pytest.raises(DownloadCancelled):
         download_release(release_from(github), client, tmp_path, lambda: True)
-    assert not any((tmp_path / "1.0.0").iterdir())
+    assert names_in(tmp_path / "1.0.0") == SIGNED_SUMS
 
 
 def test_release_without_platform_artifact_is_an_error(github, tmp_path) -> None:
     github.publish("1.0.0", {"Transkryptor-1.0.0-windows-x64-setup.exe": b"x"})
     with github.client() as client, pytest.raises(UpdateError):
         download_release(release_from(github), client, tmp_path)
+
+
+def test_signed_checksums_are_kept_next_to_the_artifact(github, tmp_path) -> None:
+    github.publish("1.0.0", {ASSET: b"obraz"})
+    with github.client() as client:
+        path = download_release(release_from(github), client, tmp_path)
+    assert names_in(path.parent) == sorted([ASSET, *SIGNED_SUMS])
+    assert verify_downloaded(path) == hashlib.sha256(b"obraz").hexdigest()
+
+
+def test_release_without_signature_is_not_downloaded(github, tmp_path) -> None:
+    github.publish("1.0.0", {ASSET: b"obraz"})
+    release = replace(release_from(github), signature=None)
+    with github.client() as client, pytest.raises(UpdateError):
+        download_release(release, client, tmp_path)
+    assert github.downloads == []
+
+
+@pytest.mark.parametrize(
+    "forgery",
+    ["swapped_checksums", "foreign_key", "older_release", "garbage"],
+)
+def test_bad_signature_rejects_the_release(
+    github, tmp_path, forgery, foreign_key
+) -> None:
+    github.publish("1.0.0", {ASSET: b"obraz"})
+    genuine = github.checksums().encode()
+    if forgery == "swapped_checksums":
+        # Napastnik podmienia artefakt i sumy, ale nie ma klucza: podpis stary.
+        github.signature_override = github.signature()
+        github.files = {ASSET: b"podrobiony obraz"}
+    elif forgery == "foreign_key":
+        github.signature_override = foreign_key.sign(
+            genuine, trusted_comment_for("1.0.0")
+        )
+    elif forgery == "older_release":
+        # Podpisane sumy starszego wydania podstawione pod nowy tag.
+        github.signature_override = github.key.sign(
+            genuine, trusted_comment_for("0.9.0")
+        )
+    else:
+        github.signature_override = "śmieci"
+    with github.client() as client, pytest.raises(UpdateError) as caught:
+        download_release(release_from(github), client, tmp_path)
+    assert github.downloads == []
+    assert "1.0.0" in caught.value.user_message
+
+
+def test_without_trusted_keys_nothing_is_downloaded(github, tmp_path) -> None:
+    github.publish("1.0.0", {ASSET: b"obraz"})
+    with github.client() as client, pytest.raises(UpdateError):
+        download_release(release_from(github), client, tmp_path, trusted_keys=())
+    assert github.downloads == []
+
+
+def test_file_changed_after_download_fails_verification(github, tmp_path) -> None:
+    github.publish("1.0.0", {ASSET: b"obraz"})
+    with github.client() as client:
+        path = download_release(release_from(github), client, tmp_path)
+    path.write_bytes(b"podmieniony po pobraniu")
+    with pytest.raises(UpdateError):
+        verify_downloaded(path)
+    assert not path.parent.exists()

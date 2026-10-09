@@ -17,6 +17,7 @@ from transkryptor.update.releases import (
 
 LINUX_ASSET = "Transkryptor-1.2.3-x86_64.AppImage"
 WINDOWS_ASSET = "Transkryptor-1.2.3-windows-x64-setup.exe"
+DOWNLOADS = "https://github.com/jzpk/transkryptor/releases/download/v1.2.3"
 
 
 @pytest.mark.parametrize(
@@ -53,7 +54,7 @@ def payload(*names: str) -> dict:
         "tag_name": "v1.2.3",
         "html_url": "https://github.com/jzpk/transkryptor/releases/tag/v1.2.3",
         "assets": [
-            {"name": n, "browser_download_url": f"https://x/{n}", "size": 10}
+            {"name": n, "browser_download_url": f"{DOWNLOADS}/{n}", "size": 10}
             for n in names
         ],
     }
@@ -115,3 +116,41 @@ def test_fetch_latest_reports_server_errors(github) -> None:
     github.api_status = 403  # np. przekroczony limit API
     with github.client() as client, pytest.raises(UpdateError):
         fetch_latest(client, "linux")
+
+
+def test_parse_release_finds_the_signature() -> None:
+    release = parse_release(
+        payload(LINUX_ASSET, "SHA256SUMS.txt", "SHA256SUMS.txt.minisig"), "linux"
+    )
+    assert release.signature is not None
+    assert release.signature.name == "SHA256SUMS.txt.minisig"
+    assert ReleaseInfo.from_dict(release.to_dict()) == release
+
+
+@pytest.mark.parametrize(
+    ("name", "url"),
+    [
+        ("../" + LINUX_ASSET, f"{DOWNLOADS}/a"),
+        ("katalog\\" + LINUX_ASSET, f"{DOWNLOADS}/a"),
+        (LINUX_ASSET, "http://github.com/a"),
+        (LINUX_ASSET, "https://evil.example/a"),
+        (LINUX_ASSET, "https://user@github.com/a"),
+    ],
+)
+def test_parse_release_skips_unsafe_assets(name, url) -> None:
+    data = {
+        "tag_name": "v1.2.3",
+        "assets": [{"name": name, "browser_download_url": url, "size": 1}],
+    }
+    assert parse_release(data, "linux").artifact is None
+
+
+def test_parse_release_replaces_foreign_page_url() -> None:
+    data = {"tag_name": "v1.2.3", "html_url": "javascript:alert(1)", "assets": []}
+    assert parse_release(data, "linux").page_url == releases.RELEASES_PAGE_URL
+
+
+@pytest.mark.parametrize("version", ["../../x", "1.2", "v1.2.3", "01.2.3"])
+def test_release_info_rejects_versions_unusable_as_paths(version) -> None:
+    with pytest.raises(ValueError):
+        ReleaseInfo(version, releases.RELEASES_PAGE_URL, None, None)

@@ -53,6 +53,7 @@ DIRECT_RUNTIME_DISTRIBUTIONS = (
     "huggingface-hub",
     "httpx",
     "regex",
+    "cryptography",
 )
 
 # Pliki licencji w katalogu ``*.dist-info`` pakietu.

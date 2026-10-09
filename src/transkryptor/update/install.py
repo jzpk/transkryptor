@@ -8,6 +8,10 @@
   skróty i wpisy menu nadal działają. Działający proces korzysta z obrazu
   już zamontowanego, a podmiana pliku go nie przerywa.
 
+Przed instalacją pobrany plik jest sprawdzany ponownie (podpis sum i suma
+pliku), bo od pobrania mogły minąć godziny. AppImage jest dodatkowo
+sprawdzany już jako kopia obok celu, tuż przed podmianą.
+
 Samoaktualizacja działa tylko w artefakcie wydania. W środowisku
 deweloperskim (``uv run``) aplikacja tylko informuje o nowej wersji.
 """
@@ -23,6 +27,7 @@ from pathlib import Path
 
 from transkryptor.errors import UpdateError
 from transkryptor.i18n import tr
+from transkryptor.update.download import sha256_of, verify_downloaded
 
 # /SILENT pokazuje tylko pasek postępu (użytkownik widzi, że coś się dzieje);
 # /SUPPRESSMSGBOXES przyjmuje domyślne odpowiedzi na pytania instalatora.
@@ -65,11 +70,20 @@ def can_self_update(
     return False
 
 
-def replace_appimage(new: Path, current: Path) -> None:
-    """Atomowo podmienia plik AppImage (kopia obok celu, potem ``os.replace``)."""
+def replace_appimage(new: Path, current: Path, expected_sha256: str) -> None:
+    """Atomowo podmienia plik AppImage (kopia obok celu, potem ``os.replace``).
+
+    Suma jest sprawdzana na kopii, która faktycznie zastąpi bieżący plik.
+    """
     staged = current.with_name(f".{current.name}.new")
     try:
         shutil.copyfile(new, staged)
+        if sha256_of(staged) != expected_sha256:
+            staged.unlink(missing_ok=True)
+            raise UpdateError(
+                user_message=tr("update.error.verify_failed", version=new.parent.name),
+                retry_hint=tr("update.error.verify_failed.hint"),
+            )
         staged.chmod(0o755)
         os.replace(staged, current)
     except OSError as error:
@@ -86,15 +100,22 @@ def apply_update(
     platform: str = sys.platform,
     environ: Mapping[str, str] | None = None,
     launcher: Launcher | None = None,
+    trusted_keys: Sequence[str] | None = None,
 ) -> None:
-    """Uruchamia instalację pobranej wersji; aplikacja powinna się potem zamknąć."""
-    if platform.startswith("win"):
+    """Uruchamia instalację pobranej wersji; aplikacja powinna się potem zamknąć.
+
+    Plik niezgodny z podpisanymi sumami → ``UpdateError`` (nic nie jest
+    uruchamiane ani podmieniane).
+    """
+    windows = platform.startswith("win")
+    current = None if windows else appimage_path(environ)
+    if not windows and current is None:
+        raise UpdateError(user_message=tr("update.error.unsupported"))
+    expected = verify_downloaded(artifact, trusted_keys)
+    if current is None:
         _run_windows_installer(artifact)
         return
-    current = appimage_path(environ)
-    if current is None:
-        raise UpdateError(user_message=tr("update.error.unsupported"))
-    replace_appimage(artifact, current)
+    replace_appimage(artifact, current, expected)
     artifact.unlink(missing_ok=True)
     start = launcher or _start_detached
     start([str(current)])

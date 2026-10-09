@@ -13,6 +13,7 @@ Logika (limit zapytań, API, pobieranie, instalacja) jest w pakiecie
 
 from __future__ import annotations
 
+import html
 from collections.abc import Callable
 from pathlib import Path
 
@@ -34,7 +35,7 @@ from transkryptor.i18n import tr
 from transkryptor.ui.messages import show_error
 from transkryptor.ui.theme import set_props
 from transkryptor.update.install import apply_update
-from transkryptor.update.releases import is_newer
+from transkryptor.update.releases import is_newer, safe_page_url
 from transkryptor.update.service import UpdateOutcome, UpdateService, UpdateStatus
 
 # Zamykanie aplikacji czeka na wątek co najwyżej tyle (limit połączenia to 10 s).
@@ -163,7 +164,11 @@ class UpdateController(QObject):
     def _show_available(self, version: str, url: str) -> None:
         if self._artifact is not None:
             return
-        self.banner_label.setText(tr("update.available", version=version, url=url))
+        # Etykieta interpretuje HTML: tylko strona GitHub i escapowanie.
+        link = html.escape(safe_page_url(url), quote=True)
+        self.banner_label.setText(
+            tr("update.available", version=html.escape(version), url=link)
+        )
         self.install_button.setVisible(False)
         self.banner.setVisible(True)
 
