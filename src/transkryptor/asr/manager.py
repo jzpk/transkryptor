@@ -7,32 +7,44 @@ z postępem bajtowym i kooperacyjnym anulowaniem; testy podstawiają imitacje.
 Kompletność modelu potwierdza plik znacznika ``.complete`` zapisywany
 dopiero po udanym pobraniu wszystkich wymaganych plików — przerwane
 pobieranie nigdy nie jest uznawane za gotowy model.
+
+Domyślny downloader pobiera wyłącznie pliki z ``AsrModelInfo.files``
+z przypiętej rewizji i sprawdza rozmiar oraz SHA-256 każdego z nich przed
+umieszczeniem go w katalogu modelu (SEC-02). Ścieżka docelowa musi leżeć
+w katalogu modelu (SEC-05).
 """
 
 from __future__ import annotations
 
+import hashlib
+import os
 import shutil
 from collections.abc import Callable
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from transkryptor.asr.models import (
     DEFAULT_MODEL,
-    REQUIRED_FILES,
     AsrModelInfo,
+    ModelFile,
     default_models_root,
     format_size,
 )
 from transkryptor.errors import ModelDownloadError
 from transkryptor.i18n import tr
 
+if TYPE_CHECKING:
+    import httpx
+
 COMPLETE_MARKER = ".complete"
+PARTIAL_SUFFIX = ".part"
 
 # Wywołanie postępu: (pobrane_bajty, całkowite_bajty lub None, nazwa_pliku).
 ProgressCallback = Callable[[int, int | None, str], None]
 CancelCheck = Callable[[], bool]
 
-# Sygnatura wstrzykiwanego downloadera: pobiera repo_id do dest_dir.
-Downloader = Callable[[str, Path, ProgressCallback, CancelCheck], None]
+# Sygnatura wstrzykiwanego downloadera: pobiera pliki modelu do dest_dir.
+Downloader = Callable[[AsrModelInfo, Path, ProgressCallback, CancelCheck], None]
 
 
 class DownloadCancelled(Exception):
@@ -60,14 +72,14 @@ class ModelManager:
     def is_downloaded(self) -> bool:
         """Czy model jest kompletny i gotowy do pracy offline."""
         marker = self.model_dir / COMPLETE_MARKER
-        return marker.is_file() and all(
-            (self.model_dir / name).is_file() for name in REQUIRED_FILES
-        )
+        return marker.is_file() and not self.missing_files()
 
     def missing_files(self) -> list[str]:
         """Lista brakujących wymaganych plików (diagnostyka stanu częściowego)."""
         return [
-            name for name in REQUIRED_FILES if not (self.model_dir / name).is_file()
+            file.name
+            for file in self.model.files
+            if not (self.model_dir / file.name).is_file()
         ]
 
     def download(
@@ -87,7 +99,7 @@ class ModelManager:
         dest = self.model_dir
         dest.mkdir(parents=True, exist_ok=True)
         try:
-            self._downloader(self.model.hf_repo_id, dest, progress, cancel)
+            self._downloader(self.model, dest, progress, cancel)
         except DownloadCancelled:
             self._cleanup_partial(dest)
             raise
@@ -114,7 +126,9 @@ class ModelManager:
                 user_message=tr("asr.error.incomplete", missing=", ".join(missing)),
                 retry_hint=tr("asr.error.incomplete.hint"),
             )
-        (dest / COMPLETE_MARKER).write_text(self.model.hf_repo_id, encoding="utf-8")
+        (dest / COMPLETE_MARKER).write_text(
+            f"{self.model.hf_repo_id}@{self.model.hf_revision}", encoding="utf-8"
+        )
         return dest
 
     @staticmethod
@@ -125,60 +139,87 @@ class ModelManager:
 
 
 def hf_streaming_download(
-    repo_id: str,
+    model: AsrModelInfo,
     dest_dir: Path,
     on_progress: ProgressCallback,
     should_cancel: CancelCheck,
+    *,
+    transport: httpx.BaseTransport | None = None,
 ) -> None:
     """Domyślny downloader: strumieniowe pobieranie plików z Hugging Face.
 
-    Lista plików i rozmiary pochodzą z API Hugging Face; każdy plik jest
-    pobierany strumieniowo (httpx, zależność huggingface-hub) z postępem
-    bajtowym i kooperacyjnym anulowaniem między porcjami danych.
+    Pobiera tylko ``model.files`` z rewizji ``model.hf_revision`` (bez listy
+    plików z API), z postępem bajtowym i kooperacyjnym anulowaniem między
+    porcjami danych. Plik trafia pod docelową nazwę dopiero po zgodności
+    rozmiaru i SHA-256. ``transport`` podstawiają testy.
     """
     import httpx
-    from huggingface_hub import HfApi
 
-    try:
-        info = HfApi().model_info(repo_id, files_metadata=True)
-    except Exception as error:  # noqa: BLE001
-        raise ModelDownloadError(
-            user_message=tr("asr.error.model_info", model=repo_id, reason=error),
-            retry_hint=tr("asr.error.network.hint"),
-        ) from error
-    siblings = [s for s in info.siblings or () if s.rfilename]
-    total = sum(s.size or 0 for s in siblings) or None
+    total = sum(file.size for file in model.files) or None
     downloaded = 0
-    with httpx.Client(follow_redirects=True, timeout=60.0) as client:
-        for sibling in siblings:
+    with httpx.Client(
+        follow_redirects=True, timeout=60.0, transport=transport
+    ) as client:
+        for file in model.files:
             if should_cancel():
                 raise DownloadCancelled()
-            name = sibling.rfilename
-            url = f"https://huggingface.co/{repo_id}/resolve/main/{name}"
-            target = dest_dir / name
+            target = model_file_path(dest_dir, file.name)
+            partial = target.with_name(target.name + PARTIAL_SUFFIX)
             target.parent.mkdir(parents=True, exist_ok=True)
+            url = (
+                f"https://huggingface.co/{model.hf_repo_id}"
+                f"/resolve/{model.hf_revision}/{file.name}"
+            )
+            digest = hashlib.sha256()
+            size = 0
             try:
                 with client.stream("GET", url) as response:
                     response.raise_for_status()
-                    with target.open("wb") as handle:
+                    with partial.open("wb") as handle:
                         for chunk in response.iter_bytes(chunk_size=1 << 20):
                             if should_cancel():
                                 raise DownloadCancelled()
                             handle.write(chunk)
+                            digest.update(chunk)
+                            size += len(chunk)
                             downloaded += len(chunk)
-                            on_progress(downloaded, total, name)
+                            on_progress(downloaded, total, file.name)
             except DownloadCancelled:
                 raise
             except Exception as error:  # noqa: BLE001
                 raise ModelDownloadError(
-                    user_message=tr("asr.error.file", name=name, reason=error),
+                    user_message=tr("asr.error.file", name=file.name, reason=error),
                     retry_hint=tr("asr.error.network.hint"),
                 ) from error
+            _verify(file, size, digest.hexdigest())
+            os.replace(partial, target)
+
+
+def model_file_path(dest_dir: Path, name: str) -> Path:
+    """Ścieżka pliku modelu; nazwa nie może wyprowadzić poza ``dest_dir``."""
+    root = dest_dir.resolve()
+    target = (root / name).resolve()
+    if target == root or not target.is_relative_to(root):
+        raise ModelDownloadError(
+            user_message=tr("asr.error.file_name", name=name),
+            retry_hint=tr("asr.error.checksum.hint"),
+        )
+    return target
+
+
+def _verify(file: ModelFile, size: int, sha256: str) -> None:
+    """Rozmiar i suma pobranego pliku muszą zgadzać się z przypiętymi."""
+    if size != file.size or sha256 != file.sha256:
+        raise ModelDownloadError(
+            user_message=tr("asr.error.checksum", name=file.name),
+            retry_hint=tr("asr.error.checksum.hint"),
+        )
 
 
 __all__ = [
     "DownloadCancelled",
     "ModelManager",
     "hf_streaming_download",
+    "model_file_path",
     "format_size",
 ]

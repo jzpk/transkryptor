@@ -14,8 +14,8 @@ dependencies = [
     # bez ograniczenia transkrypcja pliku kończy się TypeError. Granicę
     # potwierdza test tests/asr/test_engine.py::TestAudioDecodingContract.
     "av>=11,<19",
-    # Pobieranie modelu ASR: lista plików z API Hugging Face i strumieniowy
-    # odczyt HTTP (transkryptor.asr.manager importuje oba wprost).
+    # huggingface-hub wymaga faster-whisper (sprawdza go --self-test); model
+    # ASR pobiera transkryptor.asr.manager przez httpx z przypiętej rewizji.
     "huggingface-hub>=0.30",
     "httpx>=0.27",
 ]

@@ -59,6 +59,12 @@ Pusta sekcja blokuje wydanie.
   wyniku ASR niepasującego do nagrania.
 - Import dużego nagrania i otwarcie projektu nie zamrażają okna: suma
   kontrolna nagrania jest liczona w tle.
+- Zamknięcie programu w trakcie pobierania modelu ASR nie kończy się już
+  awarią: program pyta, czy przerwać pobieranie, i usuwa częściowo
+  pobrane pliki.
+- Model ASR jest pobierany z ustalonej wersji repozytorium i każdy plik
+  jest sprawdzany sumą kontrolną — model o innej zawartości nie zostanie
+  zainstalowany. Pobierane są tylko pliki potrzebne do działania modelu.
 
 ## 0.2.3 — 2026-10-09
 

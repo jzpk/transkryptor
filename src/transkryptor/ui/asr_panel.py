@@ -491,12 +491,31 @@ class AsrPanel(QWidget):
             thread.deleteLater()
         self.download_progress.setVisible(False)
         self.cancel_download_button.setVisible(False)
+        self.cancel_download_button.setEnabled(True)
         self.download_button.setEnabled(True)
 
     def _on_cancel_download(self) -> None:
         if self._download_thread is not None:
             self._download_thread.cancel()
             self.cancel_download_button.setEnabled(False)
+
+    def is_downloading(self) -> bool:
+        return self._download_thread is not None
+
+    def cancel_download_and_wait(self, timeout_ms: int) -> bool:
+        """Przerywa pobieranie i czeka na wątek (zamknięcie okna, BUG-01).
+
+        Zwraca True, gdy wątek się zakończył — można bezpiecznie zniszczyć
+        panel. Katalog częściowy usuwa sam wątek przed zakończeniem.
+        """
+        thread = self._download_thread
+        if thread is None:
+            return True
+        self._on_cancel_download()
+        if not thread.wait(timeout_ms):
+            return False
+        self._finish_download()
+        return True
 
     # --- transkrypcja --------------------------------------------------------
 

@@ -13,7 +13,7 @@ from PySide6.QtWidgets import QMessageBox
 
 from transkryptor.asr.engine import SegmentResult, TranscriptionResult
 from transkryptor.asr.manager import DownloadCancelled, ModelManager
-from transkryptor.asr.models import REQUIRED_FILES
+from transkryptor.asr.models import REQUIRED_FILES, AsrModelInfo
 from transkryptor.export.docx_export import export_docx
 from transkryptor.i18n import tr
 from transkryptor.notation.suggestions import RULES
@@ -26,7 +26,9 @@ from transkryptor.ui.loading_overlay import loading_messages
 from transkryptor.ui.main_window import DRAFT_APPEND, DRAFT_REPLACE, MainWindow
 
 
-def fake_downloader(repo_id: str, dest: Path, on_progress, should_cancel) -> None:
+def fake_downloader(
+    model: AsrModelInfo, dest: Path, on_progress, should_cancel
+) -> None:
     for name in REQUIRED_FILES:
         (dest / name).write_bytes(b"fake")
         on_progress(1024, 4096, name)
@@ -128,7 +130,7 @@ class TestDownloadFlow:
     def test_download_error_shows_retryable_message(
         self, qtbot, tmp_path, monkeypatch
     ) -> None:
-        def failing_downloader(repo_id, dest, on_progress, should_cancel) -> None:
+        def failing_downloader(model, dest, on_progress, should_cancel) -> None:
             raise ConnectionError("brak sieci")
 
         panel = AsrPanel(
@@ -151,7 +153,7 @@ class TestDownloadFlow:
         assert panel.download_button.isEnabled()  # można ponowić
 
     def test_download_can_be_cancelled(self, qtbot, tmp_path, monkeypatch) -> None:
-        def slow_downloader(repo_id, dest, on_progress, should_cancel) -> None:
+        def slow_downloader(model, dest, on_progress, should_cancel) -> None:
             for _ in range(2000):  # do 20 s: czas na kliknięcie anulowania
                 if should_cancel():
                     raise DownloadCancelled()

@@ -83,7 +83,7 @@ def load_audio(qtbot, window: MainWindow, path: Path) -> None:
 def fake_asr(window: MainWindow, tmp_path: Path) -> list[int]:
     """Imitacja modelu i transkrypcji; zwraca licznik wywołań ASR."""
 
-    def downloader(repo_id, dest, on_progress, should_cancel):
+    def downloader(model, dest, on_progress, should_cancel):
         for name in REQUIRED_FILES:
             (dest / name).write_bytes(b"fake")
 

@@ -61,6 +61,8 @@ from transkryptor.ui.review import ReviewController
 from transkryptor.ui.settings_store import SettingsStore
 
 DATE_FORMAT = "yyyy-MM-dd"
+# Ile zamknięcie okna czeka na przerwanie pobierania modelu.
+DOWNLOAD_SHUTDOWN_WAIT_MS = 5000
 
 
 class SessionController(QObject):
@@ -262,10 +264,35 @@ class SessionController(QObject):
             return False
         if not self.maybe_discard_changes():
             return False
+        if not self._stop_download():
+            return False
         self._player.stop_and_unload()
         self.autosave.shutdown()
         self._stop_hashing()
         return True
+
+    def _stop_download(self) -> bool:
+        """BUG-01: pobieranie modelu przerwane za zgodą, zanim okno zniknie."""
+        if not self._asr_panel.is_downloading():
+            return True
+        answer = QMessageBox.question(
+            self._parent,
+            tr("session.downloading.title"),
+            tr("session.downloading.text"),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return False
+        if self._asr_panel.cancel_download_and_wait(DOWNLOAD_SHUTDOWN_WAIT_MS):
+            return True
+        # Działający QThread nie może zostać zniszczony razem z oknem.
+        QMessageBox.information(
+            self._parent,
+            tr("session.downloading.title"),
+            tr("session.downloading.busy"),
+        )
+        return False
 
     # --- suma nagrania ---------------------------------------------------------
 

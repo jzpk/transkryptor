@@ -1,11 +1,14 @@
 """Testy dialogu ochrony sesji (ACC-10, REQ-09)."""
 
+import threading
+import time
 from pathlib import Path
 
 import pytest
 from PySide6.QtWidgets import QMessageBox
 
 from transkryptor.asr.engine import SegmentResult, TranscriptionResult
+from transkryptor.asr.manager import DownloadCancelled, ModelManager
 from transkryptor.ui.main_window import MainWindow
 
 SAMPLE_MP3 = "tests/fixtures/audio/sample.mp3"
@@ -159,3 +162,55 @@ class TestAudioChangeGuard:
         window._on_import_audio("nieistniejacy.mp3")
         assert len(shown) == 1
         assert "Nie znaleziono" in shown[0]
+
+
+class TestCloseDuringDownload:
+    """BUG-01: zamknięcie w trakcie pobierania modelu nie niszczy wątku."""
+
+    @pytest.fixture
+    def downloading(self, qtbot, window, tmp_path):
+        started = threading.Event()
+
+        def slow_downloader(model, dest, on_progress, should_cancel) -> None:
+            (dest / "model.bin").write_bytes(b"czesciowy")
+            started.set()
+            for _ in range(2000):  # do 20 s
+                if should_cancel():
+                    raise DownloadCancelled()
+                time.sleep(0.01)
+            raise AssertionError("anulowanie nie zadziałało")
+
+        manager = ModelManager(
+            models_root=tmp_path / "models", downloader=slow_downloader
+        )
+        window.asr_panel._manager = manager
+        window.asr_panel._start_download()
+        assert started.wait(5)
+        yield window
+        thread = window.asr_panel._download_thread
+        if thread is not None:  # sprzątanie po teście „nie zamykaj”
+            window.asr_panel.cancel_download_and_wait(5000)
+
+    def test_close_stops_download_after_confirmation(
+        self, downloading, monkeypatch
+    ) -> None:
+        window = downloading
+        thread = window.asr_panel._download_thread
+        calls = answer_dialog(monkeypatch, QMessageBox.StandardButton.Yes)
+        assert window.session.can_close()
+        assert calls == [True]
+        assert thread.isFinished()
+        assert not window.asr_panel.is_downloading()
+        assert not window.asr_panel._manager.model_dir.exists()
+
+    def test_close_declined_keeps_downloading(self, downloading, monkeypatch) -> None:
+        window = downloading
+        answer_dialog(monkeypatch, QMessageBox.StandardButton.No)
+        assert not window.session.can_close()
+        assert window.asr_panel.is_downloading()
+        assert window.asr_panel._download_thread.isRunning()
+
+    def test_close_without_download_does_not_ask(self, window, monkeypatch) -> None:
+        calls = answer_dialog(monkeypatch, QMessageBox.StandardButton.No)
+        assert window.session.can_close()
+        assert calls == []
