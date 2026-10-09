@@ -1,5 +1,6 @@
 """Testy pliku projektu ``.transkr`` (faza 08, propozycja 2)."""
 
+import hashlib
 import json
 import os
 import shutil
@@ -17,6 +18,7 @@ from transkryptor.document.project import (
     ProjectState,
     ReviewEntry,
     audio_ref,
+    file_sha256,
     load_project,
     loads,
     migrate,
@@ -231,3 +233,11 @@ class TestFilePermissions:
         path = tmp_path / "kopia.transkr"
         project.write_atomic(path, b"{}", mode=0o600)
         assert path.stat().st_mode & 0o777 == 0o600
+
+
+def test_file_sha256_can_be_interrupted(tmp_path) -> None:
+    path = tmp_path / "duzy.bin"
+    path.write_bytes(b"x" * (3 << 20))
+    with pytest.raises(InterruptedError):
+        file_sha256(path, should_cancel=lambda: True)
+    assert file_sha256(path) == hashlib.sha256(path.read_bytes()).hexdigest()

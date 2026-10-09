@@ -51,6 +51,14 @@ Pusta sekcja blokuje wydanie.
   DOCX też jest szybszy.
 - Eksport anonimizowany nie oznacza już pracy jako wyeksportowanej:
   ostrzeżenie o niewyeksportowanych zmianach zostaje do pełnego eksportu.
+- Zmiana nagrania nie pyta już mylnie „Zapisz / Odrzuć / Anuluj”: tekst
+  i metryczka zawsze zostają, a program pyta tylko wtedy, gdy zastępuje
+  wczytane nagranie albo usuwa wynik ASR poprzedniego nagrania.
+- Po zmianie nagrania „Wstaw szkic ponownie” i lista segmentów nie
+  pokazują już szkicu ASR poprzedniego nagrania, a projekt nie zapisuje
+  wyniku ASR niepasującego do nagrania.
+- Import dużego nagrania i otwarcie projektu nie zamrażają okna: suma
+  kontrolna nagrania jest liczona w tle.
 
 ## 0.2.3 — 2026-10-09
 

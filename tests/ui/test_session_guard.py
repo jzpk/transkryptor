@@ -1,9 +1,15 @@
 """Testy dialogu ochrony sesji (ACC-10, REQ-09)."""
 
+from pathlib import Path
+
 import pytest
 from PySide6.QtWidgets import QMessageBox
 
+from transkryptor.asr.engine import SegmentResult, TranscriptionResult
 from transkryptor.ui.main_window import MainWindow
+
+SAMPLE_MP3 = "tests/fixtures/audio/sample.mp3"
+SAMPLE_AAC = "tests/fixtures/audio/sample.aac"
 
 
 @pytest.fixture
@@ -25,6 +31,18 @@ def answer_dialog(monkeypatch, button) -> list[bool]:
 
     monkeypatch.setattr(QMessageBox, "question", staticmethod(fake_question))
     return calls
+
+
+def answer_question_texts(monkeypatch, button) -> list[str]:
+    """Jak ``answer_dialog``, ale zwraca treści pytań."""
+    texts: list[str] = []
+
+    def fake_question(_parent, _title, text, *args, **kwargs):
+        texts.append(text)
+        return button
+
+    monkeypatch.setattr(QMessageBox, "question", staticmethod(fake_question))
+    return texts
 
 
 class TestCloseGuard:
@@ -85,19 +103,53 @@ class TestNewDocumentGuard:
 
 
 class TestAudioChangeGuard:
-    """REQ-09: zmiana nagrania pyta przy niewyeksportowanej pracy."""
+    """REQ-09: zmiana nagrania zachowuje tekst; pyta tylko przy zastąpieniu."""
 
-    def test_import_cancelled_keeps_old_state(self, qtbot, window, monkeypatch) -> None:
+    def test_first_recording_with_text_does_not_ask(
+        self, qtbot, window, monkeypatch
+    ) -> None:
         make_dirty(window)
-        answer_dialog(monkeypatch, QMessageBox.StandardButton.Cancel)
-        window._on_import_audio("tests/fixtures/audio/sample.mp3")
-        assert window.player.source_path is None  # import przerwany
-
-    def test_import_confirmed_loads_file(self, qtbot, window, monkeypatch) -> None:
-        make_dirty(window)
-        answer_dialog(monkeypatch, QMessageBox.StandardButton.Discard)
-        window._on_import_audio("tests/fixtures/audio/sample.mp3")
+        calls = answer_dialog(monkeypatch, QMessageBox.StandardButton.Cancel)
+        window._on_import_audio(SAMPLE_MP3)
+        assert calls == []
         assert window.player.source_path is not None
+        assert window.editor.toPlainText() == "niewyeksportowana praca"
+
+    def test_change_cancelled_keeps_old_recording(
+        self, qtbot, window, monkeypatch
+    ) -> None:
+        window._on_import_audio(SAMPLE_MP3)
+        texts = answer_question_texts(monkeypatch, QMessageBox.StandardButton.Cancel)
+        window._on_import_audio(SAMPLE_AAC)
+        assert window.player.source_path == Path(SAMPLE_MP3)
+        assert len(texts) == 1
+        assert "sample.aac" in texts[0]
+        assert "zostaną zachowane" in texts[0]
+        assert "ASR" not in texts[0]  # brak wyniku ASR — brak zdania o nim
+
+    def test_change_confirmed_keeps_text(self, qtbot, window, monkeypatch) -> None:
+        window._on_import_audio(SAMPLE_MP3)
+        make_dirty(window)
+        answer_dialog(monkeypatch, QMessageBox.StandardButton.Yes)
+        window._on_import_audio(SAMPLE_AAC)
+        assert window.player.source_path == Path(SAMPLE_AAC)
+        assert window.editor.toPlainText() == "niewyeksportowana praca"
+        assert window.document.is_dirty
+
+    def test_change_drops_previous_asr_result(self, qtbot, window, monkeypatch) -> None:
+        """BUG-06: szkic i segmenty starego nagrania nie trafiają do nowego."""
+        window._on_import_audio(SAMPLE_MP3)
+        segment = SegmentResult(0.0, 1.0, "od", 0.9)
+        window.asr_panel.restore_result(
+            TranscriptionResult(text="od", language="pl", segments=(segment,))
+        )
+        texts = answer_question_texts(monkeypatch, QMessageBox.StandardButton.Yes)
+        window._on_import_audio(SAMPLE_AAC)
+        assert "ASR" in texts[0]
+        assert window.asr_panel.last_result is None
+        assert window.asr_panel.segments_list.count() == 0
+        assert not window.asr_panel.reinsert_draft_button.isEnabled()
+        assert window.session.capture_state().asr is None
 
     def test_import_error_shows_message(self, qtbot, window, monkeypatch) -> None:
         shown: list[str] = []

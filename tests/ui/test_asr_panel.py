@@ -590,9 +590,16 @@ class TestSegmentSeek:
         )
         assert window.asr_panel._segment_preroll_ms == 2000
 
-    def test_import_other_recording_clears_segments(self, qtbot, add_window) -> None:
+    def test_import_other_recording_clears_segments(
+        self, qtbot, add_window, monkeypatch
+    ) -> None:
         window = add_window(MainWindow())
         window._on_import_audio("tests/fixtures/audio/sample.mp3")
         self._add_segment(window.asr_panel, 3.0)
+        monkeypatch.setattr(
+            QMessageBox,
+            "question",
+            staticmethod(lambda *a, **k: QMessageBox.StandardButton.Yes),
+        )
         window._on_import_audio("tests/fixtures/audio/sample.aac")
         assert window.asr_panel.segments_list.count() == 0

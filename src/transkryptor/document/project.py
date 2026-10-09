@@ -333,10 +333,15 @@ def _fsync_directory(directory: Path) -> None:
         os.close(fd)
 
 
-def file_sha256(path: str | Path) -> str:
+def file_sha256(
+    path: str | Path, should_cancel: Callable[[], bool] | None = None
+) -> str:
+    """Suma SHA-256 pliku; ``should_cancel`` przerywa liczenie (InterruptedError)."""
     digest = hashlib.sha256()
     with open(path, "rb") as handle:
         while chunk := handle.read(_HASH_CHUNK):
+            if should_cancel is not None and should_cancel():
+                raise InterruptedError(str(path))
             digest.update(chunk)
     return digest.hexdigest()
 

@@ -533,7 +533,7 @@ class TestMetadataForm:
         assert "(1 z 8)" in window.metadata_form.toggle.text()
 
     def test_signature_hint_does_not_overwrite_or_dirty(
-        self, qtbot, window, audio, tmp_path
+        self, qtbot, window, audio, tmp_path, monkeypatch
     ) -> None:
         load_audio(qtbot, window, audio)
         assert window.metadata_form.value("signature") == "AdK_1954"
@@ -542,7 +542,9 @@ class TestMetadataForm:
         other = tmp_path / "Inne.mp3"
         shutil.copy(audio, other)
         window.document.mark_exported()
+        answer_questions(monkeypatch, {"Zmiana nagrania": Button.Yes})
         window._on_import_audio(str(other))
+        assert window.player.source_path == other
         assert window.metadata_form.value("signature") == "Moja_1"
 
     def test_fields_follow_settings(self, window) -> None:
