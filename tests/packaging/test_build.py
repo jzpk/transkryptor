@@ -201,8 +201,21 @@ def test_finalize_covers_artifacts_collected_from_both_runners(tmp_path) -> None
     # Pliki pojedynczych runnerów są nadpisywane wspólną wersją.
     (output / "SHA256SUMS.txt").write_text("stare\n", encoding="utf-8")
 
+    changelog = tmp_path / "CHANGELOG.md"
+    changelog.write_text(
+        "## Nieopublikowane\n\n- Nowość z historii.\n", encoding="utf-8"
+    )
+
     code = build_module.main(
-        ["--finalize", "--output-dir", str(output), "--source-url", "https://x/src"]
+        [
+            "--finalize",
+            "--output-dir",
+            str(output),
+            "--source-url",
+            "https://x/src",
+            "--changelog",
+            str(changelog),
+        ]
     )
 
     assert code == 0
@@ -212,8 +225,27 @@ def test_finalize_covers_artifacts_collected_from_both_runners(tmp_path) -> None
     for name in names:
         assert name in notes
     assert "https://x/src" in notes
+    assert "- Nowość z historii." in notes
 
 
 def test_finalize_without_artifacts_fails(tmp_path, capsys) -> None:
     assert build_module.main(["--finalize", "--output-dir", str(tmp_path)]) == 1
     assert "Brak artefaktów" in capsys.readouterr().err
+
+
+def test_finalize_without_changelog_entry_fails(tmp_path, capsys) -> None:
+    """Noty bez nowości byłyby kopią poprzednich — wydanie się zatrzymuje."""
+    output = tmp_path / "dist"
+    output.mkdir()
+    for target in targets().values():
+        (output / target.artifact_name).write_bytes(b"x")
+    changelog = tmp_path / "CHANGELOG.md"
+    changelog.write_text("## Nieopublikowane\n", encoding="utf-8")
+
+    code = build_module.main(
+        ["--finalize", "--output-dir", str(output), "--changelog", str(changelog)]
+    )
+
+    assert code == 1
+    assert "Nieopublikowane" in capsys.readouterr().err
+    assert not (output / "RELEASE-NOTES.md").exists()

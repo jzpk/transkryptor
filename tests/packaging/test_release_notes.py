@@ -19,7 +19,7 @@ WINDOWS = Checksum(
 
 
 def test_notes_cover_every_required_section() -> None:
-    notes = render_release_notes([LINUX, WINDOWS])
+    notes = render_release_notes([LINUX, WINDOWS], whats_new="- Zmiana.")
     for heading in (
         "## Nowości w tej wersji",
         "## Artefakty",
@@ -100,8 +100,11 @@ def test_version_drives_the_heading() -> None:
     assert notes.startswith("# Transkryptor 9.9.9")
 
 
-def test_notes_tell_older_documents_about_unify_ellipses() -> None:
-    """Faza 07: użytkownicy starszych dokumentów dowiadują się o „Ujednolić”."""
-    notes = render_release_notes([LINUX, WINDOWS])
-    assert "Ujednolić wielokropki" in notes
-    assert "Ctrl+F" in notes
+def test_whats_new_from_the_changelog_lands_under_its_heading() -> None:
+    news = "- Nowa funkcja,\n  opisana w dwóch liniach."
+    notes = render_release_notes([LINUX], whats_new=news)
+    assert f"## Nowości w tej wersji\n\n{news}\n\n## Artefakty" in notes
+
+
+def test_notes_without_news_skip_the_section() -> None:
+    assert "## Nowości" not in render_release_notes([LINUX])

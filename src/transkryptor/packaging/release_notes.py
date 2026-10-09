@@ -4,7 +4,8 @@ Nota jest jedynym dokumentem, który trafia do użytkownika razem z plikami,
 więc musi zawierać komplet wymagany przez ``specs/phases/05-release.md``:
 sumy kontrolne, zasady prywatności, instrukcję pobrania modelu, wymagania
 sprzętowe i znane ograniczenia ASR. Treść powstaje z tych samych stałych,
-z których korzystają instalator i dokumentacja (``packaging.metadata``).
+z których korzystają instalator i dokumentacja (``packaging.metadata``);
+nowości wersji pochodzą z ``CHANGELOG.md`` (``packaging.changelog``).
 """
 
 from __future__ import annotations
@@ -46,26 +47,6 @@ KNOWN_LIMITATIONS = (
     "przed zamknięciem z niewyeksportowanymi zmianami.",
     "Transkrypcja działa na CPU. Czas rośnie w przybliżeniu proporcjonalnie "
     "do spadku liczby rdzeni.",
-)
-
-# Zmiany widoczne dla użytkownika w bieżącej wersji (faza 06 i 07).
-WHATS_NEW = (
-    "Okno **Ustawienia…** (`Ctrl+,`): skok i auto-cofanie odtwarzacza, "
-    "cofnięcie przed segmentem ASR, czcionka edytora i styl wielokropka.",
-    "Sterowanie odtwarzaczem z klawiatury przy fokusie w edytorze: "
-    "odtwórz/pauza `Ctrl+Spacja` lub `F4`, skok `Alt+←/→`, tempo "
-    "`Ctrl+Shift+,`/`.`; pętla A–B `Ctrl+Shift+A/B/L` i auto-cofanie "
-    "przy wznowieniu po pauzie.",
-    "Kliknięcie segmentu szkicu ASR odtwarza nagranie od jego początku.",
-    "Wyszukiwanie i zamiana (`Ctrl+F`, `Ctrl+H`, `F3`/`Shift+F3`) z opcjami "
-    "wielkości liter, całych słów i wyrażeń regularnych; w zamienniku `^n` "
-    "nadaje literze indeks górny (np. `be^ndzie`), a „Zamień wszystkie” to "
-    "jedno cofnięcie.",
-    "Domyślny zapis pauzy i urwanego słowa to teraz `…` (jeden znak); "
-    "`...` można wybrać w ustawieniach. Walidator rozumie oba zapisy. "
-    "**Dokumenty pisane w starszych wersjach** (z `...`) zostaną oznaczone "
-    "wskazówką VAL-05 — przycisk „Ujednolić wielokropki” nad listą "
-    "ostrzeżeń zamienia je wszystkie jednym krokiem cofania.",
 )
 
 PRIVACY_POINTS = (
@@ -111,8 +92,13 @@ def render_release_notes(
     version: str = VERSION,
     release_date: date_type | None = None,
     source_url: str | None = None,
+    whats_new: str = "",
 ) -> str:
-    """Składa treść pliku ``RELEASE-NOTES.md`` dla podanego zestawu plików."""
+    """Składa treść pliku ``RELEASE-NOTES.md`` dla podanego zestawu plików.
+
+    ``whats_new`` to sekcja wersji z ``CHANGELOG.md`` (Markdown przenoszony
+    bez zmian); bez niej noty nie mają sekcji „Nowości w tej wersji”.
+    """
     model = DEFAULT_MODEL
     when = release_date or date_type.today()
     entries = tuple(checksums)
@@ -128,10 +114,7 @@ def render_release_notes(
         "języka polskiego, wspomagana opcjonalnym szkicem ASR działającym",
         "na komputerze użytkownika.",
         "",
-        "## Nowości w tej wersji",
-        "",
-        *(f"- {item}" for item in WHATS_NEW),
-        "",
+        *(["## Nowości w tej wersji", "", whats_new.strip(), ""] if whats_new else []),
         "## Artefakty",
         "",
     ]
@@ -260,6 +243,7 @@ def write_release_notes(
     version: str = VERSION,
     release_date: date_type | None = None,
     source_url: str | None = None,
+    whats_new: str = "",
 ) -> Path:
     """Zapisuje noty wydania obok artefaktów i zwraca ścieżkę pliku."""
     target = dest_dir / RELEASE_NOTES_FILE
@@ -269,6 +253,7 @@ def write_release_notes(
             version=version,
             release_date=release_date,
             source_url=source_url,
+            whats_new=whats_new,
         ),
         encoding="utf-8",
     )

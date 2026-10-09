@@ -11,6 +11,7 @@ Podział odpowiedzialności:
 - ``windows`` — skrypt i kompilacja instalatora Inno Setup;
 - ``linux`` — AppDir i obraz AppImage;
 - ``checksums`` — sumy kontrolne w formacie ``sha256sum``;
+- ``changelog`` — nowości wersji z ``CHANGELOG.md``;
 - ``release_notes`` — noty wydania dla użytkownika;
 - ``build`` — narzędzie wiersza poleceń spinające powyższe kroki.
 """

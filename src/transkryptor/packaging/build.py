@@ -21,6 +21,7 @@ from pathlib import Path
 
 from transkryptor.packaging import linux, windows
 from transkryptor.packaging.bundle import BUNDLE_NAME
+from transkryptor.packaging.changelog import CHANGELOG_FILE, ChangelogError, whats_new
 from transkryptor.packaging.checksums import checksums_for, write_checksums
 from transkryptor.packaging.licenses import LicenseBundle, write_license_bundle
 from transkryptor.packaging.metadata import (
@@ -109,11 +110,14 @@ def build(
     skip_pyinstaller: bool = False,
     source_url: str | None = None,
     release_date: date_type | None = None,
+    changelog: Path = CHANGELOG_FILE,
     tool: str | Path | None = None,
     runner=subprocess.run,
 ) -> BuildResult:
     """Wykonuje pełne budowanie artefaktu dla jednej platformy."""
     target = target_for(target_key or detect_target(), version)
+    # Brak opisu zmian wychodzi przed kilkuminutowym budowaniem, nie po nim.
+    whats_new(version, changelog)
     # Ścieżki bezwzględne: trafiają m.in. do skryptu Inno Setup, a ISCC
     # rozwiązuje ścieżki względne od katalogu skryptu, nie od bieżącego.
     build_dir = Path(build_dir).resolve()
@@ -164,6 +168,7 @@ def build(
         version=version,
         release_date=release_date,
         source_url=source_url,
+        changelog=changelog,
     )
     return BuildResult(
         target=target,
@@ -180,6 +185,7 @@ def finalize(
     version: str = VERSION,
     source_url: str | None = None,
     release_date: date_type | None = None,
+    changelog: Path = CHANGELOG_FILE,
 ) -> tuple[Path, Path]:
     """Sumy kontrolne i noty dla wszystkich artefaktów wersji w katalogu.
 
@@ -187,6 +193,7 @@ def finalize(
     wynikowym: kolejne budowania (Linux, potem Windows) dopisują się do
     wspólnego wydania zamiast nadpisywać poprzedni wpis. CI wywołuje to
     osobno (``--finalize``) po zebraniu artefaktów z obu runnerów.
+    Nowości wersji pochodzą z ``changelog`` (``CHANGELOG.md``).
     """
     output_dir = Path(output_dir).resolve()
     released = release_artifacts(output_dir, version)
@@ -194,6 +201,7 @@ def finalize(
         raise FileNotFoundError(
             f"Brak artefaktów wersji {version} w katalogu {output_dir}."
         )
+    news = whats_new(version, changelog)
     checksums = write_checksums(released, output_dir)
     notes = write_release_notes(
         checksums_for(released),
@@ -201,6 +209,7 @@ def finalize(
         version=version,
         release_date=release_date,
         source_url=source_url,
+        whats_new=news,
     )
     return checksums, notes
 
@@ -246,6 +255,12 @@ def main(argv: list[str] | None = None) -> int:
         help="adres kodu źródłowego wydania wpisywany do not wydania",
     )
     parser.add_argument(
+        "--changelog",
+        type=Path,
+        default=CHANGELOG_FILE,
+        help="historia zmian, z której pochodzą nowości w notach wydania",
+    )
+    parser.add_argument(
         "--tool",
         default=None,
         help="ścieżka do appimagetool lub ISCC.exe, gdy nie ma ich w PATH",
@@ -262,8 +277,12 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.finalize:
         try:
-            checksums, notes = finalize(args.output_dir, source_url=args.source_url)
-        except FileNotFoundError as error:
+            checksums, notes = finalize(
+                args.output_dir,
+                source_url=args.source_url,
+                changelog=args.changelog,
+            )
+        except (FileNotFoundError, ChangelogError) as error:
             print(f"Przerwane: {error}", file=sys.stderr)
             return 1
         print(f"Sumy kontrolne:{checksums}")
@@ -277,9 +296,10 @@ def main(argv: list[str] | None = None) -> int:
             output_dir=args.output_dir,
             skip_pyinstaller=args.skip_pyinstaller,
             source_url=args.source_url,
+            changelog=args.changelog,
             tool=args.tool,
         )
-    except (FileNotFoundError, RuntimeError) as error:
+    except (FileNotFoundError, RuntimeError, ChangelogError) as error:
         print(f"Budowanie przerwane: {error}", file=sys.stderr)
         return 1
 

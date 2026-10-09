@@ -2,14 +2,16 @@
 #
 # Zwykła droga: Actions → „Wydanie” → Run workflow (gałąź main) i wybór części
 # wersji do podbicia (patch/minor/major). Workflow po zielonych testach podbija
-# wersję w pyproject.toml, uv.lock i src/transkryptor/__init__.py, commituje
-# i nadaje tag vX.Y.Z. Push przez RELEASE_PAT uruchamia ten workflow ponownie
-# dla nowego taga — dopiero ten przebieg buduje oba artefakty i publikuje
-# wydanie. Zainstalowane aplikacje znajdują je przez GitHub Releases API
-# (src/transkryptor/update/).
+# wersję w pyproject.toml, uv.lock i src/transkryptor/__init__.py, nadaje
+# sekcji „Nieopublikowane” w CHANGELOG.md numer wersji (pusta sekcja przerywa
+# wydanie), commituje i nadaje tag vX.Y.Z. Push przez RELEASE_PAT uruchamia
+# ten workflow ponownie dla nowego taga — dopiero ten przebieg buduje oba
+# artefakty i publikuje wydanie. Zainstalowane aplikacje znajdują je przez
+# GitHub Releases API (src/transkryptor/update/).
 #
 # Droga awaryjna: ręcznie wypchnięty tag v* — ten sam przebieg co wyżej:
-# workflow sprawdza, że tag zgadza się z wersją w kodzie, i publikuje wydanie.
+# workflow sprawdza, że tag zgadza się z wersją w kodzie, a CHANGELOG.md ma
+# sekcję tej wersji, i publikuje wydanie.
 #
 # Artefakty powstają natywnie na każdej platformie docelowej: instalator
 # Windows na runnerze Windows, AppImage na Ubuntu 22.04. Runner Ubuntu
@@ -118,6 +120,7 @@ jobs:
           fi
           uv version --bump "$BUMP" --no-sync
           VERSION="$(uv version --short)"
+          PYTHONPATH=src python3 -m transkryptor.packaging.changelog release "$VERSION"
           sed -i -E "s/^__version__ = \".*\"$/__version__ = \"$VERSION\"/" \
             src/transkryptor/__init__.py
           grep -qx "__version__ = \"$VERSION\"" src/transkryptor/__init__.py
@@ -140,6 +143,9 @@ jobs:
             echo "::error::Tag $GITHUB_REF_NAME nie zgadza się z wersją w kodzie ($VERSION)."
             exit 1
           fi
+          # Noty wydania biorą nowości z sekcji tej wersji; jej brak ma
+          # zatrzymać wydanie przed budowaniem, a nie przy publikacji.
+          PYTHONPATH=src python3 -m transkryptor.packaging.changelog check "$VERSION"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
 
