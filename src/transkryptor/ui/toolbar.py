@@ -36,7 +36,7 @@ from transkryptor.ui import icons
 from transkryptor.ui.markers import MARKERS, SUPERSCRIPT_SHORTCUT
 from transkryptor.ui.shortcuts import SETTINGS_SHORTCUT
 from transkryptor.ui.shortcuts import tooltip_with_shortcut as _tooltip
-from transkryptor.ui.theme import set_props, tokens
+from transkryptor.ui.theme import set_props
 
 
 @dataclass(frozen=True)
@@ -117,7 +117,6 @@ class MainToolbar:
         update_action: QAction,
         handlers: ToolbarHandlers,
     ) -> None:
-        t = tokens()
         toolbar = _ToolBar("Pasek narzędzi", window)
         toolbar.setObjectName("main_toolbar")
         toolbar.setMovable(False)
@@ -134,7 +133,7 @@ class MainToolbar:
         self.superscript_action = _action(
             window,
             "Indeks górny",
-            icons.icon("superscript", t.text, t.text_muted),
+            "superscript",
             SUPERSCRIPT_SHORTCUT,
             "Indeks górny zaznaczonych liter",
             handlers.superscript,
@@ -147,11 +146,7 @@ class MainToolbar:
 
         self.marker_actions: dict[str, QAction] = {}
         for marker in MARKERS:
-            icon = (
-                icons.icon("pause_marker", t.text, t.text_muted)
-                if marker.key == "pause"
-                else None
-            )
+            icon = "pause_marker" if marker.key == "pause" else None
             action = _action(
                 window,
                 marker.label,
@@ -175,12 +170,12 @@ class MainToolbar:
         # Zamknięty panel ASR wraca tym przełącznikiem.
         self.asr_panel_action = asr_toggle
         asr_toggle.setText("Szkic ASR")
-        asr_toggle.setIcon(icons.icon("sparkles", t.text, t.text_muted))
+        icons.set_icon(asr_toggle, "sparkles", "text", "text_muted")
         asr_toggle.setToolTip("Pokaż lub ukryj panel Szkic ASR")
         self._slots["asr"] = _Slot("tools", asr_toggle, (self._add(asr_toggle),))
 
         self.update_action = update_action
-        update_action.setIcon(icons.icon("download", t.text, t.text_muted))
+        icons.set_icon(update_action, "download", "text", "text_muted")
         self._slots["update"] = _Slot(
             "tools", update_action, (self._add(update_action, icon_only=True),)
         )
@@ -188,9 +183,9 @@ class MainToolbar:
         self.settings_action = _action(
             window,
             "Ustawienia…",
-            icons.icon("settings", t.text, t.text_muted),
+            "settings",
             SETTINGS_SHORTCUT,
-            "Odtwarzacz, edytor i notacja — preferencje",
+            "Wygląd, odtwarzacz, notacja i projekt — preferencje",
             handlers.settings,
         )
         self._slots["settings"] = _Slot(
@@ -203,7 +198,7 @@ class MainToolbar:
         )
 
         self.new_action = QAction("Nowy dokument", window)
-        self.new_action.setIcon(icons.icon("new", t.text, t.text_muted))
+        icons.set_icon(self.new_action, "new", "text", "text_muted")
         self.new_action.setShortcut(QKeySequence.StandardKey.New)
         self.new_action.setToolTip(
             _tooltip("Wyczyść edytor i zacznij od nowa", "Ctrl+N")
@@ -220,7 +215,7 @@ class MainToolbar:
         self.open_action = _window_action(
             window,
             "Otwórz projekt…",
-            icons.icon("open", t.text, t.text_muted),
+            "open",
             OPEN_PROJECT_SHORTCUT,
             "Otwórz zapisany projekt (.transkr)",
             handlers.open_project,
@@ -250,7 +245,7 @@ class MainToolbar:
         self.save_action = _window_action(
             window,
             "Zapisz projekt",
-            icons.icon("save", t.text, t.text_muted),
+            "save",
             SAVE_PROJECT_SHORTCUT,
             "Zapisz tekst, metryczkę, szkic ASR i stan odtwarzacza",
             handlers.save_project,
@@ -273,7 +268,7 @@ class MainToolbar:
         )
 
         self.export_action = QAction("Eksportuj DOCX…", window)
-        self.export_action.setIcon(icons.icon("export", t.on_accent, t.text_muted))
+        icons.set_icon(self.export_action, "export", "on_accent", "text_muted")
         self.export_action.setShortcut(QKeySequence("Ctrl+E"))
         self.export_action.setToolTip(
             _tooltip("Zapisz transkrypcję jako plik Word", "Ctrl+E")
@@ -294,7 +289,7 @@ class MainToolbar:
         set_props(self._buttons[self.export_action], variant="primary")
 
         self.close_action = QAction("Zamknij", window)
-        self.close_action.setIcon(icons.icon("close", t.text_muted, t.text_muted))
+        icons.set_icon(self.close_action, "close", "text_muted", "text_muted")
         self.close_action.setShortcut(QKeySequence.StandardKey.Close)
         self.close_action.setToolTip(_tooltip("Zamknij aplikację", "Ctrl+W"))
         self.close_action.triggered.connect(lambda _checked=False: handlers.close())
@@ -313,7 +308,7 @@ class MainToolbar:
         self.more_menu.aboutToShow.connect(self._fill_more_menu)
         self.more_button = QToolButton()
         self.more_button.setObjectName("more_button")
-        self.more_button.setIcon(icons.icon("menu", t.text, t.text_muted))
+        icons.set_icon(self.more_button, "menu", "text", "text_muted")
         self.more_button.setIconSize(icons.ICON_SIZE)
         self.more_button.setToolTip("Więcej poleceń")
         self.more_button.setAccessibleName("Więcej poleceń")
@@ -422,7 +417,7 @@ SAVE_PROJECT_AS_SHORTCUT = "Ctrl+Shift+S"
 def _window_action(
     window: QMainWindow,
     label: str,
-    icon,
+    icon: str | None,
     shortcut: str,
     tooltip: str,
     handler: Callable[[], object],
@@ -430,7 +425,7 @@ def _window_action(
     """Akcja okna; skrót działa także dla akcji schowanej w menu przycisku."""
     action = QAction(label, window)
     if icon is not None:
-        action.setIcon(icon)
+        icons.set_icon(action, icon, "text", "text_muted")
     action.setShortcut(QKeySequence(shortcut))
     action.setToolTip(_tooltip(tooltip, shortcut))
     action.triggered.connect(lambda _checked=False: handler())
@@ -441,7 +436,7 @@ def _window_action(
 def _action(
     window: QMainWindow,
     label: str,
-    icon,
+    icon: str | None,
     shortcut: str,
     tooltip: str,
     handler: Callable[[], object],
@@ -449,7 +444,7 @@ def _action(
     """Akcja ze skrótem działającym z fokusem w edytorze."""
     action = QAction(label, window)
     if icon is not None:
-        action.setIcon(icon)
+        icons.set_icon(action, icon, "text", "text_muted")
     action.setShortcut(QKeySequence(shortcut))
     action.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
     action.setToolTip(_tooltip(tooltip, shortcut))

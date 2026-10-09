@@ -1,8 +1,9 @@
 """Testy ustawień w UI: trwałość, okno ustawień i stosowanie bez restartu."""
 
-from PySide6.QtWidgets import QDialog
+from PySide6.QtWidgets import QDialog, QWidget
 
 from transkryptor.settings import (
+    AppearanceSettings,
     EditorSettings,
     NotationSettings,
     PlayerSettings,
@@ -22,6 +23,7 @@ CUSTOM = Settings(
     ),
     editor=EditorSettings(font_family="", font_size_pt=20),
     notation=NotationSettings(ellipsis_style="ascii"),
+    appearance=AppearanceSettings(theme="dark"),
 )
 
 
@@ -86,11 +88,39 @@ class TestSettingsDialog:
         """Okno ustawień podpowiada „Ujednolić wielokropki” po zmianie stylu."""
         dialog = SettingsDialog(Settings())
         qtbot.addWidget(dialog)
-        assert not dialog.ellipsis_hint.isVisibleTo(dialog)
+        # Podpowiedź leży na zakładce „Notacja”, niekoniecznie bieżącej.
+        assert dialog.ellipsis_hint.isHidden()
         dialog.ellipsis_combo.setCurrentIndex(dialog.ellipsis_combo.findData("ascii"))
-        assert dialog.ellipsis_hint.isVisibleTo(dialog)
+        assert not dialog.ellipsis_hint.isHidden()
         assert "Ujednolić" in dialog.ellipsis_hint.text()
         assert dialog.settings().notation.ellipsis_style == "ascii"
+
+    def test_tabs_group_settings_by_area(self, qtbot) -> None:
+        dialog = SettingsDialog(Settings())
+        qtbot.addWidget(dialog)
+        titles = [dialog.tabs.tabText(i) for i in range(dialog.tabs.count())]
+        assert titles == ["Wygląd", "Odtwarzacz", "Notacja", "Projekt", "Metryczka"]
+
+        def tab_of(widget: QWidget) -> str:
+            for index in range(dialog.tabs.count()):
+                page = dialog.tabs.widget(index)
+                if page is not None and page.isAncestorOf(widget):
+                    return dialog.tabs.tabText(index)
+            return ""
+
+        assert tab_of(dialog.theme_combo) == "Wygląd"
+        assert tab_of(dialog.font_size_spin) == "Wygląd"
+        assert tab_of(dialog.skip_spin) == "Odtwarzacz"
+        assert tab_of(dialog.ellipsis_combo) == "Notacja"
+        assert tab_of(dialog.autosave_check) == "Projekt"
+        assert tab_of(dialog.metadata_table) == "Metryczka"
+
+    def test_theme_choice(self, qtbot) -> None:
+        dialog = SettingsDialog(Settings())
+        qtbot.addWidget(dialog)
+        assert dialog.settings().appearance.theme == "system"
+        dialog.theme_combo.setCurrentIndex(dialog.theme_combo.findData("light"))
+        assert dialog.settings().appearance.theme == "light"
 
 
 class TestMainWindowSettings:
@@ -151,6 +181,28 @@ class TestMainWindowSettings:
         window.settings_store.save(CUSTOM)
         assert window.editor.toPlainText() == "abc"
         assert window.editor.document().availableUndoSteps() == undo_steps
+
+    def test_theme_switches_without_restart(self, add_window, qapp) -> None:
+        from transkryptor.ui import icons, theme
+
+        window = add_window(MainWindow())
+        previous_style = qapp.styleSheet()
+        try:
+            window.settings_store.save(
+                Settings(appearance=AppearanceSettings(theme="dark"))
+            )
+            assert theme.tokens() is theme.DARK
+            assert theme.DARK.surface in qapp.styleSheet()
+            # Ikony przerysowane w kolorach nowego motywu.
+            expected = icons.themed("save", "text", "text_muted").cacheKey()
+            assert window.save_action.icon().cacheKey() == expected
+            window.settings_store.save(
+                Settings(appearance=AppearanceSettings(theme="light"))
+            )
+            assert theme.tokens() is theme.LIGHT
+        finally:
+            theme.apply_theme(qapp, theme.LIGHT)
+            qapp.setStyleSheet(previous_style)
 
     def test_settings_locked_during_asr(self, add_window) -> None:
         window = add_window(MainWindow())

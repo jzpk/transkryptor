@@ -35,6 +35,14 @@ def test_theme_can_be_forced_by_environment(monkeypatch) -> None:
     assert theme.detect_tokens() is theme.LIGHT
 
 
+def test_explicit_theme_choice_beats_environment(monkeypatch) -> None:
+    monkeypatch.setenv(theme.THEME_ENV, "dark")
+    assert theme.resolve_tokens("light") is theme.LIGHT
+    assert theme.resolve_tokens("system") is theme.DARK
+    monkeypatch.setenv(theme.THEME_ENV, "light")
+    assert theme.resolve_tokens("dark") is theme.DARK
+
+
 @pytest.mark.parametrize(
     ("count", "label"),
     [(0, "słów"), (1, "słowo"), (2, "słowa"), (5, "słów"), (12, "słów"), (22, "słowa")],

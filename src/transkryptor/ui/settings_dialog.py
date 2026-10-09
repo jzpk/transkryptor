@@ -1,8 +1,9 @@
-"""Okno „Ustawienia…”: preferencje użytkownika pogrupowane w sekcje.
+"""Okno „Ustawienia…”: preferencje użytkownika na zakładkach.
 
 Okno tylko edytuje kopię ustawień; zapis i powiadomienie komponentów
-wykonuje ``SettingsStore`` po zatwierdzeniu. Kolejne funkcje dodają własne
-sekcje (``QGroupBox``) — bez jednej długiej listy pól.
+wykonuje ``SettingsStore`` po zatwierdzeniu. Każda zakładka dotyczy jednej
+części aplikacji (wygląd, odtwarzacz, notacja, projekt, metryczka); kolejne
+funkcje dopisują pola do właściwej zakładki albo dodają nową.
 """
 
 from __future__ import annotations
@@ -18,7 +19,6 @@ from PySide6.QtWidgets import (
     QDoubleSpinBox,
     QFontComboBox,
     QFormLayout,
-    QGroupBox,
     QHBoxLayout,
     QHeaderView,
     QInputDialog,
@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
     QSpinBox,
     QTableWidget,
     QTableWidgetItem,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -45,6 +46,10 @@ from transkryptor.settings import (
     FONT_SIZE_RANGE_PT,
     SEGMENT_PREROLL_RANGE_MS,
     SKIP_RANGE_MS,
+    THEME_DARK,
+    THEME_LIGHT,
+    THEME_SYSTEM,
+    AppearanceSettings,
     EditorSettings,
     MetadataSettings,
     NotationSettings,
@@ -55,6 +60,11 @@ from transkryptor.settings import (
 from transkryptor.ui.theme import set_props
 
 DIALOG_TITLE = "Ustawienia"
+THEME_LABELS = {
+    THEME_SYSTEM: "Zgodny z systemem",
+    THEME_LIGHT: "Jasny",
+    THEME_DARK: "Ciemny",
+}
 DEFAULT_FONT_LABEL = "Domyślna"
 DEFAULT_SIZE_LABEL = "Domyślny"
 ELLIPSIS_STYLE_LABELS = {
@@ -82,15 +92,13 @@ class SettingsDialog(QDialog):
         self.auto_rewind_check.toggled.connect(self.auto_rewind_spin.setEnabled)
         self.preroll_spin = _seconds_spin(SEGMENT_PREROLL_RANGE_MS)
 
-        player_form = QFormLayout()
+        player_form = _form()
         player_form.addRow("Skok w przód i w tył:", self.skip_spin)
         player_form.addRow(self.auto_rewind_check)
         player_form.addRow("Długość auto-cofania:", self.auto_rewind_spin)
         player_form.addRow("Start przed segmentem ASR:", self.preroll_spin)
-        player_group = QGroupBox("Odtwarzacz")
-        player_group.setLayout(player_form)
 
-        self.default_font_check = QCheckBox(f"{DEFAULT_FONT_LABEL} czcionka")
+        self.default_font_check = QCheckBox(f"{DEFAULT_FONT_LABEL} czcionka edytora")
         self.font_combo = QFontComboBox()
         self.default_font_check.toggled.connect(
             lambda checked: self.font_combo.setEnabled(not checked)
@@ -101,14 +109,18 @@ class SettingsDialog(QDialog):
         self.font_size_spin.setSpecialValueText(DEFAULT_SIZE_LABEL)
         self.font_size_spin.setSuffix(" pt")
 
-        font_row = QHBoxLayout()
-        font_row.addWidget(self.default_font_check)
-        font_row.addWidget(self.font_combo, stretch=1)
-        editor_form = QFormLayout()
-        editor_form.addRow("Czcionka tekstu:", font_row)
-        editor_form.addRow("Rozmiar tekstu:", self.font_size_spin)
-        editor_group = QGroupBox("Edytor")
-        editor_group.setLayout(editor_form)
+        self.theme_combo = QComboBox()
+        for value, theme_label in THEME_LABELS.items():
+            self.theme_combo.addItem(theme_label, value)
+        self.theme_combo.setToolTip(
+            "„Zgodny z systemem” przełącza się razem z trybem jasnym/ciemnym "
+            "systemu operacyjnego"
+        )
+        appearance_form = _form()
+        appearance_form.addRow("Motyw:", self.theme_combo)
+        appearance_form.addRow(self.default_font_check)
+        appearance_form.addRow("Czcionka edytora:", self.font_combo)
+        appearance_form.addRow("Rozmiar tekstu:", self.font_size_spin)
 
         self.ellipsis_combo = QComboBox()
         for style, label in ELLIPSIS_STYLE_LABELS.items():
@@ -117,11 +129,9 @@ class SettingsDialog(QDialog):
         self.ellipsis_hint.setWordWrap(True)
         set_props(self.ellipsis_hint, role="muted")
         self.ellipsis_combo.currentIndexChanged.connect(self._update_ellipsis_hint)
-        notation_form = QFormLayout()
+        notation_form = _form()
         notation_form.addRow("Styl wielokropka:", self.ellipsis_combo)
         notation_form.addRow(self.ellipsis_hint)
-        notation_group = QGroupBox("Notacja")
-        notation_group.setLayout(notation_form)
 
         self.autosave_check = QCheckBox("Autozapis bieżącej pracy")
         self.autosave_check.setToolTip(
@@ -133,11 +143,9 @@ class SettingsDialog(QDialog):
         self.autosave_spin.setSingleStep(30)
         self.autosave_spin.setSuffix(" s")
         self.autosave_check.toggled.connect(self.autosave_spin.setEnabled)
-        project_form = QFormLayout()
+        project_form = _form()
         project_form.addRow(self.autosave_check)
         project_form.addRow("Interwał autozapisu:", self.autosave_spin)
-        project_group = QGroupBox("Projekt")
-        project_group.setLayout(project_form)
 
         self.metadata_table = QTableWidget(0, 2)
         self.metadata_table.setHorizontalHeaderLabels(["Pole", "Dane osobowe"])
@@ -178,12 +186,19 @@ class SettingsDialog(QDialog):
             self.remove_field_button,
         ):
             field_buttons.addWidget(button)
-        metadata_layout = QVBoxLayout()
+        metadata_page = QWidget()
+        metadata_layout = QVBoxLayout(metadata_page)
+        metadata_layout.setContentsMargins(16, 16, 16, 16)
         metadata_layout.addWidget(metadata_hint)
         metadata_layout.addWidget(self.metadata_table, stretch=1)
         metadata_layout.addLayout(field_buttons)
-        metadata_group = QGroupBox("Metryczka")
-        metadata_group.setLayout(metadata_layout)
+
+        self.tabs = QTabWidget()
+        self.tabs.addTab(_page(appearance_form), "Wygląd")
+        self.tabs.addTab(_page(player_form), "Odtwarzacz")
+        self.tabs.addTab(_page(notation_form), "Notacja")
+        self.tabs.addTab(_page(project_form), "Projekt")
+        self.tabs.addTab(metadata_page, "Metryczka")
 
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok
@@ -200,24 +215,19 @@ class SettingsDialog(QDialog):
             lambda: self.set_settings(Settings())
         )
 
-        left = QVBoxLayout()
-        left.addWidget(player_group)
-        left.addWidget(editor_group)
-        left.addWidget(notation_group)
-        left.addWidget(project_group)
-        left.addStretch(1)
-        columns = QHBoxLayout()
-        columns.addLayout(left)
-        columns.addWidget(metadata_group, stretch=1)
         layout = QVBoxLayout(self)
-        layout.addLayout(columns)
+        layout.addWidget(self.tabs, stretch=1)
         layout.addWidget(buttons)
+        self.setMinimumSize(520, 420)
 
         self._initial_ellipsis_style = settings.notation.ellipsis_style
         self.set_settings(settings)
 
     def set_settings(self, settings: Settings) -> None:
         """Wypełnia pola wartościami ``settings``."""
+        index = self.theme_combo.findData(settings.appearance.theme)
+        self.theme_combo.setCurrentIndex(max(index, 0))
+
         player = settings.player
         self.skip_spin.setValue(player.skip_ms / 1000)
         self.auto_rewind_check.setChecked(player.auto_rewind_enabled)
@@ -367,7 +377,25 @@ class SettingsDialog(QDialog):
                 autosave_interval_s=self.autosave_spin.value(),
             ),
             metadata=MetadataSettings(fields_spec=_fields_spec(self.metadata_fields())),
+            appearance=AppearanceSettings(theme=str(self.theme_combo.currentData())),
         )
+
+
+def _form() -> QFormLayout:
+    form = QFormLayout()
+    form.setContentsMargins(16, 16, 16, 16)
+    form.setVerticalSpacing(10)
+    return form
+
+
+def _page(form: QFormLayout) -> QWidget:
+    """Strona zakładki z formularzem przy górnej krawędzi."""
+    page = QWidget()
+    layout = QVBoxLayout(page)
+    layout.setContentsMargins(0, 0, 0, 0)
+    layout.addLayout(form)
+    layout.addStretch(1)
+    return page
 
 
 def _seconds_spin(range_ms: tuple[int, int]) -> QDoubleSpinBox:

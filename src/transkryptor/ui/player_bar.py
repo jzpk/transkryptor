@@ -40,7 +40,7 @@ from transkryptor.ui.shortcuts import (
     RATE_UP,
     action_tooltip,
 )
-from transkryptor.ui.theme import set_props, tokens
+from transkryptor.ui.theme import set_props
 
 PLAYBACK_RATES: tuple[tuple[str, float], ...] = (
     ("0.5x", 0.5),
@@ -97,21 +97,18 @@ class PlayerBar(QFrame):
         self._loop_b: int | None = None
         self._pending_state: PlayerState | None = None
 
-        t = tokens()
         set_props(self, card=True)
         self.setObjectName("player_bar")
 
         self.import_button = QPushButton("Import nagrania…")
-        self.import_button.setIcon(icons.icon("import", t.text, t.text_muted))
+        icons.set_icon(self.import_button, "import", "text", "text_muted")
         self.import_button.setIconSize(icons.ICON_SIZE)
         self.import_button.setToolTip(
             f"Wybierz nagranie do odsłuchu ({SUPPORTED_FORMATS_LABEL})"
         )
         self.play_button = QPushButton("Odtwórz")
         set_props(self.play_button, variant="primary")
-        self._play_icon = icons.icon("play", t.on_accent, t.text_muted)
-        self._pause_icon = icons.icon("pause", t.on_accent, t.text_muted)
-        self.play_button.setIcon(self._play_icon)
+        self._set_play_icon(playing=False)
         self.play_button.setIconSize(icons.ICON_SIZE)
         # Stała szerokość: przycisk nie skacze przy zmianie „Odtwórz”/„Pauza”.
         self.play_button.setMinimumWidth(116)
@@ -147,7 +144,7 @@ class PlayerBar(QFrame):
         )
         self.loop_button = QPushButton("Pętla")
         self.loop_button.setCheckable(True)
-        self.loop_button.setIcon(icons.icon("loop", t.text, t.text_muted))
+        icons.set_icon(self.loop_button, "loop", "text", "text_muted")
         self.loop_button.setIconSize(icons.ICON_SIZE)
         self.loop_button.setToolTip(
             action_tooltip(
@@ -165,9 +162,7 @@ class PlayerBar(QFrame):
         self.loop_label.setFont(time_font)
 
         file_icon = QLabel()
-        file_icon.setPixmap(
-            icons.pixmap("audio_file", t.accent, 28, self.devicePixelRatioF())
-        )
+        icons.set_pixmap(file_icon, "audio_file", "accent", 28)
         self.file_label = QLabel(NO_MEDIA_TITLE)
         set_props(self.file_label, role="title")
         self.file_hint_label = QLabel(NO_MEDIA_HINT)
@@ -396,7 +391,11 @@ class PlayerBar(QFrame):
 
     def _on_playback_changed(self, is_playing: bool) -> None:
         self.play_button.setText("Pauza" if is_playing else "Odtwórz")
-        self.play_button.setIcon(self._pause_icon if is_playing else self._play_icon)
+        self._set_play_icon(is_playing)
+
+    def _set_play_icon(self, playing: bool) -> None:
+        name = "pause" if playing else "play"
+        icons.set_icon(self.play_button, name, "on_accent", "text_muted")
 
     def _update_time_label(self, position_ms: int, duration_ms: int) -> None:
         self.time_label.setText(f"{format_ms(position_ms)} / {format_ms(duration_ms)}")
@@ -407,7 +406,7 @@ class PlayerBar(QFrame):
         self.position_slider.setEnabled(False)
         self.play_button.setEnabled(False)
         self.play_button.setText("Odtwórz")
-        self.play_button.setIcon(self._play_icon)
+        self._set_play_icon(playing=False)
         self.rate_combo.setEnabled(False)
         self.rate_combo.setCurrentIndex(DEFAULT_RATE_INDEX)
         self._update_time_label(0, 0)

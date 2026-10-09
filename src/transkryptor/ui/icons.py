@@ -3,15 +3,27 @@
 Ikony są liniowe (siatka 24×24, obrys 2 px) i barwione w czasie działania
 kolorem motywu, więc pasują do trybu jasnego i ciemnego bez osobnych plików.
 Definicje są autorskie — projekt nie dołącza zewnętrznych zestawów ikon.
+
+Ikony widżetów ustawia się przez ``set_icon``/``set_pixmap`` z nazwami
+tokenów motywu (np. ``"text"``), a nie z gotowymi kolorami: po zmianie
+motywu ``refresh(root)`` przerysowuje je w nowych kolorach.
 """
 
 from __future__ import annotations
 
 from functools import lru_cache
 
-from PySide6.QtCore import QByteArray, QRectF, QSize, Qt
-from PySide6.QtGui import QIcon, QPainter, QPixmap
+from PySide6.QtCore import QByteArray, QObject, QRectF, QSize, Qt
+from PySide6.QtGui import QAction, QIcon, QPainter, QPixmap
 from PySide6.QtSvg import QSvgRenderer
+from PySide6.QtWidgets import QAbstractButton, QLabel
+
+from transkryptor.ui.theme import tokens
+
+#: Właściwość Qt z opisem ikony zależnej od motywu (``nazwa:kolor:nieaktywny``).
+THEMED_ICON_PROPERTY = "themed_icon"
+#: Jak wyżej dla ``QLabel`` z obrazkiem (``nazwa:kolor:rozmiar``).
+THEMED_PIXMAP_PROPERTY = "themed_pixmap"
 
 _PATHS: dict[str, str] = {
     "superscript": (
@@ -133,3 +145,41 @@ def icon(name: str, color: str, disabled_color: str | None = None) -> QIcon:
 
 
 ICON_SIZE = QSize(18, 18)
+
+
+def themed(name: str, color: str, disabled: str | None = None) -> QIcon:
+    """Ikona w kolorach tokenów aktywnego motywu (``color``, ``disabled``)."""
+    t = tokens()
+    return icon(name, getattr(t, color), getattr(t, disabled) if disabled else None)
+
+
+def set_icon(
+    target: QAction | QAbstractButton,
+    name: str,
+    color: str,
+    disabled: str | None = None,
+) -> None:
+    """Ustawia ikonę w kolorach motywu i zapamiętuje ją dla ``refresh``."""
+    target.setProperty(THEMED_ICON_PROPERTY, f"{name}:{color}:{disabled or ''}")
+    target.setIcon(themed(name, color, disabled))
+
+
+def set_pixmap(label: QLabel, name: str, color: str, size: int) -> None:
+    """Obrazek etykiety w kolorze motywu, zapamiętany dla ``refresh``."""
+    label.setProperty(THEMED_PIXMAP_PROPERTY, f"{name}:{color}:{size}")
+    label.setPixmap(
+        pixmap(name, getattr(tokens(), color), size, label.devicePixelRatioF())
+    )
+
+
+def refresh(root: QObject) -> None:
+    """Przerysowuje ikony ``root`` i jego potomków w kolorach bieżącego motywu."""
+    for obj in (root, *root.findChildren(QObject)):
+        spec = obj.property(THEMED_ICON_PROPERTY)
+        if isinstance(spec, str) and isinstance(obj, QAction | QAbstractButton):
+            name, color, disabled = spec.split(":")
+            obj.setIcon(themed(name, color, disabled or None))
+        spec = obj.property(THEMED_PIXMAP_PROPERTY)
+        if isinstance(spec, str) and isinstance(obj, QLabel):
+            name, color, size = spec.split(":")
+            set_pixmap(obj, name, color, int(size))

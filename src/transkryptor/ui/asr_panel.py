@@ -164,7 +164,6 @@ class AsrPanel(QWidget):
         self._audio_available = False
         self._segment_preroll_ms = DEFAULT_SEGMENT_PREROLL_MS
 
-        t = tokens()
         self.setObjectName("asr_panel")
         model = manager.model
         self.info_label = QLabel(
@@ -181,7 +180,7 @@ class AsrPanel(QWidget):
         set_props(self.model_status_label, role="status")
         self.download_button = QPushButton("Pobierz model…")
         set_props(self.download_button, variant="primary")
-        self.download_button.setIcon(icons.icon("download", t.on_accent, t.text_muted))
+        icons.set_icon(self.download_button, "download", "on_accent", "text_muted")
         self.download_progress = QProgressBar()
         self.download_progress.setTextVisible(False)
         self.download_progress.setVisible(False)
@@ -191,9 +190,7 @@ class AsrPanel(QWidget):
 
         self.transcribe_button = QPushButton("Utwórz szkic ASR z nagrania")
         set_props(self.transcribe_button, variant="primary")
-        self.transcribe_button.setIcon(
-            icons.icon("sparkles", t.on_accent, t.text_muted)
-        )
+        icons.set_icon(self.transcribe_button, "sparkles", "on_accent", "text_muted")
         self.transcribe_button.setIconSize(icons.ICON_SIZE)
         self.cancel_transcribe_button = QPushButton("Anuluj transkrypcję")
         set_props(self.cancel_transcribe_button, variant="danger")
@@ -202,7 +199,7 @@ class AsrPanel(QWidget):
         self.transcribe_status_label.setWordWrap(True)
         set_props(self.transcribe_status_label, role="muted")
         self.reinsert_draft_button = QPushButton("Wstaw szkic ponownie")
-        self.reinsert_draft_button.setIcon(icons.icon("redo", t.text, t.text_muted))
+        icons.set_icon(self.reinsert_draft_button, "redo", "text", "text_muted")
         self.reinsert_draft_button.setToolTip(
             "Wstawia ostatni szkic ASR do edytora bez powtarzania transkrypcji"
         )
@@ -244,7 +241,7 @@ class AsrPanel(QWidget):
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff
         )
         self.apply_suggestion_button = QPushButton("Zastosuj propozycję")
-        self.apply_suggestion_button.setIcon(icons.icon("check", t.text, t.text_muted))
+        icons.set_icon(self.apply_suggestion_button, "check", "text", "text_muted")
         self.apply_suggestion_button.setEnabled(False)
         self.finish_review_button = QPushButton("Zakończ przegląd")
         set_props(self.finish_review_button, variant="ghost")
@@ -705,7 +702,7 @@ def _section_label(text: str) -> QLabel:
 def _divider() -> QFrame:
     line = QFrame()
     line.setFixedHeight(1)
-    line.setStyleSheet(f"background: {tokens().border};")
+    set_props(line, role="divider")
     return line
 
 

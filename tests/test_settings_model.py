@@ -134,3 +134,13 @@ def test_push_recent_moves_to_front_without_duplicates() -> None:
     assert result[0] == "/p/3.transkr"
     assert len(result) == 8 and len(set(result)) == 8
     assert push_recent(paths, "/p/nowy.transkr")[-1] == "/p/6.transkr"
+
+
+def test_theme_defaults_to_system_and_validates() -> None:
+    from transkryptor.settings import AppearanceSettings
+
+    assert Settings().appearance.theme == "system"
+    settings = Settings(appearance=AppearanceSettings(theme="dark"))
+    assert to_mapping(settings)["appearance/theme"] == "dark"
+    assert from_mapping(to_mapping(settings)) == settings
+    assert from_mapping({"appearance/theme": "różowy"}) == Settings()

@@ -16,6 +16,7 @@ from __future__ import annotations
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
+    QApplication,
     QLabel,
     QMainWindow,
     QMessageBox,
@@ -32,6 +33,7 @@ from transkryptor.document.model import Document
 from transkryptor.errors import AppError
 from transkryptor.notation.ellipsis import EllipsisStyle
 from transkryptor.settings import Settings
+from transkryptor.ui import icons
 from transkryptor.ui.asr_panel import AsrPanel
 from transkryptor.ui.editor import TranscriptionEditor
 from transkryptor.ui.export_controller import ExportController
@@ -72,7 +74,7 @@ from transkryptor.ui.session import (
 from transkryptor.ui.settings_dialog import SettingsDialog
 from transkryptor.ui.settings_store import SettingsStore
 from transkryptor.ui.shortcuts import tooltip_with_shortcut as _tooltip
-from transkryptor.ui.theme import set_props
+from transkryptor.ui.theme import apply_theme, resolve_tokens, set_props, tokens
 from transkryptor.ui.toolbar import MainToolbar, ToolbarHandlers
 from transkryptor.ui.update_controller import UpdateController
 from transkryptor.ui.warnings_panel import WarningsPanel
@@ -295,6 +297,10 @@ class MainWindow(QMainWindow):
         self.metadata_form.changed.connect(self._on_metadata_changed)
         self.player_bar.import_requested.connect(self._on_import_audio)
         self.settings_store.settings_changed.connect(self._apply_settings)
+        app = QApplication.instance()
+        if isinstance(app, QApplication):
+            # Motyw „zgodny z systemem” podąża za przełączeniem trybu systemu.
+            app.styleHints().colorSchemeChanged.connect(self._on_color_scheme_changed)
         self.asr_panel.seek_requested.connect(self.player_controller.seek_to_segment)
         self.player.playback_error.connect(
             lambda error: self._show_error("Odtwarzanie nagrania", error)
@@ -319,6 +325,7 @@ class MainWindow(QMainWindow):
 
     def _apply_settings(self, settings: Settings) -> None:
         """Stosuje ustawienia do komponentów bez restartu (ACC-17)."""
+        self._apply_theme(settings.appearance.theme)
         self.player_bar.apply_settings(settings.player)
         self.editor.apply_settings(settings.editor)
         self.metadata_form.set_fields(settings.metadata.fields)
@@ -328,6 +335,22 @@ class MainWindow(QMainWindow):
         pause = self.marker_actions["pause"]
         pause_marker = marker_text("pause", settings.notation.ellipsis).strip()
         pause.setToolTip(_tooltip(f"Wstaw {pause_marker}", pause.shortcut().toString()))
+        self.notation.schedule_validation()
+
+    def _on_color_scheme_changed(self, _scheme: Qt.ColorScheme) -> None:
+        self._apply_theme(self.settings_store.current.appearance.theme)
+
+    def _apply_theme(self, choice: str) -> None:
+        """Przełącza motyw aplikacji i przerysowuje ikony w nowych kolorach."""
+        app = QApplication.instance()
+        if not isinstance(app, QApplication):
+            return
+        target = resolve_tokens(choice, app)
+        if target is tokens():
+            return
+        apply_theme(app, target)
+        icons.refresh(self)
+        # Ikony listy ostrzeżeń powstają przy walidacji.
         self.notation.schedule_validation()
 
     def _on_superscript(self) -> None:

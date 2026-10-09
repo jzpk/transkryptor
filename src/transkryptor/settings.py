@@ -37,6 +37,19 @@ class PlayerSettings:
     segment_preroll_ms: int = 500
 
 
+THEME_SYSTEM = "system"
+THEME_LIGHT = "light"
+THEME_DARK = "dark"
+THEMES = (THEME_SYSTEM, THEME_LIGHT, THEME_DARK)
+
+
+@dataclass(frozen=True)
+class AppearanceSettings:
+    """Motyw interfejsu: ``system`` (za ustawieniem systemu), ``light``, ``dark``."""
+
+    theme: str = THEME_SYSTEM
+
+
 @dataclass(frozen=True)
 class EditorSettings:
     """Czcionka edytora; wartości puste/zerowe oznaczają czcionkę domyślną."""
@@ -86,6 +99,7 @@ class Settings:
     notation: NotationSettings = field(default_factory=NotationSettings)
     project: ProjectSettings = field(default_factory=ProjectSettings)
     metadata: MetadataSettings = field(default_factory=MetadataSettings)
+    appearance: AppearanceSettings = field(default_factory=AppearanceSettings)
 
 
 @dataclass(frozen=True)
@@ -128,6 +142,7 @@ _FIELDS: tuple[_Field, ...] = (
         str,
         validate=lambda raw: decode_fields(raw) is not None,
     ),
+    _Field("appearance", "theme", str, choices=THEMES),
 )
 
 
@@ -151,6 +166,7 @@ def from_mapping(mapping: Mapping[str, Any]) -> Settings:
         "notation": {},
         "project": {},
         "metadata": {},
+        "appearance": {},
     }
     for spec in _FIELDS:
         if spec.key not in mapping:
@@ -169,6 +185,9 @@ def from_mapping(mapping: Mapping[str, Any]) -> Settings:
         ),
         metadata=replace(
             MetadataSettings(), **sections["metadata"]  # type: ignore[arg-type]
+        ),
+        appearance=replace(
+            AppearanceSettings(), **sections["appearance"]  # type: ignore[arg-type]
         ),
     )
 

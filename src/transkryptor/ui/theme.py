@@ -18,8 +18,10 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QFont, QGuiApplication, QPalette
 from PySide6.QtWidgets import QApplication, QWidget
 
-#: Zmienna środowiskowa wymuszająca motyw (``light``/``dark``); domyślnie
-#: motyw podąża za ustawieniem systemu.
+from transkryptor.settings import THEME_DARK, THEME_LIGHT
+
+#: Zmienna środowiskowa wymuszająca motyw (``light``/``dark``) zamiast
+#: ustawienia systemu; jawny wybór w oknie „Ustawienia…” ma pierwszeństwo.
 THEME_ENV = "TRANSKRYPTOR_THEME"
 
 
@@ -116,6 +118,15 @@ def detect_tokens(app: QGuiApplication | None = None) -> Tokens:
         if scheme == Qt.ColorScheme.Dark:
             return DARK
     return LIGHT
+
+
+def resolve_tokens(choice: str, app: QGuiApplication | None = None) -> Tokens:
+    """Tokeny dla wyboru z ustawień (``system``, ``light``, ``dark``)."""
+    if choice == THEME_DARK:
+        return DARK
+    if choice == THEME_LIGHT:
+        return LIGHT
+    return detect_tokens(app)
 
 
 def apply_theme(app: QApplication, theme: Tokens | None = None) -> Tokens:
@@ -545,7 +556,33 @@ QScrollBar::add-page, QScrollBar::sub-page {{
     background: transparent;
 }}
 
+/* --- zakładki ----------------------------------------------------------- */
+QTabWidget::pane {{
+    background: {t.surface};
+    border: 1px solid {t.border};
+    border-radius: 8px;
+    top: -1px;
+}}
+QTabBar::tab {{
+    background: transparent;
+    color: {t.text_muted};
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 6px 14px;
+}}
+QTabBar::tab:hover {{
+    color: {t.text};
+}}
+QTabBar::tab:selected {{
+    color: {t.text};
+    border-bottom-color: {t.accent};
+    font-weight: 600;
+}}
+
 /* --- pozostałe ---------------------------------------------------------- */
+QFrame[role="divider"] {{
+    background: {t.border};
+}}
 QCheckBox {{
     spacing: 8px;
     color: {t.text};

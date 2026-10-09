@@ -10,7 +10,7 @@ from __future__ import annotations
 from html import escape
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QAction, QKeySequence
+from PySide6.QtGui import QAction, QIcon, QKeySequence
 from PySide6.QtWidgets import (
     QCheckBox,
     QGridLayout,
@@ -25,7 +25,7 @@ from transkryptor.document.search import ParsedReplacement, SearchOptions
 from transkryptor.ui import icons
 from transkryptor.ui.shortcuts import FIND_NEXT_SHORTCUT, FIND_PREVIOUS_SHORTCUT
 from transkryptor.ui.shortcuts import tooltip_with_shortcut as _tooltip
-from transkryptor.ui.theme import set_props, tokens
+from transkryptor.ui.theme import set_props
 
 REPLACE_PLACEHOLDER = "Zamień na… (^n — indeks górny, \\^ — znak ^)"
 
@@ -44,14 +44,14 @@ class SearchBar(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("search_bar")
-        t = tokens()
 
         self.find_edit = QLineEdit()
         self.find_edit.setPlaceholderText("Szukaj…")
         self.find_edit.setClearButtonEnabled(True)
-        self.find_edit.addAction(
-            icons.icon("search", t.text_muted), QLineEdit.ActionPosition.LeadingPosition
+        search_action = self.find_edit.addAction(
+            QIcon(), QLineEdit.ActionPosition.LeadingPosition
         )
+        icons.set_icon(search_action, "search", "text_muted")
         self.replace_edit = QLineEdit()
         self.replace_edit.setPlaceholderText(REPLACE_PLACEHOLDER)
         self.replace_edit.setClearButtonEnabled(True)
@@ -84,7 +84,7 @@ class SearchBar(QWidget):
             "Zamień wszystkie trafienia (jedno cofnięcie)"
         )
         self.close_button = QToolButton()
-        self.close_button.setIcon(icons.icon("close", t.text_muted))
+        icons.set_icon(self.close_button, "close", "text_muted")
         self.close_button.setToolTip(_tooltip("Zamknij wyszukiwanie", "Esc"))
         self.close_button.setAutoRaise(True)
 

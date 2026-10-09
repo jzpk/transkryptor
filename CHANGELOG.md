@@ -7,6 +7,12 @@ Pusta sekcja blokuje wydanie.
 
 ## Nieopublikowane
 
+- Motyw jasny i ciemny: w **Ustawieniach…** (zakładka **Wygląd**) można
+  wybrać motyw **Jasny**, **Ciemny** albo **Zgodny z systemem** (domyślnie).
+  Zmiana działa od razu, bez ponownego uruchamiania.
+- Okno **Ustawienia…** jest podzielone na zakładki według tego, czego
+  dotyczą ustawienia: **Wygląd**, **Odtwarzacz**, **Notacja**, **Projekt**
+  i **Metryczka**.
 - W wąskim oknie pasek narzędzi nie ucina już przycisków: te, które się nie
   mieszczą, trafiają do menu **Więcej poleceń** (☰) na końcu paska — najpierw
   rzadziej używane, a **Eksportuj DOCX** zostaje zawsze widoczny. Skróty
