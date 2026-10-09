@@ -38,6 +38,7 @@ from transkryptor.asr import engine
 from transkryptor.asr.engine import SegmentResult, TranscriptionResult
 from transkryptor.asr.manager import DownloadCancelled, ModelManager
 from transkryptor.asr.models import format_size
+from transkryptor.asr.worker import AsrWorker
 from transkryptor.errors import AppError
 from transkryptor.i18n import tr
 from transkryptor.notation.suggestions import RULES, Suggestion
@@ -146,12 +147,18 @@ class AsrPanel(QWidget):
         self,
         manager: ModelManager,
         audio_path_provider: Callable[[], Path | None] = lambda: None,
-        transcribe_impl: Callable[..., TranscriptionResult] = engine.transcribe,
+        transcribe_impl: Callable[..., TranscriptionResult] | None = None,
         parent=None,
     ) -> None:
         super().__init__(parent)
         self._manager = manager
         self._audio_path_provider = audio_path_provider
+        # Domyślnie podproces roboczy (PERF-04): model zostaje w pamięci,
+        # a „Anuluj” kończy pracę od razu. Testy podstawiają imitację.
+        self._worker: AsrWorker | None = None
+        if transcribe_impl is None:
+            self._worker = AsrWorker()
+            transcribe_impl = self._worker.transcribe
         self._transcribe_impl = transcribe_impl
         self._download_thread: DownloadThread | None = None
         self._transcribe_thread: TranscribeThread | None = None
@@ -613,6 +620,11 @@ class AsrPanel(QWidget):
 
     def is_transcribing(self) -> bool:
         return self._transcribe_thread is not None
+
+    def shutdown(self) -> None:
+        """Kończy podproces roboczy ASR (zamknięcie okna)."""
+        if self._worker is not None:
+            self._worker.shutdown()
 
     def cancel_transcription(self) -> None:
         """Prosi o przerwanie trwającej transkrypcji (np. z nakładki)."""

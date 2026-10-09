@@ -9,6 +9,7 @@ serwera okien.
 from __future__ import annotations
 
 import argparse
+import multiprocessing
 import sys
 from pathlib import Path
 
@@ -102,6 +103,15 @@ def self_test(stream=None) -> int:
             problems.append(tr("selftest.vad_missing", path=asset))
             print(f"  [{tr('selftest.error_tag')}] {tr('selftest.vad')}", file=stream)
 
+    worker_problem = _check_asr_worker()
+    if worker_problem is None:
+        print(f"  [ok]   {tr('selftest.asr_worker')}", file=stream)
+    else:
+        problems.append(tr("selftest.asr_worker_failed", reason=worker_problem))
+        print(
+            f"  [{tr('selftest.error_tag')}] {tr('selftest.asr_worker')}", file=stream
+        )
+
     from transkryptor.asr.manager import ModelManager
 
     manager = ModelManager()
@@ -122,6 +132,21 @@ def self_test(stream=None) -> int:
         return 1
     print(f"\n{tr('selftest.complete')}", file=stream)
     return 0
+
+
+def _check_asr_worker() -> str | None:
+    """Start i odpowiedź procesu roboczego ASR; None = działa."""
+    from transkryptor.asr.worker import AsrWorker
+
+    worker = AsrWorker()
+    try:
+        if not worker.ping():
+            return "timeout"
+    except Exception as error:  # noqa: BLE001 — raport, nie przerwanie
+        return str(error) or type(error).__name__
+    finally:
+        worker.shutdown()
+    return None
 
 
 def configure_language(qsettings=None) -> str:
@@ -165,6 +190,9 @@ def install_qt_translations(app, language: str | None = None) -> bool:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # Proces roboczy ASR (``asr/worker.py``) w wydaniu PyInstaller startuje
+    # z tego samego pliku wykonywalnego — freeze_support go obsługuje i kończy.
+    multiprocessing.freeze_support()
     configure_language()
     parser = argparse.ArgumentParser(
         prog="transkryptor",

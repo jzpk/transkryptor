@@ -269,6 +269,7 @@ class SessionController(QObject):
         self._player.stop_and_unload()
         self.autosave.shutdown()
         self._stop_hashing()
+        self._asr_panel.shutdown()
         return True
 
     def _stop_download(self) -> bool:

@@ -108,7 +108,7 @@ def transcribe(
         )
     if cancel():
         raise TranscriptionCancelled()
-    factory = backend_factory or _faster_whisper_backend
+    factory = backend_factory or faster_whisper_backend
     try:
         backend = factory(model_path)
         raw_segments, info = backend.transcribe(
@@ -156,7 +156,7 @@ def _confidence(avg_logprob: float) -> float:
     return round(min(1.0, max(0.0, math.exp(avg_logprob))), 3)
 
 
-def _faster_whisper_backend(model_dir: Path) -> Backend:
+def faster_whisper_backend(model_dir: Path) -> Backend:
     """Ładuje model faster-whisper wyłącznie z lokalnych plików (offline)."""
     from faster_whisper import WhisperModel
 

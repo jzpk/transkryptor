@@ -65,6 +65,12 @@ Pusta sekcja blokuje wydanie.
 - Model ASR jest pobierany z ustalonej wersji repozytorium i każdy plik
   jest sprawdzany sumą kontrolną — model o innej zawartości nie zostanie
   zainstalowany. Pobierane są tylko pliki potrzebne do działania modelu.
+- Kolejna transkrypcja ASR w tej samej sesji startuje od razu: model zostaje
+  w pamięci (zwalnianej po 10 minutach bezczynności).
+- **Anuluj** w trakcie transkrypcji ASR działa natychmiast, także zanim
+  pojawi się pierwszy segment (np. przy wczytywaniu modelu albo analizie
+  długiego nagrania).
+- Animacja w trakcie transkrypcji mniej obciąża procesor.
 
 ## 0.2.3 — 2026-10-09
 

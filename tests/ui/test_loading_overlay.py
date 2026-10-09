@@ -143,3 +143,14 @@ def test_eta_waits_for_stable_rate_then_extrapolates(qtbot) -> None:
     overlay.start()
     assert overlay.eta_label.text() == tr("loading.eta_pending")
     overlay.stop()
+
+
+def test_spinner_redraws_at_most_30_times_per_second(qtbot) -> None:
+    """PERF-07: animacja nie konkuruje z ASR o procesor."""
+    from transkryptor.ui.loading_overlay import SPINNER_INTERVAL_MS, Spinner
+
+    spinner = Spinner()
+    qtbot.addWidget(spinner)
+    spinner.start()
+    assert spinner._timer.interval() == SPINNER_INTERVAL_MS >= 33
+    spinner.stop()

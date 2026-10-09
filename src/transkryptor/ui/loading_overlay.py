@@ -33,7 +33,9 @@ from PySide6.QtWidgets import (
 from transkryptor.i18n import tr
 
 MESSAGE_INTERVAL_MS = 12_000
-SPINNER_INTERVAL_MS = 16
+# 30 klatek/s: płynnie, a rysowanie w Pythonie nie konkuruje z ASR o procesor.
+SPINNER_INTERVAL_MS = 33
+SPINNER_STEP_DEG = 12  # 360°/s jak przy 60 klatkach i kroku 6°
 ETA_TICK_MS = 1_000
 # Szacunek pokazujemy dopiero po tylu sekundach od pierwszego postępu —
 # wcześniej tempo jest zbyt chwiejne, by cokolwiek obiecywać.
@@ -105,7 +107,7 @@ class Spinner(QWidget):
         return f"{int(self._progress * 100)}%"
 
     def _advance(self) -> None:
-        self._angle = (self._angle + 6) % 360
+        self._angle = (self._angle + SPINNER_STEP_DEG) % 360
         self.update()
 
     def _gradient_colors(self) -> tuple[QColor, QColor, QColor]:

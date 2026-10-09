@@ -86,7 +86,7 @@ class TestBackendContract:
             "faster_whisper",
             SimpleNamespace(WhisperModel=FakeWhisperModel),
         )
-        engine._faster_whisper_backend(Path("/katalog/modelu"))
+        engine.faster_whisper_backend(Path("/katalog/modelu"))
 
         assert captured["model_path"] == "/katalog/modelu"
         assert captured["local_files_only"] is True

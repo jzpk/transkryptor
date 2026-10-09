@@ -605,3 +605,26 @@ class TestSegmentSeek:
         )
         window._on_import_audio("tests/fixtures/audio/sample.aac")
         assert window.asr_panel.segments_list.count() == 0
+
+
+class TestWorkerWiring:
+    """PERF-04: domyślnie transkrypcja idzie przez podproces roboczy."""
+
+    def test_default_panel_uses_worker_and_shuts_it_down(self, qtbot, tmp_path) -> None:
+        panel = AsrPanel(ModelManager(models_root=tmp_path))
+        qtbot.addWidget(panel)
+        worker = panel._worker
+        assert worker is not None
+        assert panel._transcribe_impl == worker.transcribe
+        assert worker.ping()
+        panel.shutdown()
+        assert not worker.is_running()
+
+    def test_injected_implementation_has_no_worker(self, qtbot, tmp_path) -> None:
+        panel = AsrPanel(
+            ModelManager(models_root=tmp_path),
+            transcribe_impl=lambda *a, **k: TranscriptionResult("", "pl"),
+        )
+        qtbot.addWidget(panel)
+        assert panel._worker is None
+        panel.shutdown()  # bez procesu — nic do zrobienia
