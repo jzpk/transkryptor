@@ -9,7 +9,9 @@ się po zakończeniu transkrypcji.
 
 Każda sesja trzyma ``QLockFile`` ``<id sesji>.lock``. Plik autozapisu, którego
 blokady nikt nie trzyma (proces zakończył się awaryjnie), jest osierocony
-i aplikacja proponuje jego odzyskanie przy starcie. Poprawne zamknięcie
+i aplikacja proponuje jego odzyskanie przy starcie. Kopia zawiera dane osobowe
+metryczki, dlatego ma prawa ``0600``, a osierocona kopia starsza niż
+``ORPHAN_MAX_AGE`` jest usuwana przy starcie bez pytania. Poprawne zamknięcie
 i „Nowy dokument” usuwają plik autozapisu sesji.
 """
 
@@ -18,7 +20,7 @@ from __future__ import annotations
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from PySide6.QtCore import QLockFile, QObject, QTimer
@@ -48,6 +50,9 @@ from transkryptor.settings import ProjectSettings
 from transkryptor.ui.layout import words_label
 
 LOCK_SUFFIX = ".lock"
+PRIVATE_MODE = 0o600
+# Osierocona kopia nieodzyskana przez ten czas jest usuwana (prywatność).
+ORPHAN_MAX_AGE = timedelta(days=30)
 
 
 class AutosaveController(QObject):
@@ -107,9 +112,12 @@ class AutosaveController(QObject):
         if unchanged or document.revision == 0 or not document.is_unsaved:
             return False
         try:
-            self.directory.mkdir(parents=True, exist_ok=True)
+            self.directory.mkdir(mode=0o700, parents=True, exist_ok=True)
             self._ensure_lock()
-            write_atomic(self.path, dumps(self._capture()).encode("utf-8"))
+            # Kopia zawiera dane osobowe metryczki — tylko dla właściciela.
+            write_atomic(
+                self.path, dumps(self._capture()).encode("utf-8"), mode=PRIVATE_MODE
+            )
         except (OSError, AppError):
             # Autozapis jest siatką bezpieczeństwa: błąd nie przerywa pracy,
             # kolejna próba nastąpi przy następnym interwale.
@@ -179,12 +187,18 @@ class RecoveryCandidate:
         self.lock.unlock()
 
 
-def find_orphans(directory: Path, own_session_id: str = "") -> list[RecoveryCandidate]:
+def find_orphans(
+    directory: Path,
+    own_session_id: str = "",
+    max_age: timedelta = ORPHAN_MAX_AGE,
+) -> list[RecoveryCandidate]:
     """Pliki autozapisu sesji, które się nie zakończyły (najnowsze pierwsze).
 
     Zwrócone kandydaty trzymają blokadę swoich plików — inna instancja nie
     zaproponuje ich równocześnie. Należy wywołać ``release`` albo ``remove``.
+    Kopie starsze niż ``max_age`` są usuwane i nie trafiają do wyniku.
     """
+    expired_before = datetime.now() - max_age
     if not directory.is_dir():
         return []
     candidates: list[RecoveryCandidate] = []
@@ -195,14 +209,21 @@ def find_orphans(directory: Path, own_session_id: str = "") -> list[RecoveryCand
         if not lock.tryLock(0):
             continue  # sesja wciąż działa
         try:
-            state: ProjectState | None = load_project(path)
-        except AppError:
-            state = None
-        try:
             modified = datetime.fromtimestamp(path.stat().st_mtime)
         except OSError:
             lock.unlock()
             continue
+        if modified < expired_before:
+            try:
+                path.unlink(missing_ok=True)
+            except OSError:
+                pass  # spróbujemy przy kolejnym starcie
+            lock.unlock()
+            continue
+        try:
+            state: ProjectState | None = load_project(path)
+        except AppError:
+            state = None
         candidates.append(RecoveryCandidate(path, modified, state, lock))
     candidates.sort(key=lambda candidate: candidate.modified, reverse=True)
     return candidates

@@ -188,6 +188,8 @@
   "session.import_audio.error": "Import nagrania",
   "session.transcribing.title": "Transkrypcja w toku",
   "session.transcribing.text": "Najpierw anuluj transkrypcję albo poczekaj na jej zakończenie.",
+  "file.overwrite.title": "Plik już istnieje",
+  "file.overwrite.text": "Plik „{name}” już istnieje. Czy go zastąpić?",
   "session.save.dialog": "Zapisz projekt",
   "session.default_project_name": "transkrypcja",
   "session.save.error": "Zapis projektu",

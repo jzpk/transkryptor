@@ -34,6 +34,15 @@ Pusta sekcja blokuje wydanie.
   szkicu ASR.
 - Niełamliwa spacja (wklejona albo przeniesiona z DOCX) nie jest już
   zamieniana na zwykłą spację w projekcie i eksporcie DOCX.
+- Zapis projektu nie odbiera już uprawnień do pliku: nowy projekt dostaje
+  zwykłe prawa (np. czytelny dla zespołu na wspólnym udziale), a ponowny
+  zapis zachowuje prawa nadane ręcznie.
+- Gdy w oknie zapisu projektu albo eksportu DOCX wpiszesz nazwę bez
+  rozszerzenia, a plik z rozszerzeniem `.transkr`/`.docx` już istnieje,
+  program pyta, czy go zastąpić, zamiast nadpisywać go bez ostrzeżenia.
+- Kopie autozapisu są czytelne tylko dla właściciela konta, a kopia
+  porzucona po awarii i nieodzyskana przez 30 dni jest usuwana przy
+  starcie.
 - Pisanie w długich transkrypcjach jest płynniejsze: licznik słów
   odświeża się po krótkiej przerwie w pisaniu, a zmiana, która nic nie
   zmienia w tekście, nie oznacza pracy jako niezapisanej.

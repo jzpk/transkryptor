@@ -1,6 +1,8 @@
 """Testy UI fazy 08: projekt, autozapis, metryczka i import DOCX (ACC-28…ACC-33)."""
 
+import os
 import shutil
+import time
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -15,12 +17,17 @@ from transkryptor.asr.manager import ModelManager
 from transkryptor.asr.models import REQUIRED_FILES
 from transkryptor.document.metadata import DEFAULT_FIELDS, encode_fields
 from transkryptor.document.model import Document
-from transkryptor.document.project import PlayerState, ProjectState, save_project
+from transkryptor.document.project import (
+    PlayerState,
+    ProjectState,
+    load_project,
+    save_project,
+)
 from transkryptor.export.docx_export import export_docx
 from transkryptor.i18n import tr
 from transkryptor.settings import MetadataSettings, ProjectSettings, Settings
 from transkryptor.ui.asr_panel import APPLIED_MARK, PENDING_MARK
-from transkryptor.ui.autosave import RecoveryDialog
+from transkryptor.ui.autosave import ORPHAN_MAX_AGE, RecoveryDialog
 from transkryptor.ui.main_window import DRAFT_REPLACE, MainWindow
 from transkryptor.ui.settings_dialog import SettingsDialog
 
@@ -278,6 +285,56 @@ class TestMovedOrChangedAudio:
         assert other.editor.toPlainText() == "tekst projektu"
 
 
+class TestSaveDialogSuffix:
+    """BUG-05: dopisane rozszerzenie nie nadpisuje pliku bez pytania."""
+
+    @pytest.fixture
+    def existing(self, tmp_path) -> Path:
+        path = tmp_path / "AdK_1954.transkr"
+        save_project(ProjectState(text="projekt innego nagrania"), path)
+        return path
+
+    def test_declined_overwrite_keeps_existing_project(
+        self, window, existing, monkeypatch
+    ) -> None:
+        window.editor.setPlainText("nowa praca")
+        save_dialog(monkeypatch, existing.with_suffix(""))
+        calls = answer_questions(monkeypatch, {tr("file.overwrite.title"): Button.No})
+        assert not window.session.save_project_as()
+        assert [title for title, _buttons in calls] == [tr("file.overwrite.title")]
+        assert load_project(existing).text == "projekt innego nagrania"
+        assert window.session.project_path is None
+
+    def test_confirmed_overwrite_saves(self, window, existing, monkeypatch) -> None:
+        window.editor.setPlainText("nowa praca")
+        save_dialog(monkeypatch, existing.with_suffix(""))
+        answer_questions(monkeypatch, {tr("file.overwrite.title"): Button.Yes})
+        assert window.session.save_project_as()
+        assert load_project(existing).text == "nowa praca"
+
+    def test_name_with_suffix_does_not_ask_again(
+        self, window, existing, monkeypatch
+    ) -> None:
+        """Okno dialogowe samo pytało o plik o wpisanej nazwie."""
+        window.editor.setPlainText("nowa praca")
+        save_dialog(monkeypatch, existing)
+        calls = answer_questions(monkeypatch, {})
+        assert window.session.save_project_as()
+        assert calls == []
+
+    def test_docx_export_asks_before_overwrite(
+        self, window, tmp_path, monkeypatch
+    ) -> None:
+        target = tmp_path / "eksport.docx"
+        target.write_bytes(b"inny dokument")
+        window.editor.setPlainText("tekst")
+        save_dialog(monkeypatch, tmp_path / "eksport")
+        answer_questions(monkeypatch, {tr("file.overwrite.title"): Button.No})
+        window._on_export()
+        assert target.read_bytes() == b"inny dokument"
+        assert window.document.is_dirty
+
+
 class TestCloseQuestions:
     """ACC-31: pytanie zależy od tego, czy dokument ma plik projektu."""
 
@@ -344,6 +401,33 @@ class TestAutosaveAndRecovery:
         assert window.document.is_unsaved  # autozapis to nie zapis projektu
         assert window.session.project_path is None
         assert not autosave.save_now()  # bez zmian od ostatniego autozapisu
+
+    @pytest.mark.skipif(os.name != "posix", reason="prawa POSIX")
+    def test_autosave_copy_is_private(self, window, isolated_autosave) -> None:
+        """SEC-08: kopia z danymi osobowymi czytelna tylko dla właściciela."""
+        window.editor.setPlainText("praca w toku")
+        assert window.session.autosave.save_now()
+        assert window.session.autosave.path.stat().st_mode & 0o777 == 0o600
+
+    def test_expired_orphan_is_removed_without_asking(
+        self, window, isolated_autosave, monkeypatch
+    ) -> None:
+        """SEC-08: stara, nieodzyskana kopia znika przy starcie."""
+        old = self._orphan(isolated_autosave, "old", "dawno porzucony")
+        fresh = self._orphan(isolated_autosave, "fresh", "świeży")
+        expired = time.time() - ORPHAN_MAX_AGE.total_seconds() - 3600
+        os.utime(old, (expired, expired))
+        shown: list[list[Path]] = []
+
+        def fake_exec(dialog: RecoveryDialog) -> int:
+            shown.append([c.path for c in dialog.candidates])
+            return 0
+
+        monkeypatch.setattr(RecoveryDialog, "exec", fake_exec)
+        assert not window.session.offer_recovery()
+        assert shown == [[fresh]]
+        assert not old.exists()
+        assert fresh.exists()
 
     def test_autosave_waits_for_asr(self, window) -> None:
         window.editor.setPlainText("tekst")

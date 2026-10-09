@@ -188,6 +188,8 @@
   "session.import_audio.error": "Recording import",
   "session.transcribing.title": "Transcription in progress",
   "session.transcribing.text": "Cancel the transcription first or wait for it to finish.",
+  "file.overwrite.title": "File already exists",
+  "file.overwrite.text": "The file “{name}” already exists. Do you want to replace it?",
   "session.save.dialog": "Save project",
   "session.default_project_name": "transcription",
   "session.save.error": "Saving the project",

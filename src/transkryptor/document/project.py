@@ -18,6 +18,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import stat
 import tempfile
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -271,8 +272,15 @@ def load_project(path: str | Path) -> ProjectState:
         raise _invalid(source.name) from error
 
 
-def write_atomic(target: Path, payload: bytes) -> None:
-    """Plik tymczasowy w katalogu docelowym, ``fsync`` i ``os.replace``."""
+def write_atomic(target: Path, payload: bytes, mode: int | None = None) -> None:
+    """Plik tymczasowy w katalogu docelowym, ``fsync`` i ``os.replace``.
+
+    ``tempfile`` tworzy plik z prawami ``0600``, a ``os.replace`` przenosi je
+    na plik docelowy. Dlatego przed podmianą plik dostaje prawa ``mode``,
+    a bez niego — prawa istniejącego pliku albo domyślne dla nowego
+    (``0666`` z maską umask). Projekt na wspólnym udziale zostaje czytelny
+    dla zespołu; autozapis podaje ``0o600``.
+    """
     temp_name: str | None = None
     try:
         with tempfile.NamedTemporaryFile(
@@ -282,8 +290,11 @@ def write_atomic(target: Path, payload: bytes) -> None:
             handle.write(payload)
             handle.flush()
             os.fsync(handle.fileno())
+        if os.name == "posix":
+            os.chmod(temp_name, _target_mode(target) if mode is None else mode)
         os.replace(temp_name, target)
         temp_name = None
+        _fsync_directory(target.parent)
     except OSError as exc:
         raise ProjectError(
             user_message=tr(
@@ -294,6 +305,32 @@ def write_atomic(target: Path, payload: bytes) -> None:
     finally:
         if temp_name is not None:
             Path(temp_name).unlink(missing_ok=True)
+
+
+def _target_mode(target: Path) -> int:
+    """Prawa istniejącego pliku albo ``0666`` z maską umask dla nowego."""
+    try:
+        return stat.S_IMODE(os.stat(target).st_mode)
+    except FileNotFoundError:
+        umask = os.umask(0)
+        os.umask(umask)
+        return 0o666 & ~umask
+
+
+def _fsync_directory(directory: Path) -> None:
+    """Utrwala wpis katalogu po ``os.replace`` (ext4/XFS); tylko POSIX."""
+    if os.name != "posix":
+        return
+    try:
+        fd = os.open(directory, os.O_RDONLY)
+    except OSError:
+        return
+    try:
+        os.fsync(fd)
+    except OSError:
+        pass  # część systemów plików (np. udziały sieciowe) tego nie wspiera
+    finally:
+        os.close(fd)
 
 
 def file_sha256(path: str | Path) -> str:

@@ -200,3 +200,34 @@ class TestAtomicWrite:
     def test_unwritable_directory_raises_project_error(self, tmp_path) -> None:
         with pytest.raises(ProjectError):
             save_project(ProjectState(), tmp_path / "brak" / "p.transkr")
+
+
+posix_only = pytest.mark.skipif(os.name != "posix", reason="prawa POSIX")
+
+
+@posix_only
+class TestFilePermissions:
+    """BUG-04: zapis nie zmienia praw pliku projektu na ``0600``."""
+
+    @pytest.fixture
+    def umask_022(self):
+        previous = os.umask(0o022)
+        yield
+        os.umask(previous)
+
+    def test_new_project_gets_default_permissions(self, tmp_path, umask_022) -> None:
+        path = tmp_path / "p.transkr"
+        save_project(ProjectState(text="a"), path)
+        assert path.stat().st_mode & 0o777 == 0o644
+
+    def test_existing_permissions_are_kept(self, tmp_path, umask_022) -> None:
+        path = tmp_path / "p.transkr"
+        save_project(ProjectState(text="a"), path)
+        path.chmod(0o664)
+        save_project(ProjectState(text="b"), path)
+        assert path.stat().st_mode & 0o777 == 0o664
+
+    def test_explicit_mode_wins(self, tmp_path, umask_022) -> None:
+        path = tmp_path / "kopia.transkr"
+        project.write_atomic(path, b"{}", mode=0o600)
+        assert path.stat().st_mode & 0o777 == 0o600

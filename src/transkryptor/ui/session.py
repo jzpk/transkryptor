@@ -48,6 +48,7 @@ from transkryptor.i18n import tr
 from transkryptor.ui.asr_panel import AsrPanel
 from transkryptor.ui.autosave import AutosaveController, RecoveryDialog, find_orphans
 from transkryptor.ui.editor import TranscriptionEditor
+from transkryptor.ui.file_dialogs import ask_save_path
 from transkryptor.ui.messages import show_error
 from transkryptor.ui.metadata_form import MetadataForm
 from transkryptor.ui.player_bar import PlayerBar
@@ -242,17 +243,16 @@ class SessionController(QObject):
         return self._write_project(self.project_path)
 
     def save_project_as(self) -> bool:
-        path, _selected_filter = QFileDialog.getSaveFileName(
+        path = ask_save_path(
             self._parent,
             tr("session.save.dialog"),
             self._default_project_name(),
             file_dialog_filter(),
+            PROJECT_SUFFIX,
         )
-        if not path:
+        if path is None:
             return False
-        if not path.lower().endswith(PROJECT_SUFFIX):
-            path += PROJECT_SUFFIX
-        return self._write_project(Path(path))
+        return self._write_project(path)
 
     def _default_project_name(self) -> str:
         if self.project_path is not None:

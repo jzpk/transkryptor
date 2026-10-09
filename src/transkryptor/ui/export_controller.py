@@ -3,17 +3,19 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from pathlib import Path
 
 from PySide6.QtCore import QObject
-from PySide6.QtWidgets import QDateEdit, QFileDialog, QWidget
+from PySide6.QtWidgets import QDateEdit, QWidget
 
 from transkryptor.document.metadata import SIGNATURE, MetadataField
 from transkryptor.document.model import Document
 from transkryptor.errors import AppError
 from transkryptor.export.docx_export import export_docx
 from transkryptor.i18n import tr
+from transkryptor.ui.file_dialogs import ask_save_path
 from transkryptor.ui.messages import show_error
+
+DOCX_SUFFIX = ".docx"
 
 
 class ExportController(QObject):
@@ -37,18 +39,17 @@ class ExportController(QObject):
     def export(self, anonymize: bool = False) -> None:
         """ACC-32: ``anonymize`` pomija pola metryczki oznaczone jako osobowe."""
         document = self._document()
-        path, _selected_filter = QFileDialog.getSaveFileName(
+        path = ask_save_path(
             self._parent,
             tr("export.dialog.anonymized") if anonymize else tr("export.dialog"),
             self._default_name(document, anonymize),
             tr("export.filter"),
+            DOCX_SUFFIX,
         )
-        if not path:
+        if path is None:
             return
-        if not path.lower().endswith(".docx"):
-            path += ".docx"
         try:
-            export_docx(document, Path(path), self._fields(), anonymize=anonymize)
+            export_docx(document, path, self._fields(), anonymize=anonymize)
         except AppError as error:
             show_error(self._parent, tr("export.error.title"), error)
             return
@@ -61,4 +62,4 @@ class ExportController(QObject):
             date=self._date_edit.date().toString("yyyy-MM-dd"),
         )
         suffix = tr("export.anonymized_suffix") if anonymize else ""
-        return f"{base}{suffix}.docx"
+        return f"{base}{suffix}{DOCX_SUFFIX}"
