@@ -20,7 +20,7 @@ from transkryptor.asr.manager import ModelManager
 from transkryptor.asr.models import REQUIRED_FILES
 from transkryptor.ui.main_window import MainWindow
 
-SAMPLE_MP3 = "test/JaE_1979_przesądy.mp3"
+SAMPLE_MP3 = "tests/fixtures/audio/sample.mp3"
 
 SEGMENTS = (
     (0.0, 2.0, "od tego czasu ... będzie"),

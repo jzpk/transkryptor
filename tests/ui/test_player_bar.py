@@ -9,7 +9,7 @@ import pytest
 from transkryptor.audio.player import AudioPlayer
 from transkryptor.ui.player_bar import PLAYBACK_RATES, PlayerBar, format_ms
 
-SAMPLE_MP3 = "test/JaE_1979_przesądy.mp3"
+SAMPLE_MP3 = "tests/fixtures/audio/sample.mp3"
 
 
 @pytest.fixture

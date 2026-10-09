@@ -180,11 +180,9 @@ class TestAudioDecodingContract:
     kończyłaby się ``TypeError`` dopiero u użytkownika.
     """
 
-    AUDIO_SAMPLE = Path("test/JaE_1979_przesądy.mp3")
+    AUDIO_SAMPLE = Path("tests/fixtures/audio/sample.mp3")
 
     def test_mp3_decodes_to_16khz_samples(self) -> None:
-        if not self.AUDIO_SAMPLE.is_file():
-            pytest.skip(f"brak nagrania testowego {self.AUDIO_SAMPLE}")
         from faster_whisper.audio import decode_audio
 
         samples = decode_audio(str(self.AUDIO_SAMPLE), sampling_rate=16_000)

@@ -573,7 +573,7 @@ class TestSegmentSeek:
 
     def test_window_seeks_and_plays(self, qtbot, add_window) -> None:
         window = add_window(MainWindow())
-        window._on_import_audio("test/JaE_1979_przesądy.mp3")
+        window._on_import_audio("tests/fixtures/audio/sample.mp3")
         qtbot.waitUntil(lambda: window.player_bar.has_media, timeout=10000)
         item = self._add_segment(window.asr_panel, 30.0)
         window.asr_panel.segments_list.itemClicked.emit(item)
@@ -593,7 +593,7 @@ class TestSegmentSeek:
 
     def test_import_other_recording_clears_segments(self, qtbot, add_window) -> None:
         window = add_window(MainWindow())
-        window._on_import_audio("test/JaE_1979_przesądy.mp3")
+        window._on_import_audio("tests/fixtures/audio/sample.mp3")
         self._add_segment(window.asr_panel, 3.0)
-        window._on_import_audio("test/AdK_1954.aac")
+        window._on_import_audio("tests/fixtures/audio/sample.aac")
         assert window.asr_panel.segments_list.count() == 0

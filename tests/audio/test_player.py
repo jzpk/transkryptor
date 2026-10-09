@@ -13,8 +13,8 @@ import pytest
 from transkryptor.audio.player import SUPPORTED_SUFFIXES, AudioPlayer
 from transkryptor.errors import ImportAudioError
 
-SAMPLE_MP3 = "test/JaE_1979_przesądy.mp3"
-SAMPLE_AAC = "test/AdK_1954.aac"
+SAMPLE_MP3 = "tests/fixtures/audio/sample.mp3"
+SAMPLE_AAC = "tests/fixtures/audio/sample.aac"
 
 
 @pytest.fixture
@@ -26,7 +26,7 @@ class TestLoad:
     def test_loads_real_mp3_and_reports_duration(self, player, qtbot) -> None:
         player.load(SAMPLE_MP3)
         assert player.source_path is not None
-        assert player.source_path.name == "JaE_1979_przesądy.mp3"
+        assert player.source_path.name == "sample.mp3"
         with qtbot.waitSignal(player.duration_changed, timeout=10000) as blocker:
             pass
         assert blocker.args[0] > 0

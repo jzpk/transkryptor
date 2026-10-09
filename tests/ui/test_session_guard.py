@@ -90,13 +90,13 @@ class TestAudioChangeGuard:
     def test_import_cancelled_keeps_old_state(self, qtbot, window, monkeypatch) -> None:
         make_dirty(window)
         answer_dialog(monkeypatch, QMessageBox.StandardButton.Cancel)
-        window._on_import_audio("test/JaE_1979_przesądy.mp3")
+        window._on_import_audio("tests/fixtures/audio/sample.mp3")
         assert window.player.source_path is None  # import przerwany
 
     def test_import_confirmed_loads_file(self, qtbot, window, monkeypatch) -> None:
         make_dirty(window)
         answer_dialog(monkeypatch, QMessageBox.StandardButton.Discard)
-        window._on_import_audio("test/JaE_1979_przesądy.mp3")
+        window._on_import_audio("tests/fixtures/audio/sample.mp3")
         assert window.player.source_path is not None
 
     def test_import_error_shows_message(self, qtbot, window, monkeypatch) -> None:
