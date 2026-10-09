@@ -22,9 +22,12 @@ RUN apt-get update \
 
 COPY --from=ghcr.io/astral-sh/uv:0.11.6 /uv /usr/local/bin/uv
 
+# Wersja i suma takie same jak w .github/workflows/release.yml.
 ARG APPIMAGETOOL_VERSION=1.9.1
+ARG APPIMAGETOOL_SHA256=ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0
 RUN curl -fsSL -o /usr/local/bin/appimagetool \
         "https://github.com/AppImage/appimagetool/releases/download/${APPIMAGETOOL_VERSION}/appimagetool-x86_64.AppImage" \
+    && echo "${APPIMAGETOOL_SHA256}  /usr/local/bin/appimagetool" | sha256sum --check --strict \
     && chmod +x /usr/local/bin/appimagetool
 
 # W kontenerze nie ma FUSE: appimagetool i gotowy AppImage rozpakowują się

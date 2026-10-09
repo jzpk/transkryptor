@@ -1,7 +1,8 @@
 # Kontrola jakości przy każdej zmianie: lint, formatowanie, typy i testy.
 #
 # Workflow wydania (release.yml) powtarza te same kontrole przed budowaniem
-# artefaktów — tag nie ominie bramki.
+# artefaktów — tag nie ominie bramki. Akcje są przypięte do SHA commitów
+# (aktualizuje je Dependabot, .github/dependabot.yml).
 name: CI
 
 on:
@@ -18,10 +19,10 @@ jobs:
     name: Ruff, black, mypy
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Instalacja uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
         with:
           enable-cache: true
 
@@ -44,10 +45,10 @@ jobs:
     # runnera przez domyślne 6 godzin.
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Instalacja uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
         with:
           enable-cache: true
 
@@ -63,8 +64,49 @@ jobs:
           sudo apt-get install --no-install-recommends -y \
             libegl1 libgl1 libxkbcommon-x11-0 libdbus-1-3 libpulse0
 
-      # Test oznaczony asr_model wymaga pobranego modelu (1.53 GB).
+      # Test oznaczony asr_model wymaga pobranego modelu (1.53 GB). Próg
+      # pokrycia to poziom z dnia wprowadzenia pomiaru (zaokrąglony w dół) —
+      # podnosić, gdy rośnie, nie obniżać bez powodu.
       - name: Testy jednostkowe i integracyjne
-        run: uv run pytest -m "not asr_model"
+        run: uv run pytest -m "not asr_model" --cov=transkryptor --cov-report=term --cov-fail-under=93
         env:
           QT_QPA_PLATFORM: offscreen
+
+  testy-windows:
+    name: Testy (Windows, bez Qt)
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Instalacja uv
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
+        with:
+          enable-cache: true
+
+      - name: Środowisko z uv.lock
+        run: uv sync --locked
+
+      # Moduły bez Qt, w których liczą się ścieżki, uprawnienia i nowe linie
+      # Windows: projekt (relative_audio_path na innym dysku), DOCX,
+      # notacja, aktualizacje (podpis, instalator), ustawienia.
+      - name: Testy jednostkowe
+        run: >-
+          uv run pytest -m "not asr_model"
+          tests/document tests/export tests/notation tests/update
+          tests/test_i18n.py tests/test_settings_model.py tests/test_version.py
+
+  zaleznosci:
+    name: Znane podatności zależności
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Instalacja uv
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
+
+      # Wszystkie grupy (także narzędzia budowania wydania) z uv.lock, z hashami.
+      - name: pip-audit
+        run: |
+          uv export --locked --all-groups --no-emit-project --format requirements-txt -o "$RUNNER_TEMP/requirements.txt"
+          uvx pip-audit@2.9.0 --strict --disable-pip --requirement "$RUNNER_TEMP/requirements.txt"

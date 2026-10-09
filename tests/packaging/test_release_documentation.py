@@ -5,6 +5,8 @@ w ``transkryptor.packaging.metadata``. Testy pilnują, żeby się nie rozjechał
 i żeby komplet wymagany przez fazę 05 w ogóle istniał.
 """
 
+import re
+
 import pytest
 
 from transkryptor.packaging import metadata
@@ -109,10 +111,48 @@ def test_license_registry_has_no_open_risks_left() -> None:
 
 def test_workflow_builds_both_platforms_natively() -> None:
     text = WORKFLOW.read_text(encoding="utf-8")
-    assert "windows-latest" in text
+    assert "windows-2022" in text
     assert "ubuntu-22.04" in text
     assert "appimagetool" in text
     assert "innosetup" in text.lower()
+
+
+def test_workflows_pin_actions_to_commit_shas() -> None:
+    """Tag akcji można przesunąć; SHA commitu — nie (SEC-04)."""
+    for workflow in WORKFLOW.parent.glob("*.yml"):
+        for line in workflow.read_text(encoding="utf-8").splitlines():
+            if "uses:" in line:
+                ref = line.split("@", 1)[1].split()[0]
+                assert re.fullmatch(r"[0-9a-f]{40}", ref), f"{workflow.name}: {line}"
+
+
+def test_downloaded_tools_are_pinned_to_the_same_checksums() -> None:
+    """Workflow i Dockerfile'e pobierają te same wersje z tymi samymi sumami."""
+    text = WORKFLOW.read_text(encoding="utf-8")
+    docker = REPO_ROOT / "packaging" / "docker"
+    pairs = {
+        "APPIMAGETOOL": docker / "linux.Dockerfile",
+        "INNO_SETUP": docker / "windows.Dockerfile",
+    }
+    for tool, dockerfile in pairs.items():
+        sha = re.search(rf"{tool}_SHA256: ([0-9a-f]{{64}})", text)
+        version = re.search(rf'{tool}_VERSION: "([^"]+)"', text)
+        assert sha and version, tool
+        recipe = dockerfile.read_text(encoding="utf-8")
+        assert f"{tool}_SHA256={sha.group(1)}" in recipe
+        assert f"{tool}_VERSION={version.group(1)}" in recipe
+    assert "continuous" not in text
+
+
+def test_release_is_signed_and_verified_before_publication() -> None:
+    text = WORKFLOW.read_text(encoding="utf-8")
+    assert "python3 -m transkryptor.update.keys" in text
+    assert "environment: wydanie" in text
+    assert "SHA256SUMS.txt.minisig" in text
+    sign = text.index('minisign" -S')
+    verify = text.index("python -m transkryptor.update.signature")
+    publish = text.index("gh release create")
+    assert sign < verify < publish
 
 
 def test_workflow_glibc_baseline_matches_the_runner() -> None:

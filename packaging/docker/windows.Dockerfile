@@ -28,10 +28,12 @@ FROM tobix/pywine@sha256:b053219cba558a12a8a3df2401a653b2ab2fced6833accd1e5d7239
 
 # Ostatnie wydanie binarne linii 3.12.
 ARG PYTHON_VERSION=3.12.10
+ARG PYTHON_NUPKG_SHA256=0eb85c2dfccccf1b17352de4c397f69194035b7d37149eacc16f1147d93de3b8
 ENV PYTHON312='C:\Python312\python.exe'
 RUN set -eux; \
     curl -fsSL -o /tmp/python.nupkg \
         "https://api.nuget.org/v3-flatcontainer/python/${PYTHON_VERSION}/python.${PYTHON_VERSION}.nupkg"; \
+    echo "${PYTHON_NUPKG_SHA256}  /tmp/python.nupkg" | sha256sum --check --strict; \
     unzip -q /tmp/python.nupkg 'tools/*' -d /tmp/python; \
     mv /tmp/python/tools "${WINEPREFIX}/drive_c/Python312"; \
     rm -rf /tmp/python /tmp/python.nupkg; \
@@ -39,11 +41,14 @@ RUN set -eux; \
     wine "${PYTHON312}" --version; \
     wineserver -w
 
+# Wersja i suma takie same jak w .github/workflows/release.yml.
 ARG INNO_SETUP_VERSION=6.7.3
+ARG INNO_SETUP_SHA256=9c73c3bae7ed48d44112a0f48e66742c00090bdb5bef71d9d3c056c66e97b732
 RUN set -eux; \
     tag="is-$(echo "${INNO_SETUP_VERSION}" | tr . _)"; \
     curl -fsSL -o /tmp/innosetup.exe \
         "https://github.com/jrsoftware/issrc/releases/download/${tag}/innosetup-${INNO_SETUP_VERSION}.exe"; \
+    echo "${INNO_SETUP_SHA256}  /tmp/innosetup.exe" | sha256sum --check --strict; \
     xvfb-run -a wine /tmp/innosetup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /ALLUSERS; \
     wineserver -w; \
     rm /tmp/innosetup.exe; \

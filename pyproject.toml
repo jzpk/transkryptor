@@ -31,6 +31,7 @@ dev = [
     "black>=26.10.0",
     "mypy>=2.4.0",
     "pytest>=8.0",
+    "pytest-cov>=6",
     "pytest-qt>=4.5.0",
     "ruff>=0.16.10",
     "types-regex>=2026.9.29.20261005",

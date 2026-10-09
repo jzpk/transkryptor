@@ -1,0 +1,23 @@
+# Aktualizacje zależności: akcje GitHub (przypięte do SHA — Dependabot
+# podmienia SHA i komentarz z wersją) oraz pakiety z uv.lock.
+#
+# Sumy narzędzi pobieranych w workflow wydania i Dockerfile'ach
+# (appimagetool, Inno Setup, minisign, Python NuGet) aktualizuje się ręcznie
+# razem z wersją.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      akcje:
+        patterns: ["*"]
+
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      zaleznosci:
+        patterns: ["*"]

@@ -13,6 +13,13 @@
 # workflow sprawdza, że tag zgadza się z wersją w kodzie, a CHANGELOG.md ma
 # sekcję tej wersji, i publikuje wydanie.
 #
+# Łańcuch zaufania: job „publikacja” podpisuje SHA256SUMS.txt kluczem
+# minisign z sekretu environment „wydanie” (wymagane zatwierdzenie), a
+# aplikacja instaluje tylko aktualizacje pasujące do klucza publicznego
+# z src/transkryptor/update/keys.py. Akcje są przypięte do SHA commitów,
+# a pobierane narzędzia (appimagetool, Inno Setup, minisign) do wersji
+# i sum SHA-256 — aktualizuje je Dependabot albo ręczna zmiana sumy.
+#
 # Artefakty powstają natywnie na każdej platformie docelowej: instalator
 # Windows na runnerze Windows, AppImage na Ubuntu 22.04. Runner Ubuntu
 # wyznacza najstarszą obsługiwaną glibc (2.35) — po jego zmianie trzeba
@@ -37,6 +44,14 @@ on:
 permissions:
   contents: read
 
+env:
+  APPIMAGETOOL_VERSION: "1.9.1"
+  APPIMAGETOOL_SHA256: ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0
+  INNO_SETUP_VERSION: "6.7.3"
+  INNO_SETUP_SHA256: 9c73c3bae7ed48d44112a0f48e66742c00090bdb5bef71d9d3c056c66e97b732
+  MINISIGN_VERSION: "0.12"
+  MINISIGN_SHA256: 9a599b48ba6eb7b1e80f12f36b94ceca7c00b7a5173c95c3efc88d9822957e73
+
 # Dwa wydania naraz pokłóciłyby się o numer wersji i gałąź main.
 concurrency:
   group: wydanie
@@ -50,10 +65,10 @@ jobs:
     # runnera przez domyślne 6 godzin.
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Instalacja uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
         with:
           enable-cache: true
 
@@ -98,17 +113,24 @@ jobs:
       # Buduje i publikuje tylko przebieg uruchomiony tagiem.
       publish: ${{ github.event_name == 'push' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           token: ${{ secrets.RELEASE_PAT }}
 
+      # Bez klucza publicznego w aplikacji żadna instalacja nie przyjmie
+      # aktualizacji — wydanie zatrzymuje się przed commitem i tagiem.
+      - name: Klucz podpisu wydań
+        run: PYTHONPATH=src python3 -m transkryptor.update.keys
+
       - name: Instalacja uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
 
       # Push przez RELEASE_PAT omija regułę wymaganych testów na main i — w
       # odróżnieniu od GITHUB_TOKEN — uruchamia ten workflow dla nowego taga,
-      # który zbuduje i opublikuje wydanie. --atomic: odrzucony push na main
-      # nie może zostawić osieroconego taga.
+      # który zbuduje i opublikuje wydanie. RELEASE_PAT to fine-grained PAT
+      # ograniczony do tego repozytorium (Contents: read and write) z krótką
+      # ważnością — patrz specs/docs/release-process.md. --atomic: odrzucony
+      # push na main nie może zostawić osieroconego taga.
       - name: Podbicie wersji, commit i tag
         if: github.event_name == 'workflow_dispatch'
         env:
@@ -155,12 +177,12 @@ jobs:
     if: needs.wersja.outputs.publish == 'true'
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ needs.wersja.outputs.tag }}
 
       - name: Instalacja uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
         with:
           enable-cache: true
 
@@ -176,10 +198,13 @@ jobs:
           sudo apt-get install --no-install-recommends -y \
             libfuse2 libegl1 libgl1 libxkbcommon-x11-0 libdbus-1-3 libpulse0
 
+      # Przypięta wersja i suma: appimagetool (z runtime AppImage) trafia do
+      # każdego artefaktu. Ta sama wersja co w packaging/docker/linux.Dockerfile.
       - name: Pobranie appimagetool
         run: |
           curl -fsSL -o "$RUNNER_TEMP/appimagetool" \
-            https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+            "https://github.com/AppImage/appimagetool/releases/download/$APPIMAGETOOL_VERSION/appimagetool-x86_64.AppImage"
+          echo "$APPIMAGETOOL_SHA256  $RUNNER_TEMP/appimagetool" | sha256sum --check --strict
           chmod +x "$RUNNER_TEMP/appimagetool"
 
       - name: Budowanie artefaktu
@@ -195,7 +220,7 @@ jobs:
         env:
           QT_QPA_PLATFORM: offscreen
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: transkryptor-linux
           path: dist/*.AppImage
@@ -205,35 +230,43 @@ jobs:
     name: Instalator (Windows)
     needs: wersja
     if: needs.wersja.outputs.publish == 'true'
-    runs-on: windows-latest
+    runs-on: windows-2022
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ needs.wersja.outputs.tag }}
 
       - name: Instalacja uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
         with:
           enable-cache: true
 
       - name: Środowisko budowania
         run: uv sync --locked --group packaging
 
-      # Runnery Windows mają Inno Setup 6 w obrazie; instalacja przez Chocolatey
-      # jest zabezpieczeniem na wypadek zmiany obrazu.
+      # Przypięta wersja z sumą (ta sama co w windows.Dockerfile), w osobnym
+      # katalogu — wersja z obrazu runnera zmienia się bez zapowiedzi.
       - name: Inno Setup
         shell: pwsh
         run: |
-          if (-not (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe")) {
-            choco install innosetup --no-progress -y
-          }
+          $tag = "is-" + $env:INNO_SETUP_VERSION.Replace(".", "_")
+          $installer = Join-Path $env:RUNNER_TEMP "innosetup.exe"
+          Invoke-WebRequest -UseBasicParsing -OutFile $installer `
+            "https://github.com/jrsoftware/issrc/releases/download/$tag/innosetup-$env:INNO_SETUP_VERSION.exe"
+          $actual = (Get-FileHash $installer -Algorithm SHA256).Hash.ToLower()
+          if ($actual -ne $env:INNO_SETUP_SHA256) { throw "Niezgodna suma Inno Setup: $actual" }
+          $dir = Join-Path $env:RUNNER_TEMP "innosetup"
+          $p = Start-Process -FilePath $installer -Wait -PassThru -ArgumentList `
+            "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-", "/CURRENTUSER", "/DIR=$dir"
+          if ($p.ExitCode -ne 0) { throw "Instalacja Inno Setup: kod $($p.ExitCode)" }
+          if (-not (Test-Path (Join-Path $dir "ISCC.exe"))) { throw "Brak ISCC.exe w $dir" }
 
       - name: Budowanie artefaktu
         shell: pwsh
         run: |
           uv run --group packaging python -m transkryptor.packaging `
             --target windows `
-            --tool "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+            --tool (Join-Path $env:RUNNER_TEMP "innosetup\ISCC.exe")
 
       - name: Sprawdzenie sum kontrolnych
         shell: pwsh
@@ -244,7 +277,27 @@ jobs:
             if ($actual -ne $expected) { throw "Niezgodna suma kontrolna: $name" }
           }
 
-      - uses: actions/upload-artifact@v4
+      # Jak --self-test AppImage: brakujący moduł w instalatorze ma wyjść tu,
+      # a nie u użytkownika. Instalacja tylko dla bieżącego użytkownika
+      # w katalogu tymczasowym runnera.
+      - name: Instalacja i --self-test
+        shell: pwsh
+        run: |
+          $setup = (Get-ChildItem dist\*-setup.exe | Select-Object -First 1).FullName
+          $dir = Join-Path $env:RUNNER_TEMP "transkryptor"
+          $p = Start-Process -FilePath $setup -Wait -PassThru -ArgumentList `
+            "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/CURRENTUSER", "/DIR=$dir"
+          if ($p.ExitCode -ne 0) { throw "Instalator zakończył się kodem $($p.ExitCode)" }
+          # Cicha instalacja uruchamia program (WizardSilent w packaging/windows.py).
+          Start-Sleep -Seconds 5
+          Get-Process -Name transkryptor -ErrorAction SilentlyContinue | Stop-Process -Force
+          $report = Join-Path $env:RUNNER_TEMP "self-test.txt"
+          $test = Start-Process -FilePath (Join-Path $dir "transkryptor.exe") `
+            -ArgumentList "--self-test" -Wait -PassThru -RedirectStandardOutput $report
+          if (Test-Path $report) { Get-Content $report }
+          if ($test.ExitCode -ne 0) { throw "--self-test zakończył się kodem $($test.ExitCode)" }
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: transkryptor-windows
           path: dist/*.exe
@@ -254,22 +307,25 @@ jobs:
     name: GitHub Release
     needs: [wersja, linux, windows]
     runs-on: ubuntu-22.04
+    # Sekret MINISIGN_SECRET_KEY jest tylko w tym environment; publikacja
+    # czeka na zatwierdzenie recenzenta (Settings → Environments → wydanie).
+    environment: wydanie
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ needs.wersja.outputs.tag }}
 
       - name: Instalacja uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
         with:
           enable-cache: true
 
       - name: Środowisko z uv.lock
         run: uv sync --locked
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           path: dist
           merge-multiple: true
@@ -285,6 +341,40 @@ jobs:
         env:
           TAG: ${{ needs.wersja.outputs.tag }}
 
+      # Klucz bez hasła (minisign -G -W) — chroni go sekret environment.
+      # Zaufany komentarz wiąże podpis z wersją (update/signature.py).
+      - name: Podpis sum kontrolnych (minisign)
+        env:
+          MINISIGN_SECRET_KEY: ${{ secrets.MINISIGN_SECRET_KEY }}
+          VERSION: ${{ needs.wersja.outputs.version }}
+        run: |
+          if [ -z "$MINISIGN_SECRET_KEY" ]; then
+            echo "::error::Brak sekretu MINISIGN_SECRET_KEY w environment wydanie."
+            exit 1
+          fi
+          curl -fsSL -o "$RUNNER_TEMP/minisign.tar.gz" \
+            "https://github.com/jedisct1/minisign/releases/download/$MINISIGN_VERSION/minisign-$MINISIGN_VERSION-linux.tar.gz"
+          echo "$MINISIGN_SHA256  $RUNNER_TEMP/minisign.tar.gz" | sha256sum --check --strict
+          tar -xzf "$RUNNER_TEMP/minisign.tar.gz" -C "$RUNNER_TEMP" minisign-linux/x86_64/minisign
+          COMMENT="$(uv run python -c 'import sys; from transkryptor.update.signature import trusted_comment_for as c; print(c(sys.argv[1]))' "$VERSION")"
+          umask 077
+          printf '%s\n' "$MINISIGN_SECRET_KEY" > "$RUNNER_TEMP/minisign.key"
+          "$RUNNER_TEMP/minisign-linux/x86_64/minisign" -S \
+            -s "$RUNNER_TEMP/minisign.key" -m dist/SHA256SUMS.txt -t "$COMMENT"
+
+      - name: Usunięcie klucza podpisu
+        if: always()
+        run: rm -f "$RUNNER_TEMP/minisign.key"
+
+      # Ten sam kod, którym aplikacja sprawdza aktualizację: podpis złym
+      # kluczem albo w innym formacie zatrzymuje publikację.
+      - name: Weryfikacja podpisu kodem aplikacji
+        env:
+          VERSION: ${{ needs.wersja.outputs.version }}
+        run: |
+          uv run python -m transkryptor.update.signature \
+            dist/SHA256SUMS.txt dist/SHA256SUMS.txt.minisig --version "$VERSION"
+
       - name: Publikacja wydania
         env:
           GH_TOKEN: ${{ github.token }}
@@ -297,4 +387,5 @@ jobs:
             --latest \
             --title "Transkryptor $VERSION" \
             --notes-file dist/RELEASE-NOTES.md \
-            dist/*.AppImage dist/*-setup.exe dist/SHA256SUMS.txt dist/RELEASE-NOTES.md
+            dist/*.AppImage dist/*-setup.exe dist/SHA256SUMS.txt \
+            dist/SHA256SUMS.txt.minisig dist/RELEASE-NOTES.md
