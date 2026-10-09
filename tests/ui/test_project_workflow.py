@@ -565,6 +565,19 @@ class TestMetadataForm:
         window.export_anonymized_action.trigger()
         read = DocxDocument(str(target))
         assert [row.cells[0].text for row in read.tables[0].rows] == ["Sygnatura"]
+        # Pełna wersja nie powstała — ostrzeżenie ACC-10 zostaje.
+        assert window.document.is_dirty
+        assert window.session.has_unsaved_work
+
+    def test_full_export_after_anonymized_clears_warning(
+        self, window, tmp_path, monkeypatch
+    ) -> None:
+        window.editor.setPlainText("tekst")
+        save_dialog(monkeypatch, tmp_path / "anonim.docx")
+        window.export_anonymized_action.trigger()
+        assert window.document.is_dirty
+        save_dialog(monkeypatch, tmp_path / "pelny.docx")
+        window.exporter.export()
         assert not window.document.is_dirty
 
 

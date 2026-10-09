@@ -1,11 +1,13 @@
 """Testy integracyjne eksportu DOCX z testowym odczytem wygenerowanych plików."""
 
+import time
+
 import pytest
 from docx import Document as DocxReader
 
 from transkryptor.document.model import Document
 from transkryptor.errors import ExportError
-from transkryptor.export.docx_export import export_docx
+from transkryptor.export.docx_export import _split_runs, export_docx
 
 
 class TestExport:
@@ -108,3 +110,37 @@ class TestMetadataTable:
         read = DocxReader(str(target))
         assert read.tables == []
         assert read.core_properties.title == "Transkrypcja fonetyczna"
+
+
+class TestSplitRuns:
+    """PERF-01: podział na runy jest liniowy i zgodny z zakresami."""
+
+    def test_runs_cover_text_and_follow_ranges(self) -> None:
+        doc = Document(text="abcdefghij", superscript_ranges=[(1, 3), (3, 4), (6, 8)])
+        assert _split_runs(doc) == [
+            (0, 1, False),
+            (1, 4, True),
+            (4, 6, False),
+            (6, 8, True),
+            (8, 10, False),
+        ]
+
+    def test_unnormalized_ranges_are_tolerated(self) -> None:
+        doc = Document(text="abcdef")
+        doc.superscript_ranges = [(4, 9), (0, 2), (1, 3)]  # z pominięciem API
+        assert _split_runs(doc) == [(0, 3, True), (3, 4, False), (4, 6, True)]
+
+    def test_empty_text_has_no_runs(self) -> None:
+        assert _split_runs(Document()) == []
+
+    def test_many_ranges_are_fast(self) -> None:
+        count = 20_000
+        doc = Document(
+            text="ab" * count,
+            superscript_ranges=[(2 * i + 1, 2 * i + 2) for i in range(count)],
+        )
+        started = time.perf_counter()
+        runs = _split_runs(doc)
+        assert time.perf_counter() - started < 0.5
+        assert len(runs) == 2 * count
+        assert sum(1 for _s, _e, up in runs if up) == count

@@ -30,8 +30,9 @@ from transkryptor.document.metadata import (
     MetadataField,
     label_variants,
 )
+from transkryptor.document.model import normalize_ranges
 from transkryptor.errors import ImportDocxError
-from transkryptor.i18n import all_translations, tr
+from transkryptor.i18n import all_translations, tr, tr_plural
 
 
 def _header_re() -> re.Pattern[str]:
@@ -62,12 +63,7 @@ class ImportReport:
         """Pozycje raportu dla użytkownika (pusta lista = nic nie pominięto)."""
         lines: list[str] = []
         if self.merged_paragraphs:
-            lines.append(
-                tr(
-                    _paragraphs_key(self.merged_paragraphs),
-                    count=self.merged_paragraphs,
-                )
-            )
+            lines.append(tr_plural("docx_import.report.merged", self.merged_paragraphs))
         if self.formatted_runs:
             kinds = ", ".join(
                 f"{name} ({count})" for name, count in self.formatted_runs.items()
@@ -132,8 +128,11 @@ class _Reader:
         date = ""
         skipped_tables = 0
         paragraphs: list[Paragraph] = []
+        # Nagłówek (metryczka, „Autor: … Data: …”) kończy pierwszy akapit
+        # z tekstem; flaga zamiast przeglądania wszystkich akapitów w pętli.
+        seen_text = False
         for block in self._docx.iter_inner_content():
-            in_header = not any(p.text.strip() for p in paragraphs)
+            in_header = not seen_text
             if isinstance(block, Table):
                 if in_header and self._read_metadata(block, metadata, unknown):
                     continue
@@ -145,6 +144,7 @@ class _Reader:
                     author, date = match["author"], match["date"]
                     continue
             paragraphs.append(block)
+            seen_text = seen_text or bool(block.text.strip())
 
         while paragraphs and not paragraphs[0].text.strip():
             paragraphs.pop(0)
@@ -177,7 +177,7 @@ class _Reader:
         body = self._docx.element.body
         return ImportedDocument(
             text="".join(text_parts),
-            superscript_ranges=_merge(ranges),
+            superscript_ranges=normalize_ranges(ranges),
             author=author,
             date=date,
             metadata=metadata,
@@ -247,22 +247,5 @@ def _is_superscript(run: Run) -> bool:
     return False
 
 
-def _paragraphs_key(count: int) -> str:
-    """Odmiana „akapit” po liczebniku większym od 1 (2 akapity, 5 akapitów)."""
-    if count % 10 in (2, 3, 4) and count % 100 not in (12, 13, 14):
-        return "docx_import.report.merged_few"
-    return "docx_import.report.merged_many"
-
-
 def _label_key(label: str) -> str:
     return label.strip().rstrip(":").strip().casefold()
-
-
-def _merge(ranges: list[tuple[int, int]]) -> list[tuple[int, int]]:
-    merged: list[tuple[int, int]] = []
-    for start, end in sorted(ranges):
-        if merged and start <= merged[-1][1]:
-            merged[-1] = (merged[-1][0], max(merged[-1][1], end))
-        else:
-            merged.append((start, end))
-    return merged

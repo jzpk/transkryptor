@@ -13,7 +13,6 @@ akapit „Autor: … Data: …” i jeden akapit tekstu.
 from __future__ import annotations
 
 from collections.abc import Iterable
-from itertools import pairwise
 from pathlib import Path
 
 from docx import Document as DocxDocument
@@ -25,7 +24,7 @@ from transkryptor.document.metadata import (
     MetadataField,
     export_items,
 )
-from transkryptor.document.model import Document
+from transkryptor.document.model import Document, clip_ranges
 from transkryptor.errors import ExportError
 from transkryptor.i18n import tr
 
@@ -107,21 +106,19 @@ def _write(
 
 
 def _split_runs(document: Document) -> list[tuple[int, int, bool]]:
-    """Dzieli tekst na spójne runy (start, end, indeks_górny)."""
+    """Dzieli tekst na spójne runy (start, end, indeks_górny).
+
+    Jedno przejście po posortowanych, scalonych zakresach — koszt liniowy
+    także dla tysięcy krótkich zakresów indeksu górnego.
+    """
     text_length = len(document.text)
-    if text_length == 0:
-        return []
-    boundaries = {0, text_length}
-    for start, end in document.superscript_ranges:
-        boundaries.add(max(0, start))
-        boundaries.add(min(text_length, end))
-    ordered = sorted(boundaries)
     runs: list[tuple[int, int, bool]] = []
-    for left, right in pairwise(ordered):
-        if left >= right:
-            continue
-        is_superscript = any(
-            start <= left and right <= end for start, end in document.superscript_ranges
-        )
-        runs.append((left, right, is_superscript))
+    position = 0
+    for start, end in clip_ranges(document.superscript_ranges, text_length):
+        if position < start:
+            runs.append((position, start, False))
+        runs.append((start, end, True))
+        position = end
+    if position < text_length:
+        runs.append((position, text_length, False))
     return runs

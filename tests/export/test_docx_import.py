@@ -1,5 +1,7 @@
 """Testy importu DOCX (faza 08, propozycja 17, ACC-33)."""
 
+import time
+
 import pytest
 from docx import Document as DocxDocument
 
@@ -8,7 +10,7 @@ from transkryptor.document.metadata import DEFAULT_FIELDS, new_custom_field
 from transkryptor.document.model import Document
 from transkryptor.errors import ImportDocxError
 from transkryptor.export.docx_export import export_docx
-from transkryptor.export.docx_import import import_docx
+from transkryptor.export.docx_import import ImportReport, import_docx
 
 
 def test_round_trip_of_exported_document(tmp_path) -> None:
@@ -160,3 +162,29 @@ def test_reads_external_transcription_layout(tmp_path) -> None:
         "podkreślenie": 1,
         "kursywa": 1,
     }
+
+
+def test_large_document_imports_in_linear_time(tmp_path) -> None:
+    """PERF-05: tysiące akapitów bez kwadratowego sprawdzania nagłówka."""
+    count = 3000
+    docx = DocxDocument()
+    for index in range(count):
+        docx.add_paragraph(f"akapit {index}")
+    path = tmp_path / "duzy.docx"
+    docx.save(str(path))
+
+    started = time.perf_counter()
+    imported = import_docx(path)
+    elapsed = time.perf_counter() - started
+
+    assert imported.text.split("\n") == [f"akapit {i}" for i in range(count)]
+    assert imported.report.merged_paragraphs == count
+    assert elapsed < 5.0
+
+
+@pytest.mark.parametrize(
+    ("count", "expected"), [(2, "2 akapity"), (5, "5 akapitów"), (22, "22 akapity")]
+)
+def test_merged_paragraphs_use_plural_forms(count: int, expected: str) -> None:
+    report = ImportReport(merged_paragraphs=count)
+    assert expected in report.lines()[0]

@@ -19,7 +19,10 @@ DOCX_SUFFIX = ".docx"
 
 
 class ExportController(QObject):
-    """Wybór pliku, zapis DOCX i oznaczenie dokumentu jako wyeksportowanego."""
+    """Wybór pliku, zapis DOCX i oznaczenie dokumentu jako wyeksportowanego.
+
+    Oznaczenie dotyczy tylko pełnego eksportu (nie anonimizowanego).
+    """
 
     def __init__(
         self,
@@ -37,7 +40,12 @@ class ExportController(QObject):
         self._fields = fields
 
     def export(self, anonymize: bool = False) -> None:
-        """ACC-32: ``anonymize`` pomija pola metryczki oznaczone jako osobowe."""
+        """ACC-32: ``anonymize`` pomija pola metryczki oznaczone jako osobowe.
+
+        Eksport anonimizowany nie oznacza dokumentu jako wyeksportowanego:
+        pełna wersja (z danymi informatora) nadal nie powstała, więc
+        ostrzeżenie ACC-10 zostaje.
+        """
         document = self._document()
         path = ask_save_path(
             self._parent,
@@ -53,7 +61,8 @@ class ExportController(QObject):
         except AppError as error:
             show_error(self._parent, tr("export.error.title"), error)
             return
-        document.mark_exported()
+        if not anonymize:
+            document.mark_exported()
         self._on_exported()
 
     def _default_name(self, document: Document, anonymize: bool) -> str:

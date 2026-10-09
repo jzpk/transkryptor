@@ -46,6 +46,11 @@ Pusta sekcja blokuje wydanie.
 - Pisanie w długich transkrypcjach jest płynniejsze: licznik słów
   odświeża się po krótkiej przerwie w pisaniu, a zmiana, która nic nie
   zmienia w tekście, nie oznacza pracy jako niezapisanej.
+- Eksport DOCX długiej transkrypcji z wieloma znakami w indeksie górnym
+  trwa ułamek sekundy zamiast kilkunastu sekund; import dużych plików
+  DOCX też jest szybszy.
+- Eksport anonimizowany nie oznacza już pracy jako wyeksportowanej:
+  ostrzeżenie o niewyeksportowanych zmianach zostaje do pełnego eksportu.
 
 ## 0.2.3 — 2026-10-09
 

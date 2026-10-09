@@ -38,7 +38,7 @@ class Document:
     saved_revision: int = 0
 
     def __post_init__(self) -> None:
-        self.superscript_ranges = _clean(self.superscript_ranges, len(self.text))
+        self.superscript_ranges = clip_ranges(self.superscript_ranges, len(self.text))
 
     @property
     def is_dirty(self) -> bool:
@@ -84,7 +84,7 @@ class Document:
         Zakresy są normalizowane; rewizja rośnie tylko przy faktycznej
         zmianie. Zwraca True, gdy dokument się zmienił.
         """
-        ranges = _clean(superscript_ranges, len(text))
+        ranges = clip_ranges(superscript_ranges, len(text))
         if text == self.text and ranges == self.superscript_ranges:
             return False
         self.text = text
@@ -113,7 +113,7 @@ class Document:
         if not 0 <= start < end <= len(self.text):
             raise ValueError(f"Nieprawidłowy zakres formatowania: ({start}, {end})")
         if enabled:
-            self.superscript_ranges = _normalize(
+            self.superscript_ranges = normalize_ranges(
                 self.superscript_ranges + [(start, end)]
             )
         else:
@@ -121,7 +121,7 @@ class Document:
         self.revision += 1
 
 
-def _normalize(ranges: list[tuple[int, int]]) -> list[tuple[int, int]]:
+def normalize_ranges(ranges: list[tuple[int, int]]) -> list[tuple[int, int]]:
     """Sortuje zakresy i scala nakładające się lub przyległe."""
     result: list[tuple[int, int]] = []
     for start, end in sorted(ranges):
@@ -134,9 +134,11 @@ def _normalize(ranges: list[tuple[int, int]]) -> list[tuple[int, int]]:
     return result
 
 
-def _clean(ranges: list[tuple[int, int]], length: int) -> list[tuple[int, int]]:
+def clip_ranges(ranges: list[tuple[int, int]], length: int) -> list[tuple[int, int]]:
     """Normalizuje zakresy i przycina je do długości tekstu."""
-    return _normalize([(max(start, 0), min(end, length)) for start, end in ranges])
+    return normalize_ranges(
+        [(max(start, 0), min(end, length)) for start, end in ranges]
+    )
 
 
 def _adjust_ranges(
@@ -156,7 +158,7 @@ def _adjust_ranges(
                 adjusted.append((range_start, start))
             if range_end > end:
                 adjusted.append((start + inserted, range_end + delta))
-    return _normalize(adjusted)
+    return normalize_ranges(adjusted)
 
 
 def _subtract(
