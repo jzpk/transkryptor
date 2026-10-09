@@ -2,13 +2,14 @@
 #
 # Zwykła droga: Actions → „Wydanie” → Run workflow (gałąź main) i wybór części
 # wersji do podbicia (patch/minor/major). Workflow po zielonych testach podbija
-# wersję w pyproject.toml, uv.lock i src/transkryptor/__init__.py, commituje,
-# nadaje tag vX.Y.Z, buduje oba artefakty z tego taga i publikuje wydanie.
-# Zainstalowane aplikacje znajdują je przez GitHub Releases API
+# wersję w pyproject.toml, uv.lock i src/transkryptor/__init__.py, commituje
+# i nadaje tag vX.Y.Z. Push przez RELEASE_PAT uruchamia ten workflow ponownie
+# dla nowego taga — dopiero ten przebieg buduje oba artefakty i publikuje
+# wydanie. Zainstalowane aplikacje znajdują je przez GitHub Releases API
 # (src/transkryptor/update/).
 #
-# Droga awaryjna: ręcznie wypchnięty tag v* — workflow sprawdza, że tag zgadza
-# się z wersją w kodzie, i publikuje wydanie bez podbijania.
+# Droga awaryjna: ręcznie wypchnięty tag v* — ten sam przebieg co wyżej:
+# workflow sprawdza, że tag zgadza się z wersją w kodzie, i publikuje wydanie.
 #
 # Artefakty powstają natywnie na każdej platformie docelowej: instalator
 # Windows na runnerze Windows, AppImage na Ubuntu 22.04. Runner Ubuntu
@@ -92,6 +93,8 @@ jobs:
     outputs:
       version: ${{ steps.wersja.outputs.version }}
       tag: ${{ steps.wersja.outputs.tag }}
+      # Buduje i publikuje tylko przebieg uruchomiony tagiem.
+      publish: ${{ github.event_name == 'push' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -100,9 +103,10 @@ jobs:
       - name: Instalacja uv
         uses: astral-sh/setup-uv@v5
 
-      # Push przez GITHUB_TOKEN nie uruchamia ponownie workflow, więc nowy tag
-      # nie wywoła drugiego budowania. Ochrona gałęzi main musi dopuszczać
-      # push z github-actions[bot].
+      # Push przez RELEASE_PAT omija regułę wymaganych testów na main i — w
+      # odróżnieniu od GITHUB_TOKEN — uruchamia ten workflow dla nowego taga,
+      # który zbuduje i opublikuje wydanie. --atomic: odrzucony push na main
+      # nie może zostawić osieroconego taga.
       - name: Podbicie wersji, commit i tag
         if: github.event_name == 'workflow_dispatch'
         env:
@@ -121,7 +125,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -am "Wydanie v$VERSION"
           git tag -a "v$VERSION" -m "Transkryptor $VERSION"
-          git push origin "HEAD:main" "v$VERSION"
+          git push --atomic origin "HEAD:main" "v$VERSION"
 
       - name: Zgodność wersji z tagiem
         id: wersja
@@ -142,6 +146,7 @@ jobs:
   linux:
     name: AppImage (Linux)
     needs: wersja
+    if: needs.wersja.outputs.publish == 'true'
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
@@ -193,6 +198,7 @@ jobs:
   windows:
     name: Instalator (Windows)
     needs: wersja
+    if: needs.wersja.outputs.publish == 'true'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
