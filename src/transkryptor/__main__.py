@@ -36,6 +36,7 @@ REQUIRED_MODULES = (
     "av",
     "httpx",
     "huggingface_hub",
+    "regex",
 )
 
 

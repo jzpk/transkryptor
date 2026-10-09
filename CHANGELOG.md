@@ -71,6 +71,14 @@ Pusta sekcja blokuje wydanie.
   pojawi się pierwszy segment (np. przy wczytywaniu modelu albo analizie
   długiego nagrania).
 - Animacja w trakcie transkrypcji mniej obciąża procesor.
+- Wyszukiwanie wyrażeniem regularnym nie zawiesza już programu: zbyt
+  kosztowny wzorzec (np. `(a|aa)+$`) jest przerywany po ułamku sekundy
+  z komunikatem pod paskiem wyszukiwania.
+- Pisanie przy wielu trafieniach wyszukiwania (np. pojedyncza litera
+  w długim tekście) nie zwalnia: podświetlane są tylko trafienia widoczne
+  na ekranie, a licznik pokazuje wszystkie.
+- **F3** / **Shift+F3** za emoji i innymi znakami spoza podstawowego
+  zakresu Unicode przechodzą do właściwego trafienia.
 
 ## 0.2.3 — 2026-10-09
 

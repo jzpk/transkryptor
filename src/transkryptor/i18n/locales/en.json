@@ -74,6 +74,7 @@
   "docx_import.format.subscript": "subscript",
   "search.error.too_long": "The pattern is too long (at most {limit} characters).",
   "search.error.regex": "Invalid regular expression: {reason}.",
+  "search.error.too_slow": "The pattern is too expensive — the search was stopped after {limit} s. Simplify the regular expression (for example, avoid nested repetitions).",
   "search.error.caret": "A character for superscript is missing after “^” (a literal “^” is “\\^”).",
   "project.error.newer": "The project was saved by a newer version of Transkryptor (format {version}, supported {supported}).",
   "project.error.newer.hint": "Update the application and open the project again.",

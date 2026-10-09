@@ -1,5 +1,7 @@
 """Testy paska wyszukiwania i zamiany (propozycja 20, ACC-26, ACC-27)."""
 
+import time
+
 import pytest
 from docx import Document as DocxDocument
 from PySide6.QtCore import Qt
@@ -167,3 +169,58 @@ class TestErrorsAndLock:
         assert not any(a.isEnabled() for a in window.search_actions.values())
         window._set_ui_locked(False)
         assert all(a.isEnabled() for a in window.search_actions.values())
+
+
+class TestManyMatchesAndPositions:
+    def test_only_visible_matches_are_highlighted(self, qtbot, window) -> None:
+        """PERF-06: 10 tys. trafień — pełny licznik, podświetlenia na ekranie."""
+        show(qtbot, window)
+        window.editor.setPlainText("\n".join(["e"] * 10_000))
+        search_for(window, "e")
+        assert len(window.search.matches) == 10_000
+        assert "10000" in window.search_bar.count_label.text()
+        highlighted = window.editor.extraSelections()
+        assert 0 < len(highlighted) < 200
+        first_visible = min(s.cursor.selectionStart() for s in highlighted)
+        window.editor.verticalScrollBar().setValue(
+            window.editor.verticalScrollBar().maximum()
+        )
+        scrolled = window.editor.extraSelections()
+        assert 0 < len(scrolled) < 200
+        assert min(s.cursor.selectionStart() for s in scrolled) > first_visible
+
+    def test_editing_with_many_matches_stays_fast(self, qtbot, window) -> None:
+        show(qtbot, window)
+        window.editor.setPlainText("e " * 10_000)
+        search_for(window, "e")
+        cursor = window.editor.textCursor()
+        cursor.setPosition(0)
+        window.editor.setTextCursor(cursor)
+        started = time.perf_counter()
+        for _ in range(5):
+            window.editor.insertPlainText("x")
+            window.search.refresh()
+        assert (time.perf_counter() - started) / 5 < 0.25
+        assert len(window.search.matches) == 10_000
+
+    def test_find_next_after_emoji_selects_right_match(self, window) -> None:
+        """BUG-02: pozycja kursora za emoji przeliczana na punkty kodowe."""
+        window.editor.setPlainText("😀 som 😀 som")
+        search_for(window, "som")
+        assert window.search.matches == [(2, 5), (8, 11)]
+        window.editor.setTextCursor(window.editor.track_range(2, 5))
+        window.search_actions["find_next"].trigger()
+        assert window.search.current_index == 1
+        assert window.editor.selection_range(window.editor.textCursor()) == (8, 11)
+        window.search_actions["find_previous"].trigger()
+        assert window.search.current_index == 0
+
+    def test_expensive_regex_shows_message(self, window) -> None:
+        window.editor.setPlainText("a" * 60 + "b")
+        window.search_actions["find"].trigger()
+        window.search_bar.regex_check.setChecked(True)
+        started = time.monotonic()
+        window.search_bar.find_edit.setText("(a|aa)+$")
+        assert time.monotonic() - started < 1.5
+        assert window.search.matches == []
+        assert "zbyt kosztowny" in window.search_bar.error_label.text()

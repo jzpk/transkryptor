@@ -1,5 +1,7 @@
 """Testy wyszukiwania i składni zamiennika (propozycja 20, faza 07)."""
 
+import time
+
 import pytest
 
 from transkryptor.document.search import (
@@ -86,3 +88,29 @@ class TestReplacement:
 
     def test_backslash_alone_is_literal(self) -> None:
         assert parse_replacement("a\\b") == ParsedReplacement("a\\b", ())
+
+
+class TestCatastrophicPatterns:
+    """SEC-03: wzorzec z katastrofalnym nawrotem nie zawiesza wyszukiwania."""
+
+    @pytest.mark.parametrize(
+        ("pattern", "text"),
+        [(r"(a|aa)+$", "a" * 60 + "b"), (r"(a+)+$", "a" * 30 + "b")],
+    )
+    def test_expensive_pattern_stops_within_limit(self, pattern, text) -> None:
+        compiled = compile_query(pattern, SearchOptions(regex=True))
+        started = time.monotonic()
+        try:
+            find_all(text, compiled)
+        except SearchError as error:
+            assert "zbyt kosztowny" in str(error)
+        assert time.monotonic() - started < 1.0
+
+    def test_timeout_is_shared_by_all_matches(self) -> None:
+        # Każde pojedyncze dopasowanie jest tanie, ale razem przekraczają limit.
+        compiled = compile_query("a", SearchOptions())
+        with pytest.raises(SearchError, match="zbyt kosztowny"):
+            find_all("a" * 5000, compiled, timeout_s=0.0)
+
+    def test_lookbehind_sees_text_before_search_position(self) -> None:
+        assert spans("xab ab", "ab", whole_words=True) == [(4, 6)]

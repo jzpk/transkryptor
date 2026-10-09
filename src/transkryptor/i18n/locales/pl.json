@@ -74,6 +74,7 @@
   "docx_import.format.subscript": "indeks dolny",
   "search.error.too_long": "Wzorzec jest za długi (maksymalnie {limit} znaków).",
   "search.error.regex": "Niepoprawne wyrażenie regularne: {reason}.",
+  "search.error.too_slow": "Wzorzec jest zbyt kosztowny — wyszukiwanie przerwano po {limit} s. Uprość wyrażenie regularne (np. bez zagnieżdżonych powtórzeń).",
   "search.error.caret": "Po „^” brakuje znaku do indeksu górnego (dosłowny „^” to „\\^”).",
   "project.error.newer": "Projekt został zapisany w nowszej wersji Transkryptora (format {version}, obsługiwany {supported}).",
   "project.error.newer.hint": "Zaktualizuj aplikację i otwórz projekt ponownie.",

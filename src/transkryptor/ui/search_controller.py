@@ -3,15 +3,20 @@
 Wyszukiwanie i parsowanie zamiennika to czyste funkcje z
 ``document/search.py``; kontroler łączy je z edytorem. Podświetlenia są
 warstwą ``ExtraSelections`` (widok), więc nie trafiają do dokumentu ani do
-DOCX. Zamiana idzie przez ``apply_tracked_replacements`` — „zamień wszystkie”
-to jeden krok cofania (NFR-04).
+DOCX. Podświetlane są tylko trafienia w widocznej części edytora (PERF-06)
+— przewinięcie i zmiana rozmiaru odświeżają je bez ponownego wyszukiwania;
+licznik pokazuje wszystkie trafienia. Zamiana idzie przez
+``apply_tracked_replacements`` — „zamień wszystkie” to jeden krok cofania
+(NFR-04). Trafienia i pozycje kursora są w punktach kodowych Pythona
+(przeliczane przez ``PositionMap``).
 """
 
 from __future__ import annotations
 
-import re
+from bisect import bisect_left, bisect_right
 
-from PySide6.QtCore import QObject, Qt, QTimer
+import regex
+from PySide6.QtCore import QEvent, QObject, QPoint, Qt, QTimer
 from PySide6.QtGui import QAction, QColor, QKeySequence, QTextCursor
 from PySide6.QtWidgets import QWidget
 
@@ -24,6 +29,7 @@ from transkryptor.document.search import (
 )
 from transkryptor.i18n import tr
 from transkryptor.ui.editor import SEARCH_LAYER, TranscriptionEditor, highlight
+from transkryptor.ui.positions import PositionMap
 from transkryptor.ui.search_bar import SearchBar
 from transkryptor.ui.shortcuts import (
     FIND_NEXT_SHORTCUT,
@@ -36,6 +42,8 @@ from transkryptor.ui.theme import tokens
 SEARCH_DEBOUNCE_MS = 150
 MATCH_ALPHA = 70
 CURRENT_MATCH_ALPHA = 170
+# Bezpiecznik na bardzo gęste trafienia w jednym ekranie (np. „e”).
+MAX_VISIBLE_HIGHLIGHTS = 1000
 
 
 class SearchController(QObject):
@@ -57,6 +65,9 @@ class SearchController(QObject):
         self._timer.timeout.connect(self.refresh)
 
         editor.document().contentsChanged.connect(self._on_text_changed)
+        editor.verticalScrollBar().valueChanged.connect(self._on_view_changed)
+        editor.horizontalScrollBar().valueChanged.connect(self._on_view_changed)
+        editor.viewport().installEventFilter(self)
         bar.query_changed.connect(self._on_query_changed)
         bar.replacement_changed.connect(self._update_preview)
         bar.next_requested.connect(self.find_next)
@@ -153,7 +164,16 @@ class SearchController(QObject):
         self._current = None
         self.refresh()
 
-    def _pattern(self) -> re.Pattern[str] | None:
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802
+        if event.type() == QEvent.Type.Resize:
+            self._on_view_changed()
+        return super().eventFilter(watched, event)
+
+    def _on_view_changed(self) -> None:
+        if self.is_open() and self._matches:
+            self._update_highlights()
+
+    def _pattern(self) -> regex.Pattern[str] | None:
         query = self.bar.find_edit.text()
         self._query_error = None
         if not query:
@@ -168,9 +188,12 @@ class SearchController(QObject):
         """Przelicza trafienia i podświetlenia (ACC-27: błąd → komunikat)."""
         self._timer.stop()
         pattern = self._pattern()
-        self._matches = (
-            find_all(self.editor.plain_text(), pattern) if pattern is not None else []
-        )
+        self._matches = []
+        if pattern is not None:
+            try:
+                self._matches = find_all(self.editor.plain_text(), pattern)
+            except SearchError as error:  # SEC-03: wzorzec zbyt kosztowny
+                self._query_error = str(error)
         if self._current is not None and self._current >= len(self._matches):
             self._current = None
         self._show_state()
@@ -178,15 +201,44 @@ class SearchController(QObject):
     def _show_state(self) -> None:
         self.bar.set_error(self._query_error or self._replacement_error())
         self.bar.set_count(self._current, len(self._matches))
+        self._update_highlights()
+
+    def _update_highlights(self) -> None:
+        """Podświetla trafienia w widocznej części edytora (PERF-06)."""
+        if not self._matches:
+            self.editor.set_highlight_layer(SEARCH_LAYER, [])
+            return
+        positions = self.editor.position_map()
+        first, last = self._visible_range(positions)
+        # Trafienia nie nakładają się, więc są posortowane po obu końcach.
+        lo = bisect_right(self._matches, first, key=lambda match: match[1])
+        hi = bisect_left(self._matches, last, key=lambda match: match[0])
+        hi = min(hi, lo + MAX_VISIBLE_HIGHLIGHTS)
         t = tokens()
         selections = []
-        for index, (start, end) in enumerate(self._matches):
+        for index in range(lo, hi):
+            start, end = self._matches[index]
             color = QColor(t.accent)
             color.setAlpha(
                 CURRENT_MATCH_ALPHA if index == self._current else MATCH_ALPHA
             )
-            selections.append(highlight(self.editor.track_range(start, end), color))
+            cursor = self.editor.track_range(start, end, positions)
+            selections.append(highlight(cursor, color))
         self.editor.set_highlight_layer(SEARCH_LAYER, selections)
+
+    def _visible_range(self, positions: PositionMap) -> tuple[int, int]:
+        """Zakres tekstu (pozycje Pythona) widoczny w oknie edytora."""
+        # Punkty w marginesie dokumentu dają przypadkowe pozycje — próbkujemy
+        # wewnątrz obszaru tekstu.
+        inset = int(self.editor.document().documentMargin()) + 1
+        area = self.editor.viewport().rect().adjusted(inset, inset, -inset, -inset)
+        top = self.editor.cursorForPosition(area.topLeft())
+        top.movePosition(QTextCursor.MoveOperation.StartOfLine)
+        bottom = self.editor.cursorForPosition(area.bottomRight() + QPoint(1, 1))
+        # Koniec ostatniego widocznego wiersza (kursor trafia w jego środek).
+        bottom.movePosition(QTextCursor.MoveOperation.EndOfLine)
+        first, last = sorted((top.position(), bottom.position()))
+        return positions.to_py(first), positions.to_py(last) + 1
 
     def find_next(self) -> None:
         self._step(forward=True)
@@ -200,17 +252,20 @@ class SearchController(QObject):
         self.refresh()
         if not self._matches:
             return
-        cursor = self.editor.textCursor()
+        # Pozycje kursora (Qt, UTF-16) → punkty kodowe, jak trafienia (BUG-02).
+        selection_start, selection_end = self.editor.selection_range(
+            self.editor.textCursor()
+        )
         if forward:
-            position = (
-                cursor.selectionEnd() if cursor.hasSelection() else cursor.position()
+            following = bisect_left(
+                self._matches, selection_end, key=lambda match: match[0]
             )
-            following = [i for i, (s, _e) in enumerate(self._matches) if s >= position]
-            self._current = following[0] if following else 0
+            self._current = following if following < len(self._matches) else 0
         else:
-            position = cursor.selectionStart()
-            preceding = [i for i, (_s, e) in enumerate(self._matches) if e <= position]
-            self._current = preceding[-1] if preceding else len(self._matches) - 1
+            preceding = bisect_right(
+                self._matches, selection_start, key=lambda match: match[1]
+            )
+            self._current = preceding - 1 if preceding else len(self._matches) - 1
         self._select_current()
 
     def _select_current(self) -> None:
