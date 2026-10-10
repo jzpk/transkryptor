@@ -23,6 +23,14 @@ i startuje aplikację):
 ./run.sh
 ```
 
+Formatowanie i kontrole jakości kodu:
+
+```sh
+./check.sh              # tylko formatowanie (black)
+./check.sh -l -m -t     # dodatkowo lint (ruff), typy (mypy) i testy (pytest)
+./check.sh --all        # to samo co -l -m -t
+```
+
 ## Licencja
 
 `GPL-3.0-or-later` — zobacz [LICENSE](LICENSE).
