@@ -7,6 +7,8 @@ Pusta sekcja blokuje wydanie.
 
 ## Nieopublikowane
 
+## 0.3.0 — 2026-10-10
+
 - Interfejs po angielsku: w **Ustawieniach…** (zakładka **Wygląd**) można
   wybrać język **Polski**, **English** albo **Zgodny z systemem**
   (domyślnie — polski w polskim systemie, w pozostałych angielski). Zmiana

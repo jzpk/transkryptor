@@ -1,6 +1,6 @@
 [project]
 name = "transkryptor"
-version = "0.2.4"
+version = "0.3.0"
 description = "Lokalna aplikacja desktopowa do ręcznej transkrypcji fonetycznej języka polskiego"
 readme = "README.md"
 license = "GPL-3.0-or-later"
