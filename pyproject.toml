@@ -13,7 +13,7 @@ dependencies = [
     # av.open(..., metadata_errors=...), a PyAV 19.0.0 usunął ten argument —
     # bez ograniczenia transkrypcja pliku kończy się TypeError. Granicę
     # potwierdza test tests/asr/test_engine.py::TestAudioDecodingContract.
-    "av>=11,<19",
+    "av>=11,<20",
     # huggingface-hub wymaga faster-whisper (sprawdza go --self-test); model
     # ASR pobiera transkryptor.asr.manager przez httpx z przypiętej rewizji.
     "huggingface-hub>=0.30",
