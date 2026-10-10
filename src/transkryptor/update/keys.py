@@ -18,7 +18,9 @@ import base64
 import binascii
 import sys
 
-TRUSTED_KEYS: tuple[str, ...] = ("RWSZ29IK8ei9r8LjO/svHHZOZHkJe06wAcWxmYusdTiFl8Kl0Tm3N8EV",)
+TRUSTED_KEYS: tuple[str, ...] = (
+    "RWSZ29IK8ei9r8LjO/svHHZOZHkJe06wAcWxmYusdTiFl8Kl0Tm3N8EV",
+)
 
 
 def key_problems(keys: tuple[str, ...] = TRUSTED_KEYS) -> list[str]:
