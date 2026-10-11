@@ -32,6 +32,9 @@ Pusta sekcja blokuje wydanie.
   poleceń** (☰) tuż za widocznymi znacznikami, przed **Szkic ASR**, a nie
   na koniec paska. Schowane narzędzia i polecenia projektu pozostają
   w menu ☰ na końcu paska.
+- Historia zmian w programie: przycisk **Co nowego** w lewym dolnym rogu
+  okna (obok numeru wersji) otwiera okno z opisem zmian w kolejnych
+  wersjach.
 
 ## 0.3.0 — 2026-10-10
 

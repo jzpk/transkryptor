@@ -79,6 +79,9 @@ EXCLUDED_MODULES = (
 # ``transkryptor/i18n/locales`` to katalogi tłumaczeń interfejsu (JSON)
 # wczytywane przez ``importlib.resources`` przy starcie.
 PACKAGE_DATA = (("faster_whisper", "assets"), ("transkryptor", "i18n/locales"))
+# Historia zmian z katalogu repozytorium trafia obok modułów ``transkryptor``,
+# skąd okno „Co nowego” czyta ją przez ``importlib.resources``.
+CHANGELOG_DATA = (REPO_ROOT / "CHANGELOG.md", "transkryptor")
 
 
 def package_directory(package: str) -> Path:
@@ -105,6 +108,10 @@ def collect_datas() -> list[tuple[str, str]]:
         for entry in sorted(source.iterdir()):
             if entry.is_file() and entry.suffix not in {".pyc"}:
                 datas.append((str(entry), f"{package}/{subdir}"))
+    changelog, destination = CHANGELOG_DATA
+    if not changelog.is_file():
+        raise FileNotFoundError(f"Brak historii zmian: {changelog}.")
+    datas.append((str(changelog), destination))
     return datas
 
 

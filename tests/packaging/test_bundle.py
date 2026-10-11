@@ -33,6 +33,15 @@ def test_translation_catalogs_are_collected() -> None:
     assert {"pl.json", "en.json"} <= collected
 
 
+def test_changelog_is_collected_next_to_the_package() -> None:
+    """Okno „Co nowego” czyta CHANGELOG.md jako zasób pakietu."""
+    datas = bundle.collect_datas()
+    assert any(
+        Path(source).name == "CHANGELOG.md" and destination == "transkryptor"
+        for source, destination in datas
+    )
+
+
 def test_collected_data_sources_exist() -> None:
     for source, _ in bundle.collect_datas():
         assert Path(source).is_file()

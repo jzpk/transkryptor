@@ -30,6 +30,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from transkryptor import __version__
 from transkryptor.asr.manager import ModelManager
 from transkryptor.asr.models import model_by_key
 from transkryptor.audio.player import AudioPlayer
@@ -40,6 +41,7 @@ from transkryptor.notation.ellipsis import EllipsisStyle
 from transkryptor.settings import Settings
 from transkryptor.ui import icons
 from transkryptor.ui.asr_panel import AsrPanel
+from transkryptor.ui.changelog_dialog import ChangelogDialog
 from transkryptor.ui.editor import TranscriptionEditor
 from transkryptor.ui.export_controller import ExportController
 from transkryptor.ui.layout import (
@@ -292,8 +294,25 @@ class MainWindow(QMainWindow):
     def _build_status_bar(self) -> None:
         status = self.statusBar()
         status.setSizeGripEnabled(False)
+        # Lewy dolny róg: historia zmian. Na czas krótkiego komunikatu
+        # (``showMessage``) pasek stanu chowa przycisk i pokazuje tekst.
+        self.changelog_button = QToolButton()
+        self.changelog_button.setObjectName("changelog_button")
+        self.changelog_button.setText(tr("changelog.button", version=__version__))
+        self.changelog_button.setToolTip(tr("changelog.button.tooltip"))
+        self.changelog_button.setAutoRaise(True)
+        self.changelog_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        icons.set_icon(self.changelog_button, "info", "text_muted", "text_muted")
+        self.changelog_button.setToolButtonStyle(
+            Qt.ToolButtonStyle.ToolButtonTextBesideIcon
+        )
+        self.changelog_button.clicked.connect(self._on_changelog)
+        status.addWidget(self.changelog_button)
         self.export_status_label = QLabel()
         status.addPermanentWidget(self.export_status_label)
+
+    def _on_changelog(self) -> None:
+        ChangelogDialog(self).exec()
 
     def _connect_signals(self) -> None:
         self.editor.document().contentsChanged.connect(self._on_editor_changed)

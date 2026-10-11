@@ -50,6 +50,10 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/transkryptor"]
 
+# Historia zmian w aplikacji („Co nowego”) — czytana jako zasób pakietu.
+[tool.hatch.build.targets.wheel.force-include]
+"CHANGELOG.md" = "transkryptor/CHANGELOG.md"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 # Bez przechwytywania logów Qt przez pytest-qt: jego handler w Pythonie jest

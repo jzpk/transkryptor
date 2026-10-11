@@ -438,5 +438,12 @@
   "settings.asr.device.hint": "Karta graficzna NVIDIA wymaga zainstalowanych bibliotek CUDA 12 i cuDNN 9 (nie są dołączone do programu). Gdy ich brak, transkrypcja działa na procesorze.",
   "settings.asr.vocabulary": "Słownik:",
   "settings.asr.vocabulary.placeholder": "po jednym haśle w linii",
-  "settings.asr.vocabulary.hint": "Nazwy własne i wyrazy gwarowe używane we wszystkich nagraniach; do modelu trafiają razem ze słownikiem projektu."
+  "settings.asr.vocabulary.hint": "Nazwy własne i wyrazy gwarowe używane we wszystkich nagraniach; do modelu trafiają razem ze słownikiem projektu.",
+  "changelog.button": "Co nowego · wersja {version}",
+  "changelog.button.tooltip": "Historia zmian: co zmieniło się w kolejnych wersjach programu",
+  "changelog.title": "Co nowego",
+  "changelog.header": "Historia zmian — zainstalowana wersja {version}",
+  "changelog.unreleased": "Zmiany w przygotowaniu (wersja rozwojowa)",
+  "changelog.missing": "Historia zmian nie jest dostępna w tej instalacji.",
+  "changelog.polish_only": "Historia zmian jest dostępna tylko po polsku."
 }

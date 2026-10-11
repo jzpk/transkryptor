@@ -438,5 +438,12 @@
   "settings.asr.device.hint": "An NVIDIA graphics card requires the CUDA 12 and cuDNN 9 libraries to be installed (not bundled with the program). Without them transcription runs on the processor.",
   "settings.asr.vocabulary": "Vocabulary:",
   "settings.asr.vocabulary.placeholder": "one entry per line",
-  "settings.asr.vocabulary.hint": "Proper names and dialect words used across all recordings; passed to the model together with the project vocabulary."
+  "settings.asr.vocabulary.hint": "Proper names and dialect words used across all recordings; passed to the model together with the project vocabulary.",
+  "changelog.button": "What's new · version {version}",
+  "changelog.button.tooltip": "Change history: what changed in each version of the application",
+  "changelog.title": "What's new",
+  "changelog.header": "Change history — installed version {version}",
+  "changelog.unreleased": "Upcoming changes (development version)",
+  "changelog.missing": "The change history is not available in this installation.",
+  "changelog.polish_only": "The change history is available in Polish only."
 }
