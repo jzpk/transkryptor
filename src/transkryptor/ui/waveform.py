@@ -78,6 +78,7 @@ class EnvelopeThread(QThread):
         self.envelope: Envelope | None = None
         self.from_cache = False
         self._cache_dir = cache_dir
+        self._percent = -1
 
     def run(self) -> None:
         cancel = self.isInterruptionRequested
@@ -88,7 +89,7 @@ class EnvelopeThread(QThread):
                 self.envelope, self.from_cache = cached, True
                 return
             envelope = compute_envelope(
-                self.path, should_cancel=cancel, on_progress=self.progressed.emit
+                self.path, should_cancel=cancel, on_progress=self._report
             )
         except InterruptedError:
             return
@@ -96,6 +97,13 @@ class EnvelopeThread(QThread):
             return
         save_cached(digest, envelope, self._cache_dir)
         self.envelope = envelope
+
+    def _report(self, fraction: float) -> None:
+        """Postęp tylko przy zmianie pełnego procenta — nie zalewa wątku UI."""
+        percent = int(fraction * 100)
+        if percent != self._percent:
+            self._percent = percent
+            self.progressed.emit(fraction)
 
 
 class WaveformView(QWidget):
