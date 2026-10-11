@@ -35,6 +35,14 @@ Pusta sekcja blokuje wydanie.
 - Historia zmian w programie: przycisk **Co nowego** w lewym dolnym rogu
   okna (obok numeru wersji) otwiera okno z opisem zmian w kolejnych
   wersjach.
+- Transkrypcja fragmentami: w **Ustawieniach…** (zakładka **ASR**) można
+  włączyć rozpoznawanie długiego nagrania kilkuminutowymi fragmentami
+  ciętymi w ciszy. Zużycie pamięci RAM nie rośnie wtedy z długością
+  nagrania — pomaga, gdy szkic z nagrania ponad godzinnego kończy się
+  błędem `mkl_malloc: failed to allocate memory`. Domyślnie wyłączone.
+- Gdy transkrypcji zabraknie pamięci, program mówi o tym wprost i radzi
+  włączyć transkrypcję fragmentami albo zamknąć inne programy, zamiast
+  proponować ponowne pobranie modelu.
 
 ## 0.3.0 — 2026-10-10
 

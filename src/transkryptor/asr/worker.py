@@ -221,7 +221,7 @@ class _WorkerExited(Exception):
 def _crash_error() -> TranscriptionError:
     return TranscriptionError(
         user_message=tr("asr.error.worker_crashed"),
-        retry_hint=tr("asr.error.transcribe.hint"),
+        retry_hint=tr("asr.error.out_of_memory.hint"),
     )
 
 
@@ -308,10 +308,11 @@ def _transcribe_request(
     except AppError as error:
         return "error", (type(error).__name__, error.user_message, error.retry_hint)
     except Exception as error:  # noqa: BLE001 — błąd zgłaszany rodzicowi
+        app_error = engine.transcription_error(error)
         return "error", (
             "TranscriptionError",
-            tr("asr.error.transcribe", reason=error),
-            tr("asr.error.transcribe.hint"),
+            app_error.user_message,
+            app_error.retry_hint,
         )
     return "done", result
 
