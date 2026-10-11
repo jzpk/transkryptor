@@ -172,3 +172,14 @@ def test_windows_self_test_does_not_wait_for_the_whole_process_tree() -> None:
     assert "-Wait" not in step
     assert "WaitForExit(" in step
     assert "timeout-minutes:" in step
+
+
+def test_manual_release_builds_in_one_run_without_retriggering_ci() -> None:
+    """Commit wydania nie uruchamia CI ani drugiego przebiegu „Wydanie”.
+
+    Przebieg ręczny sam buduje i publikuje, więc joby budowania nie mogą
+    czekać na przebieg z push taga, a commit musi mieć [skip ci].
+    """
+    text = WORKFLOW.read_text(encoding="utf-8")
+    assert 'git commit -am "Wydanie v$VERSION" -m "[skip ci]"' in text
+    assert "outputs.publish" not in text

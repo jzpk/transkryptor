@@ -4,14 +4,16 @@
 # wersji do podbicia (patch/minor/major). Workflow po zielonych testach podbija
 # wersję w pyproject.toml, uv.lock i src/transkryptor/__init__.py, nadaje
 # sekcji „Nieopublikowane” w CHANGELOG.md numer wersji (pusta sekcja przerywa
-# wydanie), commituje i nadaje tag vX.Y.Z. Push przez RELEASE_PAT uruchamia
-# ten workflow ponownie dla nowego taga — dopiero ten przebieg buduje oba
-# artefakty i publikuje wydanie. Zainstalowane aplikacje znajdują je przez
-# GitHub Releases API (src/transkryptor/update/).
+# wydanie), commituje i nadaje tag vX.Y.Z, po czym ten sam przebieg buduje
+# oba artefakty z taga i publikuje wydanie. Commit wydania ma w opisie
+# [skip ci]: jego push nie uruchamia ponownie CI ani tego workflow — kod
+# przeszedł już testy na początku przebiegu, a commit zmienia tylko numer
+# wersji i nagłówek changeloga. Zainstalowane aplikacje znajdują wydania
+# przez GitHub Releases API (src/transkryptor/update/).
 #
-# Droga awaryjna: ręcznie wypchnięty tag v* — ten sam przebieg co wyżej:
-# workflow sprawdza, że tag zgadza się z wersją w kodzie, a CHANGELOG.md ma
-# sekcję tej wersji, i publikuje wydanie.
+# Droga awaryjna: ręcznie wypchnięty tag v* (na commit bez [skip ci], np.
+# poprawkę po commicie wydania) — workflow sprawdza, że tag zgadza się
+# z wersją w kodzie, a CHANGELOG.md ma sekcję tej wersji, i publikuje wydanie.
 #
 # Łańcuch zaufania: job „publikacja” podpisuje SHA256SUMS.txt kluczem
 # minisign z sekretu environment „Release” (wymagane zatwierdzenie), a
@@ -110,8 +112,6 @@ jobs:
     outputs:
       version: ${{ steps.wersja.outputs.version }}
       tag: ${{ steps.wersja.outputs.tag }}
-      # Buduje i publikuje tylko przebieg uruchomiony tagiem.
-      publish: ${{ github.event_name == 'push' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -125,12 +125,13 @@ jobs:
       - name: Instalacja uv
         uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
 
-      # Push przez RELEASE_PAT omija regułę wymaganych testów na main i — w
-      # odróżnieniu od GITHUB_TOKEN — uruchamia ten workflow dla nowego taga,
-      # który zbuduje i opublikuje wydanie. RELEASE_PAT to fine-grained PAT
-      # ograniczony do tego repozytorium (Contents: read and write) z krótką
-      # ważnością — patrz specs/docs/release-process.md. --atomic: odrzucony
-      # push na main nie może zostawić osieroconego taga.
+      # Push przez RELEASE_PAT omija regułę wymaganych testów na main.
+      # [skip ci] w opisie commita: push gałęzi i taga nie uruchamia CI ani
+      # drugiego przebiegu tego workflow — budowanie i publikacja dzieją się
+      # w tym przebiegu (joby linux, windows, publikacja). RELEASE_PAT to
+      # fine-grained PAT ograniczony do tego repozytorium (Contents: read and
+      # write) z krótką ważnością — patrz specs/docs/release-process.md.
+      # --atomic: odrzucony push na main nie może zostawić osieroconego taga.
       - name: Podbicie wersji, commit i tag
         if: github.event_name == 'workflow_dispatch'
         env:
@@ -148,7 +149,7 @@ jobs:
           grep -qx "__version__ = \"$VERSION\"" src/transkryptor/__init__.py
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -am "Wydanie v$VERSION"
+          git commit -am "Wydanie v$VERSION" -m "[skip ci]"
           git tag -a "v$VERSION" -m "Transkryptor $VERSION"
           git push --atomic origin "HEAD:main" "v$VERSION"
 
@@ -174,7 +175,6 @@ jobs:
   linux:
     name: AppImage (Linux)
     needs: wersja
-    if: needs.wersja.outputs.publish == 'true'
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -229,7 +229,6 @@ jobs:
   windows:
     name: Instalator (Windows)
     needs: wersja
-    if: needs.wersja.outputs.publish == 'true'
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
