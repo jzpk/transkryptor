@@ -189,3 +189,17 @@ def test_split_vocabulary_skips_blank_lines() -> None:
     from transkryptor.settings import split_vocabulary
 
     assert split_vocabulary("  Ocieszyn \n\n Rożnowo\n") == ("Ocieszyn", "Rożnowo")
+
+
+def test_validator_overrides_round_trip_and_fall_back() -> None:
+    from transkryptor.settings import ValidatorSettings, encode_bool_map
+
+    spec = encode_bool_map({"VAL-11": True, "VAL-07": False})
+    settings = Settings(validator=ValidatorSettings(overrides_spec=spec))
+    restored = from_mapping(to_mapping(settings))
+    assert restored.validator.overrides == {"VAL-07": False, "VAL-11": True}
+    assert "VAL-11" in restored.validator.enabled
+    assert "VAL-07" not in restored.validator.enabled
+    broken = from_mapping({"validator/overrides_spec": '{"VAL-07": 1}'})
+    assert broken.validator == ValidatorSettings()
+    assert encode_bool_map({}) == ""

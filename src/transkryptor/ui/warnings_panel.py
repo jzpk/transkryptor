@@ -2,14 +2,14 @@
 
 Lista prezentuje wyniki ``notation.validate`` (kod, komunikat, pozycja) —
 UI nie interpretuje reguł, jedynie wyświetla je i nawiguje do zakresu
-w tekście po wybraniu pozycji.
+w tekście po wybraniu pozycji. Menu kontekstowe pozycji ma „Ignoruj tutaj”.
 """
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QPoint, Qt, Signal
 from PySide6.QtGui import QColor
-from PySide6.QtWidgets import QListWidget, QListWidgetItem
+from PySide6.QtWidgets import QListWidget, QListWidgetItem, QMenu
 
 from transkryptor.i18n import tr
 from transkryptor.notation.validator import SEVERITY_HINT, Warning
@@ -21,6 +21,7 @@ class WarningsPanel(QListWidget):
     """Lista ostrzeżeń z sygnałem nawigacji do zakresu w tekście."""
 
     warning_activated = Signal(int, int)
+    ignore_requested = Signal(object)  # Warning
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -30,6 +31,8 @@ class WarningsPanel(QListWidget):
         self.setIconSize(icons.ICON_SIZE)
         self.itemActivated.connect(self._on_item_activated)
         self.itemClicked.connect(self._on_item_activated)
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.customContextMenuRequested.connect(self._on_context_menu)
 
     def set_warnings(self, warnings: list[Warning]) -> None:
         """Zastępuje listę ostrzeżeń wynikiem walidacji."""
@@ -76,3 +79,18 @@ class WarningsPanel(QListWidget):
         if 0 <= index < len(self._warnings):
             warning = self._warnings[index]
             self.warning_activated.emit(warning.start, warning.end)
+
+    def warning_at_row(self, row: int) -> Warning | None:
+        return self._warnings[row] if 0 <= row < len(self._warnings) else None
+
+    def _on_context_menu(self, point: QPoint) -> None:
+        item = self.itemAt(point)
+        warning = self.warning_at_row(self.row(item)) if item is not None else None
+        if warning is None:
+            return
+        menu = QMenu(self)
+        action = menu.addAction(tr("warnings.ignore_here", code=warning.code))
+        action.triggered.connect(
+            lambda _checked=False: self.ignore_requested.emit(warning)
+        )
+        menu.exec(self.viewport().mapToGlobal(point))

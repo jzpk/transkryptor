@@ -27,6 +27,7 @@ class PositionMap:
     """
 
     def __init__(self, text: str) -> None:
+        self.text = text
         # Indeksy (w Pythonie) znaków spoza BMP, rosnąco.
         self._astral = [i for i, char in enumerate(text) if char > _BMP_MAX]
         # Pozycja Qt tuż za każdym takim znakiem.

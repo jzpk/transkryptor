@@ -4,7 +4,12 @@ import pytest
 
 from transkryptor.document.model import Document
 from transkryptor.notation.ellipsis import EllipsisStyle
-from transkryptor.notation.validator import SEVERITY_HINT, validate
+from transkryptor.notation.validator import (
+    DEFAULT_ENABLED,
+    SEVERITY_HINT,
+    enabled_codes,
+    validate,
+)
 
 
 def codes(text: str) -> list[str]:
@@ -157,3 +162,70 @@ class TestContract:
             assert warning.code
             assert 0 <= warning.start < warning.end
             assert warning.message
+
+
+class TestExtendedRules:
+    """VAL-06…VAL-11 (faza 10, propozycja 13)."""
+
+    def test_val06_marker_touching_next_word(self) -> None:
+        warnings = validate("nogie (?)dogioł i (!) pani")
+        assert [(w.code, w.start, w.end) for w in warnings] == [("VAL-06", 6, 9)]
+
+    def test_val06_marker_followed_by_space_or_end_passes(self) -> None:
+        assert validate("zamudze (!) pani (?)") == []
+
+    def test_val07_double_space_is_a_hint(self) -> None:
+        (warning,) = validate("a   b")
+        assert (warning.code, warning.start, warning.end) == ("VAL-07", 1, 4)
+        assert warning.severity == SEVERITY_HINT
+
+    def test_val08_space_before_closing_bracket(self) -> None:
+        (warning,) = validate("trzea [świnię ]")
+        assert (warning.code, warning.start, warning.end) == ("VAL-08", 13, 15)
+        assert warning.severity == SEVERITY_HINT
+
+    def test_val09_nested_aside(self) -> None:
+        warnings = [w for w in validate("[a [b] c]") if w.code == "VAL-09"]
+        assert [(w.start, w.end) for w in warnings] == [(3, 6)]
+
+    def test_val09_omission_marker_inside_aside_is_not_nesting(self) -> None:
+        assert validate("[trzea […?] coś]") == []
+
+    def test_val10_superscript_on_other_letter(self) -> None:
+        warnings = validate("soma", superscript_ranges=[(2, 4)])
+        assert [(w.code, w.start, w.end) for w in warnings] == [("VAL-10", 3, 4)]
+        assert "`a`" in warnings[0].message
+
+    def test_val10_allowed_letters_pass(self) -> None:
+        assert validate("som uod", superscript_ranges=[(2, 3), (4, 5)]) == []
+
+    def test_val11_is_disabled_by_default(self) -> None:
+        assert validate("som") == []
+
+    def test_val11_hint_when_enabled(self) -> None:
+        warnings = validate("som uod ona", enabled={"VAL-11"})
+        assert [(w.code, w.start) for w in warnings] == [
+            ("VAL-11", 2),
+            ("VAL-11", 4),
+        ]
+        assert all(w.severity == SEVERITY_HINT for w in warnings)
+
+    def test_val11_skips_superscript_letters(self) -> None:
+        assert validate("som", superscript_ranges=[(2, 3)], enabled={"VAL-11"}) == []
+
+    def test_acc39_text_reports_every_problem(self) -> None:
+        """ACC-39: `[ [dopisek] ]`, `(?)słowo` i indeks górny na `a`."""
+        text = "[ [dopisek] ] (?)słowo ta"
+        codes = {w.code for w in validate(text, superscript_ranges=[(24, 25)])}
+        assert {"VAL-06", "VAL-08", "VAL-09", "VAL-10"} <= codes
+
+    def test_disabled_rule_is_not_reported(self) -> None:
+        assert validate("a  b", enabled=set()) == []
+        assert validate("trzea [świnię", enabled={"VAL-01"}) == []
+
+
+def test_enabled_codes_apply_overrides() -> None:
+    enabled = enabled_codes({"VAL-07": False, "VAL-11": True})
+    assert "VAL-07" not in enabled
+    assert "VAL-11" in enabled
+    assert enabled - {"VAL-11"} == DEFAULT_ENABLED - {"VAL-07"}

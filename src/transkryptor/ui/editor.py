@@ -13,24 +13,37 @@ zdefiniowane w ``ui/markers.py`` oraz prezentuje wyniki ``notation``.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 
-from PySide6.QtGui import QColor, QFont, QTextCharFormat, QTextCursor
-from PySide6.QtWidgets import QTextEdit
+from PySide6.QtCore import QEvent, QPoint
+from PySide6.QtGui import (
+    QColor,
+    QContextMenuEvent,
+    QFont,
+    QHelpEvent,
+    QTextCharFormat,
+    QTextCursor,
+)
+from PySide6.QtWidgets import QMenu, QTextEdit, QToolTip
 
 from transkryptor.document.model import Document
 from transkryptor.i18n import tr
 from transkryptor.settings import EditorSettings
+from transkryptor.ui.highlights import (
+    REVIEW_LAYER,
+    SEARCH_LAYER,
+    HighlightLayers,
+)
+from transkryptor.ui.highlights import background as highlight
 from transkryptor.ui.markers import ASIDE_TEXT
 from transkryptor.ui.positions import PositionMap, utf16_len
 
 # Półprzezroczyste tło czytelne w jasnym i ciemnym motywie.
 REVIEW_HIGHLIGHT = QColor(255, 200, 0, 90)
 
-# Warstwy ``ExtraSelections``: przegląd ASR pod spodem, wyszukiwanie na wierzchu.
-REVIEW_LAYER = "review"
-SEARCH_LAYER = "search"
-_LAYER_ORDER = (REVIEW_LAYER, SEARCH_LAYER)
+# Warstwy podświetleń i ``highlight`` są w ``ui/highlights.py``; nazwy
+# re-eksportowane dla zgodności importów.
+__all__ = ["REVIEW_LAYER", "SEARCH_LAYER", "TranscriptionEditor", "highlight"]
 
 # Tekst transkrypcji czyta się godzinami — większy niż reszta interfejsu.
 EDITOR_FONT_SCALE = 1.25
@@ -54,7 +67,11 @@ class TranscriptionEditor(QTextEdit):
         self.setObjectName("editor")
         self.setPlaceholderText(tr("editor.placeholder"))
         self._base_font = QFont(self.font())
-        self._layers: dict[str, list[QTextEdit.ExtraSelection]] = {}
+        self._layers = HighlightLayers()
+        # Podpowiedź i menu kontekstowe dla pozycji tekstu (punkty kodowe) —
+        # ustawia kontroler notacji (opis ostrzeżenia, „Ignoruj tutaj”).
+        self.tooltip_provider: Callable[[int], str | None] | None = None
+        self.context_menu_extender: Callable[[QMenu, int], None] | None = None
         self.apply_settings(EditorSettings())
         self.document().setDocumentMargin(16)
 
@@ -72,6 +89,33 @@ class TranscriptionEditor(QTextEdit):
         else:
             font.setPointSizeF(self._base_font.pointSizeF() * EDITOR_FONT_SCALE)
         self.setFont(font)
+
+    def text_position_at(self, viewport_point: QPoint) -> int:
+        """Pozycja tekstu (punkty kodowe) pod punktem widoku."""
+        cursor = self.cursorForPosition(viewport_point)
+        return self.position_map().to_py(cursor.position())
+
+    def viewportEvent(self, event: QEvent) -> bool:
+        if (
+            event.type() == QEvent.Type.ToolTip
+            and isinstance(event, QHelpEvent)
+            and self.tooltip_provider is not None
+        ):
+            text = self.tooltip_provider(self.text_position_at(event.pos()))
+            if text:
+                QToolTip.showText(event.globalPos(), text, self.viewport())
+            else:
+                QToolTip.hideText()
+                event.ignore()
+            return True
+        return super().viewportEvent(event)
+
+    def contextMenuEvent(self, event: QContextMenuEvent) -> None:
+        menu = self.createStandardContextMenu(event.pos())
+        if self.context_menu_extender is not None:
+            self.context_menu_extender(menu, self.text_position_at(event.pos()))
+        menu.exec(event.globalPos())
+        menu.deleteLater()
 
     def plain_text(self) -> str:
         """Tekst edytora bez normalizacji (NBSP zostaje, ACC-01).
@@ -254,14 +298,12 @@ class TranscriptionEditor(QTextEdit):
         self, name: str, selections: list[QTextEdit.ExtraSelection]
     ) -> None:
         """Zastępuje podświetlenia jednej warstwy, zachowując pozostałe."""
-        self._layers[name] = list(selections)
-        self.setExtraSelections(
-            [
-                selection
-                for layer in _LAYER_ORDER
-                for selection in self._layers.get(layer, [])
-            ]
-        )
+        self._layers.set(name, selections)
+        self.setExtraSelections(self._layers.ordered())
+
+    def highlight_layer(self, name: str) -> list[QTextEdit.ExtraSelection]:
+        """Bieżące podświetlenia jednej warstwy."""
+        return self._layers.get(name)
 
     def sync_to_document(self, doc: Document) -> bool:
         """Przepisuje tekst i zakresy indeksu górnego z edytora do dokumentu.
@@ -271,14 +313,6 @@ class TranscriptionEditor(QTextEdit):
         text = self.plain_text()
         ranges = _collect_superscript_ranges(self, PositionMap(text))
         return doc.replace_all(text, ranges)
-
-
-def highlight(cursor: QTextCursor, color: QColor) -> QTextEdit.ExtraSelection:
-    """Podświetlenie zakresu kursora tłem (tylko widok, nie format znaków)."""
-    selection = QTextEdit.ExtraSelection()
-    selection.cursor = cursor
-    selection.format.setBackground(color)
-    return selection
 
 
 def _collect_superscript_ranges(

@@ -6,7 +6,8 @@ nagrania (ścieżka względna do pliku projektu, bezwzględna jako podpowiedź
 i suma SHA-256 — bez osadzania audio), pozycję odtwarzania, pętlę A–B,
 ostatni wynik ASR (tekst i segmenty z czasami i pewnością) oraz pozycje
 przeglądu reguł (zakres w tekście, kod reguły i treść propozycji), a od
-schematu 2 także kontekst nagrania i słownik projektu dla ASR.
+schematu 2 także kontekst nagrania i słownik projektu dla ASR, a od
+schematu 3 — ostrzeżenia walidatora zignorowane w konkretnych miejscach.
 
 Zapis jest atomowy: plik tymczasowy w katalogu docelowym, ``fsync``
 i ``os.replace`` — przerwany zapis nie psuje poprzedniej wersji. Odczyt
@@ -29,7 +30,7 @@ from typing import Any
 from transkryptor.errors import ProjectError
 from transkryptor.i18n import tr
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 PROJECT_SUFFIX = ".transkr"
 _HASH_CHUNK = 1 << 20
 
@@ -113,6 +114,20 @@ class ReviewEntry:
 
 
 @dataclass(frozen=True)
+class IgnoredWarning:
+    """Ostrzeżenie walidatora zignorowane w jednym miejscu („Ignoruj tutaj”).
+
+    ``start``/``end`` to zakres w tekście dokumentu, ``text`` — treść
+    fragmentu w chwili zapisu (kontrola przy odtwarzaniu).
+    """
+
+    code: str
+    start: int
+    end: int
+    text: str = ""
+
+
+@dataclass(frozen=True)
 class ProjectState:
     text: str = ""
     superscript_ranges: tuple[tuple[int, int], ...] = ()
@@ -125,6 +140,7 @@ class ProjectState:
     asr: AsrDraft | None = None
     review: tuple[ReviewEntry, ...] = ()
     asr_context: AsrContext = field(default_factory=AsrContext)
+    ignored_warnings: tuple[IgnoredWarning, ...] = ()
 
     @property
     def word_count(self) -> int:
@@ -204,6 +220,10 @@ def to_dict(state: ProjectState, project_path: Path | None = None) -> dict[str, 
             "prompt": state.asr_context.prompt,
             "vocabulary": list(state.asr_context.vocabulary),
         },
+        "ignored_warnings": [
+            {"code": w.code, "start": w.start, "end": w.end, "text": w.text}
+            for w in state.ignored_warnings
+        ],
     }
 
 
@@ -242,8 +262,14 @@ def _add_asr_context(data: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _add_ignored_warnings(data: dict[str, Any]) -> dict[str, Any]:
+    """2 → 3 (faza 10): brak zignorowanych ostrzeżeń walidatora."""
+    return {**data, "schema_version": 3, "ignored_warnings": []}
+
+
 _MIGRATIONS: dict[int, Callable[[dict[str, Any]], dict[str, Any]]] = {
     1: _add_asr_context,
+    2: _add_ignored_warnings,
 }
 
 
@@ -484,6 +510,17 @@ def _parse(data: dict[str, Any]) -> ProjectState:
         raise ValueError("zakres indeksu górnego poza tekstem")
     if any(not 0 <= e.start <= e.end <= len(text) for e in review):
         raise ValueError("zakres przeglądu poza tekstem")
+    ignored = tuple(
+        IgnoredWarning(
+            code=_str(w["code"]),
+            start=_int(w["start"]),
+            end=_int(w["end"]),
+            text=_str(w.get("text", "")),
+        )
+        for w in map(_dict, _list(data.get("ignored_warnings", [])))
+    )
+    if any(not 0 <= w.start <= w.end <= len(text) for w in ignored):
+        raise ValueError("zakres zignorowanego ostrzeżenia poza tekstem")
     metadata = _dict(document.get("metadata", {}))
     context = _dict(data.get("asr_context", {}))
     return ProjectState(
@@ -506,6 +543,7 @@ def _parse(data: dict[str, Any]) -> ProjectState:
             prompt=_str(context.get("prompt", "")),
             vocabulary=tuple(map(_str, _list(context.get("vocabulary", [])))),
         ),
+        ignored_warnings=ignored,
     )
 
 

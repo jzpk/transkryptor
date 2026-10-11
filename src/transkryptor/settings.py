@@ -12,6 +12,7 @@ i wpis w ``_FIELDS`` — bez zmian w mechanizmie zapisu.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
 from typing import Any
@@ -25,6 +26,7 @@ from transkryptor.document.metadata import (
 )
 from transkryptor.i18n import LANGUAGES
 from transkryptor.notation.ellipsis import DEFAULT_ELLIPSIS_STYLE, EllipsisStyle
+from transkryptor.notation.validator import enabled_codes
 
 SCHEMA_VERSION = 1
 SCHEMA_VERSION_KEY = "schema_version"
@@ -81,6 +83,46 @@ class NotationSettings:
 
 
 @dataclass(frozen=True)
+class ValidatorSettings:
+    """Włączone reguły walidatora: JSON ``{kod: true/false}`` z nadpisaniami.
+
+    Pusty napis oznacza zestaw domyślny; brak kodu w słowniku — wartość
+    domyślną tej reguły (nowe reguły dostają ją automatycznie).
+    """
+
+    overrides_spec: str = ""
+
+    @property
+    def overrides(self) -> dict[str, bool]:
+        decoded = decode_bool_map(self.overrides_spec)
+        return decoded if decoded is not None else {}
+
+    @property
+    def enabled(self) -> frozenset[str]:
+        return enabled_codes(self.overrides)
+
+
+def decode_bool_map(raw: str) -> dict[str, bool] | None:
+    """Słownik ``{tekst: bool}`` z JSON; pusty napis → pusty słownik."""
+    if not raw:
+        return {}
+    try:
+        data = json.loads(raw)
+    except ValueError:
+        return None
+    if not isinstance(data, dict) or not all(
+        isinstance(key, str) and isinstance(value, bool) for key, value in data.items()
+    ):
+        return None
+    return data
+
+
+def encode_bool_map(values: Mapping[str, bool]) -> str:
+    """Zapis słownika ``{tekst: bool}``; pusty słownik → pusty napis."""
+    return json.dumps(dict(sorted(values.items()))) if values else ""
+
+
+@dataclass(frozen=True)
 class ProjectSettings:
     """Autozapis bieżącej pracy (sekundy)."""
 
@@ -133,6 +175,7 @@ class Settings:
     player: PlayerSettings = field(default_factory=PlayerSettings)
     editor: EditorSettings = field(default_factory=EditorSettings)
     notation: NotationSettings = field(default_factory=NotationSettings)
+    validator: ValidatorSettings = field(default_factory=ValidatorSettings)
     project: ProjectSettings = field(default_factory=ProjectSettings)
     metadata: MetadataSettings = field(default_factory=MetadataSettings)
     appearance: AppearanceSettings = field(default_factory=AppearanceSettings)
@@ -172,6 +215,12 @@ _FIELDS: tuple[_Field, ...] = (
     _Field("editor", "font_family", str),
     _Field("editor", "font_size_pt", int, *FONT_SIZE_RANGE_PT),
     _Field("notation", "ellipsis_style", str, choices=ELLIPSIS_STYLES),
+    _Field(
+        "validator",
+        "overrides_spec",
+        str,
+        validate=lambda raw: decode_bool_map(raw) is not None,
+    ),
     _Field("project", "autosave_enabled", bool),
     _Field("project", "autosave_interval_s", int, *AUTOSAVE_INTERVAL_RANGE_S),
     _Field(
@@ -208,6 +257,7 @@ def from_mapping(mapping: Mapping[str, Any]) -> Settings:
         "player": {},
         "editor": {},
         "notation": {},
+        "validator": {},
         "project": {},
         "metadata": {},
         "appearance": {},
@@ -224,6 +274,9 @@ def from_mapping(mapping: Mapping[str, Any]) -> Settings:
         editor=replace(EditorSettings(), **sections["editor"]),  # type: ignore[arg-type]
         notation=replace(
             NotationSettings(), **sections["notation"]  # type: ignore[arg-type]
+        ),
+        validator=replace(
+            ValidatorSettings(), **sections["validator"]  # type: ignore[arg-type]
         ),
         project=replace(
             ProjectSettings(), **sections["project"]  # type: ignore[arg-type]

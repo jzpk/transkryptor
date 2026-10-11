@@ -2,7 +2,8 @@
 
 Okno tylko edytuje kopię ustawień; zapis i powiadomienie komponentów
 wykonuje ``SettingsStore`` po zatwierdzeniu. Każda zakładka dotyczy jednej
-części aplikacji (wygląd, odtwarzacz, notacja, projekt, metryczka, ASR); kolejne
+części aplikacji (wygląd, odtwarzacz, notacja, walidator, projekt, metryczka,
+ASR); kolejne
 funkcje dopisują pola do właściwej zakładki albo dodają nową.
 """
 
@@ -45,6 +46,7 @@ from transkryptor.document.metadata import (
 )
 from transkryptor.i18n import LANGUAGES, tr
 from transkryptor.notation.ellipsis import EllipsisStyle
+from transkryptor.notation.validator import SEVERITY_HINT, VALIDATOR_RULES
 from transkryptor.settings import (
     AUTO_REWIND_RANGE_MS,
     AUTOSAVE_INTERVAL_RANGE_S,
@@ -63,6 +65,8 @@ from transkryptor.settings import (
     PlayerSettings,
     ProjectSettings,
     Settings,
+    ValidatorSettings,
+    encode_bool_map,
     split_vocabulary,
 )
 from transkryptor.ui.theme import set_props
@@ -157,6 +161,20 @@ class SettingsDialog(QDialog):
         notation_form = _form()
         notation_form.addRow(tr("settings.ellipsis.style"), self.ellipsis_combo)
         notation_form.addRow(self.ellipsis_hint)
+
+        validator_hint = QLabel(tr("settings.validator.hint"))
+        validator_hint.setWordWrap(True)
+        set_props(validator_hint, role="muted")
+        validator_form = _form()
+        validator_form.addRow(validator_hint)
+        self.validator_checks: dict[str, QCheckBox] = {}
+        for rule in VALIDATOR_RULES:
+            text = rule.label
+            if rule.severity == SEVERITY_HINT:
+                text = tr("settings.validator.hint_rule", rule=text)
+            checkbox = QCheckBox(text)
+            validator_form.addRow(checkbox)
+            self.validator_checks[rule.code] = checkbox
 
         self.autosave_check = QCheckBox(tr("settings.autosave"))
         self.autosave_check.setToolTip(tr("settings.autosave.tooltip"))
@@ -262,6 +280,7 @@ class SettingsDialog(QDialog):
         self.tabs.addTab(_page(appearance_form), tr("settings.tab.appearance"))
         self.tabs.addTab(_page(player_form), tr("settings.tab.player"))
         self.tabs.addTab(_page(notation_form), tr("settings.tab.notation"))
+        self.tabs.addTab(_page(validator_form), tr("settings.tab.validator"))
         self.tabs.addTab(_page(project_form), tr("settings.tab.project"))
         self.tabs.addTab(metadata_page, tr("settings.tab.metadata"))
         self.tabs.addTab(_page(asr_form), tr("settings.tab.asr"))
@@ -317,6 +336,10 @@ class SettingsDialog(QDialog):
         index = self.ellipsis_combo.findData(settings.notation.ellipsis_style)
         self.ellipsis_combo.setCurrentIndex(max(index, 0))
         self._update_ellipsis_hint()
+
+        enabled = settings.validator.enabled
+        for code, checkbox in self.validator_checks.items():
+            checkbox.setChecked(code in enabled)
 
         self.autosave_check.setChecked(settings.project.autosave_enabled)
         self.autosave_spin.setValue(settings.project.autosave_interval_s)
@@ -468,6 +491,16 @@ class SettingsDialog(QDialog):
             ),
             notation=NotationSettings(
                 ellipsis_style=str(self.ellipsis_combo.currentData())
+            ),
+            validator=ValidatorSettings(
+                overrides_spec=encode_bool_map(
+                    {
+                        rule.code: self.validator_checks[rule.code].isChecked()
+                        for rule in VALIDATOR_RULES
+                        if self.validator_checks[rule.code].isChecked()
+                        != rule.default_enabled
+                    }
+                )
             ),
             project=ProjectSettings(
                 autosave_enabled=self.autosave_check.isChecked(),

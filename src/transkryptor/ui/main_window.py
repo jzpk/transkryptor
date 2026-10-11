@@ -59,7 +59,7 @@ from transkryptor.ui.loading_overlay import LoadingOverlay
 from transkryptor.ui.markers import marker_text
 from transkryptor.ui.messages import show_error
 from transkryptor.ui.metadata_form import MetadataForm
-from transkryptor.ui.notation_controller import NotationController
+from transkryptor.ui.notation_controller import IgnoredWarnings, NotationController
 from transkryptor.ui.player_bar import PlayerBar
 from transkryptor.ui.player_controller import PlayerController
 from transkryptor.ui.review import (
@@ -136,6 +136,7 @@ class MainWindow(QMainWindow):
             ask_placement=lambda: self._ask_draft_placement(),
             ellipsis_style=lambda: self._ellipsis_style,
         )
+        self.ignored_warnings = IgnoredWarnings(self.editor)
         self.session = SessionController(
             self,
             self.editor,
@@ -143,6 +144,7 @@ class MainWindow(QMainWindow):
             self.player_bar,
             self.asr_panel,
             self.review,
+            self.ignored_warnings,
             self.author_edit,
             self.date_edit,
             self.metadata_form,
@@ -166,6 +168,8 @@ class MainWindow(QMainWindow):
             lambda: self._ellipsis_style,
             lambda text: self.statusBar().showMessage(text, STATUS_MESSAGE_MS),
             self,
+            enabled_rules=lambda: self.settings_store.current.validator.enabled,
+            ignored=self.ignored_warnings,
         )
         self._validation_timer = self.notation.timer
         self._sync_timer = QTimer(self)

@@ -28,7 +28,9 @@ from transkryptor.document.search import (
     parse_replacement,
 )
 from transkryptor.i18n import tr
-from transkryptor.ui.editor import SEARCH_LAYER, TranscriptionEditor, highlight
+from transkryptor.ui.editor import TranscriptionEditor
+from transkryptor.ui.highlights import SEARCH_LAYER
+from transkryptor.ui.highlights import background as highlight
 from transkryptor.ui.positions import PositionMap
 from transkryptor.ui.search_bar import SearchBar
 from transkryptor.ui.shortcuts import (

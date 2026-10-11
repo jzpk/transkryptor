@@ -58,6 +58,7 @@ from transkryptor.ui.editor import TranscriptionEditor
 from transkryptor.ui.file_dialogs import ask_save_path
 from transkryptor.ui.messages import show_error
 from transkryptor.ui.metadata_form import MetadataForm
+from transkryptor.ui.notation_controller import IgnoredWarnings
 from transkryptor.ui.player_bar import PlayerBar
 from transkryptor.ui.review import ReviewController
 from transkryptor.ui.settings_store import SettingsStore
@@ -78,6 +79,7 @@ class SessionController(QObject):
         player_bar: PlayerBar,
         asr_panel: AsrPanel,
         review: ReviewController,
+        ignored_warnings: IgnoredWarnings,
         author_edit: QLineEdit,
         date_edit: QDateEdit,
         metadata_form: MetadataForm,
@@ -97,6 +99,7 @@ class SessionController(QObject):
         self._player_bar = player_bar
         self._asr_panel = asr_panel
         self._review = review
+        self._ignored_warnings = ignored_warnings
         self._author_edit = author_edit
         self._date_edit = date_edit
         self._metadata_form = metadata_form
@@ -459,6 +462,7 @@ class SessionController(QObject):
             ),
             review=tuple(self._review.entries()),
             asr_context=AsrContext(prompt=prompt, vocabulary=vocabulary),
+            ignored_warnings=tuple(self._ignored_warnings.entries()),
         )
 
     # --- otwieranie projektu ---------------------------------------------------
@@ -560,6 +564,7 @@ class SessionController(QObject):
         self._asr_panel.set_audio_available(False)
         self._review.finish()
         self._editor.load_content(state.text, state.superscript_ranges)
+        self._ignored_warnings.restore(state.ignored_warnings)
         self._author_edit.setText(state.author)
         date = QDate.fromString(state.date, DATE_FORMAT)
         self._date_edit.setDate(

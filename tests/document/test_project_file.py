@@ -15,10 +15,12 @@ from transkryptor.document.project import (
     AsrDraft,
     AsrSegment,
     AudioRef,
+    IgnoredWarning,
     PlayerState,
     ProjectState,
     ReviewEntry,
     audio_ref,
+    dumps,
     file_sha256,
     load_project,
     loads,
@@ -153,6 +155,7 @@ class TestSchema:
             "schema_version": next_version,
             "document": {"text": "x"},
             "asr_context": {"prompt": "", "vocabulary": []},
+            "ignored_warnings": [],
             "nowe_pole": [],
         }
 
@@ -170,6 +173,29 @@ class TestSchema:
         assert state.text == "tekst"
         assert state.asr_context == AsrContext()
         assert state.asr is not None and state.asr.model is None
+
+    def test_version_2_project_has_no_ignored_warnings(self) -> None:
+        """Projekt z wydania 0.4.0 otwiera się bez zignorowanych ostrzeżeń."""
+        state = loads(json.dumps({"schema_version": 2, "document": {"text": "tekst"}}))
+        assert state.ignored_warnings == ()
+
+    def test_ignored_warnings_round_trip(self) -> None:
+        state = ProjectState(
+            text="a  b",
+            ignored_warnings=(IgnoredWarning("VAL-07", 1, 3, "  "),),
+        )
+        assert loads(dumps(state)).ignored_warnings == state.ignored_warnings
+
+    def test_ignored_warning_outside_text_is_invalid(self) -> None:
+        raw = json.dumps(
+            {
+                "schema_version": 3,
+                "document": {"text": "ab"},
+                "ignored_warnings": [{"code": "VAL-07", "start": 0, "end": 9}],
+            }
+        )
+        with pytest.raises(ProjectError):
+            loads(raw)
 
     def test_version_below_one_is_invalid(self) -> None:
         with pytest.raises(ProjectError):

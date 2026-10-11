@@ -7,6 +7,22 @@ Pusta sekcja blokuje wydanie.
 
 ## Nieopublikowane
 
+- Ostrzeżenia w tekście: problemy z notacją są podkreślone falistą linią
+  bezpośrednio w edytorze (pomarańczową — ostrzeżenia, szarą — wskazówki),
+  a po najechaniu myszą widać opis. Podkreślenia nie trafiają do DOCX.
+- Nowe reguły walidatora: `(!)` / `(?)` przylegające do następnego słowa
+  (VAL-06), kilka spacji z rzędu (VAL-07), spacja przed `]` (VAL-08),
+  zagnieżdżone dopiski `[ [ ] ]` (VAL-09) i indeks górny na znaku innym niż
+  `m`, `n`, `u` (VAL-10). Wskazówkę o `m`/`n`/`u` bez indeksu górnego
+  (VAL-11) można włączyć w ustawieniach — domyślnie jest wyłączona.
+- W **Ustawieniach…** nowa zakładka **Walidator**: każdą regułę można
+  włączyć albo wyłączyć.
+- **Ignoruj tutaj** w menu kontekstowym edytora i listy ostrzeżeń pomija
+  jedno konkretne ostrzeżenie; pozostałe wystąpienia tej reguły są nadal
+  zgłaszane. Zignorowanie jest zapisywane w pliku projektu. Projekty
+  z wersji 0.5.0 otwierają się bez zmian; projektu zapisanego w nowej
+  wersji nie otworzy już wersja 0.5.0.
+
 ## 0.5.0 — 2026-10-18
 
 - Szkic ASR jest dzielony na wersy obejmujące najwyżej 30 sekund nagrania,
