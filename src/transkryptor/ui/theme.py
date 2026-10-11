@@ -406,14 +406,14 @@ QToolButton#more_button::menu-indicator {{
     width: 0;
 }}
 
-QToolButton#rules_toggle {{
+QToolButton#rules_toggle, QToolButton#waveform_toggle {{
     color: {t.accent_text};
     padding: 3px 6px;
 }}
-QToolButton#rules_toggle:checked {{
+QToolButton#rules_toggle:checked, QToolButton#waveform_toggle:checked {{
     background: transparent;
 }}
-QToolButton#rules_toggle:hover {{
+QToolButton#rules_toggle:hover, QToolButton#waveform_toggle:hover {{
     background: {t.accent_soft};
 }}
 

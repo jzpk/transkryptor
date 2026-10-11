@@ -110,6 +110,16 @@ def isolated_autosave(monkeypatch, tmp_path):
 
 
 @pytest.fixture(autouse=True)
+def isolated_waveform_cache(monkeypatch, tmp_path):
+    """Obwiednie fali w katalogu tymczasowym, nie w pamięci podręcznej użytkownika."""
+    from transkryptor.audio import envelope
+
+    directory = tmp_path / "waveforms"
+    monkeypatch.setattr(envelope, "waveform_cache_dir", lambda: directory)
+    return directory
+
+
+@pytest.fixture(autouse=True)
 def isolated_rules(monkeypatch, tmp_path):
     """Reguły użytkownika w katalogu tymczasowym; zwraca ścieżkę pliku."""
     from transkryptor.ui import rules_store

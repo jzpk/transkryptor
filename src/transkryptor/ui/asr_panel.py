@@ -185,6 +185,7 @@ class AsrPanel(QWidget):
     # Wynik transkrypcji fragmentu (``TranscriptionResult``) do wstawienia
     # w miejscu kursora; nie zastępuje ostatniego szkicu całego nagrania.
     fragment_ready = Signal(object)
+    result_changed = Signal()  # nowy albo odtworzony wynik ASR całego nagrania
     model_changed = Signal(str)  # klucz modelu wybranego przez użytkownika
     context_changed = Signal()  # kontekst nagrania lub słownik projektu
 
@@ -927,6 +928,7 @@ class AsrPanel(QWidget):
         self._last_draft = draft_text(result)
         self._last_result = result
         self._last_model_key = self._running_model_key
+        self.result_changed.emit()
         self.device_label.setText(_device_text(result))
         if not result.text.strip():
             self.transcribe_status_label.setText(tr("asr.no_speech"))
@@ -986,6 +988,7 @@ class AsrPanel(QWidget):
         self.transcribe_status_label.setText(
             tr("asr.restored") if self._last_draft.strip() else ""
         )
+        self.result_changed.emit()
 
     def is_transcribing(self) -> bool:
         return self._transcribe_thread is not None

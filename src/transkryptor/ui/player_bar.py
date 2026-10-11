@@ -79,6 +79,7 @@ class PlayerBar(QFrame):
 
     import_requested = Signal(str)  # ścieżka wybranego nagrania
     media_available_changed = Signal(bool)
+    loop_points_changed = Signal()  # punkty A–B albo stan pętli
 
     def __init__(
         self,
@@ -213,6 +214,22 @@ class PlayerBar(QFrame):
             loop_b_ms=self._loop_b,
             loop_active=self._player.loop_range is not None,
         )
+
+    def set_waveform(self, widget: QWidget) -> None:
+        """Umieszcza falę dźwiękową pod suwakiem (faza 11)."""
+        layout = self.layout()
+        if layout is not None:
+            layout.addWidget(widget)
+
+    def set_loop_points(self, start_ms: int, end_ms: int) -> None:
+        """Ustawia punkty A–B i włącza pętlę (przeciągnięcie na fali)."""
+        if not self._has_media or end_ms <= start_ms:
+            return
+        duration = self._player.duration_ms
+        self._loop_a = max(0, start_ms)
+        self._loop_b = min(end_ms, duration) if duration > 0 else end_ms
+        self._player.set_loop(self._loop_a, self._loop_b)
+        self._update_loop_controls()
 
     def loop_points(self) -> tuple[int, int] | None:
         """Punkty A–B (ms), gdy oba są ustawione — zakres fragmentu dla ASR."""
@@ -356,6 +373,7 @@ class PlayerBar(QFrame):
         self.loop_button.setEnabled(self._has_media and self._loop_a is not None)
         self.loop_button.setChecked(active)
         self.loop_label.setText(format_loop(self._loop_a, self._loop_b))
+        self.loop_points_changed.emit()
 
     def _on_rate_changed(self, index: int) -> None:
         self._player.set_rate(PLAYBACK_RATES[index][1])

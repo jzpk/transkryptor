@@ -26,6 +26,7 @@ from transkryptor.i18n import tr
 from transkryptor.settings import MetadataSettings, ProjectSettings, Settings
 from transkryptor.ui.asr_panel import APPLIED_MARK, PENDING_MARK
 from transkryptor.ui.autosave import ORPHAN_MAX_AGE, RecoveryDialog
+from transkryptor.ui.highlights import REVIEW_LAYER
 from transkryptor.ui.main_window import DRAFT_REPLACE, MainWindow
 from transkryptor.ui.settings_dialog import SettingsDialog
 
@@ -169,7 +170,7 @@ class TestSaveAndOpen:
         labels = review_labels(reopened)
         assert labels[0].startswith(PENDING_MARK) and "od" in labels[0]
         assert labels[1].startswith(APPLIED_MARK)
-        assert len(reopened.editor.extraSelections()) == 1
+        assert len(reopened.editor.highlight_layer(REVIEW_LAYER)) == 1
         assert reopened.asr_panel.segments_list.count() == 2
         qtbot.waitUntil(lambda: reopened.player_bar.has_media, timeout=10000)
         qtbot.waitUntil(lambda: reopened.player.position_ms == 5000, timeout=5000)

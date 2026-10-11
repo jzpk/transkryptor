@@ -570,5 +570,10 @@
   "asr.fragment": "Rozpoznaj fragment A–B",
   "asr.fragment.tooltip": "Rozpoznaje tylko fragment nagrania między punktami A i B pętli (ustawionymi przyciskami A/B albo przeciągnięciem na fali). Wynik trafia w miejsce kursora albo zastępuje zaznaczony tekst.",
   "asr.fragment.no_range": "Ustaw punkty A i B pętli (albo zaznacz fragment na fali), aby rozpoznać fragment.",
-  "asr.fragment.ready": "Fragment rozpoznany i wstawiony w miejscu kursora."
+  "asr.fragment.ready": "Fragment rozpoznany i wstawiony w miejscu kursora.",
+  "waveform.title": "Fala dźwiękowa",
+  "waveform.toggle.tooltip": "Pokaż albo zwiń falę dźwiękową nagrania",
+  "waveform.tooltip": "Klik — przewiń nagranie; przeciągnij — ustaw pętlę A–B; Ctrl + kółko — powiększ; kółko — przewiń powiększoną falę",
+  "waveform.progress": "Analiza nagrania… {percent}%",
+  "waveform.failed": "Nie udało się odczytać fali tego nagrania — odtwarzanie działa normalnie."
 }

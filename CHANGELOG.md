@@ -83,6 +83,13 @@ Pusta sekcja blokuje wydanie.
   z regułami fonetycznymi i powiązaniem z czasem nagrania; jedno cofnięcie
   usuwa go w całości. Szkic całego nagrania i lista segmentów się nie
   zmieniają.
+- Fala dźwiękowa pod suwakiem odtwarzacza: widać ciszę, pauzy i głośne
+  fragmenty. Klik na fali przewija nagranie, przeciągnięcie ustawia pętlę
+  A–B, **Ctrl** + kółko myszy powiększa. Na fali są też segmenty szkicu ASR
+  (zielone — pewne, pomarańczowe — niepewne) i ręczne znaczniki czasu. Fala
+  powstaje w tle bez blokowania okna (godzina nagrania — kilkanaście
+  sekund) i jest zapamiętywana w pamięci podręcznej, więc przy kolejnym
+  otwarciu pojawia się od razu. Falę można zwinąć; wybór jest pamiętany.
 
 ## 0.5.0 — 2026-10-18
 

@@ -206,6 +206,7 @@ class SyncController(QObject):
         self._index = TimeIndex([item.anchor for item in self._items])
         self._active = None
         self._editor.set_highlight_layer(ACTIVE_LAYER, [])
+        self._update_active()
         self._editor.set_point_markers(
             [
                 QTextCursor(item.cursor)

@@ -95,6 +95,7 @@ from transkryptor.ui.theme import apply_theme, resolve_tokens, set_props, tokens
 from transkryptor.ui.toolbar import MainToolbar, ToolbarHandlers
 from transkryptor.ui.update_controller import UpdateController
 from transkryptor.ui.warnings_panel import WarningsPanel
+from transkryptor.ui.waveform import WaveformController, segment_spans
 
 # Stałe przeniesione do kontrolerów, re-eksportowane dla zgodności importów.
 __all__ = [
@@ -168,6 +169,13 @@ class MainWindow(QMainWindow):
             ellipsis_style=lambda: self._ellipsis_style,
             rules=lambda: self.rules_store.rules,
             sync=self.sync,
+        )
+        self.waveform = WaveformController(
+            self.player,
+            self.player_bar,
+            self.sync.manual_times_ms,
+            self._on_waveform_expanded,
+            self,
         )
         self.ignored_warnings = IgnoredWarnings(self.editor)
         self.session = SessionController(
@@ -382,6 +390,8 @@ class MainWindow(QMainWindow):
         self.asr_panel.model_changed.connect(self._on_asr_model_changed)
         self.asr_panel.context_changed.connect(self._on_asr_context_changed)
         self.sync.timestamps_edited.connect(self.session.project_data_changed)
+        self.sync.anchors_changed.connect(self.waveform.refresh_markers)
+        self.asr_panel.result_changed.connect(self._on_asr_result_changed)
         self.player.playback_error.connect(
             lambda error: self._show_error(tr("main.playback_error"), error)
         )
@@ -443,6 +453,7 @@ class MainWindow(QMainWindow):
         """Stosuje ustawienia do komponentów bez restartu (ACC-17)."""
         self._apply_theme(settings.appearance.theme)
         self.player_bar.apply_settings(settings.player)
+        self.waveform.panel.set_expanded(settings.player.waveform_visible)
         self.editor.apply_settings(settings.editor)
         self.metadata_form.set_fields(settings.metadata.fields)
         self.session.autosave.configure(settings.project)
@@ -499,6 +510,22 @@ class MainWindow(QMainWindow):
                 replace(current, asr=replace(current.asr, model_key=key))
             )
 
+    def _on_waveform_expanded(self, expanded: bool) -> None:
+        """Zwinięcie fali jest zapamiętywane w ustawieniach."""
+        current = self.settings_store.current
+        if current.player.waveform_visible != expanded:
+            self.settings_store.save(
+                replace(
+                    current, player=replace(current.player, waveform_visible=expanded)
+                )
+            )
+
+    def _on_asr_result_changed(self) -> None:
+        result = self.asr_panel.last_result
+        self.waveform.set_segments(
+            segment_spans(result.segments) if result is not None else []
+        )
+
     def _on_asr_context_changed(self) -> None:
         self.session.asr_context_changed()
 
@@ -516,6 +543,7 @@ class MainWindow(QMainWindow):
         apply_theme(app, target)
         icons.refresh(self)
         self.sync.refresh_theme()
+        self.waveform.view.update()
         # Ikony listy ostrzeżeń powstają przy walidacji.
         self.notation.schedule_validation()
 
@@ -581,6 +609,7 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event: QCloseEvent) -> None:
         """ACC-10: ostrzeżenie przed utratą pracy przy zamknięciu."""
         if self.session.can_close():
+            self.waveform.shutdown()
             event.accept()
         else:
             event.ignore()

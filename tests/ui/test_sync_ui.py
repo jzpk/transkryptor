@@ -108,6 +108,13 @@ class TestPlaybackFromText:
             timeout=2000,
         )
 
+    def test_highlight_survives_new_timestamp(self, window) -> None:
+        window._on_draft_ready(draft_result())
+        window.player.position_changed.emit(2500)
+        window.sync.insert_timestamp()
+        layer = window.editor.highlight_layer(ACTIVE_LAYER)
+        assert [s.cursor.selectedText() for s in layer] == ["Drugie zdanie."]
+
     def test_play_from_cursor_shortcut_uses_segment(self, window, playback) -> None:
         window._on_draft_ready(draft_result())
         cursor = window.editor.textCursor()

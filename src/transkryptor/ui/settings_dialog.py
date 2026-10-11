@@ -372,6 +372,8 @@ class SettingsDialog(QDialog):
         self.auto_rewind_spin.setEnabled(player.auto_rewind_enabled)
         self.preroll_spin.setValue(player.segment_preroll_ms / 1000)
         self.follow_playback_check.setChecked(player.follow_playback)
+        # Zwinięcie fali ustawia się nad falą — okno tylko je przenosi dalej.
+        self._waveform_visible = player.waveform_visible
 
         editor = settings.editor
         self.default_font_check.setChecked(not editor.font_family)
@@ -575,6 +577,7 @@ class SettingsDialog(QDialog):
                 auto_rewind_ms=_ms(self.auto_rewind_spin),
                 segment_preroll_ms=_ms(self.preroll_spin),
                 follow_playback=self.follow_playback_check.isChecked(),
+                waveform_visible=self._waveform_visible,
             ),
             editor=EditorSettings(
                 font_family=(

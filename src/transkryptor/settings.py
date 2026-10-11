@@ -42,6 +42,8 @@ class PlayerSettings:
     segment_preroll_ms: int = 500
     # Podczas odtwarzania edytor przewija się do aktywnego segmentu.
     follow_playback: bool = True
+    # Fala dźwiękowa rozwinięta pod suwakiem (zapamiętane zwinięcie).
+    waveform_visible: bool = True
 
 
 THEME_SYSTEM = "system"
@@ -318,6 +320,7 @@ _FIELDS: tuple[_Field, ...] = (
     _Field("player", "auto_rewind_ms", int, *AUTO_REWIND_RANGE_MS),
     _Field("player", "segment_preroll_ms", int, *SEGMENT_PREROLL_RANGE_MS),
     _Field("player", "follow_playback", bool),
+    _Field("player", "waveform_visible", bool),
     _Field("editor", "font_family", str),
     _Field("editor", "font_size_pt", int, *FONT_SIZE_RANGE_PT),
     _Field("editor", "autocomplete", bool),
