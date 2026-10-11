@@ -41,6 +41,7 @@ from transkryptor.ui.snippets import (
 from transkryptor.ui.theme import set_props
 
 SEQUENCE_COLUMNS = (1, 2)  # skrót główny i zapasowy
+KEY_COLUMN_WIDTH = 180  # mieści „Ctrl+Shift+Space” z przyciskiem czyszczenia
 
 
 def key_edit(sequence: str = "") -> QKeySequenceEdit:
@@ -78,6 +79,9 @@ class ShortcutsEditor(QWidget):
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         header = self.table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        for column in SEQUENCE_COLUMNS:
+            header.setSectionResizeMode(column, QHeaderView.ResizeMode.Fixed)
+            self.table.setColumnWidth(column, KEY_COLUMN_WIDTH)
         self.edits: dict[str, tuple[QKeySequenceEdit, QKeySequenceEdit]] = {}
         for row, definition in enumerate(SHORTCUT_ACTIONS):
             item = QTableWidgetItem(definition.label)
@@ -162,9 +166,10 @@ class SnippetsEditor(QWidget):
         self.table.verticalHeader().setVisible(False)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
-        self.table.horizontalHeader().setSectionResizeMode(
-            0, QHeaderView.ResizeMode.Stretch
-        )
+        header = self.table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)
+        self.table.setColumnWidth(1, KEY_COLUMN_WIDTH)
         self.table.itemChanged.connect(self._on_item_changed)
         self.add_button = QPushButton(tr("settings.snippets.add"))
         self.remove_button = QPushButton(tr("settings.snippets.remove"))

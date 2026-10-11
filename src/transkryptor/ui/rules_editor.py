@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QDoubleSpinBox,
     QFileDialog,
     QFormLayout,
+    QFrame,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -27,6 +28,7 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QMessageBox,
     QPushButton,
+    QScrollArea,
     QVBoxLayout,
     QWidget,
 )
@@ -77,7 +79,11 @@ class RulesEditor(QWidget):
         set_props(hint, role="muted")
 
         self.rule_list = QListWidget()
-        self.rule_list.setMinimumHeight(120)
+        self.rule_list.setMinimumHeight(110)
+        self.rule_list.setWordWrap(True)
+        self.rule_list.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
         self.rule_list.currentRowChanged.connect(self._on_row_changed)
 
         self.code_edit = QLineEdit()
@@ -158,15 +164,28 @@ class RulesEditor(QWidget):
         ):
             buttons.addWidget(button)
 
+        details = QWidget()
+        details_layout = QVBoxLayout(details)
+        details_layout.setContentsMargins(0, 0, 8, 0)
+        details_layout.addLayout(form)
+        details_layout.addStretch(1)
+        # Formularz przewija się w niskim oknie zamiast ściskać pola.
+        scroll = QScrollArea()
+        scroll.setWidget(details)
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
         layout.addWidget(hint)
         layout.addWidget(self.rule_list, stretch=1)
         layout.addLayout(buttons)
-        layout.addLayout(form)
+        # Podgląd nad formularzem — widoczny bez przewijania.
         layout.addWidget(self.preview_label)
         layout.addWidget(self.matches_label)
         layout.addWidget(self.error_label)
+        layout.addWidget(scroll, stretch=2)
 
         self._refresh_list()
         self.rule_list.setCurrentRow(0 if self.rule_list.count() else -1)

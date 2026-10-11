@@ -334,6 +334,7 @@ class SettingsDialog(QDialog):
         layout.addWidget(self.tabs, stretch=1)
         layout.addWidget(buttons)
         self.setMinimumSize(560, 480)
+        self.resize(860, 680)
 
         self._initial_ellipsis_style = settings.notation.ellipsis_style
         self._initial_language = settings.appearance.language
