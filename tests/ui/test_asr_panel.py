@@ -775,6 +775,13 @@ class TestContextAndVocabulary:
         assert options.hotwords == "Oborniki Ocieszyn Rożnowo"
         assert "haseł: 2" in panel.vocabulary_hint.text()
 
+    def test_chunked_option_follows_settings(self, panel) -> None:
+        from transkryptor.settings import AsrSettings
+
+        assert panel.decoding_options().chunked is False
+        panel.set_asr_settings(AsrSettings(chunked=True))
+        assert panel.decoding_options().chunked is True
+
     def test_empty_context_is_not_sent(self, panel) -> None:
         options = panel.decoding_options()
         assert options.initial_prompt is None

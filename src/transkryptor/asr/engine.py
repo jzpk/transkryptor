@@ -10,23 +10,51 @@ Dekodowanie audio (MP3, WAV, FLAC, AAC itd.) realizuje faster-whisper przez PyAV
 Urządzenie ``auto`` używa karty CUDA, gdy CTranslate2 ją widzi; błąd
 ładowania modelu lub pierwszego dekodowania na GPU (np. brak bibliotek
 cuBLAS/cuDNN) powoduje ponowienie na CPU z informacją w wyniku (ACC-37).
+
+faster-whisper liczy cechy (spektrogram) dla całego podanego nagrania naraz,
+więc zużycie pamięci rośnie liniowo z jego długością — godzinne nagranie
+potrafi zająć kilka GB. Opcja ``DecodingOptions.chunked`` włącza
+:class:`ChunkedWhisperBackend`, który dekoduje plik raz i podaje modelowi
+kolejne kilkuminutowe fragmenty cięte w ciszy, dzięki czemu szczyt pamięci
+nie zależy od długości nagrania.
 """
 
 from __future__ import annotations
 
 import itertools
 import math
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Protocol
+from types import SimpleNamespace
+from typing import TYPE_CHECKING, Any, Protocol
 
 from transkryptor.asr.models import DEFAULT_MODEL, AsrModelInfo
 from transkryptor.asr.system import cuda_device_count
 from transkryptor.errors import AppError, ModelDownloadError
 from transkryptor.i18n import tr
 
+if TYPE_CHECKING:
+    import numpy as np
+    import numpy.typing as npt
+
 LANGUAGE = "pl"
+SAMPLE_RATE = 16_000
+# Długość fragmentu przy transkrypcji fragmentami. Szczyt pamięci cech dla
+# 5 minut to ok. 0,3 GB; dłuższe fragmenty nie poprawiają jakości (Whisper
+# i tak pracuje w oknach 30 s), a krótsze mnożą cięcia.
+CHUNK_S = 300.0
+# Okno przed nominalnym końcem fragmentu, w którym szukamy najcichszego
+# miejsca na cięcie, żeby nie przecinać słów.
+CUT_SEARCH_S = 20.0
+CUT_FRAME_S = 0.1
+# Fragmenty natywnych komunikatów o braku pamięci (CTranslate2/MKL, C++, numpy).
+_OUT_OF_MEMORY_MARKERS = (
+    "failed to allocate",
+    "bad_alloc",
+    "out of memory",
+    "unable to allocate",
+)
 
 DEVICES = ("auto", "cpu")
 # Limit podpowiedzi kontekstowej i słownika: okno promptu Whispera to
@@ -71,12 +99,14 @@ class DecodingOptions:
     """Parametry transkrypcji wybrane przez użytkownika (REQ-10, REQ-21).
 
     ``initial_prompt`` i ``hotwords`` trafiają do Whispera tylko, gdy nie są
-    puste — bez nich zachowanie jest takie jak przed fazą 09.
+    puste — bez nich zachowanie jest takie jak przed fazą 09. ``chunked``
+    włącza transkrypcję fragmentami (mniej pamięci przy długich nagraniach).
     """
 
     device: str = "auto"
     initial_prompt: str | None = None
     hotwords: str | None = None
+    chunked: bool = False
 
 
 CancelCheck = Callable[[], bool]
@@ -152,7 +182,7 @@ def transcribe(
     try:
         try:
             raw_segments, info = _start(
-                factory, model_path, device, audio, language, extra
+                factory, model_path, device, audio, language, extra, decoding.chunked
             )
         except (ModelDownloadError, TranscriptionCancelled):
             raise
@@ -161,19 +191,16 @@ def transcribe(
                 raise
             device, device_note = "cpu", _short(error)
             raw_segments, info = _start(
-                factory, model_path, device, audio, language, extra
+                factory, model_path, device, audio, language, extra, decoding.chunked
             )
     except (ModelDownloadError, TranscriptionCancelled):
         raise
     except Exception as error:  # noqa: BLE001 — normalizacja do AppError
-        raise TranscriptionError(
-            user_message=tr("asr.error.transcribe", reason=error),
-            retry_hint=tr("asr.error.transcribe.hint"),
-        ) from error
+        raise transcription_error(error) from error
     duration = float(getattr(info, "duration", 0) or 0)
     progress = 0.0
     segments: list[SegmentResult] = []
-    for raw in raw_segments:
+    for raw in _guarded(raw_segments):
         if cancel():
             raise TranscriptionCancelled()
         segment = SegmentResult(
@@ -207,14 +234,17 @@ def _start(
     audio: Path,
     language: str,
     extra: dict[str, Any],
+    chunked: bool = False,
 ) -> tuple[Iterable[Any], Any]:
-    """Ładuje backend i uruchamia dekodowanie.
+    """Ładuje backend i uruchamia dekodowanie (opcjonalnie fragmentami).
 
     Na GPU pierwszy segment jest pobierany od razu: brak bibliotek CUDA
     ujawnia się dopiero przy pierwszym kodowaniu, a wtedy można jeszcze
     bezpiecznie przejść na CPU.
     """
     backend = factory(model_path, device)
+    if chunked:
+        backend = ChunkedWhisperBackend(backend)
     raw_segments, info = backend.transcribe(
         str(audio), language=language, vad_filter=True, **extra
     )
@@ -225,6 +255,44 @@ def _start(
     if first is None:
         return (), info
     return itertools.chain((first,), iterator), info
+
+
+def _guarded(raw_segments: Iterable[Any]) -> Iterator[Any]:
+    """Iteruje segmenty backendu, normalizując jego błędy do AppError.
+
+    faster-whisper dekoduje leniwie, więc błąd (np. brak pamięci) może
+    wystąpić dopiero przy pobieraniu kolejnego segmentu.
+    """
+    iterator = iter(raw_segments)
+    while True:
+        try:
+            raw = next(iterator)
+        except StopIteration:
+            return
+        except Exception as error:  # noqa: BLE001 — normalizacja do AppError
+            raise transcription_error(error) from error
+        yield raw
+
+
+def transcription_error(error: Exception) -> TranscriptionError:
+    """Buduje komunikat dla użytkownika; brak pamięci dostaje własny."""
+    if is_out_of_memory(error):
+        return TranscriptionError(
+            user_message=tr("asr.error.out_of_memory"),
+            retry_hint=tr("asr.error.out_of_memory.hint"),
+        )
+    return TranscriptionError(
+        user_message=tr("asr.error.transcribe", reason=error),
+        retry_hint=tr("asr.error.transcribe.hint"),
+    )
+
+
+def is_out_of_memory(error: BaseException) -> bool:
+    """Czy wyjątek oznacza brak pamięci (Python lub natywne biblioteki)."""
+    if isinstance(error, MemoryError):
+        return True
+    message = str(error).lower()
+    return any(marker in message for marker in _OUT_OF_MEMORY_MARKERS)
 
 
 def _short(error: Exception) -> str:
@@ -263,6 +331,106 @@ def _confidence(avg_logprob: float) -> float:
     return round(min(1.0, max(0.0, math.exp(avg_logprob))), 3)
 
 
+def chunk_bounds(
+    samples: npt.NDArray[np.float32],
+    *,
+    sample_rate: int = SAMPLE_RATE,
+    chunk_s: float = CHUNK_S,
+    search_s: float = CUT_SEARCH_S,
+) -> list[tuple[int, int]]:
+    """Dzieli nagranie na przylegające fragmenty ``[start, end)`` w próbkach.
+
+    Każdy fragment ma najwyżej ``chunk_s`` sekund. Cięcie wypada w najcichszej
+    ramce (najniższa energia RMS) w ostatnich ``search_s`` sekundach przed
+    nominalnym końcem fragmentu, żeby nie przecinać słów.
+    """
+    import numpy as np
+
+    total = len(samples)
+    chunk = int(chunk_s * sample_rate)
+    search = min(int(search_s * sample_rate), chunk // 2)
+    frame = max(1, int(CUT_FRAME_S * sample_rate))
+    bounds: list[tuple[int, int]] = []
+    start = 0
+    while total - start > chunk:
+        window_start = start + chunk - search
+        window = samples[window_start : start + chunk]
+        frames = len(window) // frame
+        energy = np.square(window[: frames * frame].reshape(frames, frame)).mean(axis=1)
+        # Tniemy w środku najcichszej ramki.
+        cut = window_start + int(np.argmin(energy)) * frame + frame // 2
+        bounds.append((start, cut))
+        start = cut
+    if start < total or not bounds:
+        bounds.append((start, total))
+    return bounds
+
+
+@dataclass(frozen=True)
+class _ShiftedSegment:
+    start: float
+    end: float
+    text: str
+    avg_logprob: float
+
+
+class ChunkedWhisperBackend:
+    """Backend zgodny z :class:`Backend`, transkrybujący nagranie fragmentami.
+
+    Nagranie jest dekodowane raz (ok. 0,25 GB na godzinę), a model dostaje
+    kolejne fragmenty jako tablice próbek; czasy segmentów są przesuwane
+    o początek fragmentu.
+    """
+
+    def __init__(
+        self,
+        model: Any,
+        *,
+        decode: Callable[[str], npt.NDArray[np.float32]] | None = None,
+        chunk_s: float = CHUNK_S,
+    ) -> None:
+        self._model = model
+        self._decode = decode or _decode_audio
+        self._chunk_s = chunk_s
+
+    def transcribe(
+        self, audio: str, /, *, language: str, vad_filter: bool, **extra: Any
+    ) -> tuple[Iterable[Any], Any]:
+        samples = self._decode(audio)
+        info = SimpleNamespace(language=language, duration=len(samples) / SAMPLE_RATE)
+        bounds = chunk_bounds(samples, chunk_s=self._chunk_s)
+        segments = self._segments(samples, bounds, language, vad_filter, extra)
+        return segments, info
+
+    def _segments(
+        self,
+        samples: npt.NDArray[np.float32],
+        bounds: list[tuple[int, int]],
+        language: str,
+        vad_filter: bool,
+        extra: dict[str, Any],
+    ) -> Iterator[_ShiftedSegment]:
+        for start, end in bounds:
+            offset = start / SAMPLE_RATE
+            raw_segments, _info = self._model.transcribe(
+                samples[start:end], language=language, vad_filter=vad_filter, **extra
+            )
+            for raw in raw_segments:
+                yield _ShiftedSegment(
+                    start=float(raw.start) + offset,
+                    end=float(raw.end) + offset,
+                    text=raw.text,
+                    avg_logprob=float(raw.avg_logprob),
+                )
+
+
+def _decode_audio(audio: str) -> npt.NDArray[np.float32]:
+    from faster_whisper.audio import decode_audio
+
+    samples: npt.NDArray[np.float32] = decode_audio(audio, sampling_rate=SAMPLE_RATE)
+    return samples
+
+
 def faster_whisper_backend(model_dir: Path, device: str = "cpu") -> Backend:
     """Ładuje model faster-whisper wyłącznie z lokalnych plików (offline)."""
     from faster_whisper import WhisperModel
@@ -277,11 +445,15 @@ def faster_whisper_backend(model_dir: Path, device: str = "cpu") -> Backend:
 
 __all__ = [
     "Backend",
+    "ChunkedWhisperBackend",
     "DecodingOptions",
     "build_hotwords",
     "SegmentResult",
     "TranscriptionCancelled",
     "TranscriptionError",
     "TranscriptionResult",
+    "chunk_bounds",
+    "is_out_of_memory",
     "transcribe",
+    "transcription_error",
 ]

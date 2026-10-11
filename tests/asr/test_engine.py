@@ -3,16 +3,19 @@
 from pathlib import Path
 from types import SimpleNamespace
 
+import numpy as np
 import pytest
 
 from transkryptor.asr import engine
 from transkryptor.asr.engine import (
     PROMPT_MAX_CHARS,
+    ChunkedWhisperBackend,
     DecodingOptions,
     SegmentResult,
     TranscriptionCancelled,
     TranscriptionError,
     build_hotwords,
+    chunk_bounds,
     transcribe,
 )
 from transkryptor.asr.models import DEFAULT_MODEL
@@ -292,6 +295,166 @@ class TestDevice:
             transcribe(
                 make_audio(tmp_path), make_model_dir(tmp_path), backend_factory=factory
             )
+
+
+class TestOutOfMemory:
+    """Brak pamięci dostaje własny komunikat zamiast „pobierz model ponownie”."""
+
+    @pytest.mark.parametrize(
+        "error",
+        [
+            RuntimeError("mkl_malloc: failed to allocate memory"),
+            MemoryError(),
+            RuntimeError("std::bad_alloc"),
+        ],
+    )
+    def test_out_of_memory_on_start(self, tmp_path, error) -> None:
+        class Backend:
+            def transcribe(self, audio_path, language, vad_filter):
+                raise error
+
+        with pytest.raises(TranscriptionError) as exc_info:
+            transcribe(
+                make_audio(tmp_path),
+                make_model_dir(tmp_path),
+                backend_factory=lambda path, device: Backend(),
+            )
+        assert "pamięci" in exc_info.value.user_message
+        assert "fragmentami" in exc_info.value.retry_hint
+
+    def test_out_of_memory_while_iterating_segments(self, tmp_path) -> None:
+        """faster-whisper liczy leniwie: błąd może paść przy kolejnym segmencie."""
+
+        def segments():
+            yield SimpleNamespace(start=0.0, end=1.0, text="Raz.", avg_logprob=-0.1)
+            raise RuntimeError("mkl_malloc: failed to allocate memory")
+
+        class Backend:
+            def transcribe(self, audio_path, language, vad_filter):
+                return segments(), SimpleNamespace(language=language)
+
+        with pytest.raises(TranscriptionError, match="pamięci"):
+            transcribe(
+                make_audio(tmp_path),
+                make_model_dir(tmp_path),
+                backend_factory=lambda path, device: Backend(),
+            )
+
+    def test_other_errors_keep_generic_message(self, tmp_path) -> None:
+        def segments():
+            raise RuntimeError("uszkodzony plik")
+            yield  # pragma: no cover
+
+        class Backend:
+            def transcribe(self, audio_path, language, vad_filter):
+                return segments(), SimpleNamespace(language=language)
+
+        with pytest.raises(TranscriptionError, match="uszkodzony plik"):
+            transcribe(
+                make_audio(tmp_path),
+                make_model_dir(tmp_path),
+                backend_factory=lambda path, device: Backend(),
+            )
+
+
+class ChunkModel:
+    """Imitacja WhisperModel dla fragmentów: zapisuje długości i parametry."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[int, dict]] = []
+
+    def transcribe(self, samples, **kwargs):
+        assert isinstance(samples, np.ndarray)  # fragment, nie ścieżka pliku
+        self.calls.append((len(samples), kwargs))
+        segment = SimpleNamespace(
+            start=1.0,
+            end=2.0,
+            text=f" Fragment {len(self.calls)}.",
+            avg_logprob=-0.1,
+        )
+        return iter([segment]), SimpleNamespace(language=kwargs["language"])
+
+
+class TestChunking:
+    """Długie nagranie może trafić do modelu w fragmentach ciętych w ciszy."""
+
+    RATE = 16_000
+
+    def test_short_audio_is_a_single_chunk(self) -> None:
+        samples = np.ones(self.RATE * 10, dtype=np.float32)
+        assert chunk_bounds(samples, chunk_s=60) == [(0, len(samples))]
+
+    def test_empty_audio_is_a_single_empty_chunk(self) -> None:
+        assert chunk_bounds(np.zeros(0, dtype=np.float32)) == [(0, 0)]
+
+    def test_chunks_cover_audio_and_cut_in_silence(self) -> None:
+        samples = np.ones(self.RATE * 250, dtype=np.float32)
+        # Cisza w oknie poszukiwań przed końcem pierwszego fragmentu (100 s).
+        silence = (self.RATE * 92, self.RATE * 93)
+        samples[silence[0] : silence[1]] = 0.0
+        bounds = chunk_bounds(samples, chunk_s=100, search_s=20)
+
+        assert bounds[0][0] == 0
+        assert bounds[-1][1] == len(samples)
+        for (_, end), (start, _) in zip(bounds, bounds[1:], strict=False):
+            assert end == start  # fragmenty przylegają, nic nie ginie
+        for start, end in bounds:
+            assert end - start <= self.RATE * 100
+        assert silence[0] <= bounds[0][1] < silence[1]
+
+    def test_backend_shifts_segment_times_by_chunk_offset(self) -> None:
+        model = ChunkModel()
+        samples = np.ones(self.RATE * 25, dtype=np.float32)
+        backend = ChunkedWhisperBackend(model, decode=lambda path: samples, chunk_s=10)
+        raw_segments, info = backend.transcribe(
+            "nagranie.mp3", language="pl", vad_filter=True, hotwords="Ocieszyn"
+        )
+        assert info.duration == pytest.approx(25.0)
+        assert model.calls == []  # model pracuje leniwie, fragment po fragmencie
+
+        segments = list(raw_segments)
+        lengths = [length for length, _ in model.calls]
+        assert len(segments) == len(lengths) >= 3
+        assert sum(lengths) == len(samples)
+        assert segments[0].start == pytest.approx(1.0)
+        assert segments[1].start == pytest.approx(1.0 + lengths[0] / self.RATE)
+        assert segments[-1].text == f" Fragment {len(lengths)}."
+        for _, kwargs in model.calls:  # kontekst i słownik w każdym fragmencie
+            assert kwargs == {
+                "language": "pl",
+                "vad_filter": True,
+                "hotwords": "Ocieszyn",
+            }
+
+    def test_engine_passes_file_path_by_default(self, tmp_path) -> None:
+        """Bez opcji backend dostaje całe nagranie jako ścieżkę (jak dotąd)."""
+        seen: list = []
+
+        class Backend:
+            def transcribe(self, audio, language, vad_filter):
+                seen.append(audio)
+                return iter(()), SimpleNamespace(language=language)
+
+        audio = make_audio(tmp_path)
+        transcribe(
+            audio, make_model_dir(tmp_path), backend_factory=lambda p, d: Backend()
+        )
+        assert seen == [str(audio)]
+
+    def test_engine_chunks_when_option_enabled(self, tmp_path, monkeypatch) -> None:
+        samples = np.ones(self.RATE * 700, dtype=np.float32)
+        monkeypatch.setattr(engine, "_decode_audio", lambda path: samples)
+        model = ChunkModel()
+        result = transcribe(
+            make_audio(tmp_path),
+            make_model_dir(tmp_path),
+            backend_factory=lambda path, device: model,
+            options=DecodingOptions(chunked=True),
+        )
+        assert len(model.calls) == 3  # 700 s w fragmentach po najwyżej 300 s
+        assert sum(length for length, _ in model.calls) == len(samples)
+        last_offset = sum(length for length, _ in model.calls[:-1]) / self.RATE
+        assert result.segments[-1].start_s == pytest.approx(1.0 + last_offset)
 
 
 class TestCancellation:

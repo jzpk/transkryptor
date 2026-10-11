@@ -160,7 +160,11 @@ def test_asr_settings_defaults_and_round_trip() -> None:
     from transkryptor.settings import AsrSettings
 
     assert Settings().asr == AsrSettings(
-        model_key="medium", models_root="", device="auto", vocabulary=""
+        model_key="medium",
+        models_root="",
+        device="auto",
+        vocabulary="",
+        chunked=False,
     )
     settings = Settings(
         asr=AsrSettings(
@@ -168,6 +172,7 @@ def test_asr_settings_defaults_and_round_trip() -> None:
             models_root="/mnt/dysk/modele",
             device="cpu",
             vocabulary="Ocieszyn\nOborniki",
+            chunked=True,
         )
     )
     restored = from_mapping(to_mapping(settings))

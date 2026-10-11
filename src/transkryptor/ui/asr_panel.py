@@ -202,6 +202,7 @@ class AsrPanel(QWidget):
         self._audio_available = False
         self._segment_preroll_ms = DEFAULT_SEGMENT_PREROLL_MS
         self._device = "auto"
+        self._chunked = False
         # Katalog modeli z ostatnio zastosowanych ustawień (None — jeszcze
         # nie stosowano; do tego czasu obowiązuje katalog menedżera).
         self._models_root_setting: str | None = None
@@ -489,6 +490,7 @@ class AsrPanel(QWidget):
     def set_asr_settings(self, settings: AsrSettings) -> None:
         """Stosuje ustawienia ASR: model, katalog modeli, urządzenie, słownik."""
         self._device = settings.device
+        self._chunked = settings.chunked
         self._global_vocabulary = settings.vocabulary_words
         self._update_vocabulary_hint()
         if self.is_downloading() or self.is_transcribing():
@@ -623,6 +625,7 @@ class AsrPanel(QWidget):
             device=self._device,
             initial_prompt=prompt or None,
             hotwords=build_hotwords(self._global_vocabulary, vocabulary),
+            chunked=self._chunked,
         )
 
     def _on_context_edited(self) -> None:

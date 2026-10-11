@@ -125,6 +125,7 @@ class TestSettingsDialog:
         assert tab_of(dialog.metadata_table) == "Metryczka"
         assert tab_of(dialog.device_combo) == "ASR"
         assert tab_of(dialog.vocabulary_edit) == "ASR"
+        assert tab_of(dialog.chunked_check) == "ASR"
         assert tab_of(dialog.models_root_edit) == "ASR"
 
     def test_asr_settings_round_trip_and_keep_model(self, qtbot) -> None:
@@ -143,11 +144,14 @@ class TestSettingsDialog:
         dialog.vocabulary_edit.setPlainText(" Rożnowo \n\nOcieszyn")
         dialog.models_root_default_button.click()
         dialog.device_combo.setCurrentIndex(dialog.device_combo.findData("auto"))
+        assert not dialog.chunked_check.isChecked()  # domyślnie wyłączone
+        dialog.chunked_check.setChecked(True)
         assert dialog.settings().asr == AsrSettings(
             model_key="small",
             models_root="",
             device="auto",
             vocabulary="Rożnowo\nOcieszyn",
+            chunked=True,
         )
 
     def test_theme_choice(self, qtbot) -> None:

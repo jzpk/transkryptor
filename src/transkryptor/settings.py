@@ -115,6 +115,8 @@ class AsrSettings:
     models_root: str = ""
     device: str = "auto"
     vocabulary: str = ""
+    # Transkrypcja fragmentami: mniej pamięci RAM przy długich nagraniach.
+    chunked: bool = False
 
     @property
     def vocabulary_words(self) -> tuple[str, ...]:
@@ -184,6 +186,7 @@ _FIELDS: tuple[_Field, ...] = (
     _Field("asr", "models_root", str),
     _Field("asr", "device", str, choices=DEVICES),
     _Field("asr", "vocabulary", str),
+    _Field("asr", "chunked", bool),
 )
 
 

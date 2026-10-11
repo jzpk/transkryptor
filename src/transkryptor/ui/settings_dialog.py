@@ -236,6 +236,10 @@ class SettingsDialog(QDialog):
         device_hint = QLabel(tr("settings.asr.device.hint"))
         device_hint.setWordWrap(True)
         set_props(device_hint, role="muted")
+        self.chunked_check = QCheckBox(tr("settings.asr.chunked"))
+        chunked_hint = QLabel(tr("settings.asr.chunked.hint"))
+        chunked_hint.setWordWrap(True)
+        set_props(chunked_hint, role="muted")
         self.vocabulary_edit = QPlainTextEdit()
         self.vocabulary_edit.setPlaceholderText(
             tr("settings.asr.vocabulary.placeholder")
@@ -249,6 +253,8 @@ class SettingsDialog(QDialog):
         asr_form.addRow(models_root_hint)
         asr_form.addRow(tr("settings.asr.device"), self.device_combo)
         asr_form.addRow(device_hint)
+        asr_form.addRow(self.chunked_check)
+        asr_form.addRow(chunked_hint)
         asr_form.addRow(tr("settings.asr.vocabulary"), self.vocabulary_edit)
         asr_form.addRow(vocabulary_hint)
 
@@ -323,6 +329,7 @@ class SettingsDialog(QDialog):
         self.models_root_edit.setText(settings.asr.models_root)
         index = self.device_combo.findData(settings.asr.device)
         self.device_combo.setCurrentIndex(max(index, 0))
+        self.chunked_check.setChecked(settings.asr.chunked)
         self.vocabulary_edit.setPlainText(settings.asr.vocabulary)
 
     # --- metryczka -----------------------------------------------------------
@@ -478,6 +485,7 @@ class SettingsDialog(QDialog):
                 vocabulary="\n".join(
                     split_vocabulary(self.vocabulary_edit.toPlainText())
                 ),
+                chunked=self.chunked_check.isChecked(),
             ),
         )
 
