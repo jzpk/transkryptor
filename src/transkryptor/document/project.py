@@ -64,11 +64,21 @@ class PlayerState:
 
 
 @dataclass(frozen=True)
+class AsrWord:
+    start_s: float
+    end_s: float
+    text: str
+    probability: float
+
+
+@dataclass(frozen=True)
 class AsrSegment:
     start_s: float
     end_s: float
     text: str
     confidence: float
+    # Słowa z czasami (schemat 4; puste, gdy ASR ich nie liczył).
+    words: tuple[AsrWord, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -189,15 +199,7 @@ def to_dict(state: ProjectState, project_path: Path | None = None) -> dict[str, 
                 "text": state.asr.text,
                 "language": state.asr.language,
                 "model": state.asr.model,
-                "segments": [
-                    {
-                        "start_s": s.start_s,
-                        "end_s": s.end_s,
-                        "text": s.text,
-                        "confidence": s.confidence,
-                    }
-                    for s in state.asr.segments
-                ],
+                "segments": [_segment_dict(s) for s in state.asr.segments],
             }
         ),
         "review": [
@@ -229,6 +231,26 @@ def to_dict(state: ProjectState, project_path: Path | None = None) -> dict[str, 
         ],
         "anchors": [_anchor_dict(a) for a in state.anchors],
     }
+
+
+def _segment_dict(segment: AsrSegment) -> dict[str, Any]:
+    data: dict[str, Any] = {
+        "start_s": segment.start_s,
+        "end_s": segment.end_s,
+        "text": segment.text,
+        "confidence": segment.confidence,
+    }
+    if segment.words:
+        data["words"] = [
+            {
+                "start_s": w.start_s,
+                "end_s": w.end_s,
+                "text": w.text,
+                "probability": w.probability,
+            }
+            for w in segment.words
+        ]
+    return data
 
 
 def _anchor_dict(anchor: Anchor) -> dict[str, Any]:
@@ -507,6 +529,15 @@ def _parse(data: dict[str, Any]) -> ProjectState:
                     end_s=_float(s["end_s"]),
                     text=_str(s["text"]),
                     confidence=_float(s["confidence"]),
+                    words=tuple(
+                        AsrWord(
+                            start_s=_float(w["start_s"]),
+                            end_s=_float(w["end_s"]),
+                            text=_str(w["text"]),
+                            probability=_float(w["probability"]),
+                        )
+                        for w in map(_dict, _list(s.get("words", [])))
+                    ),
                 )
                 for s in map(_dict, _list(asr_dict.get("segments", [])))
             ),

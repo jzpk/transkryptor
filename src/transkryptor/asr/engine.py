@@ -75,13 +75,31 @@ class TranscriptionError(AppError):
 
 
 @dataclass(frozen=True)
+class WordResult:
+    """Słowo hipotezy z czasem i prawdopodobieństwem Whispera (0.0–1.0).
+
+    ``text`` zawiera spację wiodącą jak w Whisperze (``" kota"``).
+    """
+
+    start_s: float
+    end_s: float
+    text: str
+    probability: float
+
+
+@dataclass(frozen=True)
 class SegmentResult:
-    """Fragment hipotezy z czasem i przybliżoną pewnością (0.0–1.0)."""
+    """Fragment hipotezy z czasem i przybliżoną pewnością (0.0–1.0).
+
+    ``words`` — słowa z czasami, gdy transkrypcja liczyła je
+    (``DecodingOptions.word_timestamps``).
+    """
 
     start_s: float
     end_s: float
     text: str
     confidence: float
+    words: tuple[WordResult, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -141,12 +159,15 @@ class DecodingOptions:
     ``initial_prompt`` i ``hotwords`` trafiają do Whispera tylko, gdy nie są
     puste — bez nich zachowanie jest takie jak przed fazą 09. ``chunked``
     włącza transkrypcję fragmentami (mniej pamięci przy długich nagraniach).
+    ``word_timestamps`` dodaje do segmentów słowa z czasami i pewnością
+    (faza 11).
     """
 
     device: str = "auto"
     initial_prompt: str | None = None
     hotwords: str | None = None
     chunked: bool = False
+    word_timestamps: bool = False
 
 
 CancelCheck = Callable[[], bool]
@@ -159,8 +180,10 @@ class Backend(Protocol):
 
     Zwraca parę (iterowalne_segmenty, info); segmenty mają ``start``,
     ``end``, ``text`` i ``avg_logprob``, a info opcjonalnie ``language``
-    i ``duration``. Niepuste ``initial_prompt`` i ``hotwords`` są
-    przekazywane dodatkowo jako argumenty nazwane.
+    i ``duration``. Niepuste ``initial_prompt`` i ``hotwords`` oraz
+    ``word_timestamps=True`` są przekazywane dodatkowo jako argumenty
+    nazwane; segmenty mają wtedy ``words`` (``start``, ``end``, ``word``,
+    ``probability``).
     """
 
     def transcribe(
@@ -217,6 +240,8 @@ def transcribe(
         extra["initial_prompt"] = decoding.initial_prompt
     if decoding.hotwords:
         extra["hotwords"] = decoding.hotwords
+    if decoding.word_timestamps:
+        extra["word_timestamps"] = True
     device = "cuda" if decoding.device == "auto" and cuda_device_count() else "cpu"
     device_note: str | None = None
     try:
@@ -248,6 +273,7 @@ def transcribe(
             end_s=float(raw.end),
             text=raw.text,
             confidence=_confidence(raw.avg_logprob),
+            words=_words(raw),
         )
         segments.append(segment)
         if on_segment is not None:
@@ -366,6 +392,19 @@ def build_hotwords(*vocabularies: Iterable[str]) -> str | None:
     return " ".join(words) or None
 
 
+def _words(raw: Any, offset: float = 0.0) -> tuple[WordResult, ...]:
+    """Słowa segmentu backendu (puste, gdy nie liczono ich czasów)."""
+    return tuple(
+        WordResult(
+            start_s=float(word.start) + offset,
+            end_s=float(word.end) + offset,
+            text=str(word.word),
+            probability=round(float(word.probability), 3),
+        )
+        for word in getattr(raw, "words", None) or ()
+    )
+
+
 def _confidence(avg_logprob: float) -> float:
     """Przybliżona pewność segmentu z logarytmu prawdopodobieństwa."""
     return round(min(1.0, max(0.0, math.exp(avg_logprob))), 3)
@@ -407,11 +446,20 @@ def chunk_bounds(
 
 
 @dataclass(frozen=True)
+class _ShiftedWord:
+    start: float
+    end: float
+    word: str
+    probability: float
+
+
+@dataclass(frozen=True)
 class _ShiftedSegment:
     start: float
     end: float
     text: str
     avg_logprob: float
+    words: tuple[_ShiftedWord, ...] = ()
 
 
 class ChunkedWhisperBackend:
@@ -461,6 +509,10 @@ class ChunkedWhisperBackend:
                     end=float(raw.end) + offset,
                     text=raw.text,
                     avg_logprob=float(raw.avg_logprob),
+                    words=tuple(
+                        _ShiftedWord(w.start_s, w.end_s, w.text, w.probability)
+                        for w in _words(raw, offset)
+                    ),
                 )
 
 
@@ -489,6 +541,7 @@ __all__ = [
     "DecodingOptions",
     "build_hotwords",
     "SegmentResult",
+    "WordResult",
     "TranscriptionCancelled",
     "TranscriptionError",
     "TranscriptionResult",

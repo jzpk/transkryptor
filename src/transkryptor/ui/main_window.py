@@ -156,6 +156,7 @@ class MainWindow(QMainWindow):
             lambda: self.settings_store.current.player,
             lambda text: self.statusBar().showMessage(text, STATUS_MESSAGE_MS),
             self,
+            asr_settings=lambda: self.settings_store.current.asr,
         )
         self.review = ReviewController(
             self.editor,
@@ -445,6 +446,7 @@ class MainWindow(QMainWindow):
         self.session.autosave.configure(settings.project)
         self.asr_panel.set_segment_preroll_ms(settings.player.segment_preroll_ms)
         self.asr_panel.set_asr_settings(settings.asr)
+        self.sync.update_uncertain()
         # ACC-25: tekst się nie zmienia — tylko kolejne wstawienia i walidacja.
         pause_marker = marker_text("pause", settings.notation.ellipsis).strip()
         self.marker_actions["pause"].setProperty(

@@ -560,5 +560,11 @@
   "sync.no_anchor": "To miejsce tekstu nie jest powiązane z nagraniem — wstaw znacznik czasu (Ctrl+Shift+T) albo szkic ASR.",
   "sync.timestamp.inserted": "Wstawiono znacznik czasu {time}.",
   "sync.timestamp.remove": "Usuń znacznik czasu {time}",
-  "session.change_audio.anchors": "Powiązania tekstu z czasem nagrania (znaczniki czasu i segmenty szkicu) zostaną usunięte."
+  "session.change_audio.anchors": "Powiązania tekstu z czasem nagrania (znaczniki czasu i segmenty szkicu) zostaną usunięte.",
+  "settings.asr.word_timestamps": "Rozpoznawaj czasy i pewność pojedynczych słów",
+  "settings.asr.word_timestamps.tooltip": "Pozwala odsłuchać słowo Ctrl+klikiem i podkreślić słowa, których model nie jest pewien. Wydłuża transkrypcję.",
+  "settings.asr.uncertain_words": "Podkreślaj niepewne słowa szkicu ASR",
+  "settings.asr.word_threshold": "Próg pewności słowa:",
+  "settings.asr.word_threshold.tooltip": "Słowa o pewności niższej niż próg są podkreślone kropkami. Wartość orientacyjna — pewności Whispera nie są skalibrowane.",
+  "sync.uncertain.tooltip": "Niepewne słowo ASR (pewność {percent}%). Ctrl+klik odtwarza słowo; po poprawieniu podkreślenie znika."
 }

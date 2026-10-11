@@ -11,7 +11,10 @@ Obsługuje:
   ``ACTIVE_LAYER``, najwyżej co ``HIGHLIGHT_INTERVAL_MS``) i opcjonalne
   przewijanie edytora za odtwarzaniem;
 - ręczne znaczniki czasu (punkty rysowane w tekście, bez wpływu na tekst
-  i eksport DOCX).
+  i eksport DOCX);
+- niepewne słowa ASR: kropkowane podkreślenie (``UNCERTAIN_LAYER``) słów
+  o pewności poniżej progu z ustawień, w widocznej części tekstu; poprawione
+  słowo traci podkreślenie.
 
 Kursor segmentu lub słowa, którego tekst usunięto, przestaje być kotwicą.
 """
@@ -35,9 +38,14 @@ from transkryptor.document.anchors import (
     anchor_at,
 )
 from transkryptor.i18n import tr
-from transkryptor.settings import PlayerSettings
+from transkryptor.settings import AsrSettings, PlayerSettings
 from transkryptor.ui.editor import TranscriptionEditor
-from transkryptor.ui.highlights import ACTIVE_LAYER, background
+from transkryptor.ui.highlights import (
+    ACTIVE_LAYER,
+    UNCERTAIN_LAYER,
+    background,
+    dotted_underline,
+)
 from transkryptor.ui.player_bar import PlayerBar, format_ms
 from transkryptor.ui.positions import PositionMap
 from transkryptor.ui.theme import tokens
@@ -47,6 +55,8 @@ HIGHLIGHT_INTERVAL_MS = 150
 # Margines tymczasowej pętli słowa — Whisper ucina granice słów.
 WORD_MARGIN_MS = 150
 ACTIVE_ALPHA = 45
+# Podkreślenia niepewnych słów po edycji lub przewinięciu (debounce).
+UNCERTAIN_DEBOUNCE_MS = 200
 
 
 @dataclass
@@ -82,8 +92,10 @@ class SyncController(QObject):
         settings: Callable[[], PlayerSettings],
         show_status: Callable[[str], None],
         parent: QObject | None = None,
+        asr_settings: Callable[[], AsrSettings] = AsrSettings,
     ) -> None:
         super().__init__(parent)
+        self._asr_settings = asr_settings
         self._editor = editor
         self._player = player
         self._bar = player_bar
@@ -97,8 +109,15 @@ class SyncController(QObject):
         self._throttle.setSingleShot(True)
         self._throttle.setInterval(HIGHLIGHT_INTERVAL_MS)
         self._throttle.timeout.connect(self._update_active)
+        self._uncertain_timer = QTimer(self)
+        self._uncertain_timer.setSingleShot(True)
+        self._uncertain_timer.setInterval(UNCERTAIN_DEBOUNCE_MS)
+        self._uncertain_timer.timeout.connect(self.update_uncertain)
         editor.ctrl_clicked.connect(lambda position: self.play_at(position))
         editor.context_menu_extenders.append(self.extend_context_menu)
+        editor.tooltip_providers.append(self.tooltip_at)
+        editor.document().contentsChanged.connect(self.schedule_uncertain)
+        editor.verticalScrollBar().valueChanged.connect(self.schedule_uncertain)
         player.position_changed.connect(self._on_position_changed)
 
     # --- stan -------------------------------------------------------------
@@ -140,6 +159,7 @@ class SyncController(QObject):
                 item.baseline = item.cursor.selectedText()
             elif item.anchor.source == SEGMENT:
                 item.cursor.setKeepPositionOnInsert(True)
+        self.update_uncertain()
 
     def loosen(self) -> None:
         """Przed zastosowaniem propozycji reguły: segmenty obejmą zamianę na końcu."""
@@ -194,6 +214,7 @@ class SyncController(QObject):
             ],
             QColor(tokens().accent),
         )
+        self.schedule_uncertain()
 
     def manual_times_ms(self) -> list[int]:
         """Czasy ręcznych znaczników (dla fali dźwiękowej)."""
@@ -203,6 +224,67 @@ class SyncController(QObject):
 
     def refresh_theme(self) -> None:
         self._rebuild()
+
+    # --- niepewne słowa ------------------------------------------------------
+
+    def schedule_uncertain(self) -> None:
+        if any(item.anchor.source == WORD for item in self._items) or (
+            self._editor.highlight_layer(UNCERTAIN_LAYER)
+        ):
+            self._uncertain_timer.start()
+
+    def _uncertain_items(self, first: int, last: int) -> list[TrackedAnchor]:
+        """Niepoprawione niepewne słowa przecinające zakres pozycji Qt."""
+        settings = self._asr_settings()
+        if not settings.show_uncertain_words:
+            return []
+        threshold = settings.word_threshold
+        return [
+            item
+            for item in self._items
+            if item.anchor.is_uncertain(threshold)
+            and item.cursor.selectionEnd() >= first
+            and item.cursor.selectionStart() <= last
+            and item.alive
+            and not item.edited
+        ]
+
+    def update_uncertain(self) -> None:
+        """Podkreśla niepewne słowa w widocznej części edytora (PERF-06)."""
+        self._uncertain_timer.stop()
+        if not any(item.anchor.source == WORD for item in self._items):
+            self._editor.set_highlight_layer(UNCERTAIN_LAYER, [])
+            return
+        positions = self._editor.position_map()
+        first, last = self._editor.visible_range(positions)
+        color = QColor(tokens().danger)
+        self._editor.set_highlight_layer(
+            UNCERTAIN_LAYER,
+            [
+                dotted_underline(QTextCursor(item.cursor), color)
+                for item in self._uncertain_items(
+                    positions.to_qt(first), positions.to_qt(last)
+                )
+            ],
+        )
+
+    def uncertain_words(self) -> list[str]:
+        """Tekst wszystkich podkreślanych słów (cały dokument; testy)."""
+        return [
+            item.cursor.selectedText()
+            for item in self._uncertain_items(
+                0, self._editor.document().characterCount()
+            )
+        ]
+
+    def tooltip_at(self, position: int) -> str | None:
+        positions = self._editor.position_map()
+        qt_position = positions.to_qt(position)
+        for item in self._uncertain_items(qt_position, qt_position):
+            if item.cursor.selectionStart() <= qt_position < item.cursor.selectionEnd():
+                probability = item.anchor.probability or 0.0
+                return tr("sync.uncertain.tooltip", percent=round(probability * 100))
+        return None
 
     # --- odtwarzanie z tekstu ----------------------------------------------
 

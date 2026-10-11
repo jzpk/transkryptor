@@ -59,6 +59,7 @@ from transkryptor.settings import (
     THEME_DARK,
     THEME_LIGHT,
     THEME_SYSTEM,
+    WORD_THRESHOLD_RANGE_PCT,
     AppearanceSettings,
     AsrSettings,
     EditorSettings,
@@ -283,6 +284,16 @@ class SettingsDialog(QDialog):
         chunked_hint = QLabel(tr("settings.asr.chunked.hint"))
         chunked_hint.setWordWrap(True)
         set_props(chunked_hint, role="muted")
+        self.word_timestamps_check = QCheckBox(tr("settings.asr.word_timestamps"))
+        self.word_timestamps_check.setToolTip(
+            tr("settings.asr.word_timestamps.tooltip")
+        )
+        self.uncertain_words_check = QCheckBox(tr("settings.asr.uncertain_words"))
+        self.word_threshold_spin = QSpinBox()
+        self.word_threshold_spin.setRange(*WORD_THRESHOLD_RANGE_PCT)
+        self.word_threshold_spin.setSuffix(" %")
+        self.word_threshold_spin.setToolTip(tr("settings.asr.word_threshold.tooltip"))
+        self.uncertain_words_check.toggled.connect(self.word_threshold_spin.setEnabled)
         self.vocabulary_edit = QPlainTextEdit()
         self.vocabulary_edit.setPlaceholderText(
             tr("settings.asr.vocabulary.placeholder")
@@ -298,6 +309,9 @@ class SettingsDialog(QDialog):
         asr_form.addRow(device_hint)
         asr_form.addRow(self.chunked_check)
         asr_form.addRow(chunked_hint)
+        asr_form.addRow(self.word_timestamps_check)
+        asr_form.addRow(self.uncertain_words_check)
+        asr_form.addRow(tr("settings.asr.word_threshold"), self.word_threshold_spin)
         asr_form.addRow(tr("settings.asr.vocabulary"), self.vocabulary_edit)
         asr_form.addRow(vocabulary_hint)
 
@@ -396,6 +410,10 @@ class SettingsDialog(QDialog):
         index = self.device_combo.findData(settings.asr.device)
         self.device_combo.setCurrentIndex(max(index, 0))
         self.chunked_check.setChecked(settings.asr.chunked)
+        self.word_timestamps_check.setChecked(settings.asr.word_timestamps)
+        self.uncertain_words_check.setChecked(settings.asr.show_uncertain_words)
+        self.word_threshold_spin.setValue(settings.asr.word_threshold_pct)
+        self.word_threshold_spin.setEnabled(settings.asr.show_uncertain_words)
         self.vocabulary_edit.setPlainText(settings.asr.vocabulary)
 
     # --- metryczka -----------------------------------------------------------
@@ -605,6 +623,9 @@ class SettingsDialog(QDialog):
                     split_vocabulary(self.vocabulary_edit.toPlainText())
                 ),
                 chunked=self.chunked_check.isChecked(),
+                word_timestamps=self.word_timestamps_check.isChecked(),
+                show_uncertain_words=self.uncertain_words_check.isChecked(),
+                word_threshold_pct=self.word_threshold_spin.value(),
             ),
         )
 

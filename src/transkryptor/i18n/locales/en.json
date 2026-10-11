@@ -560,5 +560,11 @@
   "sync.no_anchor": "This part of the text is not linked to the recording — insert a timestamp (Ctrl+Shift+T) or an ASR draft.",
   "sync.timestamp.inserted": "Timestamp {time} inserted.",
   "sync.timestamp.remove": "Remove timestamp {time}",
-  "session.change_audio.anchors": "Links between the text and the recording time (timestamps and draft segments) will be removed."
+  "session.change_audio.anchors": "Links between the text and the recording time (timestamps and draft segments) will be removed.",
+  "settings.asr.word_timestamps": "Recognize the timing and confidence of single words",
+  "settings.asr.word_timestamps.tooltip": "Lets you play a word with Ctrl+click and underlines words the model is unsure about. Makes transcription longer.",
+  "settings.asr.uncertain_words": "Underline uncertain words of the ASR draft",
+  "settings.asr.word_threshold": "Word confidence threshold:",
+  "settings.asr.word_threshold.tooltip": "Words with confidence below the threshold get a dotted underline. An approximate value — Whisper confidences are not calibrated.",
+  "sync.uncertain.tooltip": "Uncertain ASR word (confidence {percent}%). Ctrl+click plays the word; the underline disappears once you correct it."
 }

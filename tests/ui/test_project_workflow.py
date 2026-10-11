@@ -4,7 +4,6 @@ import os
 import shutil
 import time
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 from docx import Document as DocxDocument
@@ -12,7 +11,7 @@ from PySide6.QtCore import QCoreApplication
 from PySide6.QtGui import QTextCharFormat, QTextCursor
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
-from transkryptor.asr.engine import TranscriptionResult
+from transkryptor.asr.engine import SegmentResult, TranscriptionResult
 from transkryptor.asr.manager import ModelManager
 from transkryptor.document.metadata import DEFAULT_FIELDS, encode_fields
 from transkryptor.document.model import Document
@@ -93,8 +92,8 @@ def fake_asr(window: MainWindow, tmp_path: Path) -> list[int]:
     ):
         calls.append(1)
         segments = (
-            SimpleNamespace(start_s=0.0, end_s=2.0, text="od", confidence=0.9),
-            SimpleNamespace(start_s=2.0, end_s=3.5, text=" są", confidence=0.4),
+            SegmentResult(start_s=0.0, end_s=2.0, text="od", confidence=0.9),
+            SegmentResult(start_s=2.0, end_s=3.5, text=" są", confidence=0.4),
         )
         for segment in segments:
             on_segment(segment)

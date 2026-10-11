@@ -42,7 +42,7 @@ def fake_backend_factory(model_dir, device="cpu"):
     """Imitacja faster-whisper: segmenty z wielokropkami ASCII, bez modelu."""
 
     class FakeBackend:
-        def transcribe(self, audio_path, language, vad_filter):
+        def transcribe(self, audio_path, language, vad_filter, **_options):
             segments = [
                 SimpleNamespace(start=start, end=end, text=text, avg_logprob=-0.1)
                 for start, end, text in SEGMENTS

@@ -252,6 +252,15 @@ class AsrSettings:
     vocabulary: str = ""
     # Transkrypcja fragmentami: mniej pamięci RAM przy długich nagraniach.
     chunked: bool = False
+    # Słowa z czasami i pewnością (faza 11): podkreślenie niepewnych słów
+    # o pewności poniżej progu (w procentach; orientacyjny — faza 15).
+    word_timestamps: bool = True
+    show_uncertain_words: bool = True
+    word_threshold_pct: int = 40
+
+    @property
+    def word_threshold(self) -> float:
+        return self.word_threshold_pct / 100
 
     @property
     def vocabulary_words(self) -> tuple[str, ...]:
@@ -299,6 +308,7 @@ AUTO_REWIND_RANGE_MS = (0, 10_000)
 SEGMENT_PREROLL_RANGE_MS = (0, 5_000)
 FONT_SIZE_RANGE_PT = (6, 48)  # 0 = domyślny, poza zakresem
 AUTOSAVE_INTERVAL_RANGE_S = (30, 600)
+WORD_THRESHOLD_RANGE_PCT = (5, 95)
 ELLIPSIS_STYLES = tuple(style.value for style in EllipsisStyle)
 MODEL_KEYS = tuple(model.key for model in MODELS)
 
@@ -342,6 +352,9 @@ _FIELDS: tuple[_Field, ...] = (
     _Field("asr", "device", str, choices=DEVICES),
     _Field("asr", "vocabulary", str),
     _Field("asr", "chunked", bool),
+    _Field("asr", "word_timestamps", bool),
+    _Field("asr", "show_uncertain_words", bool),
+    _Field("asr", "word_threshold_pct", int, *WORD_THRESHOLD_RANGE_PCT),
 )
 
 

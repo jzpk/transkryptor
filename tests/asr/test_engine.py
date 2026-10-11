@@ -15,6 +15,7 @@ from transkryptor.asr.engine import (
     TranscriptionCancelled,
     TranscriptionError,
     TranscriptionResult,
+    WordResult,
     build_hotwords,
     chunk_bounds,
     draft_text,
@@ -189,6 +190,35 @@ class TestDecodingOptions:
         assert kwargs["hotwords"] == "Ocieszyn Oborniki"
         assert kwargs["language"] == "pl"
 
+    def test_word_timestamps_give_words(self, tmp_path) -> None:
+        """Faza 11: słowa z czasami i pewnością trafiają do wyniku."""
+        calls: list = []
+
+        class WordBackend(RecordingBackend):
+            def transcribe(self, audio_path, **kwargs):
+                self.calls.append((self.device, kwargs))
+                words = [
+                    SimpleNamespace(start=0.0, end=0.4, word=" Ala", probability=0.91),
+                    SimpleNamespace(start=0.4, end=1.0, word=" ma", probability=0.2),
+                ]
+                segment = SimpleNamespace(
+                    start=0.0, end=1.0, text=" Ala ma", avg_logprob=-0.1, words=words
+                )
+                return iter([segment]), SimpleNamespace(language="pl")
+
+        result = transcribe(
+            make_audio(tmp_path),
+            make_model_dir(tmp_path),
+            backend_factory=lambda path, device: WordBackend(device, calls),
+            options=DecodingOptions(word_timestamps=True),
+        )
+        [(_, kwargs)] = calls
+        assert kwargs["word_timestamps"] is True
+        assert result.segments[0].words == (
+            WordResult(0.0, 0.4, " Ala", 0.91),
+            WordResult(0.4, 1.0, " ma", 0.2),
+        )
+
     def test_empty_options_are_not_passed(self, tmp_path) -> None:
         calls: list = []
         transcribe(
@@ -200,6 +230,7 @@ class TestDecodingOptions:
         [(_, kwargs)] = calls
         assert "initial_prompt" not in kwargs
         assert "hotwords" not in kwargs
+        assert "word_timestamps" not in kwargs
 
     def test_build_hotwords_merges_without_duplicates(self) -> None:
         assert (
@@ -374,6 +405,9 @@ class ChunkModel:
             end=2.0,
             text=f" Fragment {len(self.calls)}.",
             avg_logprob=-0.1,
+            words=[
+                SimpleNamespace(start=1.5, end=2.0, word=" Fragment", probability=0.5)
+            ],
         )
         return iter([segment]), SimpleNamespace(language=kwargs["language"])
 
@@ -421,6 +455,7 @@ class TestChunking:
         assert sum(lengths) == len(samples)
         assert segments[0].start == pytest.approx(1.0)
         assert segments[1].start == pytest.approx(1.0 + lengths[0] / self.RATE)
+        assert segments[1].words[0].start == pytest.approx(1.5 + lengths[0] / self.RATE)
         assert segments[-1].text == f" Fragment {len(lengths)}."
         for _, kwargs in model.calls:  # kontekst i słownik w każdym fragmencie
             assert kwargs == {

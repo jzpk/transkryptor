@@ -69,6 +69,14 @@ Pusta sekcja blokuje wydanie.
   obok znacznika odtwarza nagranie dokładnie od zapisanego czasu. Znacznik
   usuwa się z menu kontekstowego; nie trafia do eksportu DOCX. Oba nowe
   skróty można zmienić w zakładce **Skróty**.
+- Niepewne słowa: szkic ASR zna czas i pewność każdego słowa. Słowa,
+  których model nie jest pewien, są podkreślone czerwonymi kropkami (inaczej
+  niż ostrzeżenia notacji); po najechaniu myszą widać pewność.
+  **Ctrl+klik** w słowo odtwarza dokładnie to słowo w pętli (do pauzy).
+  Poprawione słowo traci podkreślenie. Podkreślenia nie trafiają do DOCX.
+  W **Ustawieniach…** (zakładka **ASR**) można wyłączyć podkreślenia,
+  zmienić próg pewności (domyślnie 40%, wartość orientacyjna) albo wyłączyć
+  rozpoznawanie słów, które wydłuża transkrypcję.
 
 ## 0.5.0 — 2026-10-18
 

@@ -24,7 +24,7 @@ from pathlib import Path
 from PySide6.QtCore import QDate, QObject
 from PySide6.QtWidgets import QDateEdit, QFileDialog, QLineEdit, QMessageBox, QWidget
 
-from transkryptor.asr.engine import SegmentResult, TranscriptionResult
+from transkryptor.asr.engine import SegmentResult, TranscriptionResult, WordResult
 from transkryptor.audio.player import AudioPlayer
 from transkryptor.audio.player import file_dialog_filter as audio_filter
 from transkryptor.document.metadata import (
@@ -40,6 +40,7 @@ from transkryptor.document.project import (
     AsrContext,
     AsrDraft,
     AsrSegment,
+    AsrWord,
     AudioRef,
     ProjectState,
     file_dialog_filter,
@@ -467,7 +468,16 @@ class SessionController(QObject):
                     text=result.text,
                     language=result.language,
                     segments=tuple(
-                        AsrSegment(s.start_s, s.end_s, s.text, s.confidence)
+                        AsrSegment(
+                            s.start_s,
+                            s.end_s,
+                            s.text,
+                            s.confidence,
+                            tuple(
+                                AsrWord(w.start_s, w.end_s, w.text, w.probability)
+                                for w in s.words
+                            ),
+                        )
                         for s in result.segments
                     ),
                     model=self._asr_panel.last_model_key,
@@ -697,7 +707,16 @@ def _transcription_result(draft: AsrDraft | None) -> TranscriptionResult | None:
         text=draft.text,
         language=draft.language,
         segments=tuple(
-            SegmentResult(s.start_s, s.end_s, s.text, s.confidence)
+            SegmentResult(
+                s.start_s,
+                s.end_s,
+                s.text,
+                s.confidence,
+                tuple(
+                    WordResult(w.start_s, w.end_s, w.text, w.probability)
+                    for w in s.words
+                ),
+            )
             for s in draft.segments
         ),
     )
