@@ -551,5 +551,14 @@
   "changelog.header": "Historia zmian — zainstalowana wersja {version}",
   "changelog.unreleased": "Zmiany w przygotowaniu (wersja rozwojowa)",
   "changelog.missing": "Historia zmian nie jest dostępna w tej instalacji.",
-  "changelog.polish_only": "Historia zmian jest dostępna tylko po polsku."
+  "changelog.polish_only": "Historia zmian jest dostępna tylko po polsku.",
+  "player.action.play_from_cursor": "Odtwórz od miejsca w tekście",
+  "player.action.insert_timestamp": "Wstaw znacznik czasu",
+  "settings.player.follow": "Przewijaj tekst za odtwarzaniem",
+  "settings.player.follow.tooltip": "Podczas odtwarzania edytor pokazuje segment szkicu ASR odpowiadający bieżącemu miejscu nagrania",
+  "sync.no_media": "Najpierw zaimportuj nagranie.",
+  "sync.no_anchor": "To miejsce tekstu nie jest powiązane z nagraniem — wstaw znacznik czasu (Ctrl+Shift+T) albo szkic ASR.",
+  "sync.timestamp.inserted": "Wstawiono znacznik czasu {time}.",
+  "sync.timestamp.remove": "Usuń znacznik czasu {time}",
+  "session.change_audio.anchors": "Powiązania tekstu z czasem nagrania (znaczniki czasu i segmenty szkicu) zostaną usunięte."
 }

@@ -56,6 +56,8 @@ RATE_UP = "rate_up"
 LOOP_A = "loop_a"
 LOOP_B = "loop_b"
 LOOP_TOGGLE = "loop_toggle"
+PLAY_FROM_CURSOR = "play_from_cursor"
+INSERT_TIMESTAMP = "insert_timestamp"
 
 # Ctrl+←/→ zostaje dla skoku o słowo w edytorze. F4 jest zapasowe dla
 # Ctrl+Spacja, które na Linuksie bywa przechwytywane przez metodę wprowadzania.
@@ -68,6 +70,11 @@ PLAYER_ACTIONS: tuple[PlayerAction, ...] = (
     PlayerAction(LOOP_A, "player.action.loop_a", ("Ctrl+Shift+A",)),
     PlayerAction(LOOP_B, "player.action.loop_b", ("Ctrl+Shift+B",)),
     PlayerAction(LOOP_TOGGLE, "player.action.loop_toggle", ("Ctrl+Shift+L",)),
+    # Faza 11: tekst powiązany z nagraniem (kotwice czasowe).
+    PlayerAction(
+        PLAY_FROM_CURSOR, "player.action.play_from_cursor", ("Ctrl+Shift+Space",)
+    ),
+    PlayerAction(INSERT_TIMESTAMP, "player.action.insert_timestamp", ("Ctrl+Shift+T",)),
 )
 
 PLAYER_ACTIONS_BY_KEY: dict[str, PlayerAction] = {

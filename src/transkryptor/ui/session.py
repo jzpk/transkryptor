@@ -62,6 +62,7 @@ from transkryptor.ui.notation_controller import IgnoredWarnings
 from transkryptor.ui.player_bar import PlayerBar
 from transkryptor.ui.review import ReviewController
 from transkryptor.ui.settings_store import SettingsStore
+from transkryptor.ui.sync_controller import SyncController
 
 DATE_FORMAT = "yyyy-MM-dd"
 # Ile zamknięcie okna czeka na przerwanie pobierania modelu.
@@ -80,6 +81,7 @@ class SessionController(QObject):
         asr_panel: AsrPanel,
         review: ReviewController,
         ignored_warnings: IgnoredWarnings,
+        sync: SyncController,
         author_edit: QLineEdit,
         date_edit: QDateEdit,
         metadata_form: MetadataForm,
@@ -100,6 +102,7 @@ class SessionController(QObject):
         self._asr_panel = asr_panel
         self._review = review
         self._ignored_warnings = ignored_warnings
+        self._sync = sync
         self._author_edit = author_edit
         self._date_edit = date_edit
         self._metadata_form = metadata_form
@@ -196,7 +199,11 @@ class SessionController(QObject):
         self._asr_panel.set_context_default(asr_context_hint(values))
 
     def asr_context_changed(self) -> None:
-        """Kontekst lub słownik ASR to dane projektu — nie tekst eksportu.
+        """Kontekst lub słownik ASR to dane projektu — nie tekst eksportu."""
+        self.project_data_changed()
+
+    def project_data_changed(self) -> None:
+        """Zmiana danych projektu spoza tekstu eksportu (kontekst ASR, kotwice).
 
         Zmiana oznacza projekt jako niezapisany, ale nie wywołuje ostrzeżenia
         o niewyeksportowanej pracy, jeśli tekst był wyeksportowany.
@@ -218,6 +225,7 @@ class SessionController(QObject):
         self._editor.blockSignals(True)
         self._editor.clear()
         self._editor.blockSignals(False)
+        self._sync.clear()
         self._author_edit.clear()
         self._date_edit.setDate(QDate.currentDate())
         self._metadata_form.set_values({})
@@ -243,6 +251,8 @@ class SessionController(QObject):
         self._player_bar.reset()
         self._asr_panel.set_audio_available(True)
         self._asr_panel.restore_result(None)
+        # Kotwice wskazują czasy poprzedniego nagrania.
+        self._sync.clear()
         self._set_audio(Path(path))
         if self.project_path is not None:
             self.document.touch()  # projekt wskazuje teraz inne nagranie
@@ -258,11 +268,14 @@ class SessionController(QObject):
     def _confirm_audio_change(self, path: str) -> bool:
         """Pyta tylko, gdy coś zostanie zastąpione: nagranie albo wynik ASR."""
         has_asr = self._asr_panel.last_result is not None
-        if self._player.source_path is None and not has_asr:
+        has_anchors = self._sync.has_anchors()
+        if self._player.source_path is None and not has_asr and not has_anchors:
             return True
         text = tr("session.change_audio.text", name=Path(path).name)
         if has_asr:
             text = f"{text}\n\n{tr('session.change_audio.asr')}"
+        if has_anchors:
+            text = f"{text}\n\n{tr('session.change_audio.anchors')}"
         answer = QMessageBox.question(
             self._parent,
             tr("session.change_audio.title"),
@@ -463,6 +476,7 @@ class SessionController(QObject):
             review=tuple(self._review.entries()),
             asr_context=AsrContext(prompt=prompt, vocabulary=vocabulary),
             ignored_warnings=tuple(self._ignored_warnings.entries()),
+            anchors=tuple(self._sync.entries()),
         )
 
     # --- otwieranie projektu ---------------------------------------------------
@@ -591,6 +605,7 @@ class SessionController(QObject):
             model_key=state.asr.model if state.asr is not None else None,
         )
         self._review.restore(state.review)
+        self._sync.restore(state.anchors)
 
         document = Document(
             text=state.text,

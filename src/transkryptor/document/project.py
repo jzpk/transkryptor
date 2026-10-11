@@ -6,8 +6,9 @@ nagrania (ścieżka względna do pliku projektu, bezwzględna jako podpowiedź
 i suma SHA-256 — bez osadzania audio), pozycję odtwarzania, pętlę A–B,
 ostatni wynik ASR (tekst i segmenty z czasami i pewnością) oraz pozycje
 przeglądu reguł (zakres w tekście, kod reguły i treść propozycji), a od
-schematu 2 także kontekst nagrania i słownik projektu dla ASR, a od
-schematu 3 — ostrzeżenia walidatora zignorowane w konkretnych miejscach.
+schematu 2 także kontekst nagrania i słownik projektu dla ASR, od
+schematu 3 — ostrzeżenia walidatora zignorowane w konkretnych miejscach,
+a od schematu 4 — kotwice czasowe tekstu (``document/anchors.py``).
 
 Zapis jest atomowy: plik tymczasowy w katalogu docelowym, ``fsync``
 i ``os.replace`` — przerwany zapis nie psuje poprzedniej wersji. Odczyt
@@ -27,10 +28,11 @@ from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+from transkryptor.document.anchors import Anchor, check_anchor
 from transkryptor.errors import ProjectError
 from transkryptor.i18n import tr
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 PROJECT_SUFFIX = ".transkr"
 _HASH_CHUNK = 1 << 20
 
@@ -141,6 +143,7 @@ class ProjectState:
     review: tuple[ReviewEntry, ...] = ()
     asr_context: AsrContext = field(default_factory=AsrContext)
     ignored_warnings: tuple[IgnoredWarning, ...] = ()
+    anchors: tuple[Anchor, ...] = ()
 
     @property
     def word_count(self) -> int:
@@ -224,7 +227,23 @@ def to_dict(state: ProjectState, project_path: Path | None = None) -> dict[str, 
             {"code": w.code, "start": w.start, "end": w.end, "text": w.text}
             for w in state.ignored_warnings
         ],
+        "anchors": [_anchor_dict(a) for a in state.anchors],
     }
+
+
+def _anchor_dict(anchor: Anchor) -> dict[str, Any]:
+    data: dict[str, Any] = {
+        "start": anchor.start,
+        "end": anchor.end,
+        "start_ms": anchor.start_ms,
+        "end_ms": anchor.end_ms,
+        "source": anchor.source,
+    }
+    if anchor.probability is not None:
+        data["probability"] = anchor.probability
+    if anchor.edited:
+        data["edited"] = True
+    return data
 
 
 def dumps(state: ProjectState, project_path: Path | None = None) -> str:
@@ -267,9 +286,15 @@ def _add_ignored_warnings(data: dict[str, Any]) -> dict[str, Any]:
     return {**data, "schema_version": 3, "ignored_warnings": []}
 
 
+def _add_anchors(data: dict[str, Any]) -> dict[str, Any]:
+    """3 → 4 (faza 11): tekst bez kotwic czasowych."""
+    return {**data, "schema_version": 4, "anchors": []}
+
+
 _MIGRATIONS: dict[int, Callable[[dict[str, Any]], dict[str, Any]]] = {
     1: _add_asr_context,
     2: _add_ignored_warnings,
+    3: _add_anchors,
 }
 
 
@@ -521,6 +546,22 @@ def _parse(data: dict[str, Any]) -> ProjectState:
     )
     if any(not 0 <= w.start <= w.end <= len(text) for w in ignored):
         raise ValueError("zakres zignorowanego ostrzeżenia poza tekstem")
+    anchors = tuple(
+        Anchor(
+            start=_int(a["start"]),
+            end=_int(a["end"]),
+            start_ms=_int(a["start_ms"]),
+            end_ms=_int(a["end_ms"]),
+            source=_str(a["source"]),
+            probability=(
+                None if a.get("probability") is None else _float(a["probability"])
+            ),
+            edited=_bool(a.get("edited", False)),
+        )
+        for a in map(_dict, _list(data.get("anchors", [])))
+    )
+    for anchor in anchors:
+        check_anchor(anchor, len(text))
     metadata = _dict(document.get("metadata", {}))
     context = _dict(data.get("asr_context", {}))
     return ProjectState(
@@ -544,6 +585,7 @@ def _parse(data: dict[str, Any]) -> ProjectState:
             vocabulary=tuple(map(_str, _list(context.get("vocabulary", [])))),
         ),
         ignored_warnings=ignored,
+        anchors=anchors,
     )
 
 

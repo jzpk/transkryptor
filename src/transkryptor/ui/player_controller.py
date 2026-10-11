@@ -31,7 +31,14 @@ from transkryptor.ui.shortcuts import (
 class PlayerController(QObject):
     """Akcje odtwarzacza okna i przewijanie do segmentów ASR."""
 
-    def __init__(self, owner: QWidget, player: AudioPlayer, bar: PlayerBar) -> None:
+    def __init__(
+        self,
+        owner: QWidget,
+        player: AudioPlayer,
+        bar: PlayerBar,
+        extra_handlers: dict[str, Callable[[], object]] | None = None,
+    ) -> None:
+        """``extra_handlers`` obsługują akcje spoza paska (np. odtwórz od kursora)."""
         super().__init__(owner)
         self.player = player
         self.bar = bar
@@ -45,13 +52,14 @@ class PlayerController(QObject):
             LOOP_A: bar.mark_a,
             LOOP_B: bar.mark_b,
             LOOP_TOGGLE: bar.toggle_loop,
+            **(extra_handlers or {}),
         }
         self.actions: dict[str, QAction] = {}
         for definition in PLAYER_ACTIONS:
             action = QAction(definition.label, owner)
             action.setShortcuts([QKeySequence(s) for s in definition.shortcuts])
             action.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
-            handler = handlers[definition.key]
+            handler = handlers.get(definition.key, lambda: None)
             action.triggered.connect(lambda _checked=False, run=handler: run())
             owner.addAction(action)
             self.actions[definition.key] = action

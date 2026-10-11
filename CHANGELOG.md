@@ -56,6 +56,19 @@ Pusta sekcja blokuje wydanie.
 - Autouzupełnianie (domyślnie wyłączone, **Ustawienia…** → **Notacja**):
   po wpisaniu dwóch liter edytor podpowiada pasujące wstawki i słowa użyte
   już w tekście; Enter lub Tab wstawia podpowiedź.
+- Tekst powiązany z nagraniem: szkic ASR zapamiętuje, z którego miejsca
+  nagrania pochodzi każde zdanie (segment). **Ctrl+klik** w tekst albo skrót
+  **Ctrl+Shift+Spacja** („Odtwórz od miejsca w tekście”) odtwarza nagranie od
+  początku segmentu (z wyprzedzeniem z ustawień). Podczas odtwarzania
+  podświetlany jest segment odpowiadający bieżącemu miejscu, a edytor
+  przewija się za nim — przewijanie można wyłączyć w **Ustawieniach…**
+  (zakładka **Odtwarzacz**). Powiązania przesuwają się razem z edycją
+  tekstu i są zapisywane w pliku projektu.
+- Ręczne znaczniki czasu: skrót **Ctrl+Shift+T** wstawia w miejscu kursora
+  znacznik bieżącej pozycji nagrania (mały trójkąt w tekście). **Ctrl+klik**
+  obok znacznika odtwarza nagranie dokładnie od zapisanego czasu. Znacznik
+  usuwa się z menu kontekstowego; nie trafia do eksportu DOCX. Oba nowe
+  skróty można zmienić w zakładce **Skróty**.
 
 ## 0.5.0 — 2026-10-18
 

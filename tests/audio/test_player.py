@@ -205,3 +205,32 @@ class TestLoop:
         player.set_loop(1000, 2000)
         player.stop_and_unload()
         assert player.loop_range is None
+
+
+class TestTemporaryLoop:
+    """Faza 11: Ctrl+klik w słowo odtwarza je w tymczasowej pętli."""
+
+    def test_word_loop_repeats_without_touching_ab_loop(self, player, qtbot) -> None:
+        _load(player, qtbot)
+        player.play_loop_once(3000, 3600)
+        qtbot.waitUntil(lambda: player.is_playing, timeout=5000)
+        assert player.temporary_loop == (3000, 3600)
+        assert player.loop_range is None
+        positions: list[int] = []
+        player.position_changed.connect(positions.append)
+        qtbot.waitUntil(
+            lambda: any(p >= 3300 for p in positions) and positions[-1] < 3300,
+            timeout=8000,
+        )
+        assert max(positions) <= 3600 + 150
+
+    def test_pause_and_seek_end_word_loop(self, player, qtbot) -> None:
+        _load(player, qtbot)
+        player.play_loop_once(1000, 1500)
+        qtbot.waitUntil(lambda: player.is_playing, timeout=5000)
+        player.set_position(4000)
+        assert player.temporary_loop is None
+        player.play_loop_once(1000, 1500)
+        player.pause()
+        qtbot.waitUntil(lambda: not player.is_playing, timeout=5000)
+        assert player.temporary_loop is None

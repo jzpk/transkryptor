@@ -75,6 +75,9 @@ class AudioPlayer(QObject):
         self._source_path: Path | None = None
         self._last_error: ImportAudioError | None = None
         self._loop: tuple[int, int] | None = None
+        # Pętla słowa (Ctrl+klik w niepewne słowo): niezależna od pętli A–B,
+        # kończy ją pauza albo przewinięcie.
+        self._temporary_loop: tuple[int, int] | None = None
         self._rewind_armed = False
         self._loop_timer = QTimer(self)
         self._loop_timer.setInterval(LOOP_CHECK_INTERVAL_MS)
@@ -112,6 +115,11 @@ class AudioPlayer(QObject):
         return self._loop
 
     @property
+    def temporary_loop(self) -> tuple[int, int] | None:
+        """Tymczasowa pętla fragmentu (ms) albo None."""
+        return self._temporary_loop
+
+    @property
     def can_auto_rewind(self) -> bool:
         """Czy wznowienie jest powrotem po pauzie w tym samym miejscu.
 
@@ -142,6 +150,7 @@ class AudioPlayer(QObject):
                 retry_hint=tr("player.error.not_found.hint"),
             )
         self._last_error = None
+        self._temporary_loop = None
         self.clear_loop()
         self._rewind_armed = False
         self._pending_position = None
@@ -164,8 +173,14 @@ class AudioPlayer(QObject):
         self.play()
 
     def set_position(self, position_ms: int) -> None:
-        """Przewija do pozycji obciętej do zakresu nagrania."""
+        """Przewija do pozycji obciętej do zakresu nagrania.
+
+        Przewinięcie kończy tymczasową pętlę fragmentu.
+        """
         self._rewind_armed = False
+        if self._temporary_loop is not None:
+            self._temporary_loop = None
+            self._update_loop_timer()
         position_ms = max(0, position_ms)
         if self.duration_ms > 0:
             position_ms = min(position_ms, self.duration_ms)
@@ -185,6 +200,21 @@ class AudioPlayer(QObject):
         self._update_loop_timer()
         self.loop_changed.emit(self._loop)
 
+    def play_loop_once(self, start_ms: int, end_ms: int) -> None:
+        """Odtwarza fragment w tymczasowej pętli (bez zmiany pętli A–B).
+
+        Pętla trwa do pauzy albo przewinięcia.
+        """
+        start_ms = max(0, start_ms)
+        if self.duration_ms > 0:
+            end_ms = min(end_ms, self.duration_ms)
+        if end_ms <= start_ms:
+            return
+        self.set_position(start_ms)
+        self._temporary_loop = (start_ms, end_ms)
+        self._update_loop_timer()
+        self.play()
+
     def clear_loop(self) -> None:
         """Wyłącza pętlę A–B."""
         if self._loop is None:
@@ -199,6 +229,7 @@ class AudioPlayer(QObject):
     def stop_and_unload(self) -> None:
         """Zatrzymuje odtwarzanie i zwalnia załadowane nagranie."""
         self.clear_loop()
+        self._temporary_loop = None
         self._rewind_armed = False
         self._pending_position = None
         # Bez ``stop()``: pusty ``setSource`` sam zatrzymuje odtwarzanie, a
@@ -221,11 +252,13 @@ class AudioPlayer(QObject):
         self._check_loop(position_ms)
 
     def _check_loop(self, position_ms: int) -> None:
-        if self._loop is not None and position_ms >= self._loop[1]:
-            self._player.setPosition(self._loop[0])
+        loop = self._temporary_loop or self._loop
+        if loop is not None and position_ms >= loop[1]:
+            self._player.setPosition(loop[0])
 
     def _update_loop_timer(self) -> None:
-        if self._loop is not None and self.is_playing:
+        looping = self._loop is not None or self._temporary_loop is not None
+        if looping and self.is_playing:
             self._loop_timer.start()
         else:
             self._loop_timer.stop()
@@ -236,6 +269,8 @@ class AudioPlayer(QObject):
             self._player.setPosition(self._loop[0])
             self._player.play()
             return
+        if state != QMediaPlayer.PlaybackState.PlayingState:
+            self._temporary_loop = None
         # Każda nowa pauza uzbraja auto-cofanie; przewinięcie je rozbraja.
         self._rewind_armed = state == QMediaPlayer.PlaybackState.PausedState
         self._update_loop_timer()

@@ -8,13 +8,14 @@ uruchamia i prezentuje.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
 from PySide6.QtCore import QObject
 from PySide6.QtGui import QTextCursor
 from PySide6.QtWidgets import QMessageBox, QWidget
 
+from transkryptor.document.anchors import TimedSegment, build_draft
 from transkryptor.document.project import ReviewEntry
 from transkryptor.i18n import tr
 from transkryptor.notation.ellipsis import EllipsisStyle, normalize_ellipses
@@ -26,6 +27,7 @@ from transkryptor.notation.suggestions import (
 )
 from transkryptor.ui.asr_panel import AsrPanel
 from transkryptor.ui.editor import TranscriptionEditor
+from transkryptor.ui.sync_controller import SyncController
 
 DRAFT_REPLACE = "replace"
 DRAFT_APPEND = "append"
@@ -55,9 +57,11 @@ class ReviewController(QObject):
         ask_placement: Callable[[], str | None],
         ellipsis_style: Callable[[], EllipsisStyle],
         rules: Callable[[], tuple[PhoneticRule, ...] | None] = lambda: None,
+        sync: SyncController | None = None,
     ) -> None:
         super().__init__(dialog_parent)
         self._rules = rules
+        self._sync = sync
         self.editor = editor
         self.asr_panel = asr_panel
         self._dialog_parent = dialog_parent
@@ -65,11 +69,12 @@ class ReviewController(QObject):
         self._ellipsis_style = ellipsis_style
         self.items: list[ReviewItem] = []
 
-    def insert_draft(self, text: str) -> None:
+    def insert_draft(self, text: str, segments: Sequence[TimedSegment] = ()) -> None:
         """REQ-14/15: wstawia szkic ASR i stosuje reguły wybrane przez autora.
 
         Wstawienie i reguły to dwa osobne kroki cofania: pierwsze Ctrl+Z
         przywraca surowy szkic, drugie — stan sprzed wstawienia (ACC-15).
+        ``segments`` (z czasami) dają kotwice czasowe szkicu (REQ-22).
         """
         if not text.strip():
             return
@@ -81,8 +86,15 @@ class ReviewController(QObject):
             placement = DRAFT_REPLACE
         self.finish()
         # Szkic nie wprowadza zapisu wielokropka innego niż wybrany.
-        text = normalize_ellipses(text, self._ellipsis_style())
+        style = self._ellipsis_style()
+        text, anchors = build_draft(
+            text, segments, lambda value: normalize_ellipses(value, style)
+        )
         start = self.editor.insert_draft(text, append=placement == DRAFT_APPEND)
+        if self._sync is not None:
+            if placement == DRAFT_REPLACE:
+                self._sync.clear()
+            self._sync.add_anchors(start, anchors)
 
         selected_codes = self.asr_panel.selected_rule_codes()
         proposal = propose_with_report(text, self._rules())
@@ -108,6 +120,8 @@ class ReviewController(QObject):
                 if item.applied
             ]
         )
+        if self._sync is not None:
+            self._sync.settle()
         self.refresh()
         self.editor.setFocus()
         if proposal.failed:
@@ -148,9 +162,13 @@ class ReviewController(QObject):
                 tr("review.apply.stale", fragment=suggestion.original),
             )
             return
+        if self._sync is not None:
+            self._sync.loosen()
         self.editor.apply_tracked_replacements(
             [(item.cursor, suggestion.replacement, suggestion.superscript_ranges)]
         )
+        if self._sync is not None:
+            self._sync.settle()
         item.applied = True
         self.refresh()
         self.editor.setFocus()

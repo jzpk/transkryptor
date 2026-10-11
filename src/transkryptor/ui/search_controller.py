@@ -16,7 +16,7 @@ from __future__ import annotations
 from bisect import bisect_left, bisect_right
 
 import regex
-from PySide6.QtCore import QEvent, QObject, QPoint, Qt, QTimer
+from PySide6.QtCore import QEvent, QObject, Qt, QTimer
 from PySide6.QtGui import QAction, QColor, QKeySequence, QTextCursor
 from PySide6.QtWidgets import QWidget
 
@@ -31,7 +31,6 @@ from transkryptor.i18n import tr
 from transkryptor.ui.editor import TranscriptionEditor
 from transkryptor.ui.highlights import SEARCH_LAYER
 from transkryptor.ui.highlights import background as highlight
-from transkryptor.ui.positions import PositionMap
 from transkryptor.ui.search_bar import SearchBar
 from transkryptor.ui.shortcuts import (
     FIND_NEXT_SHORTCUT,
@@ -211,7 +210,7 @@ class SearchController(QObject):
             self.editor.set_highlight_layer(SEARCH_LAYER, [])
             return
         positions = self.editor.position_map()
-        first, last = self._visible_range(positions)
+        first, last = self.editor.visible_range(positions)
         # Trafienia nie nakładają się, więc są posortowane po obu końcach.
         lo = bisect_right(self._matches, first, key=lambda match: match[1])
         hi = bisect_left(self._matches, last, key=lambda match: match[0])
@@ -227,20 +226,6 @@ class SearchController(QObject):
             cursor = self.editor.track_range(start, end, positions)
             selections.append(highlight(cursor, color))
         self.editor.set_highlight_layer(SEARCH_LAYER, selections)
-
-    def _visible_range(self, positions: PositionMap) -> tuple[int, int]:
-        """Zakres tekstu (pozycje Pythona) widoczny w oknie edytora."""
-        # Punkty w marginesie dokumentu dają przypadkowe pozycje — próbkujemy
-        # wewnątrz obszaru tekstu.
-        inset = int(self.editor.document().documentMargin()) + 1
-        area = self.editor.viewport().rect().adjusted(inset, inset, -inset, -inset)
-        top = self.editor.cursorForPosition(area.topLeft())
-        top.movePosition(QTextCursor.MoveOperation.StartOfLine)
-        bottom = self.editor.cursorForPosition(area.bottomRight() + QPoint(1, 1))
-        # Koniec ostatniego widocznego wiersza (kursor trafia w jego środek).
-        bottom.movePosition(QTextCursor.MoveOperation.EndOfLine)
-        first, last = sorted((top.position(), bottom.position()))
-        return positions.to_py(first), positions.to_py(last) + 1
 
     def find_next(self) -> None:
         self._step(forward=True)

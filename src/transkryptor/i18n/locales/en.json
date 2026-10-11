@@ -551,5 +551,14 @@
   "changelog.header": "Change history — installed version {version}",
   "changelog.unreleased": "Upcoming changes (development version)",
   "changelog.missing": "The change history is not available in this installation.",
-  "changelog.polish_only": "The change history is available in Polish only."
+  "changelog.polish_only": "The change history is available in Polish only.",
+  "player.action.play_from_cursor": "Play from the text position",
+  "player.action.insert_timestamp": "Insert timestamp",
+  "settings.player.follow": "Scroll the text along with playback",
+  "settings.player.follow.tooltip": "During playback the editor shows the ASR draft segment for the current position in the recording",
+  "sync.no_media": "Import a recording first.",
+  "sync.no_anchor": "This part of the text is not linked to the recording — insert a timestamp (Ctrl+Shift+T) or an ASR draft.",
+  "sync.timestamp.inserted": "Timestamp {time} inserted.",
+  "sync.timestamp.remove": "Remove timestamp {time}",
+  "session.change_audio.anchors": "Links between the text and the recording time (timestamps and draft segments) will be removed."
 }

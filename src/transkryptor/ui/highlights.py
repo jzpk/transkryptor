@@ -3,8 +3,7 @@
 Podświetlenia należą do widoku, nie do dokumentu: nie są formatem znaków,
 nie trafiają do ``Document``, pliku projektu ani eksportu DOCX. Każdy
 kontroler zarządza własną warstwą, a edytor składa je w kolejności
-``LAYER_ORDER`` — późniejsza warstwa jest rysowana na wierzchu. Faza 11
-dopisze tu warstwy niepewnych słów i aktywnego segmentu.
+``LAYER_ORDER`` — późniejsza warstwa jest rysowana na wierzchu.
 """
 
 from __future__ import annotations
@@ -12,11 +11,20 @@ from __future__ import annotations
 from PySide6.QtGui import QColor, QTextCharFormat, QTextCursor
 from PySide6.QtWidgets import QTextEdit
 
-# Podkreślenia ostrzeżeń pod spodem, przegląd ASR wyżej, wyszukiwanie na wierzchu.
+# Od spodu: aktywny segment odtwarzania (tło), niepewne słowa ASR i ostrzeżenia
+# (podkreślenia), przegląd ASR, wyszukiwanie na wierzchu.
+ACTIVE_LAYER = "active"
+UNCERTAIN_LAYER = "uncertain"
 WARNINGS_LAYER = "warnings"
 REVIEW_LAYER = "review"
 SEARCH_LAYER = "search"
-LAYER_ORDER = (WARNINGS_LAYER, REVIEW_LAYER, SEARCH_LAYER)
+LAYER_ORDER = (
+    ACTIVE_LAYER,
+    UNCERTAIN_LAYER,
+    WARNINGS_LAYER,
+    REVIEW_LAYER,
+    SEARCH_LAYER,
+)
 
 
 class HighlightLayers:
@@ -55,5 +63,14 @@ def wave_underline(cursor: QTextCursor, color: QColor) -> QTextEdit.ExtraSelecti
     selection = QTextEdit.ExtraSelection()
     selection.cursor = cursor
     selection.format.setUnderlineStyle(QTextCharFormat.UnderlineStyle.WaveUnderline)
+    selection.format.setUnderlineColor(color)
+    return selection
+
+
+def dotted_underline(cursor: QTextCursor, color: QColor) -> QTextEdit.ExtraSelection:
+    """Kropkowane podkreślenie zakresu (niepewne słowa — inaczej niż ostrzeżenia)."""
+    selection = QTextEdit.ExtraSelection()
+    selection.cursor = cursor
+    selection.format.setUnderlineStyle(QTextCharFormat.UnderlineStyle.DotLine)
     selection.format.setUnderlineColor(color)
     return selection

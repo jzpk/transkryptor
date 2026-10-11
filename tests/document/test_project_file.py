@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from transkryptor.document import project
+from transkryptor.document.anchors import MANUAL, SEGMENT, WORD, Anchor
 from transkryptor.document.project import (
     SCHEMA_VERSION,
     AsrContext,
@@ -156,6 +157,7 @@ class TestSchema:
             "document": {"text": "x"},
             "asr_context": {"prompt": "", "vocabulary": []},
             "ignored_warnings": [],
+            "anchors": [],
             "nowe_pole": [],
         }
 
@@ -193,6 +195,40 @@ class TestSchema:
                 "document": {"text": "ab"},
                 "ignored_warnings": [{"code": "VAL-07", "start": 0, "end": 9}],
             }
+        )
+        with pytest.raises(ProjectError):
+            loads(raw)
+
+    def test_version_3_project_has_no_anchors(self) -> None:
+        """Projekt sprzed fazy 11 otwiera się bez kotwic czasowych."""
+        state = loads(json.dumps({"schema_version": 3, "document": {"text": "ab"}}))
+        assert state.anchors == ()
+
+    def test_anchors_round_trip(self) -> None:
+        state = ProjectState(
+            text="ala ma kota",
+            anchors=(
+                Anchor(0, 11, 1000, 4000, SEGMENT),
+                Anchor(4, 6, 2000, 2500, WORD, probability=0.31),
+                Anchor(7, 11, 2500, 3000, WORD, probability=0.2, edited=True),
+                Anchor(4, 4, 1800, 1800, MANUAL),
+            ),
+        )
+        assert loads(dumps(state)).anchors == state.anchors
+
+    @pytest.mark.parametrize(
+        "anchor",
+        [
+            {"start": 0, "end": 9, "start_ms": 0, "end_ms": 1, "source": "segment"},
+            {"start": 0, "end": 1, "start_ms": 5, "end_ms": 1, "source": "segment"},
+            {"start": 0, "end": 1, "start_ms": 0, "end_ms": 1, "source": "inne"},
+            {"start": 0, "end": 1, "start_ms": 0, "end_ms": 0, "source": "manual"},
+            {"start": 1, "end": 1, "start_ms": 0, "end_ms": 1, "source": "word"},
+        ],
+    )
+    def test_invalid_anchor_is_rejected(self, anchor) -> None:
+        raw = json.dumps(
+            {"schema_version": 4, "document": {"text": "ab"}, "anchors": [anchor]}
         )
         with pytest.raises(ProjectError):
             loads(raw)

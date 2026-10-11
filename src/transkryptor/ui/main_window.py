@@ -31,6 +31,7 @@ from PySide6.QtWidgets import (
 )
 
 from transkryptor import __version__
+from transkryptor.asr.engine import TranscriptionResult, draft_text
 from transkryptor.asr.manager import ModelManager
 from transkryptor.asr.models import model_by_key
 from transkryptor.audio.player import AudioPlayer
@@ -78,6 +79,8 @@ from transkryptor.ui.settings_dialog import SettingsDialog
 from transkryptor.ui.settings_store import SettingsStore
 from transkryptor.ui.shortcuts import (
     BASE_TOOLTIP,
+    INSERT_TIMESTAMP,
+    PLAY_FROM_CURSOR,
     SUPERSCRIPT_ID,
     apply_shortcuts,
     effective_shortcuts,
@@ -87,6 +90,7 @@ from transkryptor.ui.shortcuts import (
     search_id,
 )
 from transkryptor.ui.snippets import SnippetController
+from transkryptor.ui.sync_controller import SyncController
 from transkryptor.ui.theme import apply_theme, resolve_tokens, set_props, tokens
 from transkryptor.ui.toolbar import MainToolbar, ToolbarHandlers
 from transkryptor.ui.update_controller import UpdateController
@@ -145,6 +149,14 @@ class MainWindow(QMainWindow):
         self.rules_store.load()
         self.asr_panel.set_rules(rule_infos(self.rules_store.rules))
 
+        self.sync = SyncController(
+            self.editor,
+            self.player,
+            self.player_bar,
+            lambda: self.settings_store.current.player,
+            lambda text: self.statusBar().showMessage(text, STATUS_MESSAGE_MS),
+            self,
+        )
         self.review = ReviewController(
             self.editor,
             self.asr_panel,
@@ -153,6 +165,7 @@ class MainWindow(QMainWindow):
             ask_placement=lambda: self._ask_draft_placement(),
             ellipsis_style=lambda: self._ellipsis_style,
             rules=lambda: self.rules_store.rules,
+            sync=self.sync,
         )
         self.ignored_warnings = IgnoredWarnings(self.editor)
         self.session = SessionController(
@@ -163,6 +176,7 @@ class MainWindow(QMainWindow):
             self.asr_panel,
             self.review,
             self.ignored_warnings,
+            self.sync,
             self.author_edit,
             self.date_edit,
             self.metadata_form,
@@ -200,7 +214,15 @@ class MainWindow(QMainWindow):
         # punkt wejścia (``__main__.main``) przez ``updates.start_automatic``.
         self.updates = UpdateController(self)
         self._build_toolbar()
-        self.player_controller = PlayerController(self, self.player, self.player_bar)
+        self.player_controller = PlayerController(
+            self,
+            self.player,
+            self.player_bar,
+            {
+                PLAY_FROM_CURSOR: self.sync.play_from_cursor,
+                INSERT_TIMESTAMP: self.sync.insert_timestamp,
+            },
+        )
         self.player_actions = self.player_controller.actions
         self.search_actions = self.search.create_actions(self)
         self.snippets = SnippetController(
@@ -357,6 +379,7 @@ class MainWindow(QMainWindow):
         self.asr_panel.seek_requested.connect(self.player_controller.seek_to_segment)
         self.asr_panel.model_changed.connect(self._on_asr_model_changed)
         self.asr_panel.context_changed.connect(self._on_asr_context_changed)
+        self.sync.timestamps_edited.connect(self.session.project_data_changed)
         self.player.playback_error.connect(
             lambda error: self._show_error(tr("main.playback_error"), error)
         )
@@ -488,6 +511,7 @@ class MainWindow(QMainWindow):
             return
         apply_theme(app, target)
         icons.refresh(self)
+        self.sync.refresh_theme()
         # Ikony listy ostrzeżeń powstają przy walidacji.
         self.notation.schedule_validation()
 
@@ -525,8 +549,11 @@ class MainWindow(QMainWindow):
     def _on_import_audio(self, path: str) -> None:
         self.session.import_audio(path)
 
-    def _on_draft_ready(self, text: str) -> None:
-        self.review.insert_draft(text)
+    def _on_draft_ready(self, draft: TranscriptionResult | str) -> None:
+        if isinstance(draft, TranscriptionResult):
+            self.review.insert_draft(draft_text(draft), draft.segments)
+        else:
+            self.review.insert_draft(draft)
 
     def _ask_draft_placement(self) -> str | None:
         return ask_draft_placement(self)

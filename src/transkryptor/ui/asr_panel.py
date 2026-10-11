@@ -171,7 +171,9 @@ class TranscribeThread(QThread):
 class AsrPanel(QWidget):
     """Panel konfiguracji modelu, pobierania i propozycji transkrypcji."""
 
-    draft_ready = Signal(str)  # tekst szkicu do wstawienia w edytor
+    # Szkic do wstawienia w edytor: ``TranscriptionResult`` (z segmentami
+    # i czasami — kotwice tekstu) albo sam tekst.
+    draft_ready = Signal(object)
     review_item_activated = Signal(int)  # indeks pozycji listy przeglądu
     review_item_apply_requested = Signal(int)
     review_finish_requested = Signal()
@@ -416,7 +418,9 @@ class AsrPanel(QWidget):
         self.transcribe_button.clicked.connect(self._on_transcribe_clicked)
         self.cancel_transcribe_button.clicked.connect(self._on_cancel_transcribe)
         self.reinsert_draft_button.clicked.connect(
-            lambda: self.draft_ready.emit(self._last_draft)
+            lambda: self.draft_ready.emit(
+                self._last_result if self._last_result is not None else self._last_draft
+            )
         )
         self.segments_list.itemClicked.connect(self._on_segment_activated)
         self.segments_list.itemActivated.connect(self._on_segment_activated)
@@ -886,7 +890,7 @@ class AsrPanel(QWidget):
             return
         self.reinsert_draft_button.setEnabled(True)
         self.transcribe_status_label.setText(tr("asr.draft_ready"))
-        self.draft_ready.emit(self._last_draft)
+        self.draft_ready.emit(result)
 
     def _on_transcribe_failed(self, error: AppError) -> None:
         self._finish_transcribe()

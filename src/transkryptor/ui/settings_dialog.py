@@ -128,6 +128,8 @@ class SettingsDialog(QDialog):
         self.auto_rewind_spin = _seconds_spin(AUTO_REWIND_RANGE_MS)
         self.auto_rewind_check.toggled.connect(self.auto_rewind_spin.setEnabled)
         self.preroll_spin = _seconds_spin(SEGMENT_PREROLL_RANGE_MS)
+        self.follow_playback_check = QCheckBox(tr("settings.player.follow"))
+        self.follow_playback_check.setToolTip(tr("settings.player.follow.tooltip"))
 
         player_form = _form()
         player_form.addRow(tr("settings.player.skip"), self.skip_spin)
@@ -136,6 +138,7 @@ class SettingsDialog(QDialog):
             tr("settings.player.auto_rewind_length"), self.auto_rewind_spin
         )
         player_form.addRow(tr("settings.player.preroll"), self.preroll_spin)
+        player_form.addRow(self.follow_playback_check)
 
         self.default_font_check = QCheckBox(tr("settings.editor.default_font"))
         self.font_combo = QFontComboBox()
@@ -354,6 +357,7 @@ class SettingsDialog(QDialog):
         self.auto_rewind_spin.setValue(player.auto_rewind_ms / 1000)
         self.auto_rewind_spin.setEnabled(player.auto_rewind_enabled)
         self.preroll_spin.setValue(player.segment_preroll_ms / 1000)
+        self.follow_playback_check.setChecked(player.follow_playback)
 
         editor = settings.editor
         self.default_font_check.setChecked(not editor.font_family)
@@ -552,6 +556,7 @@ class SettingsDialog(QDialog):
                 auto_rewind_enabled=self.auto_rewind_check.isChecked(),
                 auto_rewind_ms=_ms(self.auto_rewind_spin),
                 segment_preroll_ms=_ms(self.preroll_spin),
+                follow_playback=self.follow_playback_check.isChecked(),
             ),
             editor=EditorSettings(
                 font_family=(

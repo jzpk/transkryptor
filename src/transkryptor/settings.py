@@ -40,6 +40,8 @@ class PlayerSettings:
     auto_rewind_enabled: bool = True
     auto_rewind_ms: int = 1500
     segment_preroll_ms: int = 500
+    # Podczas odtwarzania edytor przewija się do aktywnego segmentu.
+    follow_playback: bool = True
 
 
 THEME_SYSTEM = "system"
@@ -305,6 +307,7 @@ _FIELDS: tuple[_Field, ...] = (
     _Field("player", "auto_rewind_enabled", bool),
     _Field("player", "auto_rewind_ms", int, *AUTO_REWIND_RANGE_MS),
     _Field("player", "segment_preroll_ms", int, *SEGMENT_PREROLL_RANGE_MS),
+    _Field("player", "follow_playback", bool),
     _Field("editor", "font_family", str),
     _Field("editor", "font_size_pt", int, *FONT_SIZE_RANGE_PT),
     _Field("editor", "autocomplete", bool),

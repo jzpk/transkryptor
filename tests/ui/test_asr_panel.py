@@ -562,7 +562,8 @@ class TestSegmentSeek:
         panel._transcribe_thread = None
         with qtbot.waitSignal(panel.draft_ready) as blocker:
             panel._on_transcribe_succeeded(result)
-        assert blocker.args == ["[00:00] tak było\n[00:20] we wsi"]
+        assert blocker.args == [result]
+        assert panel._last_draft == "[00:00] tak było\n[00:20] we wsi"
 
     def test_click_emits_position_minus_preroll(self, qtbot, panel) -> None:
         item = self._add_segment(panel, 12.3)

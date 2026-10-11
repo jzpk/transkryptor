@@ -130,8 +130,8 @@ class NotationController(QObject):
         self.timer.timeout.connect(self.run_validation)
         warnings_panel.warning_activated.connect(self.go_to_range)
         warnings_panel.ignore_requested.connect(self.ignore_warning)
-        editor.tooltip_provider = self.tooltip_at
-        editor.context_menu_extender = self.extend_context_menu
+        editor.tooltip_providers.append(self.tooltip_at)
+        editor.context_menu_extenders.append(self.extend_context_menu)
 
     def create_unify_action(self, owner: QWidget) -> QAction:
         action = QAction(tr("notation.unify"), owner)

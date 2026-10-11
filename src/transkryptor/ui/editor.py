@@ -15,13 +15,17 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable
 
-from PySide6.QtCore import QEvent, QPoint
+from PySide6.QtCore import QEvent, QPoint, QPointF, Qt, Signal
 from PySide6.QtGui import (
     QColor,
     QContextMenuEvent,
     QFont,
     QHelpEvent,
     QKeyEvent,
+    QMouseEvent,
+    QPainter,
+    QPaintEvent,
+    QPolygonF,
     QTextCharFormat,
     QTextCursor,
 )
@@ -59,6 +63,10 @@ _RAW_SEPARATORS = str.maketrans(
 class TranscriptionEditor(QTextEdit):
     """QTextEdit z akcjami notacji transkrypcji."""
 
+    # Ctrl+klik lewym przyciskiem: pozycja tekstu (punkty kodowe) — odtworzenie
+    # nagrania od kotwicy czasowej (faza 11).
+    ctrl_clicked = Signal(int)
+
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self.setAcceptRichText(True)
@@ -69,10 +77,14 @@ class TranscriptionEditor(QTextEdit):
         self.setPlaceholderText(tr("editor.placeholder"))
         self._base_font = QFont(self.font())
         self._layers = HighlightLayers()
-        # Podpowiedź i menu kontekstowe dla pozycji tekstu (punkty kodowe) —
-        # ustawia kontroler notacji (opis ostrzeżenia, „Ignoruj tutaj”).
-        self.tooltip_provider: Callable[[int], str | None] | None = None
-        self.context_menu_extender: Callable[[QMenu, int], None] | None = None
+        # Podpowiedzi i menu kontekstowe dla pozycji tekstu (punkty kodowe) —
+        # dopisują kontrolery (opis ostrzeżenia, „Ignoruj tutaj”, znaczniki
+        # czasu). Podpowiedzi pierwszego dostawcy, który coś zwrócił.
+        self.tooltip_providers: list[Callable[[int], str | None]] = []
+        self.context_menu_extenders: list[Callable[[QMenu, int], None]] = []
+        # Punktowe znaczniki rysowane nad tekstem (ręczne znaczniki czasu).
+        self._point_markers: list[QTextCursor] = []
+        self._point_marker_color = QColor("#888888")
         # Autouzupełnianie: obsługa klawisza przed edytorem (True = obsłużony)
         # i powiadomienie po wpisaniu znaku.
         self.key_filter: Callable[[QKeyEvent], bool] | None = None
@@ -104,9 +116,17 @@ class TranscriptionEditor(QTextEdit):
         if (
             event.type() == QEvent.Type.ToolTip
             and isinstance(event, QHelpEvent)
-            and self.tooltip_provider is not None
+            and self.tooltip_providers
         ):
-            text = self.tooltip_provider(self.text_position_at(event.pos()))
+            position = self.text_position_at(event.pos())
+            text = next(
+                (
+                    tip
+                    for provider in self.tooltip_providers
+                    if (tip := provider(position))
+                ),
+                None,
+            )
             if text:
                 QToolTip.showText(event.globalPos(), text, self.viewport())
             else:
@@ -124,10 +144,82 @@ class TranscriptionEditor(QTextEdit):
 
     def contextMenuEvent(self, event: QContextMenuEvent) -> None:
         menu = self.createStandardContextMenu(event.pos())
-        if self.context_menu_extender is not None:
-            self.context_menu_extender(menu, self.text_position_at(event.pos()))
+        position = self.text_position_at(event.pos())
+        for extend in self.context_menu_extenders:
+            extend(menu, position)
         menu.exec(event.globalPos())
         menu.deleteLater()
+
+    def mousePressEvent(self, event: QMouseEvent) -> None:
+        super().mousePressEvent(event)
+        if (
+            event.button() == Qt.MouseButton.LeftButton
+            and event.modifiers() & Qt.KeyboardModifier.ControlModifier
+        ):
+            self.ctrl_clicked.emit(self.text_position_at(event.position().toPoint()))
+
+    def set_point_markers(self, cursors: list[QTextCursor], color: QColor) -> None:
+        """Znaczniki punktowe (kursory bez zaznaczenia) rysowane w tekście.
+
+        Jak podświetlenia należą do widoku: nie są tekstem ani formatem.
+        """
+        self._point_markers = list(cursors)
+        self._point_marker_color = QColor(color)
+        self.viewport().update()
+
+    def paintEvent(self, event: QPaintEvent) -> None:
+        super().paintEvent(event)
+        if not self._point_markers:
+            return
+        painter = QPainter(self.viewport())
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(self._point_marker_color)
+        area = event.rect()
+        for cursor in self._point_markers:
+            rect = self.cursorRect(cursor)
+            if not rect.intersects(area):
+                continue
+            x, top = float(rect.x()), float(rect.top())
+            size = max(4.0, rect.height() / 4)
+            painter.drawPolygon(
+                QPolygonF(
+                    [
+                        QPointF(x - size / 2, top),
+                        QPointF(x + size / 2, top),
+                        QPointF(x, top + size),
+                    ]
+                )
+            )
+            painter.drawRect(int(x), int(top), 1, rect.height())
+        painter.end()
+
+    def visible_range(self, positions: PositionMap | None = None) -> tuple[int, int]:
+        """Zakres tekstu (pozycje Pythona) widoczny w oknie edytora."""
+        if positions is None:
+            positions = self.position_map()
+        # Punkty w marginesie dokumentu dają przypadkowe pozycje — próbkujemy
+        # wewnątrz obszaru tekstu.
+        inset = int(self.document().documentMargin()) + 1
+        area = self.viewport().rect().adjusted(inset, inset, -inset, -inset)
+        top = self.cursorForPosition(area.topLeft())
+        top.movePosition(QTextCursor.MoveOperation.StartOfLine)
+        bottom = self.cursorForPosition(area.bottomRight() + QPoint(1, 1))
+        # Koniec ostatniego widocznego wiersza (kursor trafia w jego środek).
+        bottom.movePosition(QTextCursor.MoveOperation.EndOfLine)
+        first, last = sorted((top.position(), bottom.position()))
+        return positions.to_py(first), positions.to_py(last) + 1
+
+    def scroll_to_cursor(self, cursor: QTextCursor) -> None:
+        """Przewija widok do początku zakresu bez przesuwania kursora tekstu."""
+        start = QTextCursor(cursor)
+        start.setPosition(cursor.selectionStart())
+        rect = self.cursorRect(start)
+        viewport = self.viewport().rect()
+        if viewport.top() <= rect.top() and rect.bottom() <= viewport.bottom():
+            return
+        bar = self.verticalScrollBar()
+        bar.setValue(bar.value() + rect.top() - viewport.height() // 3)
 
     def plain_text(self) -> str:
         """Tekst edytora bez normalizacji (NBSP zostaje, ACC-01).
