@@ -566,5 +566,9 @@
   "settings.asr.uncertain_words": "Podkreślaj niepewne słowa szkicu ASR",
   "settings.asr.word_threshold": "Próg pewności słowa:",
   "settings.asr.word_threshold.tooltip": "Słowa o pewności niższej niż próg są podkreślone kropkami. Wartość orientacyjna — pewności Whispera nie są skalibrowane.",
-  "sync.uncertain.tooltip": "Niepewne słowo ASR (pewność {percent}%). Ctrl+klik odtwarza słowo; po poprawieniu podkreślenie znika."
+  "sync.uncertain.tooltip": "Niepewne słowo ASR (pewność {percent}%). Ctrl+klik odtwarza słowo; po poprawieniu podkreślenie znika.",
+  "asr.fragment": "Rozpoznaj fragment A–B",
+  "asr.fragment.tooltip": "Rozpoznaje tylko fragment nagrania między punktami A i B pętli (ustawionymi przyciskami A/B albo przeciągnięciem na fali). Wynik trafia w miejsce kursora albo zastępuje zaznaczony tekst.",
+  "asr.fragment.no_range": "Ustaw punkty A i B pętli (albo zaznacz fragment na fali), aby rozpoznać fragment.",
+  "asr.fragment.ready": "Fragment rozpoznany i wstawiony w miejscu kursora."
 }

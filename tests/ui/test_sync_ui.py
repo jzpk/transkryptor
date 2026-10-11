@@ -400,3 +400,90 @@ def test_sixty_minute_document_stays_responsive(qtbot, add_window) -> None:
     assert key_ms < 50
     assert uncertain_ms < 100
     assert tick_ms < 20
+
+
+class TestFragmentTranscription:
+    @pytest.fixture
+    def fake_asr(self, window, tmp_path) -> list:
+        """Model „pobrany” i atrapa transkrypcji fragmentu z czasami nagrania."""
+        from transkryptor.asr.manager import ModelManager
+
+        def downloader(model, dest, on_progress, should_cancel):
+            for name in (file.name for file in model.files):
+                (dest / name).write_bytes(b"fake")
+
+        manager = ModelManager(models_root=tmp_path / "models", downloader=downloader)
+        manager.download()
+        window.asr_panel._manager = manager
+        calls: list = []
+
+        def transcribe(audio_path, model_dir, should_cancel, on_segment, **kwargs):
+            options = kwargs["options"]
+            calls.append(options.clip)
+            start, _end = options.clip
+            words = (
+                WordResult(start + 0.1, start + 0.5, " no", 0.95),
+                WordResult(start + 0.5, start + 1.2, " sóm", 0.2),
+            )
+            segment = SegmentResult(start + 0.1, start + 1.2, " no sóm", 0.6, words)
+            return TranscriptionResult(
+                text="no sóm", language="pl", segments=(segment,)
+            )
+
+        window.asr_panel._transcribe_impl = transcribe
+        window.asr_panel.refresh_model_status()
+        return calls
+
+    def test_acc49_fragment_goes_to_cursor_in_one_undo_step(
+        self, qtbot, window, fake_asr
+    ) -> None:
+        editor = window.editor
+        editor.setPlainText("Początek tekstu.Koniec tekstu.")
+        original = editor.plain_text()
+        window.player_bar._loop_a = 12_000
+        window.player_bar._loop_b = 15_500
+        cursor = editor.textCursor()
+        cursor.setPosition(original.index("Koniec"))
+        editor.setTextCursor(cursor)
+
+        window.asr_panel.fragment_button.click()
+        qtbot.waitUntil(
+            lambda: window.asr_panel._transcribe_thread is None, timeout=5000
+        )
+        assert fake_asr == [(12.0, 15.5)]
+        assert editor.plain_text() == "Początek tekstu. no sóm Koniec tekstu."
+        anchors = window.sync.entries()
+        text = editor.plain_text()
+        assert [(text[a.start : a.end], a.start_ms, a.end_ms) for a in anchors] == [
+            ("no sóm", 12_100, 13_200),
+            ("no", 12_100, 12_500),
+            ("sóm", 12_500, 13_200),
+        ]
+        assert window.sync.uncertain_words() == ["sóm"]
+        # Wynik całego nagrania (szkic, segmenty) się nie zmienia.
+        assert window.asr_panel.last_result is None
+        assert window.asr_panel.segments_list.count() == 0
+
+        editor.document().undo()
+        assert editor.plain_text() == original
+
+    def test_fragment_replaces_selection(self, qtbot, window, fake_asr) -> None:
+        editor = window.editor
+        editor.setPlainText("Ala [...] kota.")
+        window.player_bar._loop_a = 1000
+        window.player_bar._loop_b = 2000
+        cursor = editor.textCursor()
+        cursor.setPosition(4)
+        cursor.setPosition(9, QTextCursor.MoveMode.KeepAnchor)
+        editor.setTextCursor(cursor)
+        window.asr_panel.fragment_button.click()
+        qtbot.waitUntil(
+            lambda: window.asr_panel._transcribe_thread is None, timeout=5000
+        )
+        assert editor.plain_text() == "Ala no sóm kota."
+
+    def test_fragment_needs_ab_points(self, window, fake_asr) -> None:
+        window.player_bar._loop_a = 1000
+        window.asr_panel.fragment_button.click()
+        assert fake_asr == []
+        assert "A i B" in window.asr_panel.transcribe_status_label.text()

@@ -143,6 +143,7 @@ class MainWindow(QMainWindow):
                 Path(asr_settings.models_root) if asr_settings.models_root else None,
             ),
             audio_path_provider=lambda: self.player.source_path,
+            clip_provider=lambda: self.player_bar.loop_points(),
         )
 
         self.rules_store = RulesStore(parent=self)
@@ -385,6 +386,7 @@ class MainWindow(QMainWindow):
             lambda error: self._show_error(tr("main.playback_error"), error)
         )
         self.asr_panel.draft_ready.connect(self._on_draft_ready)
+        self.asr_panel.fragment_ready.connect(self._on_fragment_ready)
         self.asr_panel.review_item_activated.connect(self.review.activate)
         self.asr_panel.review_item_apply_requested.connect(self._on_apply_review_item)
         self.asr_panel.review_finish_requested.connect(self.review.finish)
@@ -556,6 +558,9 @@ class MainWindow(QMainWindow):
             self.review.insert_draft(draft_text(draft), draft.segments)
         else:
             self.review.insert_draft(draft)
+
+    def _on_fragment_ready(self, result: TranscriptionResult) -> None:
+        self.review.insert_fragment(result.text, result.segments)
 
     def _ask_draft_placement(self) -> str | None:
         return ask_draft_placement(self)

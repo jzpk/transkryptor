@@ -17,6 +17,12 @@ potrafi zająć kilka GB. Opcja ``DecodingOptions.chunked`` włącza
 :class:`ChunkedWhisperBackend`, który dekoduje plik raz i podaje modelowi
 kolejne kilkuminutowe fragmenty cięte w ciszy, dzięki czemu szczyt pamięci
 nie zależy od długości nagrania.
+
+``DecodingOptions.clip`` ogranicza transkrypcję do fragmentu nagrania (pętla
+A–B). Fragment jest wycinany z próbek tym samym backendem co transkrypcja
+fragmentami, a czasy segmentów i słów pozostają bezwzględne. Nie używamy
+``clip_timestamps`` faster-whispera: wyłącza on VAD i liczy cechy dla całego
+nagrania.
 """
 
 from __future__ import annotations
@@ -159,8 +165,8 @@ class DecodingOptions:
     ``initial_prompt`` i ``hotwords`` trafiają do Whispera tylko, gdy nie są
     puste — bez nich zachowanie jest takie jak przed fazą 09. ``chunked``
     włącza transkrypcję fragmentami (mniej pamięci przy długich nagraniach).
-    ``word_timestamps`` dodaje do segmentów słowa z czasami i pewnością
-    (faza 11).
+    ``word_timestamps`` dodaje do segmentów słowa z czasami i pewnością,
+    a ``clip`` (sekundy od–do) ogranicza transkrypcję do fragmentu (faza 11).
     """
 
     device: str = "auto"
@@ -168,6 +174,7 @@ class DecodingOptions:
     hotwords: str | None = None
     chunked: bool = False
     word_timestamps: bool = False
+    clip: tuple[float, float] | None = None
 
 
 CancelCheck = Callable[[], bool]
@@ -247,7 +254,7 @@ def transcribe(
     try:
         try:
             raw_segments, info = _start(
-                factory, model_path, device, audio, language, extra, decoding.chunked
+                factory, model_path, device, audio, language, extra, decoding
             )
         except (ModelDownloadError, TranscriptionCancelled):
             raise
@@ -256,13 +263,17 @@ def transcribe(
                 raise
             device, device_note = "cpu", _short(error)
             raw_segments, info = _start(
-                factory, model_path, device, audio, language, extra, decoding.chunked
+                factory, model_path, device, audio, language, extra, decoding
             )
     except (ModelDownloadError, TranscriptionCancelled):
         raise
     except Exception as error:  # noqa: BLE001 — normalizacja do AppError
         raise transcription_error(error) from error
     duration = float(getattr(info, "duration", 0) or 0)
+    origin = 0.0
+    if decoding.clip is not None:
+        origin = decoding.clip[0]
+        duration = max(0.0, min(duration, decoding.clip[1]) - origin)
     progress = 0.0
     segments: list[SegmentResult] = []
     for raw in _guarded(raw_segments):
@@ -280,7 +291,7 @@ def transcribe(
             on_segment(segment)
         if on_progress is not None and duration > 0:
             # Segmenty idą chronologicznie, ale max() chroni przed cofaniem.
-            progress = max(progress, min(1.0, segment.end_s / duration))
+            progress = max(progress, min(1.0, (segment.end_s - origin) / duration))
             on_progress(progress)
     if cancel():
         raise TranscriptionCancelled()
@@ -300,7 +311,7 @@ def _start(
     audio: Path,
     language: str,
     extra: dict[str, Any],
-    chunked: bool = False,
+    decoding: DecodingOptions,
 ) -> tuple[Iterable[Any], Any]:
     """Ładuje backend i uruchamia dekodowanie (opcjonalnie fragmentami).
 
@@ -309,8 +320,8 @@ def _start(
     bezpiecznie przejść na CPU.
     """
     backend = factory(model_path, device)
-    if chunked:
-        backend = ChunkedWhisperBackend(backend)
+    if decoding.chunked or decoding.clip is not None:
+        backend = ChunkedWhisperBackend(backend, clip=decoding.clip)
     raw_segments, info = backend.transcribe(
         str(audio), language=language, vad_filter=True, **extra
     )
@@ -467,7 +478,8 @@ class ChunkedWhisperBackend:
 
     Nagranie jest dekodowane raz (ok. 0,25 GB na godzinę), a model dostaje
     kolejne fragmenty jako tablice próbek; czasy segmentów są przesuwane
-    o początek fragmentu.
+    o początek fragmentu. ``clip`` (sekundy od–do) ogranicza pracę do
+    jednego zakresu nagrania.
     """
 
     def __init__(
@@ -476,17 +488,26 @@ class ChunkedWhisperBackend:
         *,
         decode: Callable[[str], npt.NDArray[np.float32]] | None = None,
         chunk_s: float = CHUNK_S,
+        clip: tuple[float, float] | None = None,
     ) -> None:
         self._model = model
         self._decode = decode or _decode_audio
         self._chunk_s = chunk_s
+        self._clip = clip
 
     def transcribe(
         self, audio: str, /, *, language: str, vad_filter: bool, **extra: Any
     ) -> tuple[Iterable[Any], Any]:
         samples = self._decode(audio)
         info = SimpleNamespace(language=language, duration=len(samples) / SAMPLE_RATE)
-        bounds = chunk_bounds(samples, chunk_s=self._chunk_s)
+        first, last = 0, len(samples)
+        if self._clip is not None:
+            first = min(last, max(0, int(self._clip[0] * SAMPLE_RATE)))
+            last = min(last, max(first, int(self._clip[1] * SAMPLE_RATE)))
+        bounds = [
+            (start + first, end + first)
+            for start, end in chunk_bounds(samples[first:last], chunk_s=self._chunk_s)
+        ]
         segments = self._segments(samples, bounds, language, vad_filter, extra)
         return segments, info
 

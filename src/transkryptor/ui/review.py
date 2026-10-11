@@ -12,7 +12,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
 from PySide6.QtCore import QObject
-from PySide6.QtGui import QTextCursor
+from PySide6.QtGui import QTextCharFormat, QTextCursor
 from PySide6.QtWidgets import QMessageBox, QWidget
 
 from transkryptor.document.anchors import TimedSegment, build_draft
@@ -123,6 +123,72 @@ class ReviewController(QObject):
         if self._sync is not None:
             self._sync.settle()
         self.refresh()
+        self.editor.setFocus()
+        if proposal.failed:
+            QMessageBox.warning(
+                self._dialog_parent,
+                tr("review.rules_timeout.title"),
+                tr("review.rules_timeout", codes=", ".join(proposal.failed)),
+            )
+
+    def insert_fragment(self, text: str, segments: Sequence[TimedSegment] = ()) -> None:
+        """Wstawia wynik transkrypcji fragmentu w miejscu kursora (ACC-49).
+
+        Tekst zastępuje zaznaczenie albo trafia w miejsce kursora, oddzielony
+        spacjami od sąsiednich słów. Kotwice (czasy bezwzględne) i reguły jak
+        dla całego szkicu, ale całość to jeden krok cofania; propozycje reguł
+        są dopisywane do bieżącego przeglądu.
+        """
+        style = self._ellipsis_style()
+        text, anchors = build_draft(
+            text, segments, lambda value: normalize_ellipses(value, style)
+        )
+        if not text.strip():
+            return
+        positions = self.editor.position_map()
+        current = positions.text
+        selection = self.editor.textCursor()
+        start = positions.to_py(selection.selectionStart())
+        end = positions.to_py(selection.selectionEnd())
+        prefix = " " if start > 0 and not current[start - 1].isspace() else ""
+        suffix = " " if end < len(current) and not current[end].isspace() else ""
+        offset = start + len(prefix)
+
+        cursor = self.editor.track_range(start, end, positions)
+        cursor.beginEditBlock()
+        cursor.insertText(prefix + text + suffix, QTextCharFormat())
+        if self._sync is not None:
+            self._sync.add_anchors(offset, anchors)
+        selected_codes = self.asr_panel.selected_rule_codes()
+        proposal = propose_with_report(text, self._rules())
+        positions = self.editor.position_map()
+        items = [
+            ReviewItem(
+                suggestion,
+                self.editor.track_range(
+                    offset + suggestion.start, offset + suggestion.end, positions
+                ),
+                applied=suggestion.code in selected_codes,
+            )
+            for suggestion in without_overlaps(proposal.suggestions, selected_codes)
+        ]
+        self.editor.apply_tracked_replacements(
+            [
+                (
+                    item.cursor,
+                    item.suggestion.replacement,
+                    item.suggestion.superscript_ranges,
+                )
+                for item in items
+                if item.applied
+            ]
+        )
+        cursor.endEditBlock()
+        if self._sync is not None:
+            self._sync.settle()
+        self.items.extend(items)
+        self.refresh()
+        self.editor.setTextCursor(QTextCursor(cursor))
         self.editor.setFocus()
         if proposal.failed:
             QMessageBox.warning(

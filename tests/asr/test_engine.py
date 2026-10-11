@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 
 from transkryptor.asr import engine
+from transkryptor.asr import engine as engine_module
 from transkryptor.asr.engine import (
     PROMPT_MAX_CHARS,
     ChunkedWhisperBackend,
@@ -591,3 +592,42 @@ class TestDraftText:
     )
     def test_format_timestamp(self, seconds: float, expected: str) -> None:
         assert format_timestamp(seconds) == expected
+
+
+class TestClip:
+    """Faza 11: transkrypcja fragmentu nagrania (pętla A–B)."""
+
+    RATE = 16_000
+
+    def test_backend_cuts_clip_and_keeps_absolute_times(self) -> None:
+        model = ChunkModel()
+        samples = np.ones(self.RATE * 25, dtype=np.float32)
+        backend = ChunkedWhisperBackend(
+            model, decode=lambda path: samples, clip=(10.0, 15.5)
+        )
+        raw_segments, info = backend.transcribe(
+            "nagranie.mp3", language="pl", vad_filter=True
+        )
+        segments = list(raw_segments)
+        assert [length for length, _ in model.calls] == [int(self.RATE * 5.5)]
+        assert model.calls[0][1]["vad_filter"] is True
+        assert segments[0].start == pytest.approx(11.0)
+        assert segments[0].words[0].start == pytest.approx(11.5)
+
+    def test_transcribe_clip_reports_relative_progress(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        model = ChunkModel()
+        samples = np.ones(self.RATE * 30, dtype=np.float32)
+        monkeypatch.setattr(engine_module, "_decode_audio", lambda path: samples)
+        progress: list[float] = []
+        result = transcribe(
+            make_audio(tmp_path),
+            make_model_dir(tmp_path),
+            backend_factory=lambda path, device: model,
+            options=DecodingOptions(clip=(20.0, 24.0)),
+            on_progress=progress.append,
+        )
+        assert result.segments[0].start_s == pytest.approx(21.0)
+        assert result.segments[0].end_s == pytest.approx(22.0)
+        assert progress == [pytest.approx(0.5)]

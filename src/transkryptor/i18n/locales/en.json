@@ -566,5 +566,9 @@
   "settings.asr.uncertain_words": "Underline uncertain words of the ASR draft",
   "settings.asr.word_threshold": "Word confidence threshold:",
   "settings.asr.word_threshold.tooltip": "Words with confidence below the threshold get a dotted underline. An approximate value — Whisper confidences are not calibrated.",
-  "sync.uncertain.tooltip": "Uncertain ASR word (confidence {percent}%). Ctrl+click plays the word; the underline disappears once you correct it."
+  "sync.uncertain.tooltip": "Uncertain ASR word (confidence {percent}%). Ctrl+click plays the word; the underline disappears once you correct it.",
+  "asr.fragment": "Recognize fragment A–B",
+  "asr.fragment.tooltip": "Recognizes only the part of the recording between loop points A and B (set with the A/B buttons or by dragging on the waveform). The result goes to the cursor position or replaces the selected text.",
+  "asr.fragment.no_range": "Set loop points A and B (or select a fragment on the waveform) to recognize a fragment.",
+  "asr.fragment.ready": "Fragment recognized and inserted at the cursor."
 }

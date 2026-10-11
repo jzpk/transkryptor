@@ -77,6 +77,12 @@ Pusta sekcja blokuje wydanie.
   W **Ustawieniach…** (zakładka **ASR**) można wyłączyć podkreślenia,
   zmienić próg pewności (domyślnie 40%, wartość orientacyjna) albo wyłączyć
   rozpoznawanie słów, które wydłuża transkrypcję.
+- Rozpoznanie fragmentu: przycisk **Rozpoznaj fragment A–B** w panelu
+  **Szkic ASR** rozpoznaje tylko fragment nagrania między punktami A i B
+  pętli. Wynik trafia w miejsce kursora (albo zastępuje zaznaczony tekst)
+  z regułami fonetycznymi i powiązaniem z czasem nagrania; jedno cofnięcie
+  usuwa go w całości. Szkic całego nagrania i lista segmentów się nie
+  zmieniają.
 
 ## 0.5.0 — 2026-10-18
 

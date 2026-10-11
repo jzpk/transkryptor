@@ -214,6 +214,12 @@ class PlayerBar(QFrame):
             loop_active=self._player.loop_range is not None,
         )
 
+    def loop_points(self) -> tuple[int, int] | None:
+        """Punkty A–B (ms), gdy oba są ustawione — zakres fragmentu dla ASR."""
+        if not self._has_media or self._loop_a is None or self._loop_b is None:
+            return None
+        return self._loop_a, self._loop_b
+
     def restore_state(self, state: PlayerState) -> None:
         """Przywraca pozycję i pętlę z projektu.
 

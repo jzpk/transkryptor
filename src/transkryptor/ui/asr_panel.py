@@ -19,6 +19,7 @@ globalnym z ustawień (REQ-21).
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import replace
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QThread, Signal
@@ -181,6 +182,9 @@ class AsrPanel(QWidget):
     transcription_progress = Signal(float)  # ułamek nagrania 0.0–1.0
     transcription_finished = Signal()
     seek_requested = Signal(int)  # pozycja nagrania w ms
+    # Wynik transkrypcji fragmentu (``TranscriptionResult``) do wstawienia
+    # w miejscu kursora; nie zastępuje ostatniego szkicu całego nagrania.
+    fragment_ready = Signal(object)
     model_changed = Signal(str)  # klucz modelu wybranego przez użytkownika
     context_changed = Signal()  # kontekst nagrania lub słownik projektu
 
@@ -190,10 +194,14 @@ class AsrPanel(QWidget):
         audio_path_provider: Callable[[], Path | None] = lambda: None,
         transcribe_impl: Callable[..., TranscriptionResult] | None = None,
         parent=None,
+        clip_provider: Callable[[], tuple[int, int] | None] = lambda: None,
     ) -> None:
         super().__init__(parent)
         self._manager = manager
         self._audio_path_provider = audio_path_provider
+        # Zakres fragmentu (ms) — punkty A–B paska odtwarzacza.
+        self._clip_provider = clip_provider
+        self._clip_mode = False
         # Domyślnie podproces roboczy (PERF-04): model zostaje w pamięci,
         # a „Anuluj” kończy pracę od razu. Testy podstawiają imitację.
         self._worker: AsrWorker | None = None
@@ -266,6 +274,9 @@ class AsrPanel(QWidget):
         set_props(self.transcribe_button, variant="primary")
         icons.set_icon(self.transcribe_button, "sparkles", "on_accent", "text_muted")
         self.transcribe_button.setIconSize(icons.ICON_SIZE)
+        self.fragment_button = QPushButton(tr("asr.fragment"))
+        icons.set_icon(self.fragment_button, "loop", "text", "text_muted")
+        self.fragment_button.setToolTip(tr("asr.fragment.tooltip"))
         self.cancel_transcribe_button = QPushButton(tr("loading.cancel"))
         set_props(self.cancel_transcribe_button, variant="danger")
         self.cancel_transcribe_button.setVisible(False)
@@ -367,6 +378,7 @@ class AsrPanel(QWidget):
                 self.vocabulary_edit,
                 self.vocabulary_hint,
                 transcribe_row,
+                self.fragment_button,
                 self.transcribe_status_label,
                 self.device_label,
                 self.reinsert_draft_button,
@@ -417,6 +429,7 @@ class AsrPanel(QWidget):
         self.download_button.clicked.connect(self._on_download_clicked)
         self.cancel_download_button.clicked.connect(self._on_cancel_download)
         self.transcribe_button.clicked.connect(self._on_transcribe_clicked)
+        self.fragment_button.clicked.connect(self._on_fragment_clicked)
         self.cancel_transcribe_button.clicked.connect(self._on_cancel_transcribe)
         self.reinsert_draft_button.clicked.connect(
             lambda: self.draft_ready.emit(
@@ -698,11 +711,13 @@ class AsrPanel(QWidget):
             self.seek_requested.emit(max(0, start_ms - self._segment_preroll_ms))
 
     def _update_transcribe_availability(self) -> None:
-        self.transcribe_button.setEnabled(
+        available = (
             self._manager.is_downloaded()
             and self._audio_available
             and self._transcribe_thread is None
         )
+        self.transcribe_button.setEnabled(available)
+        self.fragment_button.setEnabled(available)
 
     # --- pobieranie ----------------------------------------------------------
 
@@ -814,27 +829,44 @@ class AsrPanel(QWidget):
     # --- transkrypcja --------------------------------------------------------
 
     def _on_transcribe_clicked(self) -> None:
+        self._start_transcription(None)
+
+    def _on_fragment_clicked(self) -> None:
+        """Transkrypcja fragmentu A–B (propozycja 10A)."""
+        clip = self._clip_provider()
+        if clip is None:
+            self.transcribe_status_label.setText(tr("asr.fragment.no_range"))
+            return
+        start_ms, end_ms = clip
+        self._start_transcription((start_ms / 1000, end_ms / 1000))
+
+    def _start_transcription(self, clip: tuple[float, float] | None) -> None:
         audio_path = self._audio_path_provider()
         if audio_path is None:
             self.transcribe_status_label.setText(tr("asr.no_audio"))
             return
         if not self._confirm_memory():
             return
+        self._clip_mode = clip is not None
         self.transcribe_button.setEnabled(False)
+        self.fragment_button.setEnabled(False)
         self.cancel_transcribe_button.setVisible(True)
         self.transcribe_status_label.setText(tr("asr.transcribing"))
-        self.segments_list.clear()
-        self.reinsert_draft_button.setEnabled(False)
         self.device_label.setText("")
+        if not self._clip_mode:
+            self.segments_list.clear()
+            self.reinsert_draft_button.setEnabled(False)
+        options = replace(self.decoding_options(), clip=clip)
         thread = TranscribeThread(
             audio_path,
             self._manager.model_dir,
             self._transcribe_impl,
             self,
             model=self._manager.model,
-            options=self.decoding_options(),
+            options=options,
         )
-        thread.segment_ready.connect(self._on_segment_ready)
+        if not self._clip_mode:
+            thread.segment_ready.connect(self._on_segment_ready)
         thread.progressed.connect(self._on_transcribe_progress)
         thread.succeeded.connect(self._on_transcribe_succeeded)
         thread.failed.connect(self._on_transcribe_failed)
@@ -884,6 +916,14 @@ class AsrPanel(QWidget):
 
     def _on_transcribe_succeeded(self, result: TranscriptionResult) -> None:
         self._finish_transcribe()
+        if self._clip_mode:
+            self.device_label.setText(_device_text(result))
+            if not result.text.strip():
+                self.transcribe_status_label.setText(tr("asr.no_speech"))
+                return
+            self.transcribe_status_label.setText(tr("asr.fragment.ready"))
+            self.fragment_ready.emit(result)
+            return
         self._last_draft = draft_text(result)
         self._last_result = result
         self._last_model_key = self._running_model_key
