@@ -362,6 +362,13 @@ jobs:
 
       # Klucz bez hasła (minisign -G -W) — chroni go sekret environment.
       # Zaufany komentarz wiąże podpis z wersją (update/signature.py).
+      #
+      # Plik klucza minisign to dwie linie: „untrusted comment: …” i klucz
+      # w base64; z jedną linią minisign kończy się tylko komunikatem „Error
+      # while loading the secret key file”. Sekret bywa wklejony bez linii
+      # komentarza, z CRLF albo sklejony w jeden wiersz — krok odtwarza z niego
+      # poprawny plik (komentarz nie wpływa na podpis), a zły format albo klucz
+      # zaszyfrowany hasłem zgłasza czytelnym błędem.
       - name: Podpis sum kontrolnych (minisign)
         env:
           MINISIGN_SECRET_KEY: ${{ secrets.MINISIGN_SECRET_KEY }}
@@ -377,7 +384,23 @@ jobs:
           tar -xzf "$RUNNER_TEMP/minisign.tar.gz" -C "$RUNNER_TEMP" minisign-linux/x86_64/minisign
           COMMENT="$(uv run python -c 'import sys; from transkryptor.update.signature import trusted_comment_for as c; print(c(sys.argv[1]))' "$VERSION")"
           umask 077
-          printf '%s\n' "$MINISIGN_SECRET_KEY" > "$RUNNER_TEMP/minisign.key"
+          KEY="$(printf '%s\n' "$MINISIGN_SECRET_KEY" | tr -d '\r' \
+            | grep -v '^[[:space:]]*$' | grep -v '^untrusted comment:' || true)"
+          if [ -z "$KEY" ]; then
+            # Komentarz i klucz sklejone w jeden wiersz: klucz to ostatnie słowo.
+            KEY="$(printf '%s\n' "$MINISIGN_SECRET_KEY" | tr -d '\r' | awk 'NF { k = $NF } END { print k }')"
+          fi
+          KEY="$(printf '%s' "$KEY" | tr -d '[:space:]')"
+          if ! printf '%s' "$KEY" | grep -Eq '^[A-Za-z0-9+/]{100,}={0,2}$'; then
+            echo "::error::MINISIGN_SECRET_KEY nie jest kluczem prywatnym minisign — wklej całą zawartość pliku z minisign -G -W (dwie linie)."
+            exit 1
+          fi
+          # Bajty 2–3 struktury klucza: algorytm KDF („Sc” = klucz z hasłem).
+          if [ "$(printf '%s' "$KEY" | base64 -d 2>/dev/null | head -c 4 | tail -c 2)" = "Sc" ]; then
+            echo "::error::Klucz w MINISIGN_SECRET_KEY jest zaszyfrowany hasłem — CI go nie odszyfruje. Wygeneruj klucz z minisign -G -W."
+            exit 1
+          fi
+          printf 'untrusted comment: minisign secret key\n%s\n' "$KEY" > "$RUNNER_TEMP/minisign.key"
           "$RUNNER_TEMP/minisign-linux/x86_64/minisign" -S \
             -s "$RUNNER_TEMP/minisign.key" -m dist/SHA256SUMS.txt -t "$COMMENT"
 
