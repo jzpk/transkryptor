@@ -38,6 +38,7 @@ from transkryptor.document.model import Document
 from transkryptor.errors import AppError
 from transkryptor.i18n import tr
 from transkryptor.notation.ellipsis import EllipsisStyle
+from transkryptor.notation.suggestions import rule_infos
 from transkryptor.settings import Settings
 from transkryptor.ui import icons
 from transkryptor.ui.asr_panel import AsrPanel
@@ -69,6 +70,7 @@ from transkryptor.ui.review import (
     ask_draft_placement,
     draft_placement_box,
 )
+from transkryptor.ui.rules_store import RulesStore
 from transkryptor.ui.search_bar import SearchBar
 from transkryptor.ui.search_controller import SearchController
 from transkryptor.ui.session import SessionController
@@ -92,6 +94,7 @@ STATUS_MESSAGE_MS = 5000
 # w pisaniu; zapis, eksport i walidacja synchronizują od razu.
 SYNC_DEBOUNCE_MS = 300
 WINDOW_TITLE = "Transkryptor"
+RULE_ERRORS_SHOWN = 8
 
 
 class MainWindow(QMainWindow):
@@ -128,6 +131,10 @@ class MainWindow(QMainWindow):
             audio_path_provider=lambda: self.player.source_path,
         )
 
+        self.rules_store = RulesStore(parent=self)
+        self.rules_store.load()
+        self.asr_panel.set_rules(rule_infos(self.rules_store.rules))
+
         self.review = ReviewController(
             self.editor,
             self.asr_panel,
@@ -135,6 +142,7 @@ class MainWindow(QMainWindow):
             # Późne wiązanie: testy podmieniają ``_ask_draft_placement``.
             ask_placement=lambda: self._ask_draft_placement(),
             ellipsis_style=lambda: self._ellipsis_style,
+            rules=lambda: self.rules_store.rules,
         )
         self.ignored_warnings = IgnoredWarnings(self.editor)
         self.session = SessionController(
@@ -325,6 +333,9 @@ class MainWindow(QMainWindow):
         self.metadata_form.changed.connect(self._on_metadata_changed)
         self.player_bar.import_requested.connect(self._on_import_audio)
         self.settings_store.settings_changed.connect(self._apply_settings)
+        self.rules_store.rules_changed.connect(
+            lambda: self.asr_panel.set_rules(rule_infos(self.rules_store.rules))
+        )
         app = QApplication.instance()
         if isinstance(app, QApplication):
             # Motyw „zgodny z systemem” podąża za przełączeniem trybu systemu.
@@ -349,9 +360,44 @@ class MainWindow(QMainWindow):
     # --- ustawienia i notacja ---------------------------------------------
 
     def _on_settings(self) -> None:
-        dialog = SettingsDialog(self.settings_store.current, self)
+        dialog = self.create_settings_dialog()
         if dialog.exec() == SettingsDialog.DialogCode.Accepted:
-            self.settings_store.save(dialog.settings())
+            self.accept_settings_dialog(dialog)
+
+    def create_settings_dialog(self) -> SettingsDialog:
+        return SettingsDialog(
+            self.settings_store.current,
+            self,
+            builtin_rules=self.rules_store.builtin,
+            user_rules=self.rules_store.user_rules,
+            document_text=self.editor.plain_text(),
+        )
+
+    def accept_settings_dialog(self, dialog: SettingsDialog) -> None:
+        """Zapisuje ustawienia i — gdy się zmieniły — reguły użytkownika."""
+        user_rules = dialog.user_rules()
+        if user_rules != self.rules_store.user_rules:
+            try:
+                self.rules_store.save_user_rules(user_rules)
+            except AppError as error:
+                self._show_error(tr("settings.rules.save_error"), error)
+        self.settings_store.save(dialog.settings())
+
+    def report_rule_errors(self) -> None:
+        """ACC-42: błędne reguły z pliku użytkownika — komunikat przy starcie."""
+        errors = self.rules_store.errors
+        if not errors:
+            return
+        lines = [error.message for error in errors[:RULE_ERRORS_SHOWN]]
+        if len(errors) > RULE_ERRORS_SHOWN:
+            lines.append(tr("rules.errors.more", count=len(errors) - RULE_ERRORS_SHOWN))
+        QMessageBox.warning(
+            self,
+            tr("rules.errors.title"),
+            tr("rules.errors.text", path=str(self.rules_store.path))
+            + "\n\n"
+            + "\n".join(lines),
+        )
 
     def _apply_settings(self, settings: Settings) -> None:
         """Stosuje ustawienia do komponentów bez restartu (ACC-17)."""

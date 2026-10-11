@@ -230,6 +230,7 @@ def main(argv: list[str] | None = None) -> int:
     window.updates.start_automatic()
     # ACC-30: propozycja odzyskania pracy po awarii — gdy okno już widać.
     QTimer.singleShot(0, window.session.offer_recovery)
+    QTimer.singleShot(0, window.report_rule_errors)
     return app.exec()
 
 

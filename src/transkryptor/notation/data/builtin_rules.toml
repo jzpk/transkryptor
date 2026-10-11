@@ -1,0 +1,117 @@
+# Wbudowane reguły kandydatów zapisu fonetycznego (faza 10).
+#
+# Format opisuje specs/transcription-rules.md („Reguły fonetyczne jako dane”).
+# Wzorzec to wyrażenie regularne na jednym słowie (scope = "word") albo na
+# parze sąsiednich słów rozdzielonych odstępem (scope = "pair"). W zamienniku
+# ^x oznacza znak x w indeksie górnym, \^ — dosłowny ^, \1…\9 — grupę wzorca.
+# auto_apply = true zaznacza regułę w panelu ASR (stosowana od razu po
+# wstawieniu szkicu); pozostałe dają tylko propozycje.
+#
+# Pierwsze pięć reguł odpowiada regułom z wersji 0.4.0. Pewności kolejnych
+# są orientacyjne — kalibracja na korpusie w fazie 15.
+
+[[rule]]
+code = "SUG-NAS-A-FINAL"
+label = { pl = "Nosowość: końcowe „ą” → „oᵐ” (są → soᵐ)", en = "Nasality: final “ą” → “oᵐ” (są → soᵐ)" }
+description = { pl = "Nosowość: końcowe „ą” jako „oᵐ” (przykład ze specyfikacji: są → som).", en = "Nasality: final “ą” as “oᵐ” (example from the specification: są → som)." }
+pattern = '(?<=.)ą$'
+replacement = 'o^m'
+confidence = 0.5
+example = "są"
+auto_apply = true
+
+[[rule]]
+code = "SUG-NAS-E-DENT"
+label = { pl = "Nosowość: „ę” przed d/t/s/c/z → „eⁿ” (będzie → beⁿdzie)", en = "Nasality: “ę” before d/t/s/c/z → “eⁿ” (będzie → beⁿdzie)" }
+description = { pl = "Nosowość: „ę” przed spółgłoską dentalną jako „eⁿ” (przykład: będzie → bendzie).", en = "Nasality: “ę” before a dental consonant as “eⁿ” (example: będzie → bendzie)." }
+pattern = 'ę(?=[dtscz])'
+replacement = 'e^n'
+confidence = 0.4
+example = "będzie"
+auto_apply = true
+
+[[rule]]
+code = "SUG-NAS-E-LAB"
+label = { pl = "Nosowość: „ę” przed p/b → „eᵐ”", en = "Nasality: “ę” before p/b → “eᵐ”" }
+description = { pl = "Nosowość: „ę” przed p/b jako „eᵐ” (asymilacja wargowa).", en = "Nasality: “ę” before p/b as “eᵐ” (labial assimilation)." }
+pattern = 'ę(?=[pb])'
+replacement = 'e^m'
+confidence = 0.4
+example = "zęby"
+auto_apply = true
+
+[[rule]]
+code = "SUG-NAS-A-LAB"
+label = { pl = "Nosowość: „ą” przed p/b → „oᵐ”", en = "Nasality: “ą” before p/b → “oᵐ”" }
+description = { pl = "Nosowość: „ą” przed p/b jako „oᵐ” (asymilacja wargowa).", en = "Nasality: “ą” before p/b as “oᵐ” (labial assimilation)." }
+pattern = 'ą(?=[pb])'
+replacement = 'o^m'
+confidence = 0.4
+example = "ząb"
+auto_apply = true
+
+[[rule]]
+code = "SUG-LAB-U-INIT"
+label = { pl = "Labializacja: początkowe „o-” → „ᵘo” (od → ᵘod)", en = "Labialization: initial “o-” → “ᵘo” (od → ᵘod)" }
+description = { pl = "Labializacja: początkowe „o-” jako „uo” (przykład: od → uod).", en = "Labialization: initial “o-” as “uo” (example: od → uod)." }
+pattern = '^o(?=.)'
+replacement = '^uo'
+confidence = 0.3
+example = "od"
+auto_apply = true
+
+[[rule]]
+code = "SUG-L-INTERVOC"
+label = { pl = "Redukcja „ł” między samogłoskami (wiedziałam → wiedziaam)", en = "Reduction of “ł” between vowels (wiedziałam → wiedziaam)" }
+description = { pl = "Redukcja interwokalicznego „ł”: „ł” między samogłoskami nie jest wymawiane (przykład ze specyfikacji: wiedziaam).", en = "Intervocalic “ł” reduction: “ł” between vowels is not pronounced (example from the specification: wiedziaam)." }
+pattern = '([aeiouyąęó])ł(?=[aeiouyąęó])'
+replacement = '\1'
+confidence = 0.3
+example = "wiedziałam"
+
+[[rule]]
+code = "SUG-VOICE-S-PAIR"
+label = { pl = "Międzywyrazowo: „ś” → „ź” przed samogłoską lub sonorną (kiedyś jak → kiedyź jak)", en = "Across words: “ś” → “ź” before a vowel or sonorant (kiedyś jak → kiedyź jak)" }
+description = { pl = "Fonetyka międzywyrazowa: wygłosowe „ś” udźwięcznia się przed słowem zaczynającym się samogłoską lub sonorną (przykład ze specyfikacji: kiedyź jag).", en = "Cross-word phonetics: word-final “ś” becomes voiced before a word starting with a vowel or sonorant (example from the specification: kiedyź jag)." }
+pattern = 'ś(?=\s+[aeiouyąęójlłmnrw])'
+replacement = 'ź'
+scope = "pair"
+confidence = 0.3
+example = "kiedyś jak"
+
+[[rule]]
+code = "SUG-VOICE-K-PAIR"
+label = { pl = "Międzywyrazowo: „k” → „g” przed samogłoską lub sonorną (jak nowy → jag nowy)", en = "Across words: “k” → “g” before a vowel or sonorant (jak nowy → jag nowy)" }
+description = { pl = "Fonetyka międzywyrazowa: wygłosowe „k” udźwięcznia się przed słowem zaczynającym się samogłoską lub sonorną (przykład ze specyfikacji: kiedyź jag).", en = "Cross-word phonetics: word-final “k” becomes voiced before a word starting with a vowel or sonorant (example from the specification: kiedyź jag)." }
+pattern = 'k(?=\s+[aeiouyąęójlłmnrw])'
+replacement = 'g'
+scope = "pair"
+confidence = 0.2
+example = "jak nowy"
+
+[[rule]]
+code = "SUG-CH-FINAL"
+label = { pl = "Wygłosowe „ch” → „h” (tych → tyh)", en = "Word-final “ch” → “h” (tych → tyh)" }
+description = { pl = "Wygłosowe „ch” wymawiane jak „h” (przykład ze specyfikacji: nowyczesnych tyh).", en = "Word-final “ch” pronounced as “h” (example from the specification: nowyczesnych tyh)." }
+pattern = '(?<=.)ch$'
+replacement = 'h'
+confidence = 0.3
+example = "tych"
+
+[[rule]]
+code = "SUG-A-O-ACUTE"
+label = { pl = "Element jasny: końcowe „ą” → „óᵐ” (są → sóᵐ)", en = "Raised vowel: final “ą” → “óᵐ” (są → sóᵐ)" }
+description = { pl = "Modyfikacja elementu jasnego: końcowe „ą” jako „óᵐ” (przykład ze specyfikacji: sóm). Alternatywa dla „oᵐ”.", en = "Raised vowel: final “ą” as “óᵐ” (example from the specification: sóm). Alternative to “oᵐ”." }
+pattern = '(?<=.)ą$'
+replacement = 'ó^m'
+confidence = 0.2
+example = "są"
+
+[[rule]]
+code = "SUG-LAB-MEDIAL"
+label = { pl = "Labializacja w środku słowa: „o” → „ᵘo” po spółgłosce wargowej lub k/g (kosa → kᵘosa)", en = "Word-internal labialization: “o” → “ᵘo” after a labial or k/g (kosa → kᵘosa)" }
+description = { pl = "Labializacja śródwyrazowa: „o” po spółgłosce wargowej lub tylnojęzykowej jako „uo” (przykłady ze specyfikacji: swuoje, kuosa).", en = "Word-internal labialization: “o” after a labial or velar consonant as “uo” (examples from the specification: swuoje, kuosa)." }
+pattern = '(?<=[bpwfmkg])o'
+replacement = '^uo'
+confidence = 0.2
+example = "kosa"

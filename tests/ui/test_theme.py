@@ -73,8 +73,9 @@ def test_rules_summary_counts_enabled_rules(qtbot, add_window) -> None:
     window = add_window(MainWindow())
     panel = window.asr_panel
     total = len(panel.rule_checkboxes)
-    assert f"{total} z {total}" in panel.rules_toggle.text()
+    enabled = len(panel.selected_rule_codes())
+    assert f"{enabled} z {total}" in panel.rules_toggle.text()
     next(iter(panel.rule_checkboxes.values())).setChecked(False)
-    assert f"{total - 1} z {total}" in panel.rules_toggle.text()
+    assert f"{enabled - 1} z {total}" in panel.rules_toggle.text()
     panel.rules_toggle.setChecked(True)
     assert not panel.rules_details.isHidden()

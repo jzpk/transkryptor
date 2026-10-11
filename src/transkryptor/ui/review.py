@@ -18,7 +18,12 @@ from PySide6.QtWidgets import QMessageBox, QWidget
 from transkryptor.document.project import ReviewEntry
 from transkryptor.i18n import tr
 from transkryptor.notation.ellipsis import EllipsisStyle, normalize_ellipses
-from transkryptor.notation.suggestions import Suggestion, propose, without_overlaps
+from transkryptor.notation.rules import PhoneticRule
+from transkryptor.notation.suggestions import (
+    Suggestion,
+    propose_with_report,
+    without_overlaps,
+)
 from transkryptor.ui.asr_panel import AsrPanel
 from transkryptor.ui.editor import TranscriptionEditor
 
@@ -49,8 +54,10 @@ class ReviewController(QObject):
         dialog_parent: QWidget,
         ask_placement: Callable[[], str | None],
         ellipsis_style: Callable[[], EllipsisStyle],
+        rules: Callable[[], tuple[PhoneticRule, ...] | None] = lambda: None,
     ) -> None:
         super().__init__(dialog_parent)
+        self._rules = rules
         self.editor = editor
         self.asr_panel = asr_panel
         self._dialog_parent = dialog_parent
@@ -78,6 +85,7 @@ class ReviewController(QObject):
         start = self.editor.insert_draft(text, append=placement == DRAFT_APPEND)
 
         selected_codes = self.asr_panel.selected_rule_codes()
+        proposal = propose_with_report(text, self._rules())
         positions = self.editor.position_map()
         self.items = [
             ReviewItem(
@@ -87,7 +95,7 @@ class ReviewController(QObject):
                 ),
                 applied=suggestion.code in selected_codes,
             )
-            for suggestion in without_overlaps(propose(text))
+            for suggestion in without_overlaps(proposal.suggestions, selected_codes)
         ]
         self.editor.apply_tracked_replacements(
             [
@@ -102,6 +110,12 @@ class ReviewController(QObject):
         )
         self.refresh()
         self.editor.setFocus()
+        if proposal.failed:
+            QMessageBox.warning(
+                self._dialog_parent,
+                tr("review.rules_timeout.title"),
+                tr("review.rules_timeout", codes=", ".join(proposal.failed)),
+            )
 
     def activate(self, index: int) -> None:
         """REQ-16: zaznacza w edytorze fragment pozycji z listy przeglądu."""

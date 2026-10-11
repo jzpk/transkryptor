@@ -71,16 +71,19 @@ class TestGuarantees:
 
 class TestRuleCatalogue:
     def test_rules_expose_label_and_confidence_for_ui(self) -> None:
-        from transkryptor.notation.suggestions import RULES
+        from transkryptor.notation.suggestions import default_rules, rule_infos
 
-        assert {rule.code for rule in RULES} == {
+        rules = rule_infos(default_rules())
+        # Reguły z wersji 0.4.0 są nadal stosowane automatycznie; nowe
+        # reguły wbudowane (faza 10) dają domyślnie tylko propozycje.
+        assert {rule.code for rule in rules if rule.auto_apply} == {
             "SUG-NAS-A-FINAL",
             "SUG-NAS-E-DENT",
             "SUG-NAS-E-LAB",
             "SUG-NAS-A-LAB",
             "SUG-LAB-U-INIT",
         }
-        assert all(rule.label and 0 < rule.confidence <= 1 for rule in RULES)
+        assert all(rule.label and 0 < rule.confidence <= 1 for rule in rules)
 
 
 class TestWithoutOverlaps:
@@ -105,7 +108,12 @@ class TestWithoutOverlaps:
         assert without_overlaps([weak, strong, separate]) == [strong, separate]
 
     def test_real_rules_do_not_collide(self) -> None:
-        from transkryptor.notation.suggestions import propose, without_overlaps
+        from transkryptor.notation.suggestions import (
+            default_rules,
+            propose,
+            without_overlaps,
+        )
 
         text = "od są będzie zęby kąpie"
-        assert without_overlaps(propose(text)) == propose(text)
+        rules = [rule for rule in default_rules() if rule.auto_apply]
+        assert without_overlaps(propose(text, rules)) == propose(text, rules)

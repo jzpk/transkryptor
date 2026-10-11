@@ -110,6 +110,16 @@ def isolated_autosave(monkeypatch, tmp_path):
 
 
 @pytest.fixture(autouse=True)
+def isolated_rules(monkeypatch, tmp_path):
+    """Reguły użytkownika w katalogu tymczasowym; zwraca ścieżkę pliku."""
+    from transkryptor.ui import rules_store
+
+    path = tmp_path / "rules" / rules_store.USER_RULES_FILE
+    monkeypatch.setattr(rules_store, "user_rules_path", lambda: path)
+    return path
+
+
+@pytest.fixture(autouse=True)
 def enough_memory(monkeypatch):
     """Ostrzeżenie o RAM nie zależy od pamięci komputera z testami."""
     monkeypatch.setattr("transkryptor.ui.asr_panel.total_memory_bytes", lambda: None)

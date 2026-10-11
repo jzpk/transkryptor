@@ -16,7 +16,7 @@ from transkryptor.asr.manager import DownloadCancelled, ModelManager
 from transkryptor.asr.models import WHISPER_SMALL, AsrModelInfo
 from transkryptor.export.docx_export import export_docx
 from transkryptor.i18n import tr
-from transkryptor.notation.suggestions import RULES
+from transkryptor.notation.suggestions import default_rules, rule_infos
 from transkryptor.ui.asr_panel import (
     APPLIED_MARK,
     PENDING_MARK,
@@ -394,13 +394,17 @@ class TestAutomaticRules:
 
     def test_rule_checkboxes_show_confidence(self, qtbot, window_with_asr) -> None:
         boxes = window_with_asr.asr_panel.rule_checkboxes
-        assert set(boxes) == {rule.code for rule in RULES}
-        assert all(box.isChecked() for box in boxes.values())
+        rules = rule_infos(default_rules())
+        assert set(boxes) == {rule.code for rule in rules}
+        # Zaznaczone są reguły z ``auto_apply``; nowe reguły dają propozycje.
+        assert {code for code, box in boxes.items() if box.isChecked()} == {
+            rule.code for rule in rules if rule.auto_apply
+        }
         assert "pewność 50%" in boxes["SUG-NAS-A-FINAL"].text()
 
     def test_all_selected_rules_are_applied(self, qtbot, window_with_asr) -> None:
         window = window_with_asr
-        self._draft(window, {rule.code for rule in RULES})
+        self._draft(window, {rule.code for rule in rule_infos(default_rules())})
         assert window.editor.toPlainText() == "uod som"
         assert superscripts(window) == [(0, 1), (6, 7)]
 

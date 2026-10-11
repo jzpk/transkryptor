@@ -22,6 +22,25 @@ Pusta sekcja blokuje wydanie.
   zgłaszane. Zignorowanie jest zapisywane w pliku projektu. Projekty
   z wersji 0.5.0 otwierają się bez zmian; projektu zapisanego w nowej
   wersji nie otworzy już wersja 0.5.0.
+- Własne reguły fonetyczne: w **Ustawieniach…** nowa zakładka **Reguły
+  fonetyczne**. Regułę opisuje wzorzec (wyrażenie regularne na słowie albo
+  parze sąsiednich słów) i zamiennik, w którym `^m` oznacza „m” w indeksie
+  górnym. Podgląd pokazuje działanie na przykładzie i liczbę dopasowań
+  w bieżącym tekście. Własne reguły pojawiają się w panelu **Szkic ASR**
+  razem z wbudowanymi; zestaw można wyeksportować do pliku `.toml`
+  i zaimportować u innego badacza.
+- Nowe reguły wbudowane: redukcja „ł” między samogłoskami
+  (wiedziałam → wiedziaam), udźwięcznienie na granicy słów (kiedyś jak →
+  kiedyź jak, jak nowy → jag nowy), wygłosowe „ch” → „h” (tych → tyh),
+  końcowe „ą” → „óᵐ” (są → sóᵐ) i labializacja w środku słowa
+  (kosa → kᵘosa). Mają orientacyjną pewność i domyślnie nie są stosowane
+  automatycznie — ich dopasowania pojawiają się jako propozycje.
+- Gdy propozycje dwóch reguł dotyczą tego samego fragmentu, pierwszeństwo
+  ma reguła zaznaczona do automatycznego stosowania.
+- Błędna reguła w pliku reguł nie blokuje programu: przy starcie pojawia się
+  komunikat ze wskazaniem reguły i pola, a pozostałe reguły działają.
+  Wzorzec, którego dopasowanie trwa zbyt długo, jest przerywany bez
+  zawieszania okna.
 
 ## 0.5.0 — 2026-10-18
 

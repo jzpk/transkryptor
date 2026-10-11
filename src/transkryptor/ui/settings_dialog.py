@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
     QInputDialog,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QPlainTextEdit,
     QPushButton,
     QSpinBox,
@@ -46,6 +47,7 @@ from transkryptor.document.metadata import (
 )
 from transkryptor.i18n import LANGUAGES, tr
 from transkryptor.notation.ellipsis import EllipsisStyle
+from transkryptor.notation.rules import PhoneticRule
 from transkryptor.notation.validator import SEVERITY_HINT, VALIDATOR_RULES
 from transkryptor.settings import (
     AUTO_REWIND_RANGE_MS,
@@ -69,6 +71,7 @@ from transkryptor.settings import (
     encode_bool_map,
     split_vocabulary,
 )
+from transkryptor.ui.rules_editor import RulesEditor
 from transkryptor.ui.theme import set_props
 
 
@@ -102,7 +105,14 @@ def ellipsis_style_labels() -> dict[EllipsisStyle, str]:
 class SettingsDialog(QDialog):
     """Okno edycji ustawień; wynik odczytuje się metodą ``settings()``."""
 
-    def __init__(self, settings: Settings, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        parent: QWidget | None = None,
+        builtin_rules: tuple[PhoneticRule, ...] = (),
+        user_rules: tuple[PhoneticRule, ...] = (),
+        document_text: str = "",
+    ) -> None:
         super().__init__(parent)
         self.setWindowTitle(tr("settings.title"))
         self.setObjectName("settings_dialog")
@@ -281,6 +291,8 @@ class SettingsDialog(QDialog):
         self.tabs.addTab(_page(player_form), tr("settings.tab.player"))
         self.tabs.addTab(_page(notation_form), tr("settings.tab.notation"))
         self.tabs.addTab(_page(validator_form), tr("settings.tab.validator"))
+        self.rules_editor = RulesEditor(builtin_rules, user_rules, document_text)
+        self.tabs.addTab(self.rules_editor, tr("settings.tab.rules"))
         self.tabs.addTab(_page(project_form), tr("settings.tab.project"))
         self.tabs.addTab(metadata_page, tr("settings.tab.metadata"))
         self.tabs.addTab(_page(asr_form), tr("settings.tab.asr"))
@@ -303,7 +315,7 @@ class SettingsDialog(QDialog):
         layout = QVBoxLayout(self)
         layout.addWidget(self.tabs, stretch=1)
         layout.addWidget(buttons)
-        self.setMinimumSize(520, 420)
+        self.setMinimumSize(560, 480)
 
         self._initial_ellipsis_style = settings.notation.ellipsis_style
         self._initial_language = settings.appearance.language
@@ -470,6 +482,19 @@ class SettingsDialog(QDialog):
         """Komunikat o restarcie tylko po zmianie języka względem bieżącego."""
         changed = self.language_combo.currentData() != self._initial_language
         self.language_hint.setVisible(changed)
+
+    def user_rules(self) -> tuple[PhoneticRule, ...]:
+        """Reguły fonetyczne użytkownika po edycji (zapisuje okno główne)."""
+        return self.rules_editor.user_rules()
+
+    def accept(self) -> None:
+        """Błędna reguła użytkownika blokuje zapis — z komunikatem i zakładką."""
+        problem = self.rules_editor.first_problem()
+        if problem is not None:
+            self.tabs.setCurrentWidget(self.rules_editor)
+            QMessageBox.warning(self, tr("settings.tab.rules"), problem)
+            return
+        super().accept()
 
     def settings(self) -> Settings:
         """Ustawienia odpowiadające bieżącym wartościom pól."""

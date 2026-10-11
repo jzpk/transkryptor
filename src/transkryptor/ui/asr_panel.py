@@ -58,7 +58,12 @@ from transkryptor.asr.system import total_memory_bytes
 from transkryptor.asr.worker import AsrWorker
 from transkryptor.errors import AppError
 from transkryptor.i18n import tr
-from transkryptor.notation.suggestions import RULES, Suggestion
+from transkryptor.notation.suggestions import (
+    RuleInfo,
+    Suggestion,
+    default_rules,
+    rule_infos,
+)
 from transkryptor.settings import AsrSettings, split_vocabulary
 from transkryptor.ui import icons
 from transkryptor.ui.theme import set_props, tokens
@@ -272,12 +277,7 @@ class AsrPanel(QWidget):
         self.rule_checkboxes: dict[str, QCheckBox] = {}
         rules_layout = QVBoxLayout()
         rules_layout.setSpacing(2)
-        for rule in RULES:
-            checkbox = QCheckBox(_rule_text(rule.label, rule.confidence))
-            checkbox.setChecked(True)
-            checkbox.setToolTip(tr("asr.rule.tooltip"))
-            rules_layout.addWidget(checkbox)
-            self.rule_checkboxes[rule.code] = checkbox
+        self._rules_layout = rules_layout
 
         self.segments_list = QListWidget()
         self.segments_list.setToolTip(tr("asr.segments.tooltip"))
@@ -341,9 +341,7 @@ class AsrPanel(QWidget):
         details_layout.addLayout(rules_layout)
         self.rules_details.setVisible(False)
         self.rules_toggle.toggled.connect(self._on_rules_toggled)
-        for checkbox in self.rule_checkboxes.values():
-            checkbox.toggled.connect(self._update_rules_summary)
-        self._update_rules_summary()
+        self.set_rules(rule_infos(default_rules()))
         rules_step = _step(
             "2",
             tr("asr.step.rules"),
@@ -960,6 +958,28 @@ class AsrPanel(QWidget):
             self.cancel_transcribe_button.setEnabled(False)
 
     # --- reguły i przegląd ----------------------------------------------------
+
+    def set_rules(self, rules: tuple[RuleInfo, ...]) -> None:
+        """Lista reguł z pewnością; zaznaczenie istniejących reguł zostaje.
+
+        Nowa reguła jest zaznaczona według ``auto_apply`` z definicji.
+        """
+        previous = self.selected_rule_codes()
+        known = set(self.rule_checkboxes)
+        for checkbox in self.rule_checkboxes.values():
+            self._rules_layout.removeWidget(checkbox)
+            checkbox.deleteLater()
+        self.rule_checkboxes = {}
+        for rule in rules:
+            checkbox = QCheckBox(_rule_text(rule.label, rule.confidence))
+            checkbox.setChecked(
+                rule.code in previous if rule.code in known else rule.auto_apply
+            )
+            checkbox.setToolTip(tr("asr.rule.tooltip"))
+            checkbox.toggled.connect(self._update_rules_summary)
+            self._rules_layout.addWidget(checkbox)
+            self.rule_checkboxes[rule.code] = checkbox
+        self._update_rules_summary()
 
     def selected_rule_codes(self) -> frozenset[str]:
         """Kody reguł zaznaczonych do automatycznego stosowania (REQ-15)."""

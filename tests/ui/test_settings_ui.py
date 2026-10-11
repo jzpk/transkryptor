@@ -106,6 +106,7 @@ class TestSettingsDialog:
             "Odtwarzacz",
             "Notacja",
             "Walidator",
+            "Reguły fonetyczne",
             "Projekt",
             "Metryczka",
             "ASR",
