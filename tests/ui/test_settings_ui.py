@@ -5,6 +5,7 @@ from PySide6.QtWidgets import QDialog, QWidget
 from transkryptor import i18n
 from transkryptor.settings import (
     AppearanceSettings,
+    AsrSettings,
     EditorSettings,
     NotationSettings,
     PlayerSettings,
@@ -100,7 +101,14 @@ class TestSettingsDialog:
         dialog = SettingsDialog(Settings())
         qtbot.addWidget(dialog)
         titles = [dialog.tabs.tabText(i) for i in range(dialog.tabs.count())]
-        assert titles == ["Wygląd", "Odtwarzacz", "Notacja", "Projekt", "Metryczka"]
+        assert titles == [
+            "Wygląd",
+            "Odtwarzacz",
+            "Notacja",
+            "Projekt",
+            "Metryczka",
+            "ASR",
+        ]
 
         def tab_of(widget: QWidget) -> str:
             for index in range(dialog.tabs.count()):
@@ -115,6 +123,32 @@ class TestSettingsDialog:
         assert tab_of(dialog.ellipsis_combo) == "Notacja"
         assert tab_of(dialog.autosave_check) == "Projekt"
         assert tab_of(dialog.metadata_table) == "Metryczka"
+        assert tab_of(dialog.device_combo) == "ASR"
+        assert tab_of(dialog.vocabulary_edit) == "ASR"
+        assert tab_of(dialog.models_root_edit) == "ASR"
+
+    def test_asr_settings_round_trip_and_keep_model(self, qtbot) -> None:
+        """Okno nie zmienia modelu wybranego w panelu ASR."""
+        settings = Settings(
+            asr=AsrSettings(
+                model_key="small",
+                models_root="/mnt/modele",
+                device="cpu",
+                vocabulary="Ocieszyn\nOborniki",
+            )
+        )
+        dialog = SettingsDialog(settings)
+        qtbot.addWidget(dialog)
+        assert dialog.settings() == settings
+        dialog.vocabulary_edit.setPlainText(" Rożnowo \n\nOcieszyn")
+        dialog.models_root_default_button.click()
+        dialog.device_combo.setCurrentIndex(dialog.device_combo.findData("auto"))
+        assert dialog.settings().asr == AsrSettings(
+            model_key="small",
+            models_root="",
+            device="auto",
+            vocabulary="Rożnowo\nOcieszyn",
+        )
 
     def test_theme_choice(self, qtbot) -> None:
         dialog = SettingsDialog(Settings())
@@ -239,3 +273,10 @@ class TestMainWindowSettings:
         assert not window.settings_action.isEnabled()
         window._set_ui_locked(False)
         assert window.settings_action.isEnabled()
+
+
+def test_vocabulary_with_newlines_survives_ini(isolated_settings) -> None:
+    store = SettingsStore(isolated_settings())
+    settings = Settings(asr=AsrSettings(vocabulary="Ocieszyn\nOborniki"))
+    store.save(settings)
+    assert SettingsStore(isolated_settings()).load() == settings

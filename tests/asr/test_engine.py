@@ -5,13 +5,17 @@ from types import SimpleNamespace
 
 import pytest
 
+from transkryptor.asr import engine
 from transkryptor.asr.engine import (
+    PROMPT_MAX_CHARS,
+    DecodingOptions,
     SegmentResult,
     TranscriptionCancelled,
     TranscriptionError,
+    build_hotwords,
     transcribe,
 )
-from transkryptor.asr.models import REQUIRED_FILES
+from transkryptor.asr.models import DEFAULT_MODEL
 from transkryptor.errors import ModelDownloadError
 
 
@@ -19,7 +23,7 @@ def make_model_dir(tmp_path) -> Path:
     """Tworzy kompletny (znacznik + wymagane pliki) katalog modelu."""
     model_dir = tmp_path / "models" / "medium"
     model_dir.mkdir(parents=True)
-    for name in REQUIRED_FILES:
+    for name in (file.name for file in DEFAULT_MODEL.files):
         (model_dir / name).write_bytes(b"fake")
     (model_dir / ".complete").write_text("fake", encoding="utf-8")
     return model_dir
@@ -31,7 +35,7 @@ def make_audio(tmp_path) -> Path:
     return audio
 
 
-def fake_backend_factory(model_dir):
+def fake_backend_factory(model_dir, device="cpu"):
     """Imitacja faster-whisper: dwa segmenty, bez sieci i bez modelu."""
 
     class FakeBackend:
@@ -103,7 +107,7 @@ class TestTranscription:
             audio,
             model_dir,
             on_progress=progress.append,
-            backend_factory=lambda path: backend,
+            backend_factory=lambda path, device: backend,
         )
         assert progress == [0.25, 0.5]
 
@@ -124,7 +128,9 @@ class TestTranscription:
         model_dir = make_model_dir(tmp_path)
         audio = make_audio(tmp_path)
         backend = fake_backend_factory(model_dir)
-        result = transcribe(audio, model_dir, backend_factory=lambda path: backend)
+        result = transcribe(
+            audio, model_dir, backend_factory=lambda path, device: backend
+        )
         assert backend.loaded_from == model_dir
         assert result.segments
 
@@ -132,12 +138,160 @@ class TestTranscription:
         model_dir = make_model_dir(tmp_path)
         audio = make_audio(tmp_path)
 
-        def broken_factory(_path):
+        def broken_factory(_path, _device):
             raise RuntimeError("uszkodzony model")
 
         with pytest.raises(TranscriptionError) as exc_info:
             transcribe(audio, model_dir, backend_factory=broken_factory)
         assert exc_info.value.retry_hint
+
+
+class RecordingBackend:
+    """Backend zapisujący parametry wywołania; opcjonalnie zawodzi na GPU."""
+
+    def __init__(self, device: str, calls: list, fail_on_first: bool = False):
+        self.device = device
+        self.calls = calls
+        self.fail_on_first = fail_on_first
+
+    def transcribe(self, audio_path, **kwargs):
+        self.calls.append((self.device, kwargs))
+        fail = self.fail_on_first
+
+        def segments():
+            if fail:
+                raise RuntimeError("Library libcublas.so.12 is not found")
+            yield SimpleNamespace(start=0.0, end=1.0, text="Tekst.", avg_logprob=-0.1)
+
+        return segments(), SimpleNamespace(language="pl")
+
+
+class TestDecodingOptions:
+    def test_prompt_and_hotwords_reach_backend(self, tmp_path) -> None:
+        """ACC-38: kontekst i słownik trafiają do backendu."""
+        calls: list = []
+        transcribe(
+            make_audio(tmp_path),
+            make_model_dir(tmp_path),
+            backend_factory=lambda path, device: RecordingBackend(device, calls),
+            options=DecodingOptions(
+                initial_prompt="Wywiad w Ocieszynie.", hotwords="Ocieszyn Oborniki"
+            ),
+        )
+        [(_, kwargs)] = calls
+        assert kwargs["initial_prompt"] == "Wywiad w Ocieszynie."
+        assert kwargs["hotwords"] == "Ocieszyn Oborniki"
+        assert kwargs["language"] == "pl"
+
+    def test_empty_options_are_not_passed(self, tmp_path) -> None:
+        calls: list = []
+        transcribe(
+            make_audio(tmp_path),
+            make_model_dir(tmp_path),
+            backend_factory=lambda path, device: RecordingBackend(device, calls),
+            options=DecodingOptions(initial_prompt="", hotwords=None),
+        )
+        [(_, kwargs)] = calls
+        assert "initial_prompt" not in kwargs
+        assert "hotwords" not in kwargs
+
+    def test_build_hotwords_merges_without_duplicates(self) -> None:
+        assert (
+            build_hotwords(["Ocieszyn", " Oborniki "], ["oborniki", "", "Rożnowo"])
+            == "Ocieszyn Oborniki Rożnowo"
+        )
+        assert build_hotwords([], [" "]) is None
+
+    def test_build_hotwords_respects_limit(self) -> None:
+        words = [f"słowo{index:03d}" for index in range(100)]
+        hotwords = build_hotwords(words)
+        assert hotwords is not None
+        assert len(hotwords) <= PROMPT_MAX_CHARS
+        assert hotwords.startswith("słowo000 słowo001")
+
+
+class TestDevice:
+    def test_cpu_when_no_gpu(self, tmp_path) -> None:
+        calls: list = []
+        result = transcribe(
+            make_audio(tmp_path),
+            make_model_dir(tmp_path),
+            backend_factory=lambda path, device: RecordingBackend(device, calls),
+        )
+        assert [device for device, _ in calls] == ["cpu"]
+        assert result.device == "cpu"
+        assert result.device_note is None
+
+    def test_gpu_used_when_available(self, tmp_path, monkeypatch) -> None:
+        monkeypatch.setattr(engine, "cuda_device_count", lambda: 1)
+        calls: list = []
+        result = transcribe(
+            make_audio(tmp_path),
+            make_model_dir(tmp_path),
+            backend_factory=lambda path, device: RecordingBackend(device, calls),
+        )
+        assert result.device == "cuda"
+        assert result.text == "Tekst."
+
+    def test_cpu_option_skips_gpu(self, tmp_path, monkeypatch) -> None:
+        monkeypatch.setattr(engine, "cuda_device_count", lambda: 1)
+        calls: list = []
+        result = transcribe(
+            make_audio(tmp_path),
+            make_model_dir(tmp_path),
+            backend_factory=lambda path, device: RecordingBackend(device, calls),
+            options=DecodingOptions(device="cpu"),
+        )
+        assert result.device == "cpu"
+
+    def test_falls_back_to_cpu_when_gpu_fails_to_load(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        """ACC-37: błąd ładowania na GPU → CPU z informacją, nie błąd."""
+        monkeypatch.setattr(engine, "cuda_device_count", lambda: 1)
+        calls: list = []
+
+        def factory(path, device):
+            if device == "cuda":
+                raise RuntimeError("CUDA driver version is insufficient")
+            return RecordingBackend(device, calls)
+
+        result = transcribe(
+            make_audio(tmp_path), make_model_dir(tmp_path), backend_factory=factory
+        )
+        assert result.device == "cpu"
+        assert result.device_note == "CUDA driver version is insufficient"
+        assert result.text == "Tekst."
+
+    def test_falls_back_when_gpu_fails_on_first_segment(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        """Brak cuBLAS ujawnia się przy pierwszym kodowaniu, nie przy ładowaniu."""
+        monkeypatch.setattr(engine, "cuda_device_count", lambda: 1)
+        calls: list = []
+        result = transcribe(
+            make_audio(tmp_path),
+            make_model_dir(tmp_path),
+            backend_factory=lambda path, device: RecordingBackend(
+                device, calls, fail_on_first=device == "cuda"
+            ),
+        )
+        assert [device for device, _ in calls] == ["cuda", "cpu"]
+        assert result.device == "cpu"
+        assert result.device_note is not None
+        assert "libcublas" in result.device_note
+        assert [segment.text for segment in result.segments] == ["Tekst."]
+
+    def test_cpu_failure_is_still_an_error(self, tmp_path, monkeypatch) -> None:
+        monkeypatch.setattr(engine, "cuda_device_count", lambda: 1)
+
+        def factory(path, device):
+            raise RuntimeError(f"zepsuty model ({device})")
+
+        with pytest.raises(TranscriptionError, match="cpu"):
+            transcribe(
+                make_audio(tmp_path), make_model_dir(tmp_path), backend_factory=factory
+            )
 
 
 class TestCancellation:

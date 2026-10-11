@@ -1,8 +1,10 @@
-"""Metadane wybranego modelu ASR oraz lokalizacja katalogu modeli.
+"""Rejestr modeli ASR oraz lokalizacja katalogu modeli.
 
 Decyzja modelowa fazy 04 (uzasadnienie: ``docs/asr-model-decision.md``):
 silnik faster-whisper (CTranslate2, MIT) z modelem Whisper medium w konwersji
 CT2 z repozytorium ``Systran/faster-whisper-medium`` (model: MIT, kod: MIT).
+Faza 09 dodała do wyboru warianty ``small`` i ``large-v3`` z oficjalnych
+konwersji Systran (MIT); domyślnym modelem pozostaje ``medium``.
 
 Pobierana jest przypięta rewizja repozytorium i tylko pliki z listy
 ``AsrModelInfo.files``, każdy weryfikowany sumą SHA-256 (SEC-02): zmiana
@@ -93,11 +95,106 @@ WHISPER_MEDIUM = AsrModelInfo(
     ),
 )
 
+# Rewizje, rozmiary i sumy odczytane z repozytoriów modeli (2026-10-11;
+# commity z 2023-11-23). Minimum RAM dla small i large-v3 to oszacowanie
+# proporcjonalne do pomiaru medium — pomiar w fazie 15.
+_WHISPER_SMALL_FILES = (
+    ModelFile(
+        "config.json",
+        2_370,
+        "b55496ac7940a7ae47d2c01eab40edfd8701feec1229d9cce3b40014383fb828",
+    ),
+    ModelFile(
+        "model.bin",
+        483_546_902,
+        "3e305921506d8872816023e4c273e75d2419fb89b24da97b4fe7bce14170d671",
+    ),
+    ModelFile(
+        "tokenizer.json",
+        2_203_239,
+        "fb7b63191e9bb045082c79fd742a3106a12c99513ab30df4a0d47fa6cb6fd0ab",
+    ),
+    ModelFile(
+        "vocabulary.txt",
+        459_861,
+        "34ce3fe1c5041027b3f8d42912270993f986dbc4bb34cf27f951e34a1e453913",
+    ),
+)
+
+WHISPER_SMALL = AsrModelInfo(
+    key="small",
+    display_name="Whisper small (faster-whisper, CTranslate2)",
+    hf_repo_id="Systran/faster-whisper-small",
+    hf_revision="536b0662742c02347bc0e980a01041f333bce120",
+    files=_WHISPER_SMALL_FILES,
+    approx_size_bytes=sum(file.size for file in _WHISPER_SMALL_FILES),
+    license_id="MIT",
+    source_url="https://huggingface.co/Systran/faster-whisper-small",
+    min_ram_bytes=2_000_000_000,
+    description=(
+        "Mniejszy wariant Whispera: około trzy razy szybszy od medium i mniej "
+        "wymagający, kosztem większej liczby błędów w szkicu. Dla słabszych "
+        "komputerów."
+    ),
+)
+
+_WHISPER_LARGE_V3_FILES = (
+    ModelFile(
+        "config.json",
+        2_394,
+        "a9306624f5ec14270a014b647e5c316b6e03a662c369758d1b90697a7b0655b9",
+    ),
+    ModelFile(
+        "model.bin",
+        3_087_284_237,
+        "69f74147e3334731bc3a76048724833325d2ec74642fb52620eda87352e3d4f1",
+    ),
+    ModelFile(
+        "preprocessor_config.json",
+        340,
+        "7ccc62c6f2765af1f3b46c00c9b5894426835a05021c8b9c01eecb6dfb542711",
+    ),
+    ModelFile(
+        "tokenizer.json",
+        2_480_617,
+        "6d8cbd7cd0d8d5815e478dac67b85a26bbe77c1f5e0c6d76d1ce2abc0e5f21ca",
+    ),
+    ModelFile(
+        "vocabulary.json",
+        1_068_114,
+        "c69260f2ab26d659b7c398f9a2b2b48ed0df16c3b47d7326782fd9cba71690c1",
+    ),
+)
+
+WHISPER_LARGE_V3 = AsrModelInfo(
+    key="large-v3",
+    display_name="Whisper large-v3 (faster-whisper, CTranslate2)",
+    hf_repo_id="Systran/faster-whisper-large-v3",
+    hf_revision="edaa852ec7e145841d8ffdb056a99866b5f0a478",
+    files=_WHISPER_LARGE_V3_FILES,
+    approx_size_bytes=sum(file.size for file in _WHISPER_LARGE_V3_FILES),
+    license_id="MIT",
+    source_url="https://huggingface.co/Systran/faster-whisper-large-v3",
+    min_ram_bytes=6_000_000_000,
+    description=(
+        "Największy wariant Whispera: najlepsza jakość, ale około dwa razy "
+        "wolniejszy od medium na CPU i wymagający więcej pamięci. Zalecany "
+        "z kartą graficzną NVIDIA."
+    ),
+)
+
 DEFAULT_MODEL = WHISPER_MEDIUM
 
-# Pliki, które muszą istnieć, aby model uznać za kompletny (weryfikacja
-# przed uruchomieniem offline).
-REQUIRED_FILES = tuple(file.name for file in DEFAULT_MODEL.files)
+# Modele do wyboru w kolejności od najmniejszego (lista w panelu ASR).
+MODELS: tuple[AsrModelInfo, ...] = (WHISPER_SMALL, WHISPER_MEDIUM, WHISPER_LARGE_V3)
+
+
+def model_by_key(key: str) -> AsrModelInfo:
+    """Model o kluczu ``key``; nieznany klucz (np. z ustawień) → domyślny."""
+    for model in MODELS:
+        if model.key == key:
+            return model
+    return DEFAULT_MODEL
 
 
 def default_models_root() -> Path:

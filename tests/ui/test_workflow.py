@@ -18,7 +18,7 @@ from PySide6.QtWidgets import QFileDialog
 
 from transkryptor.asr import engine
 from transkryptor.asr.manager import ModelManager
-from transkryptor.asr.models import REQUIRED_FILES, AsrModelInfo
+from transkryptor.asr.models import AsrModelInfo
 from transkryptor.ui.main_window import MainWindow
 
 SAMPLE_MP3 = "tests/fixtures/audio/sample.mp3"
@@ -33,12 +33,12 @@ SEGMENTS = (
 def fake_downloader(
     model: AsrModelInfo, dest: Path, on_progress, should_cancel
 ) -> None:
-    for name in REQUIRED_FILES:
+    for name in (file.name for file in model.files):
         (dest / name).write_bytes(b"fake")
         on_progress(1024, 4096, name)
 
 
-def fake_backend_factory(model_dir):
+def fake_backend_factory(model_dir, device="cpu"):
     """Imitacja faster-whisper: segmenty z wielokropkami ASCII, bez modelu."""
 
     class FakeBackend:

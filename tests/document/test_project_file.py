@@ -11,6 +11,7 @@ import pytest
 from transkryptor.document import project
 from transkryptor.document.project import (
     SCHEMA_VERSION,
+    AsrContext,
     AsrDraft,
     AsrSegment,
     AudioRef,
@@ -45,6 +46,10 @@ def full_state(audio: AudioRef | None = None) -> ProjectState:
         asr=AsrDraft(
             text="od tego czasu … są",
             segments=(AsrSegment(0.0, 2.5, "od tego czasu … są", 0.42),),
+            model="large-v3",
+        ),
+        asr_context=AsrContext(
+            prompt="Wywiad w Ocieszynie", vocabulary=("Ocieszyn", "Oborniki")
         ),
         review=(
             ReviewEntry(
@@ -135,19 +140,36 @@ class TestSchema:
         assert info.value.retry_hint
 
     def test_migrations_are_chained(self, monkeypatch) -> None:
-        """Mechanizm migracji na sztucznej wersji 2 schematu."""
-        monkeypatch.setattr(project, "SCHEMA_VERSION", 2)
+        """Mechanizm migracji na sztucznej kolejnej wersji schematu."""
+        next_version = SCHEMA_VERSION + 1
+        monkeypatch.setattr(project, "SCHEMA_VERSION", next_version)
         monkeypatch.setitem(
             project._MIGRATIONS,
-            1,
-            lambda data: {**data, "schema_version": 2, "nowe_pole": []},
+            SCHEMA_VERSION,
+            lambda data: {**data, "schema_version": next_version, "nowe_pole": []},
         )
         migrated = migrate({"schema_version": 1, "document": {"text": "x"}})
         assert migrated == {
-            "schema_version": 2,
+            "schema_version": next_version,
             "document": {"text": "x"},
+            "asr_context": {"prompt": "", "vocabulary": []},
             "nowe_pole": [],
         }
+
+    def test_version_1_project_gets_empty_asr_context(self) -> None:
+        """Projekt z wydania 0.3.0 otwiera się z pustym kontekstem ASR."""
+        state = loads(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "document": {"text": "tekst"},
+                    "asr": {"text": "tekst", "segments": []},
+                }
+            )
+        )
+        assert state.text == "tekst"
+        assert state.asr_context == AsrContext()
+        assert state.asr is not None and state.asr.model is None
 
     def test_version_below_one_is_invalid(self) -> None:
         with pytest.raises(ProjectError):

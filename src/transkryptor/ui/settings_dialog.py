@@ -2,7 +2,7 @@
 
 Okno tylko edytuje kopię ustawień; zapis i powiadomienie komponentów
 wykonuje ``SettingsStore`` po zatwierdzeniu. Każda zakładka dotyczy jednej
-części aplikacji (wygląd, odtwarzacz, notacja, projekt, metryczka); kolejne
+części aplikacji (wygląd, odtwarzacz, notacja, projekt, metryczka, ASR); kolejne
 funkcje dopisują pola do właściwej zakładki albo dodają nową.
 """
 
@@ -17,12 +17,15 @@ from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QDoubleSpinBox,
+    QFileDialog,
     QFontComboBox,
     QFormLayout,
     QHBoxLayout,
     QHeaderView,
     QInputDialog,
     QLabel,
+    QLineEdit,
+    QPlainTextEdit,
     QPushButton,
     QSpinBox,
     QTableWidget,
@@ -32,6 +35,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from transkryptor.asr.models import default_models_root
 from transkryptor.document.metadata import (
     DEFAULT_FIELDS,
     DEFAULT_KEYS,
@@ -52,12 +56,14 @@ from transkryptor.settings import (
     THEME_LIGHT,
     THEME_SYSTEM,
     AppearanceSettings,
+    AsrSettings,
     EditorSettings,
     MetadataSettings,
     NotationSettings,
     PlayerSettings,
     ProjectSettings,
     Settings,
+    split_vocabulary,
 )
 from transkryptor.ui.theme import set_props
 
@@ -73,6 +79,13 @@ def theme_labels() -> dict[str, str]:
 def language_labels() -> dict[str, str]:
     """Nazwy języków w nich samych — rozpoznawalne niezależnie od bieżącego."""
     return {LANGUAGE_SYSTEM: tr("settings.language.system"), **LANGUAGES}
+
+
+def device_labels() -> dict[str, str]:
+    return {
+        "auto": tr("settings.asr.device.auto"),
+        "cpu": tr("settings.asr.device.cpu"),
+    }
 
 
 def ellipsis_style_labels() -> dict[EllipsisStyle, str]:
@@ -201,12 +214,51 @@ class SettingsDialog(QDialog):
         metadata_layout.addWidget(self.metadata_table, stretch=1)
         metadata_layout.addLayout(field_buttons)
 
+        self.models_root_edit = QLineEdit()
+        self.models_root_edit.setReadOnly(True)
+        self.models_root_edit.setPlaceholderText(str(default_models_root()))
+        self.models_root_button = QPushButton(tr("settings.asr.models_root.choose"))
+        self.models_root_button.clicked.connect(self._choose_models_root)
+        self.models_root_default_button = QPushButton(
+            tr("settings.asr.models_root.default")
+        )
+        self.models_root_default_button.clicked.connect(self.models_root_edit.clear)
+        models_root_row = QHBoxLayout()
+        models_root_row.addWidget(self.models_root_edit, stretch=1)
+        models_root_row.addWidget(self.models_root_button)
+        models_root_row.addWidget(self.models_root_default_button)
+        models_root_hint = QLabel(tr("settings.asr.models_root.hint"))
+        models_root_hint.setWordWrap(True)
+        set_props(models_root_hint, role="muted")
+        self.device_combo = QComboBox()
+        for device, device_label in device_labels().items():
+            self.device_combo.addItem(device_label, device)
+        device_hint = QLabel(tr("settings.asr.device.hint"))
+        device_hint.setWordWrap(True)
+        set_props(device_hint, role="muted")
+        self.vocabulary_edit = QPlainTextEdit()
+        self.vocabulary_edit.setPlaceholderText(
+            tr("settings.asr.vocabulary.placeholder")
+        )
+        self.vocabulary_edit.setTabChangesFocus(True)
+        vocabulary_hint = QLabel(tr("settings.asr.vocabulary.hint"))
+        vocabulary_hint.setWordWrap(True)
+        set_props(vocabulary_hint, role="muted")
+        asr_form = _form()
+        asr_form.addRow(tr("settings.asr.models_root"), models_root_row)
+        asr_form.addRow(models_root_hint)
+        asr_form.addRow(tr("settings.asr.device"), self.device_combo)
+        asr_form.addRow(device_hint)
+        asr_form.addRow(tr("settings.asr.vocabulary"), self.vocabulary_edit)
+        asr_form.addRow(vocabulary_hint)
+
         self.tabs = QTabWidget()
         self.tabs.addTab(_page(appearance_form), tr("settings.tab.appearance"))
         self.tabs.addTab(_page(player_form), tr("settings.tab.player"))
         self.tabs.addTab(_page(notation_form), tr("settings.tab.notation"))
         self.tabs.addTab(_page(project_form), tr("settings.tab.project"))
         self.tabs.addTab(metadata_page, tr("settings.tab.metadata"))
+        self.tabs.addTab(_page(asr_form), tr("settings.tab.asr"))
 
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok
@@ -265,6 +317,13 @@ class SettingsDialog(QDialog):
         self.autosave_spin.setEnabled(settings.project.autosave_enabled)
 
         self.set_metadata_fields(settings.metadata.fields)
+
+        # Model wybiera się w panelu ASR — okno tylko go przenosi dalej.
+        self._asr_model_key = settings.asr.model_key
+        self.models_root_edit.setText(settings.asr.models_root)
+        index = self.device_combo.findData(settings.asr.device)
+        self.device_combo.setCurrentIndex(max(index, 0))
+        self.vocabulary_edit.setPlainText(settings.asr.vocabulary)
 
     # --- metryczka -----------------------------------------------------------
 
@@ -364,6 +423,14 @@ class SettingsDialog(QDialog):
         self.field_down_button.setEnabled(0 <= row < count - 1)
         self.remove_field_button.setEnabled(custom)
 
+    def _choose_models_root(self) -> None:
+        start = self.models_root_edit.text() or str(default_models_root())
+        directory = QFileDialog.getExistingDirectory(
+            self, tr("settings.asr.models_root.dialog"), start
+        )
+        if directory:
+            self.models_root_edit.setText(directory)
+
     def _update_ellipsis_hint(self) -> None:
         """Podpowiedź „Ujednolić” tylko po zmianie stylu względem bieżącego."""
         changed = self.ellipsis_combo.currentData() != self._initial_ellipsis_style
@@ -403,6 +470,14 @@ class SettingsDialog(QDialog):
             appearance=AppearanceSettings(
                 theme=str(self.theme_combo.currentData()),
                 language=str(self.language_combo.currentData()),
+            ),
+            asr=AsrSettings(
+                model_key=self._asr_model_key,
+                models_root=self.models_root_edit.text().strip(),
+                device=str(self.device_combo.currentData()),
+                vocabulary="\n".join(
+                    split_vocabulary(self.vocabulary_edit.toPlainText())
+                ),
             ),
         )
 

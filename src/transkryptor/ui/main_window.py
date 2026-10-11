@@ -13,6 +13,9 @@ walidację ``notation.validate`` z debounce — reguły pozostają w module
 
 from __future__ import annotations
 
+from dataclasses import replace
+from pathlib import Path
+
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
@@ -28,6 +31,7 @@ from PySide6.QtWidgets import (
 )
 
 from transkryptor.asr.manager import ModelManager
+from transkryptor.asr.models import model_by_key
 from transkryptor.audio.player import AudioPlayer
 from transkryptor.document.model import Document
 from transkryptor.errors import AppError
@@ -113,9 +117,12 @@ class MainWindow(QMainWindow):
         self.warnings_panel.set_warnings([])
         self.warning_count_label = label("", "badge")
 
-        self.model_manager = ModelManager()
+        asr_settings = settings_store.current.asr
         self.asr_panel = AsrPanel(
-            self.model_manager,
+            ModelManager(
+                model_by_key(asr_settings.model_key),
+                Path(asr_settings.models_root) if asr_settings.models_root else None,
+            ),
             audio_path_provider=lambda: self.player.source_path,
         )
 
@@ -300,6 +307,8 @@ class MainWindow(QMainWindow):
             # Motyw „zgodny z systemem” podąża za przełączeniem trybu systemu.
             app.styleHints().colorSchemeChanged.connect(self._on_color_scheme_changed)
         self.asr_panel.seek_requested.connect(self.player_controller.seek_to_segment)
+        self.asr_panel.model_changed.connect(self._on_asr_model_changed)
+        self.asr_panel.context_changed.connect(self._on_asr_context_changed)
         self.player.playback_error.connect(
             lambda error: self._show_error(tr("main.playback_error"), error)
         )
@@ -329,6 +338,7 @@ class MainWindow(QMainWindow):
         self.metadata_form.set_fields(settings.metadata.fields)
         self.session.autosave.configure(settings.project)
         self.asr_panel.set_segment_preroll_ms(settings.player.segment_preroll_ms)
+        self.asr_panel.set_asr_settings(settings.asr)
         # ACC-25: tekst się nie zmienia — tylko kolejne wstawienia i walidacja.
         pause = self.marker_actions["pause"]
         pause_marker = marker_text("pause", settings.notation.ellipsis).strip()
@@ -338,6 +348,17 @@ class MainWindow(QMainWindow):
             )
         )
         self.notation.schedule_validation()
+
+    def _on_asr_model_changed(self, key: str) -> None:
+        """Wybór modelu w panelu jest zapamiętywany w ustawieniach (ACC-35)."""
+        current = self.settings_store.current
+        if current.asr.model_key != key:
+            self.settings_store.save(
+                replace(current, asr=replace(current.asr, model_key=key))
+            )
+
+    def _on_asr_context_changed(self) -> None:
+        self.session.asr_context_changed()
 
     def _on_color_scheme_changed(self, _scheme: Qt.ColorScheme) -> None:
         self._apply_theme(self.settings_store.current.appearance.theme)

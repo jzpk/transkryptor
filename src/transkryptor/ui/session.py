@@ -30,12 +30,14 @@ from transkryptor.audio.player import file_dialog_filter as audio_filter
 from transkryptor.document.metadata import (
     SIGNATURE,
     MetadataField,
+    asr_context_hint,
     normalized,
     signature_from_audio,
 )
 from transkryptor.document.model import Document
 from transkryptor.document.project import (
     PROJECT_SUFFIX,
+    AsrContext,
     AsrDraft,
     AsrSegment,
     AudioRef,
@@ -186,7 +188,21 @@ class SessionController(QObject):
             self._author_edit.text(),
             "" if date == self._date_edit.minimumDate() else date.toString(DATE_FORMAT),
         )
-        self.document.set_metadata_values(self._metadata_form.values())
+        values = self._metadata_form.values()
+        self.document.set_metadata_values(values)
+        self._asr_panel.set_context_default(asr_context_hint(values))
+
+    def asr_context_changed(self) -> None:
+        """Kontekst lub słownik ASR to dane projektu — nie tekst eksportu.
+
+        Zmiana oznacza projekt jako niezapisany, ale nie wywołuje ostrzeżenia
+        o niewyeksportowanej pracy, jeśli tekst był wyeksportowany.
+        """
+        exported = not self.document.is_dirty
+        self.document.touch()
+        if exported:
+            self.document.mark_exported()
+        self._on_state_changed()
 
     def new_document(self) -> None:
         if not self.maybe_discard_changes():
@@ -195,6 +211,7 @@ class SessionController(QObject):
         self._player_bar.reset()
         self._asr_panel.set_audio_available(False)
         self._asr_panel.restore_result(None)
+        self._asr_panel.set_asr_context("", ())
         self._editor.blockSignals(True)
         self._editor.clear()
         self._editor.blockSignals(False)
@@ -416,6 +433,7 @@ class SessionController(QObject):
         """Bieżący stan pracy w formacie projektu."""
         document = self.document
         result = self._asr_panel.last_result
+        prompt, vocabulary = self._asr_panel.asr_context()
         has_audio = self._player.source_path is not None
         return ProjectState(
             text=document.text,
@@ -436,9 +454,11 @@ class SessionController(QObject):
                         AsrSegment(s.start_s, s.end_s, s.text, s.confidence)
                         for s in result.segments
                     ),
+                    model=self._asr_panel.last_model_key,
                 )
             ),
             review=tuple(self._review.entries()),
+            asr_context=AsrContext(prompt=prompt, vocabulary=vocabulary),
         )
 
     # --- otwieranie projektu ---------------------------------------------------
@@ -546,6 +566,9 @@ class SessionController(QObject):
             date if date.isValid() else self._date_edit.minimumDate()
         )
         self._metadata_form.set_values(state.metadata)
+        self._asr_panel.set_asr_context(
+            state.asr_context.prompt, state.asr_context.vocabulary
+        )
 
         self._set_audio(None)
         if audio_path is not None:
@@ -558,7 +581,10 @@ class SessionController(QObject):
                 self._asr_panel.set_audio_available(True)
                 self._player_bar.restore_state(state.player)
                 self._set_audio(audio_path, audio_sha256)
-        self._asr_panel.restore_result(_transcription_result(state.asr))
+        self._asr_panel.restore_result(
+            _transcription_result(state.asr),
+            model_key=state.asr.model if state.asr is not None else None,
+        )
         self._review.restore(state.review)
 
         document = Document(

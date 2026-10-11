@@ -64,6 +64,19 @@ class ModelManager:
         self._models_root = models_root or default_models_root()
         self._downloader = downloader or hf_streaming_download
 
+    def with_model(self, model: AsrModelInfo) -> ModelManager:
+        """Menedżer innego modelu w tym samym katalogu modeli."""
+        return ModelManager(model, self._models_root, self._downloader)
+
+    def with_models_root(self, models_root: Path | None) -> ModelManager:
+        """Menedżer tego modelu w innym katalogu (None → domyślny)."""
+        return ModelManager(self.model, models_root, self._downloader)
+
+    @property
+    def models_root(self) -> Path:
+        """Katalog, w którym leżą katalogi wszystkich modeli."""
+        return self._models_root
+
     @property
     def model_dir(self) -> Path:
         """Katalog docelowy wybranego modelu."""
@@ -130,6 +143,29 @@ class ModelManager:
             f"{self.model.hf_repo_id}@{self.model.hf_revision}", encoding="utf-8"
         )
         return dest
+
+    def disk_usage(self) -> int:
+        """Łączny rozmiar plików w katalogu modelu (0, gdy go nie ma)."""
+        if not self.model_dir.is_dir():
+            return 0
+        return sum(
+            path.stat().st_size for path in self.model_dir.rglob("*") if path.is_file()
+        )
+
+    def delete(self) -> int:
+        """Usuwa pobrany model i zwraca liczbę odzyskanych bajtów.
+
+        Usuwany jest wyłącznie katalog modelu leżący wewnątrz katalogu
+        modeli — klucz modelu nie może wyprowadzić poza niego (SEC-05).
+        """
+        root = self._models_root.resolve()
+        target = self.model_dir.resolve()
+        if target == root or not target.is_relative_to(root):
+            raise ValueError(f"Katalog modelu poza katalogiem modeli: {target}")
+        freed = self.disk_usage()
+        if target.is_dir():
+            shutil.rmtree(target)
+        return freed
 
     @staticmethod
     def _cleanup_partial(dest: Path) -> None:

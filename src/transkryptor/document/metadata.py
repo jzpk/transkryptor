@@ -21,6 +21,7 @@ from transkryptor.i18n import all_translations, tr
 
 SIGNATURE = "signature"
 PLACE = "place"
+DISTRICT = "district"
 
 
 @dataclass(frozen=True)
@@ -62,7 +63,7 @@ def label_variants(field: MetadataField) -> tuple[str, ...]:
 DEFAULT_FIELDS: tuple[MetadataField, ...] = (
     MetadataField(SIGNATURE, "Sygnatura"),
     MetadataField(PLACE, "Miejscowość"),
-    MetadataField("district", "Gmina/powiat"),
+    MetadataField(DISTRICT, "Gmina/powiat"),
     MetadataField("informant", "Informator (kod)", personal=True),
     MetadataField("informant_birth_year", "Rok urodzenia informatora", personal=True),
     MetadataField("recording_date", "Data nagrania"),
@@ -168,3 +169,9 @@ def signature_from_audio(path: str | Path) -> str:
 def normalized(values: Mapping[str, str]) -> dict[str, str]:
     """Słownik bez pustych wartości (porównywalny między zapisami)."""
     return {key: value for key, value in values.items() if value.strip()}
+
+
+def asr_context_hint(values: dict[str, str]) -> str:
+    """Podpowiedź kontekstu ASR z metryczki: miejscowość i gmina/powiat."""
+    parts = (values.get(PLACE, "").strip(), values.get(DISTRICT, "").strip())
+    return ", ".join(part for part in parts if part)

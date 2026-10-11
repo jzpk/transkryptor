@@ -7,7 +7,7 @@ Dlatego transkrypcja biegnie w osobnym procesie (``multiprocessing``,
 kontekst ``spawn`` — ten sam na Linuksie i Windows):
 
 - proces trzyma wczytany backend między transkrypcjami (bufor po katalogu
-  modelu), więc kolejna transkrypcja nie wczytuje modelu od nowa;
+  modelu i urządzeniu), więc kolejna transkrypcja nie wczytuje modelu od nowa;
 - „Anuluj” kończy proces od razu (``terminate``) — następna transkrypcja
   uruchomi nowy proces i wczyta model ponownie;
 - po ``IDLE_TIMEOUT_S`` bez pracy proces sam się kończy i zwalnia pamięć.
@@ -37,6 +37,7 @@ from transkryptor.asr.engine import (
     Backend,
     BackendFactory,
     CancelCheck,
+    DecodingOptions,
     ProgressCallback,
     SegmentCallback,
     TranscriptionCancelled,
@@ -89,10 +90,18 @@ class AsrWorker:
         on_segment: SegmentCallback | None = None,
         on_progress: ProgressCallback | None = None,
         language: str = LANGUAGE,
+        options: DecodingOptions | None = None,
     ) -> TranscriptionResult:
         """Transkrypcja w procesie roboczym (kontrakt ``engine.transcribe``)."""
         cancel = should_cancel or (lambda: False)
-        request = ("transcribe", str(audio_path), str(model_dir), model, language)
+        request = (
+            "transcribe",
+            str(audio_path),
+            str(model_dir),
+            model,
+            language,
+            options or DecodingOptions(),
+        )
         with self._lock:
             if cancel():
                 raise TranscriptionCancelled()
@@ -238,15 +247,16 @@ def _serve(
 ) -> None:
     """Pętla procesu roboczego: zlecenia z potoku, bufor backendu."""
     set_language(language)
-    cached: dict[Path, Backend] = {}
+    cached: dict[tuple[Path, str], Backend] = {}
     factory = backend_factory or engine.faster_whisper_backend
 
-    def cached_factory(model_dir: Path) -> Backend:
-        backend = cached.get(model_dir)
+    def cached_factory(model_dir: Path, device: str) -> Backend:
+        key = (model_dir, device)
+        backend = cached.get(key)
         if backend is None:
             cached.clear()  # jeden model naraz — zwalnia poprzedni
-            backend = factory(model_dir)
-            cached[model_dir] = backend
+            backend = factory(model_dir, device)
+            cached[key] = backend
         return backend
 
     while conn.poll(idle_timeout_s):
@@ -261,21 +271,28 @@ def _serve(
             conn.send(("pong", None))
             continue
         if command == "transcribe":
-            _, audio_path, model_dir, model, request_language = request
+            _, audio_path, model_dir, model, request_language, options = request
             conn.send(
                 _transcribe_request(
-                    conn, cached_factory, audio_path, model_dir, model, request_language
+                    conn,
+                    cached_factory,
+                    audio_path,
+                    model_dir,
+                    model,
+                    request_language,
+                    options,
                 )
             )
 
 
 def _transcribe_request(
     conn: Connection,
-    factory: Callable[[Path], Backend],
+    factory: Callable[[Path, str], Backend],
     audio_path: str,
     model_dir: str,
     model: AsrModelInfo,
     language: str,
+    options: DecodingOptions,
 ) -> tuple[str, Any]:
     try:
         result = engine.transcribe(
@@ -286,6 +303,7 @@ def _transcribe_request(
             on_progress=lambda fraction: conn.send(("progress", fraction)),
             backend_factory=factory,
             language=language,
+            options=options,
         )
     except AppError as error:
         return "error", (type(error).__name__, error.user_message, error.retry_hint)

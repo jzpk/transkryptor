@@ -16,6 +16,8 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
 from typing import Any
 
+from transkryptor.asr.engine import DEVICES
+from transkryptor.asr.models import DEFAULT_MODEL, MODELS
 from transkryptor.document.metadata import (
     DEFAULT_FIELDS,
     MetadataField,
@@ -102,6 +104,29 @@ class MetadataSettings:
 
 
 @dataclass(frozen=True)
+class AsrSettings:
+    """Model ASR, katalog modeli, urządzenie i globalny słownik.
+
+    ``models_root`` pusty oznacza katalog domyślny w danych użytkownika;
+    ``vocabulary`` to hasła rozdzielone znakami nowej linii.
+    """
+
+    model_key: str = DEFAULT_MODEL.key
+    models_root: str = ""
+    device: str = "auto"
+    vocabulary: str = ""
+
+    @property
+    def vocabulary_words(self) -> tuple[str, ...]:
+        return split_vocabulary(self.vocabulary)
+
+
+def split_vocabulary(text: str) -> tuple[str, ...]:
+    """Hasła słownika ASR z tekstu: po jednym w linii, bez pustych."""
+    return tuple(line.strip() for line in text.splitlines() if line.strip())
+
+
+@dataclass(frozen=True)
 class Settings:
     player: PlayerSettings = field(default_factory=PlayerSettings)
     editor: EditorSettings = field(default_factory=EditorSettings)
@@ -109,6 +134,7 @@ class Settings:
     project: ProjectSettings = field(default_factory=ProjectSettings)
     metadata: MetadataSettings = field(default_factory=MetadataSettings)
     appearance: AppearanceSettings = field(default_factory=AppearanceSettings)
+    asr: AsrSettings = field(default_factory=AsrSettings)
 
 
 @dataclass(frozen=True)
@@ -134,6 +160,7 @@ SEGMENT_PREROLL_RANGE_MS = (0, 5_000)
 FONT_SIZE_RANGE_PT = (6, 48)  # 0 = domyślny, poza zakresem
 AUTOSAVE_INTERVAL_RANGE_S = (30, 600)
 ELLIPSIS_STYLES = tuple(style.value for style in EllipsisStyle)
+MODEL_KEYS = tuple(model.key for model in MODELS)
 
 _FIELDS: tuple[_Field, ...] = (
     _Field("player", "skip_ms", int, *SKIP_RANGE_MS),
@@ -153,6 +180,10 @@ _FIELDS: tuple[_Field, ...] = (
     ),
     _Field("appearance", "theme", str, choices=THEMES),
     _Field("appearance", "language", str, choices=LANGUAGE_CHOICES),
+    _Field("asr", "model_key", str, choices=MODEL_KEYS),
+    _Field("asr", "models_root", str),
+    _Field("asr", "device", str, choices=DEVICES),
+    _Field("asr", "vocabulary", str),
 )
 
 
@@ -177,6 +208,7 @@ def from_mapping(mapping: Mapping[str, Any]) -> Settings:
         "project": {},
         "metadata": {},
         "appearance": {},
+        "asr": {},
     }
     for spec in _FIELDS:
         if spec.key not in mapping:
@@ -199,6 +231,7 @@ def from_mapping(mapping: Mapping[str, Any]) -> Settings:
         appearance=replace(
             AppearanceSettings(), **sections["appearance"]  # type: ignore[arg-type]
         ),
+        asr=replace(AsrSettings(), **sections["asr"]),  # type: ignore[arg-type]
     )
 
 

@@ -5,7 +5,8 @@ tekst z zakresami indeksu górnego, autora, datę i metryczkę, odwołanie do
 nagrania (ścieżka względna do pliku projektu, bezwzględna jako podpowiedź
 i suma SHA-256 — bez osadzania audio), pozycję odtwarzania, pętlę A–B,
 ostatni wynik ASR (tekst i segmenty z czasami i pewnością) oraz pozycje
-przeglądu reguł (zakres w tekście, kod reguły i treść propozycji).
+przeglądu reguł (zakres w tekście, kod reguły i treść propozycji), a od
+schematu 2 także kontekst nagrania i słownik projektu dla ASR.
 
 Zapis jest atomowy: plik tymczasowy w katalogu docelowym, ``fsync``
 i ``os.replace`` — przerwany zapis nie psuje poprzedniej wersji. Odczyt
@@ -28,7 +29,7 @@ from typing import Any
 from transkryptor.errors import ProjectError
 from transkryptor.i18n import tr
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 PROJECT_SUFFIX = ".transkr"
 _HASH_CHUNK = 1 << 20
 
@@ -74,6 +75,16 @@ class AsrDraft:
     text: str
     language: str = "pl"
     segments: tuple[AsrSegment, ...] = ()
+    # Klucz modelu, którym obliczono szkic (None w projektach sprzed 0.4).
+    model: str | None = None
+
+
+@dataclass(frozen=True)
+class AsrContext:
+    """Kontekst nagrania i słownik projektu przekazywane do ASR (REQ-21)."""
+
+    prompt: str = ""
+    vocabulary: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -113,6 +124,7 @@ class ProjectState:
     player: PlayerState = field(default_factory=PlayerState)
     asr: AsrDraft | None = None
     review: tuple[ReviewEntry, ...] = ()
+    asr_context: AsrContext = field(default_factory=AsrContext)
 
     @property
     def word_count(self) -> int:
@@ -157,6 +169,7 @@ def to_dict(state: ProjectState, project_path: Path | None = None) -> dict[str, 
             else {
                 "text": state.asr.text,
                 "language": state.asr.language,
+                "model": state.asr.model,
                 "segments": [
                     {
                         "start_s": s.start_s,
@@ -187,6 +200,10 @@ def to_dict(state: ProjectState, project_path: Path | None = None) -> dict[str, 
             }
             for e in state.review
         ],
+        "asr_context": {
+            "prompt": state.asr_context.prompt,
+            "vocabulary": list(state.asr_context.vocabulary),
+        },
     }
 
 
@@ -213,9 +230,21 @@ def loads(raw: str) -> ProjectState:
 
 # --- migracje -------------------------------------------------------------------
 
+
 # Wersja N → N+1. Migracja dostaje słownik w wersji N i zwraca słownik
 # w wersji N+1 (z podbitym ``schema_version``); nie zmienia wejścia.
-_MIGRATIONS: dict[int, Callable[[dict[str, Any]], dict[str, Any]]] = {}
+def _add_asr_context(data: dict[str, Any]) -> dict[str, Any]:
+    """1 → 2 (wydanie 0.4.0): pusty kontekst nagrania i słownik projektu."""
+    return {
+        **data,
+        "schema_version": 2,
+        "asr_context": {"prompt": "", "vocabulary": []},
+    }
+
+
+_MIGRATIONS: dict[int, Callable[[dict[str, Any]], dict[str, Any]]] = {
+    1: _add_asr_context,
+}
 
 
 def migrate(data: Any) -> dict[str, Any]:
@@ -420,6 +449,7 @@ def _parse(data: dict[str, Any]) -> ProjectState:
         asr = AsrDraft(
             text=_str(asr_dict["text"]),
             language=_str(asr_dict.get("language", "pl")),
+            model=_optional_str(asr_dict.get("model")),
             segments=tuple(
                 AsrSegment(
                     start_s=_float(s["start_s"]),
@@ -455,6 +485,7 @@ def _parse(data: dict[str, Any]) -> ProjectState:
     if any(not 0 <= e.start <= e.end <= len(text) for e in review):
         raise ValueError("zakres przeglądu poza tekstem")
     metadata = _dict(document.get("metadata", {}))
+    context = _dict(data.get("asr_context", {}))
     return ProjectState(
         text=text,
         superscript_ranges=ranges,
@@ -471,6 +502,10 @@ def _parse(data: dict[str, Any]) -> ProjectState:
         ),
         asr=asr,
         review=review,
+        asr_context=AsrContext(
+            prompt=_str(context.get("prompt", "")),
+            vocabulary=tuple(map(_str, _list(context.get("vocabulary", [])))),
+        ),
     )
 
 

@@ -13,7 +13,7 @@ from PySide6.QtWidgets import QMessageBox
 
 from transkryptor.asr.engine import SegmentResult, TranscriptionResult
 from transkryptor.asr.manager import DownloadCancelled, ModelManager
-from transkryptor.asr.models import REQUIRED_FILES, AsrModelInfo
+from transkryptor.asr.models import WHISPER_SMALL, AsrModelInfo
 from transkryptor.export.docx_export import export_docx
 from transkryptor.i18n import tr
 from transkryptor.notation.suggestions import RULES
@@ -29,12 +29,14 @@ from transkryptor.ui.main_window import DRAFT_APPEND, DRAFT_REPLACE, MainWindow
 def fake_downloader(
     model: AsrModelInfo, dest: Path, on_progress, should_cancel
 ) -> None:
-    for name in REQUIRED_FILES:
+    for name in (file.name for file in model.files):
         (dest / name).write_bytes(b"fake")
         on_progress(1024, 4096, name)
 
 
-def fake_transcribe(audio_path, model_dir, should_cancel, on_segment, on_progress=None):
+def fake_transcribe(
+    audio_path, model_dir, should_cancel, on_segment, on_progress=None, **_kwargs
+):
     segment = SimpleNamespace(start_s=0.0, end_s=2.0, text=" są.", confidence=0.9)
     on_segment(segment)
     if on_progress is not None:
@@ -208,7 +210,7 @@ class TestTranscriptionFlow:
         self, qtbot, window_with_asr, monkeypatch
     ) -> None:
         def slow_transcribe(
-            audio_path, model_dir, should_cancel, on_segment, on_progress=None
+            audio_path, model_dir, should_cancel, on_segment, on_progress=None, **_
         ):
             for _ in range(2000):  # do 20 s: czas na kliknięcie anulowania
                 if should_cancel():
@@ -308,7 +310,7 @@ def run_transcription(window: MainWindow) -> None:
 
 
 def _slow_transcribe(
-    audio_path, model_dir, should_cancel, on_segment, on_progress=None
+    audio_path, model_dir, should_cancel, on_segment, on_progress=None, **_kwargs
 ):
     from transkryptor.asr.engine import TranscriptionCancelled
 
@@ -628,3 +630,202 @@ class TestWorkerWiring:
         qtbot.addWidget(panel)
         assert panel._worker is None
         panel.shutdown()  # bez procesu — nic do zrobienia
+
+
+class TestModelChoice:
+    """ACC-35/ACC-36: wybór, pobranie i usunięcie modelu w panelu."""
+
+    def test_combo_lists_registry_with_download_state(self, panel, manager) -> None:
+        keys = [panel.model_combo.itemData(i) for i in range(panel.model_combo.count())]
+        assert keys == ["small", "medium", "large-v3"]
+        assert panel.model_combo.currentData() == "medium"
+        assert all(
+            "niepobrany" in panel.model_combo.itemText(i)
+            for i in range(panel.model_combo.count())
+        )
+        manager.download()
+        panel.refresh_model_status()
+        index = panel.model_combo.findData("medium")
+        assert "(pobrany)" in panel.model_combo.itemText(index)
+
+    def test_choosing_model_switches_manager_and_emits(
+        self, qtbot, panel, manager
+    ) -> None:
+        manager.download()  # medium pobrany, large-v3 nie
+        panel.refresh_model_status()
+        with qtbot.waitSignal(panel.model_changed) as blocker:
+            panel.model_combo.setCurrentIndex(panel.model_combo.findData("large-v3"))
+        assert blocker.args == ["large-v3"]
+        assert panel.model.key == "large-v3"
+        assert panel.model_dir == manager.models_root / "large-v3"
+        assert panel.model_status_label.text() == tr("asr.model.missing")
+        assert panel.download_button.isVisibleTo(panel)
+        assert "RAM" in panel.info_label.text()
+
+    def test_consent_names_selected_model(self, panel) -> None:
+        panel.select_model("small")
+        text = panel.download_consent_text()
+        assert "Systran/faster-whisper-small" in text
+        assert "MIT" in text
+
+    def test_select_model_from_settings_does_not_emit(self, qtbot, panel) -> None:
+        spy = QSignalSpy(panel.model_changed)
+        panel.select_model("small")
+        assert panel.model_combo.currentData() == "small"
+        assert spy.count() == 0
+
+    def test_download_selected_model(self, qtbot, panel, monkeypatch) -> None:
+        accept_consent(monkeypatch)
+        panel.select_model("small")
+        panel.download_button.click()
+        wait_until(
+            lambda: panel._download_thread is None, what="zakończenie pobierania"
+        )
+        assert (panel.model_dir / "model.bin").is_file()
+        assert panel.model_dir.name == "small"
+        assert panel.model_status_label.text() == tr("asr.model.ready")
+
+    def test_delete_requires_confirmation(
+        self, panel, manager, no_blocking_dialogs
+    ) -> None:
+        manager.download()
+        panel.refresh_model_status()
+        assert panel.delete_model_button.isVisibleTo(panel)
+        panel.delete_model_button.click()  # domyślnie „Nie”
+        assert manager.is_downloaded()
+        assert no_blocking_dialogs[-1][0] == "question"
+
+    def test_delete_removes_model_and_reports_space(
+        self, panel, manager, monkeypatch
+    ) -> None:
+        small = manager.with_model(WHISPER_SMALL)
+        small.download()
+        manager.download()
+        panel.refresh_model_status()
+        accept_consent(monkeypatch)
+        panel.delete_model_button.click()
+        assert not manager.model_dir.exists()
+        assert panel.model_status_label.text().startswith("Model usunięty")
+        assert panel.download_button.isVisibleTo(panel)
+        assert not panel.delete_model_button.isVisibleTo(panel)
+        assert small.is_downloaded()  # pozostałe modele zostają (ACC-36)
+
+    def test_model_choice_is_saved_in_settings(
+        self, qtbot, window_with_asr, isolated_settings
+    ) -> None:
+        """ACC-35: wybór modelu przetrwa restart (zapis w ustawieniach)."""
+        panel = window_with_asr.asr_panel
+        panel.model_combo.setCurrentIndex(panel.model_combo.findData("small"))
+        assert window_with_asr.settings_store.current.asr.model_key == "small"
+        restarted = MainWindow()
+        qtbot.addWidget(restarted, before_close_func=_release_window)
+        assert restarted.asr_panel.model.key == "small"
+        # Zmiana ustawień nie przenosi panelu do domyślnego katalogu modeli.
+        assert panel.model_dir.parent == panel._manager.models_root
+
+    def test_model_choice_locked_while_transcribing(
+        self, qtbot, window_with_asr
+    ) -> None:
+        panel = window_with_asr.asr_panel
+        panel._transcribe_impl = _slow_transcribe
+        panel.transcribe_button.click()
+        wait_until(
+            lambda: panel._transcribe_thread is not None, what="start transkrypcji"
+        )
+        assert not panel.model_combo.isEnabled()
+        assert not panel.delete_model_button.isEnabled()
+        panel.cancel_transcription()
+        wait_until(lambda: panel._transcribe_thread is None, what="anulowanie")
+        assert panel.model_combo.isEnabled()
+
+    def test_memory_warning_can_stop_transcription(
+        self, qtbot, window_with_asr, monkeypatch, no_blocking_dialogs
+    ) -> None:
+        monkeypatch.setattr(
+            "transkryptor.ui.asr_panel.total_memory_bytes", lambda: 1_000_000_000
+        )
+        panel = window_with_asr.asr_panel
+        panel.transcribe_button.click()  # pytanie o RAM → „Nie”
+        assert panel._transcribe_thread is None
+        kind, title, text = no_blocking_dialogs[-1]
+        assert kind == "question" and "RAM" in text
+
+
+class TestContextAndVocabulary:
+    """ACC-38: kontekst nagrania i słownik trafiają do transkrypcji."""
+
+    def test_prompt_length_is_limited(self, panel) -> None:
+        from transkryptor.asr.engine import PROMPT_MAX_CHARS
+
+        panel.context_edit.setText("x" * (PROMPT_MAX_CHARS + 50))
+        assert len(panel.context_edit.text()) == PROMPT_MAX_CHARS
+        assert panel.context_counter.text() == f"{PROMPT_MAX_CHARS}/{PROMPT_MAX_CHARS}"
+
+    def test_options_combine_global_and_project_vocabulary(self, panel) -> None:
+        from transkryptor.settings import AsrSettings
+
+        panel.set_asr_settings(
+            AsrSettings(device="cpu", vocabulary="Oborniki\nOcieszyn")
+        )
+        panel.context_edit.setText("Wywiad w Ocieszynie")
+        panel.vocabulary_edit.setPlainText("Rożnowo\nocieszyn")
+        options = panel.decoding_options()
+        assert options.device == "cpu"
+        assert options.initial_prompt == "Wywiad w Ocieszynie"
+        assert options.hotwords == "Oborniki Ocieszyn Rożnowo"
+        assert "haseł: 2" in panel.vocabulary_hint.text()
+
+    def test_empty_context_is_not_sent(self, panel) -> None:
+        options = panel.decoding_options()
+        assert options.initial_prompt is None
+        assert options.hotwords is None
+
+    def test_parameters_reach_transcription(self, qtbot, window_with_asr) -> None:
+        calls: list[dict] = []
+
+        def recording(audio_path, model_dir, **kwargs):
+            calls.append(kwargs)
+            return fake_transcribe(audio_path, model_dir, **kwargs)
+
+        panel = window_with_asr.asr_panel
+        panel._transcribe_impl = recording
+        panel.context_edit.setText("Ocieszyn")
+        panel.vocabulary_edit.setPlainText("Oborniki")
+        window_with_asr._ask_draft_placement = lambda: DRAFT_REPLACE
+        panel.transcribe_button.click()
+        wait_until(lambda: panel._transcribe_thread is None, what="transkrypcja")
+        [kwargs] = calls
+        assert kwargs["model"].key == "medium"
+        assert kwargs["options"].initial_prompt == "Ocieszyn"
+        assert kwargs["options"].hotwords == "Oborniki"
+
+    def test_context_default_from_metadata(self, window_with_asr) -> None:
+        window = window_with_asr
+        panel = window.asr_panel
+        window.metadata_form.set_value("place", "Ocieszyn")
+        window.metadata_form.set_value("district", "Oborniki")
+        assert panel.context_edit.text() == "Ocieszyn, Oborniki"
+        panel.context_edit.setText("Mój opis")
+        window.metadata_form.set_value("place", "Rożnowo")
+        assert panel.context_edit.text() == "Mój opis"  # wpis użytkownika zostaje
+
+    def test_device_fallback_is_reported(self, qtbot, window_with_asr) -> None:
+        """ACC-37: przejście na CPU to informacja, nie błąd."""
+
+        def on_cpu(audio_path, model_dir, **kwargs):
+            result = fake_transcribe(audio_path, model_dir, **kwargs)
+            return TranscriptionResult(
+                text=result.text,
+                language="pl",
+                segments=result.segments,
+                device="cpu",
+                device_note="brak libcublas",
+            )
+
+        panel = window_with_asr.asr_panel
+        panel._transcribe_impl = on_cpu
+        window_with_asr._ask_draft_placement = lambda: DRAFT_REPLACE
+        panel.transcribe_button.click()
+        wait_until(lambda: panel._transcribe_thread is None, what="transkrypcja")
+        assert "brak libcublas" in panel.device_label.text()
+        assert "CPU" in panel.device_label.text()

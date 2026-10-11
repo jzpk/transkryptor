@@ -17,7 +17,7 @@ from transkryptor.asr.manager import (
 )
 from transkryptor.asr.models import (
     DEFAULT_MODEL,
-    REQUIRED_FILES,
+    MODELS,
     AsrModelInfo,
     ModelFile,
 )
@@ -28,7 +28,7 @@ def fake_downloader(
     model: AsrModelInfo, dest: Path, on_progress, should_cancel
 ) -> None:
     """Imitacja pobierania: tworzy wymagane pliki i raportuje postęp."""
-    for name in REQUIRED_FILES:
+    for name in (file.name for file in model.files):
         (dest / name).write_bytes(b"fake")
         on_progress(1024, 4096, name)
 
@@ -42,7 +42,9 @@ class TestInitialState:
     def test_model_is_missing_initially(self, manager) -> None:
         """Brak modelu jest stanem normalnym, nie awarią."""
         assert not manager.is_downloaded()
-        assert set(manager.missing_files()) == set(REQUIRED_FILES)
+        assert set(manager.missing_files()) == {
+            file.name for file in DEFAULT_MODEL.files
+        }
 
 
 class TestSuccessfulDownload:
@@ -58,8 +60,40 @@ class TestSuccessfulDownload:
         manager.download(
             on_progress=lambda done, total, name: events.append((done, total, name))
         )
-        assert len(events) == len(REQUIRED_FILES)
+        assert len(events) == len(DEFAULT_MODEL.files)
         assert all(total == 4096 for _done, total, _name in events)
+
+
+class TestDelete:
+    def test_delete_removes_model_and_reports_freed_bytes(self, manager) -> None:
+        """ACC-36: usunięcie modelu zwalnia miejsce i wraca do stanu „niepobrany”."""
+        manager.download()
+        size = manager.disk_usage()
+        assert size > 0
+        assert manager.delete() == size
+        assert not manager.model_dir.exists()
+        assert not manager.is_downloaded()
+        assert manager.disk_usage() == 0
+
+    def test_delete_keeps_other_models(self, tmp_path) -> None:
+        small = ModelManager(
+            MODELS[0], models_root=tmp_path, downloader=fake_downloader
+        )
+        medium = ModelManager(models_root=tmp_path, downloader=fake_downloader)
+        small.download()
+        medium.download()
+        small.delete()
+        assert medium.is_downloaded()
+
+    def test_delete_missing_model_is_noop(self, manager) -> None:
+        assert manager.delete() == 0
+
+    def test_delete_refuses_directory_outside_models_root(self, tmp_path) -> None:
+        escaping = replace(DEFAULT_MODEL, key="..")
+        manager = ModelManager(escaping, models_root=tmp_path / "models")
+        with pytest.raises(ValueError):
+            manager.delete()
+        assert tmp_path.is_dir()
 
 
 class TestDownloadErrorAndRetry:
@@ -214,7 +248,9 @@ class TestVerifiedDownload:
         )
 
 
-def test_default_model_pins_revision_and_hashes() -> None:
-    assert len(DEFAULT_MODEL.hf_revision) == 40
-    assert {file.name for file in DEFAULT_MODEL.files} == set(REQUIRED_FILES)
-    assert all(len(file.sha256) == 64 for file in DEFAULT_MODEL.files)
+@pytest.mark.parametrize("model", MODELS, ids=lambda model: model.key)
+def test_models_pin_revision_and_hashes(model: AsrModelInfo) -> None:
+    assert len(model.hf_revision) == 40
+    assert all(len(file.sha256) == 64 for file in model.files)
+    assert all(file.size > 0 for file in model.files)
+    assert model.approx_size_bytes == sum(file.size for file in model.files)

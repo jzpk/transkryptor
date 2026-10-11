@@ -154,3 +154,33 @@ def test_language_defaults_to_system_and_validates() -> None:
     assert to_mapping(settings)["appearance/language"] == "en"
     assert from_mapping(to_mapping(settings)) == settings
     assert from_mapping({"appearance/language": "klingoński"}) == Settings()
+
+
+def test_asr_settings_defaults_and_round_trip() -> None:
+    from transkryptor.settings import AsrSettings
+
+    assert Settings().asr == AsrSettings(
+        model_key="medium", models_root="", device="auto", vocabulary=""
+    )
+    settings = Settings(
+        asr=AsrSettings(
+            model_key="large-v3",
+            models_root="/mnt/dysk/modele",
+            device="cpu",
+            vocabulary="Ocieszyn\nOborniki",
+        )
+    )
+    restored = from_mapping(to_mapping(settings))
+    assert restored == settings
+    assert restored.asr.vocabulary_words == ("Ocieszyn", "Oborniki")
+
+
+def test_invalid_asr_values_fall_back() -> None:
+    settings = from_mapping({"asr/model_key": "huge", "asr/device": "tpu"})
+    assert settings == Settings()
+
+
+def test_split_vocabulary_skips_blank_lines() -> None:
+    from transkryptor.settings import split_vocabulary
+
+    assert split_vocabulary("  Ocieszyn \n\n Rożnowo\n") == ("Ocieszyn", "Rożnowo")

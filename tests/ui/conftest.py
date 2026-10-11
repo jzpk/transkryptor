@@ -107,3 +107,9 @@ def isolated_autosave(monkeypatch, tmp_path):
     directory = tmp_path / "autosave"
     monkeypatch.setattr(paths, "autosave_dir", lambda: directory)
     return directory
+
+
+@pytest.fixture(autouse=True)
+def enough_memory(monkeypatch):
+    """Ostrzeżenie o RAM nie zależy od pamięci komputera z testami."""
+    monkeypatch.setattr("transkryptor.ui.asr_panel.total_memory_bytes", lambda: None)

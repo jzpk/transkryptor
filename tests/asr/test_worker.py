@@ -14,11 +14,12 @@ from types import SimpleNamespace
 import pytest
 
 from transkryptor.asr.engine import (
+    DecodingOptions,
     SegmentResult,
     TranscriptionCancelled,
     TranscriptionError,
 )
-from transkryptor.asr.models import REQUIRED_FILES
+from transkryptor.asr.models import DEFAULT_MODEL
 from transkryptor.asr.worker import AsrWorker
 from transkryptor.errors import ModelDownloadError
 
@@ -47,18 +48,33 @@ class _Backend:
         return iter(segments), SimpleNamespace(language=language, duration=2.0)
 
 
-def counting_factory(model_dir):
+def counting_factory(model_dir, device="cpu"):
     _log("load")
     return _Backend()
 
 
-def slow_factory(model_dir):
+def slow_factory(model_dir, device="cpu"):
     _log("load")
     return _Backend(prepare_s=30.0)
 
 
-def crashing_factory(model_dir):
+def crashing_factory(model_dir, device="cpu"):
     return _Backend(crash=True)
+
+
+class _OptionsBackend:
+    def __init__(self, device: str) -> None:
+        self._device = device
+
+    def transcribe(self, audio_path, **kwargs):
+        _log(f"{self._device}|{kwargs.get('initial_prompt')}|{kwargs.get('hotwords')}")
+        segment = SimpleNamespace(start=0.0, end=1.0, text="Tekst.", avg_logprob=-0.1)
+        return iter([segment]), SimpleNamespace(language="pl", duration=1.0)
+
+
+def options_factory(model_dir, device="cpu"):
+    _log(f"load-{device}")
+    return _OptionsBackend(device)
 
 
 @pytest.fixture
@@ -73,7 +89,7 @@ def log_file(tmp_path, monkeypatch) -> Path:
 def model_dir(tmp_path) -> Path:
     directory = tmp_path / "models" / "medium"
     directory.mkdir(parents=True)
-    for name in REQUIRED_FILES:
+    for name in (file.name for file in DEFAULT_MODEL.files):
         (directory / name).write_bytes(b"fake")
     (directory / ".complete").write_text("fake", encoding="utf-8")
     return directory
@@ -198,3 +214,18 @@ def test_ping_and_shutdown(make_worker) -> None:
     assert worker.is_running()
     worker.shutdown()
     assert not worker.is_running()
+
+
+def test_decoding_options_reach_backend_in_worker(
+    log_file, model_dir, audio, make_worker
+) -> None:
+    worker = make_worker(options_factory)
+    result = worker.transcribe(
+        audio,
+        model_dir,
+        options=DecodingOptions(
+            device="cpu", initial_prompt="Wywiad", hotwords="Ocieszyn"
+        ),
+    )
+    assert result.device == "cpu"
+    assert events(log_file) == ["load-cpu", "cpu|Wywiad|Ocieszyn"]

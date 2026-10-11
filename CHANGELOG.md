@@ -7,6 +7,28 @@ Pusta sekcja blokuje wydanie.
 
 ## Nieopublikowane
 
+- Wybór modelu ASR: w panelu **Szkic ASR** można wybrać **small**
+  (ok. 0,5 GB, szybki, dla słabszych komputerów), **medium** (domyślny)
+  albo **large-v3** (ok. 3,1 GB, najdokładniejszy, wymaga ok. 6 GB RAM).
+  Każdy model pobiera się osobno, za zgodą; wybór jest pamiętany. Gdy model
+  potrzebuje więcej pamięci, niż ma komputer, program ostrzega przed
+  transkrypcją.
+- Pobrany model można usunąć przyciskiem **Usuń model…** — panel pokazuje,
+  ile miejsca odzyskano; pozostałe modele działają dalej.
+- Karta graficzna NVIDIA: jeśli zainstalowano biblioteki CUDA 12 i cuDNN 9,
+  szkic powstaje na GPU, wielokrotnie szybciej. Bez nich program sam
+  przechodzi na procesor i informuje o tym pod przyciskiem transkrypcji.
+  W **Ustawieniach…** (nowa zakładka **ASR**) można wymusić pracę tylko na
+  procesorze i wskazać inny katalog modeli (np. dysk zewnętrzny).
+- Kontekst nagrania i słownik: przed transkrypcją można podać krótki opis
+  nagrania (do 200 znaków, wypełniany z miejscowości i gminy w metryczce)
+  oraz słownik projektu — nazwy miejscowości, nazwiska, wyrazy gwarowe.
+  Pomagają modelowi poprawnie zapisać nazwy własne. Słownik wspólny dla
+  wszystkich nagrań ustawia się w **Ustawieniach…** (zakładka **ASR**).
+- Plik projektu zapisuje kontekst nagrania, słownik projektu i model użyty
+  do szkicu. Projekty z wersji 0.3.0 otwierają się bez zmian; projektu
+  zapisanego w nowej wersji nie otworzy już wersja 0.3.0.
+
 ## 0.3.0 — 2026-10-10
 
 - Interfejs po angielsku: w **Ustawieniach…** (zakładka **Wygląd**) można

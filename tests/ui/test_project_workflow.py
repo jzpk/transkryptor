@@ -14,7 +14,6 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 from transkryptor.asr.engine import TranscriptionResult
 from transkryptor.asr.manager import ModelManager
-from transkryptor.asr.models import REQUIRED_FILES
 from transkryptor.document.metadata import DEFAULT_FIELDS, encode_fields
 from transkryptor.document.model import Document
 from transkryptor.document.project import (
@@ -84,12 +83,14 @@ def fake_asr(window: MainWindow, tmp_path: Path) -> list[int]:
     """Imitacja modelu i transkrypcji; zwraca licznik wywołań ASR."""
 
     def downloader(model, dest, on_progress, should_cancel):
-        for name in REQUIRED_FILES:
+        for name in (file.name for file in model.files):
             (dest / name).write_bytes(b"fake")
 
     calls: list[int] = []
 
-    def transcribe(audio_path, model_dir, should_cancel, on_segment, on_progress=None):
+    def transcribe(
+        audio_path, model_dir, should_cancel, on_segment, on_progress=None, **_kwargs
+    ):
         calls.append(1)
         segments = (
             SimpleNamespace(start_s=0.0, end_s=2.0, text="od", confidence=0.9),
@@ -185,6 +186,28 @@ class TestSaveAndOpen:
         # Reguły wybrane w panelu nowego okna (domyślnie wszystkie).
         assert reopened.editor.toPlainText() == "uod som"
         assert len(asr_calls) == 1
+
+    def test_asr_context_is_saved_in_project(
+        self, add_window, window, tmp_path, monkeypatch
+    ) -> None:
+        """ACC-38: kontekst i słownik projektu wracają po otwarciu."""
+        window.editor.setPlainText("tekst")
+        panel = window.asr_panel
+        panel.context_edit.setText("Wywiad w Ocieszynie")
+        panel.vocabulary_edit.setPlainText("Ocieszyn\nOborniki")
+        path = tmp_path / "kontekst.transkr"
+        save_dialog(monkeypatch, path)
+        assert window.session.save_project()
+        panel.vocabulary_edit.setPlainText("Ocieszyn")
+        assert window.document.is_unsaved  # słownik to dane projektu
+
+        reopened = add_window(MainWindow())
+        assert reopened.session.open_project(path)
+        assert reopened.asr_panel.asr_context() == (
+            "Wywiad w Ocieszynie",
+            ("Ocieszyn", "Oborniki"),
+        )
+        assert not reopened.document.is_unsaved
 
     def test_project_without_audio_opens_for_text_editing(
         self, qtbot, window, tmp_path, monkeypatch

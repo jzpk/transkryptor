@@ -24,7 +24,7 @@ import pytest
 
 from transkryptor.asr import engine
 from transkryptor.asr.manager import ModelManager
-from transkryptor.asr.models import REQUIRED_FILES
+from transkryptor.asr.models import DEFAULT_MODEL
 
 AUDIO_SAMPLE = Path("tests/fixtures/audio/sample.mp3")
 EXCERPT_SECONDS = 8
@@ -35,13 +35,13 @@ def make_model_dir(tmp_path: Path) -> Path:
     """Kompletny katalog modelu: znacznik i wszystkie wymagane pliki."""
     model_dir = tmp_path / "medium"
     model_dir.mkdir(parents=True)
-    for name in REQUIRED_FILES:
+    for name in (file.name for file in DEFAULT_MODEL.files):
         (model_dir / name).write_bytes(b"fake")
     (model_dir / ".complete").write_text("fake", encoding="utf-8")
     return model_dir
 
 
-def fake_backend_factory(model_dir: Path) -> engine.Backend:
+def fake_backend_factory(model_dir: Path, device: str = "cpu") -> engine.Backend:
     """Imitacja faster-whisper: jeden segment, bez modelu i bez sieci."""
 
     class FakeBackend:
@@ -111,7 +111,9 @@ class TestPythonLayerIsolation:
         """Stan modelu jest ustalany z dysku, bez odpytywania Hugging Face."""
         manager = ModelManager(models_root=tmp_path)
         assert not manager.is_downloaded()
-        assert set(manager.missing_files()) == set(REQUIRED_FILES)
+        assert set(manager.missing_files()) == {
+            file.name for file in DEFAULT_MODEL.files
+        }
 
         model_dir = make_model_dir(tmp_path / "gotowy")
         ready = ModelManager(models_root=model_dir.parent)
