@@ -28,6 +28,10 @@ Pusta sekcja blokuje wydanie.
 - Plik projektu zapisuje kontekst nagrania, słownik projektu i model użyty
   do szkicu. Projekty z wersji 0.3.0 otwierają się bez zmian; projektu
   zapisanego w nowej wersji nie otworzy już wersja 0.3.0.
+- W wąskim oknie schowane przyciski notacji trafiają do menu **Więcej
+  poleceń** (☰) tuż za widocznymi znacznikami, przed **Szkic ASR**, a nie
+  na koniec paska. Schowane narzędzia i polecenia projektu pozostają
+  w menu ☰ na końcu paska.
 
 ## 0.3.0 — 2026-10-10
 

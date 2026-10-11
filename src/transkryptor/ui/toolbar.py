@@ -8,9 +8,11 @@ skróty działają z fokusem w edytorze. Definicje markerów i skrótów pochodz
 z ``ui/markers.py`` i ``ui/shortcuts.py``.
 
 W wąskim oknie pasek chowa przyciski według priorytetu (najpierw rzadko
-używane; eksport DOCX zostaje zawsze) do menu „Więcej poleceń” (☰) na końcu
-paska. Wszystkie akcje są dodane do okna, więc skróty działają także wtedy,
-gdy przycisk jest schowany.
+używane; eksport DOCX zostaje zawsze) do menu „Więcej poleceń” (☰). Menu są
+dwa, każde obok swojej grupy: znaczniki notacji trafiają do ☰ tuż za nimi
+(przed „Szkic ASR”), a narzędzia i polecenia sesji — do ☰ na końcu paska.
+Wszystkie akcje są dodane do okna, więc skróty działają także wtedy, gdy
+przycisk jest schowany.
 """
 
 from __future__ import annotations
@@ -83,6 +85,10 @@ class _Slot:
 # Kolejność chowania przy zwężaniu okna: najpierw rzadko klikane, na końcu
 # zapis. Markery chowają się od końca paska. Eksport DOCX (przycisk główny)
 # i menu „Więcej” zostają zawsze.
+
+# Sekcja paska z własnym menu „Więcej” po lewej stronie (za znacznikami);
+# pozostałe sekcje chowają się do menu na końcu paska.
+NOTATION_SECTION = "notation"
 COLLAPSE_ORDER = (
     "update",
     *(f"marker:{marker.key}" for marker in reversed(MARKERS)),
@@ -140,7 +146,7 @@ class MainToolbar:
             handlers.superscript,
         )
         self._slots["superscript"] = _Slot(
-            "notation",
+            NOTATION_SECTION,
             self.superscript_action,
             (caption, self._add(self.superscript_action), toolbar.addSeparator()),
         )
@@ -160,9 +166,16 @@ class MainToolbar:
             # przez co „Dopisek [...]” wyświetlał się jako „Dopisek []”.
             action.setIconText(marker.label)
             self._slots[f"marker:{marker.key}"] = _Slot(
-                "notation", action, (self._add(action),)
+                NOTATION_SECTION, action, (self._add(action),)
             )
             self.marker_actions[marker.key] = action
+
+        # Menu schowanych znaczników stoi tuż za nimi — przed „Szkic ASR”.
+        self.notation_more_menu, self.notation_more_button = _more_menu(window)
+        self.notation_more_menu.aboutToShow.connect(
+            lambda: self._fill_more_menu(self.notation_more_menu, notation=True)
+        )
+        self._notation_more_handle = toolbar.addWidget(self.notation_more_button)
 
         spacer = QWidget()
         spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
@@ -297,18 +310,10 @@ class MainToolbar:
         for action in self._buttons:
             window.addAction(action)
 
-        self.more_menu = QMenu(window)
-        self.more_menu.aboutToShow.connect(self._fill_more_menu)
-        self.more_button = QToolButton()
-        self.more_button.setObjectName("more_button")
-        icons.set_icon(self.more_button, "menu", "text", "text_muted")
-        self.more_button.setIconSize(icons.ICON_SIZE)
-        self.more_button.setToolTip(tr("toolbar.more"))
-        self.more_button.setAccessibleName(tr("toolbar.more"))
-        self.more_button.setAutoRaise(True)
-        self.more_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.more_button.setMenu(self.more_menu)
-        self.more_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        self.more_menu, self.more_button = _more_menu(window)
+        self.more_menu.aboutToShow.connect(
+            lambda: self._fill_more_menu(self.more_menu, notation=False)
+        )
         self._more_handle = toolbar.addWidget(self.more_button)
 
         toolbar.on_resize = self.fit_to_width
@@ -332,12 +337,17 @@ class MainToolbar:
         toolbar = self.toolbar
         for slot in self._slots.values():
             slot.set_shown(True)
+        self._notation_more_handle.setVisible(False)
         self._more_handle.setVisible(False)
         for key in COLLAPSE_ORDER:
             if toolbar.sizeHint().width() <= toolbar.width():
                 return
-            self._slots[key].set_shown(False)
-            self._more_handle.setVisible(True)
+            slot = self._slots[key]
+            slot.set_shown(False)
+            if slot.section == NOTATION_SECTION:
+                self._notation_more_handle.setVisible(True)
+            else:
+                self._more_handle.setVisible(True)
 
     def refresh_recent_menu(self) -> None:
         """Menu „Otwórz”: ostatnie projekty, import DOCX, czyszczenie listy."""
@@ -359,13 +369,12 @@ class MainToolbar:
         menu.addAction(self.clear_recent_action)
         self.clear_recent_action.setEnabled(bool(recent))
 
-    def _fill_more_menu(self) -> None:
-        """Schowane pozycje w kolejności paska, sekcje oddzielone kreską."""
-        menu = self.more_menu
+    def _fill_more_menu(self, menu: QMenu, *, notation: bool) -> None:
+        """Schowane pozycje grupy w kolejności paska, sekcje oddzielone kreską."""
         menu.clear()
         section = None
         for slot in self._slots.values():
-            if slot.shown:
+            if slot.shown or (slot.section == NOTATION_SECTION) != notation:
                 continue
             if section is not None and slot.section != section:
                 menu.addSeparator()
@@ -444,6 +453,22 @@ def _action(
     action.triggered.connect(lambda _checked=False: handler())
     window.addAction(action)
     return action
+
+
+def _more_menu(window: QMainWindow) -> tuple[QMenu, QToolButton]:
+    """Przycisk ☰ z menu „Więcej poleceń” (wypełnianym przy otwarciu)."""
+    menu = QMenu(window)
+    button = QToolButton()
+    button.setObjectName("more_button")
+    icons.set_icon(button, "menu", "text", "text_muted")
+    button.setIconSize(icons.ICON_SIZE)
+    button.setToolTip(tr("toolbar.more"))
+    button.setAccessibleName(tr("toolbar.more"))
+    button.setAutoRaise(True)
+    button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+    button.setMenu(menu)
+    button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+    return menu, button
 
 
 def _caption(text: str) -> QLabel:
