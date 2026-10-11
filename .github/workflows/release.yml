@@ -14,7 +14,7 @@
 # sekcję tej wersji, i publikuje wydanie.
 #
 # Łańcuch zaufania: job „publikacja” podpisuje SHA256SUMS.txt kluczem
-# minisign z sekretu environment „wydanie” (wymagane zatwierdzenie), a
+# minisign z sekretu environment „Release” (wymagane zatwierdzenie), a
 # aplikacja instaluje tylko aktualizacje pasujące do klucza publicznego
 # z src/transkryptor/update/keys.py. Akcje są przypięte do SHA commitów,
 # a pobierane narzędzia (appimagetool, Inno Setup, minisign) do wersji
@@ -328,8 +328,8 @@ jobs:
     needs: [wersja, linux, windows]
     runs-on: ubuntu-22.04
     # Sekret MINISIGN_SECRET_KEY jest tylko w tym environment; publikacja
-    # czeka na zatwierdzenie recenzenta (Settings → Environments → wydanie).
-    environment: wydanie
+    # czeka na zatwierdzenie recenzenta (Settings → Environments → Release).
+    environment: Release
     permissions:
       contents: write
     steps:
@@ -369,7 +369,7 @@ jobs:
           VERSION: ${{ needs.wersja.outputs.version }}
         run: |
           if [ -z "$MINISIGN_SECRET_KEY" ]; then
-            echo "::error::Brak sekretu MINISIGN_SECRET_KEY w environment wydanie."
+            echo "::error::Brak sekretu MINISIGN_SECRET_KEY w environment Release."
             exit 1
           fi
           curl -fsSL -o "$RUNNER_TEMP/minisign.tar.gz" \

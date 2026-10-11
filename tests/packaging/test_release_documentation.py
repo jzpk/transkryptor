@@ -147,7 +147,7 @@ def test_downloaded_tools_are_pinned_to_the_same_checksums() -> None:
 def test_release_is_signed_and_verified_before_publication() -> None:
     text = WORKFLOW.read_text(encoding="utf-8")
     assert "python3 -m transkryptor.update.keys" in text
-    assert "environment: wydanie" in text
+    assert "environment: Release" in text
     assert "SHA256SUMS.txt.minisig" in text
     sign = text.index('minisign" -S')
     verify = text.index("python -m transkryptor.update.signature")
