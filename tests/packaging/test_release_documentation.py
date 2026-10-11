@@ -159,3 +159,16 @@ def test_workflow_glibc_baseline_matches_the_runner() -> None:
     """Zmiana runnera Ubuntu zmienia najstarszą obsługiwaną glibc."""
     assert metadata.LINUX_BUILD_BASELINE.startswith("Ubuntu 22.04")
     assert "ubuntu-22.04" in WORKFLOW.read_text(encoding="utf-8")
+
+
+def test_windows_self_test_does_not_wait_for_the_whole_process_tree() -> None:
+    """Start-Process -Wait czeka też na program uruchomiony przez instalator.
+
+    Cicha instalacja startuje okno aplikacji (WizardSilent), które samo się
+    nie zamyka — z -Wait krok wydania 0.3.0 wisiał do anulowania.
+    """
+    text = WORKFLOW.read_text(encoding="utf-8")
+    step = text.split("- name: Instalacja i --self-test", 1)[1].split("- uses:", 1)[0]
+    assert "-Wait" not in step
+    assert "WaitForExit(" in step
+    assert "timeout-minutes:" in step

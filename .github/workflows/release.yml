@@ -280,20 +280,40 @@ jobs:
       # Jak --self-test AppImage: brakujący moduł w instalatorze ma wyjść tu,
       # a nie u użytkownika. Instalacja tylko dla bieżącego użytkownika
       # w katalogu tymczasowym runnera.
+      #
+      # Bez Start-Process -Wait: czeka ono na całe drzewo procesów, a cicha
+      # instalacja uruchamia program (WizardSilent w packaging/windows.py),
+      # którego okno nigdy się samo nie zamknie — krok wisiałby do anulowania.
+      # WaitForExit czeka tylko na wskazany proces; odczyt Handle zaraz po
+      # starcie zachowuje ExitCode po jego zakończeniu.
       - name: Instalacja i --self-test
         shell: pwsh
+        timeout-minutes: 10
         run: |
           $setup = (Get-ChildItem dist\*-setup.exe | Select-Object -First 1).FullName
           $dir = Join-Path $env:RUNNER_TEMP "transkryptor"
-          $p = Start-Process -FilePath $setup -Wait -PassThru -ArgumentList `
+          $p = Start-Process -FilePath $setup -PassThru -ArgumentList `
             "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/CURRENTUSER", "/DIR=$dir"
+          $null = $p.Handle
+          if (-not $p.WaitForExit(300000)) { throw "Instalator nie zakończył się w 5 minut" }
           if ($p.ExitCode -ne 0) { throw "Instalator zakończył się kodem $($p.ExitCode)" }
-          # Cicha instalacja uruchamia program (WizardSilent w packaging/windows.py).
-          Start-Sleep -Seconds 5
+          # Program uruchomiony przez instalator: czekamy, aż wystartuje, i go
+          # zamykamy, żeby nie działał równolegle z --self-test.
+          for ($i = 0; $i -lt 30; $i++) {
+            if (Get-Process -Name transkryptor -ErrorAction SilentlyContinue) { break }
+            Start-Sleep -Seconds 1
+          }
+          Start-Sleep -Seconds 2
           Get-Process -Name transkryptor -ErrorAction SilentlyContinue | Stop-Process -Force
           $report = Join-Path $env:RUNNER_TEMP "self-test.txt"
           $test = Start-Process -FilePath (Join-Path $dir "transkryptor.exe") `
-            -ArgumentList "--self-test" -Wait -PassThru -RedirectStandardOutput $report
+            -ArgumentList "--self-test" -PassThru -RedirectStandardOutput $report
+          $null = $test.Handle
+          if (-not $test.WaitForExit(300000)) {
+            Get-Process -Name transkryptor -ErrorAction SilentlyContinue | Stop-Process -Force
+            if (Test-Path $report) { Get-Content $report }
+            throw "--self-test nie zakończył się w 5 minut"
+          }
           if (Test-Path $report) { Get-Content $report }
           if ($test.ExitCode -ne 0) { throw "--self-test zakończył się kodem $($test.ExitCode)" }
 
