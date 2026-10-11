@@ -7,6 +7,8 @@ Pusta sekcja blokuje wydanie.
 
 ## Nieopublikowane
 
+## 0.4.0 — 2026-10-11
+
 - Wybór modelu ASR: w panelu **Szkic ASR** można wybrać **small**
   (ok. 0,5 GB, szybki, dla słabszych komputerów), **medium** (domyślny)
   albo **large-v3** (ok. 3,1 GB, najdokładniejszy, wymaga ok. 6 GB RAM).
