@@ -17,7 +17,7 @@ from dataclasses import replace
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QCloseEvent
+from PySide6.QtGui import QAction, QCloseEvent
 from PySide6.QtWidgets import (
     QApplication,
     QLabel,
@@ -76,7 +76,17 @@ from transkryptor.ui.search_controller import SearchController
 from transkryptor.ui.session import SessionController
 from transkryptor.ui.settings_dialog import SettingsDialog
 from transkryptor.ui.settings_store import SettingsStore
-from transkryptor.ui.shortcuts import tooltip_with_shortcut as _tooltip
+from transkryptor.ui.shortcuts import (
+    BASE_TOOLTIP,
+    SUPERSCRIPT_ID,
+    apply_shortcuts,
+    effective_shortcuts,
+    marker_id,
+    player_id,
+    project_id,
+    search_id,
+)
+from transkryptor.ui.snippets import SnippetController
 from transkryptor.ui.theme import apply_theme, resolve_tokens, set_props, tokens
 from transkryptor.ui.toolbar import MainToolbar, ToolbarHandlers
 from transkryptor.ui.update_controller import UpdateController
@@ -193,6 +203,10 @@ class MainWindow(QMainWindow):
         self.player_controller = PlayerController(self, self.player, self.player_bar)
         self.player_actions = self.player_controller.actions
         self.search_actions = self.search.create_actions(self)
+        self.snippets = SnippetController(
+            self, self.editor, self.main_toolbar.snippets_menu, self._on_settings
+        )
+        self.shortcut_actions = self._collect_shortcut_actions()
         self._build_status_bar()
         self.loading_overlay = LoadingOverlay(self)
         self._connect_signals()
@@ -409,14 +423,46 @@ class MainWindow(QMainWindow):
         self.asr_panel.set_segment_preroll_ms(settings.player.segment_preroll_ms)
         self.asr_panel.set_asr_settings(settings.asr)
         # ACC-25: tekst się nie zmienia — tylko kolejne wstawienia i walidacja.
-        pause = self.marker_actions["pause"]
         pause_marker = marker_text("pause", settings.notation.ellipsis).strip()
-        pause.setToolTip(
-            _tooltip(
-                tr("toolbar.insert", marker=pause_marker), pause.shortcut().toString()
-            )
+        self.marker_actions["pause"].setProperty(
+            BASE_TOOLTIP, tr("toolbar.insert", marker=pause_marker)
         )
+        self._apply_shortcuts(effective_shortcuts(settings.shortcuts.overrides))
+        self.snippets.set_snippets(settings.snippets.snippets)
+        self.snippets.set_autocomplete(settings.editor.autocomplete)
         self.notation.schedule_validation()
+
+    def _collect_shortcut_actions(self) -> dict[str, QAction]:
+        """Akcje okna według identyfikatorów z ``SHORTCUT_ACTIONS``."""
+        actions: dict[str, QAction] = {
+            SUPERSCRIPT_ID: self.superscript_action,
+            project_id("new"): self.new_action,
+            project_id("open"): self.open_action,
+            project_id("save"): self.save_action,
+            project_id("save_as"): self.save_as_action,
+            project_id("export"): self.export_action,
+            project_id("settings"): self.settings_action,
+            project_id("close"): self.close_action,
+        }
+        for key, action in self.marker_actions.items():
+            actions[marker_id(key)] = action
+        for key, action in self.player_actions.items():
+            actions[player_id(key)] = action
+        for key, action in self.search_actions.items():
+            actions[search_id(key)] = action
+        return actions
+
+    def _apply_shortcuts(self, shortcuts: dict[str, tuple[str, ...]]) -> None:
+        """ACC-43: nowe skróty i podpowiedzi działają od razu, bez restartu."""
+        for action_id, action in self.shortcut_actions.items():
+            apply_shortcuts(action, shortcuts.get(action_id, ()))
+        self.player_bar.apply_shortcuts(
+            {key: shortcuts.get(player_id(key), ()) for key in self.player_actions}
+        )
+        self.search_bar.apply_shortcuts(
+            shortcuts.get(search_id("find_next"), ()),
+            shortcuts.get(search_id("find_previous"), ()),
+        )
 
     def _on_asr_model_changed(self, key: str) -> None:
         """Wybór modelu w panelu jest zapamiętywany w ustawieniach (ACC-35)."""
@@ -547,6 +593,7 @@ class MainWindow(QMainWindow):
         ):
             action.setEnabled(not locked)
         self.player_controller.set_locked(locked)
+        self.snippets.set_locked(locked)
 
     # --- stan --------------------------------------------------------------
 

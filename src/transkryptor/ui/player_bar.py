@@ -111,7 +111,6 @@ class PlayerBar(QFrame):
         # Stała szerokość: przycisk nie skacze przy zmianie „Odtwórz”/„Pauza”.
         self.play_button.setMinimumWidth(116)
         self.play_button.setEnabled(False)
-        self.play_button.setToolTip(action_tooltip(PLAY_PAUSE))
         self.position_slider = QSlider(Qt.Orientation.Horizontal)
         self.position_slider.setEnabled(False)
         self.time_label = QLabel("00:00 / 00:00")
@@ -125,32 +124,14 @@ class PlayerBar(QFrame):
             self.rate_combo.addItem(label)
         self.rate_combo.setCurrentIndex(DEFAULT_RATE_INDEX)
         self.rate_combo.setEnabled(False)
-        self.rate_combo.setToolTip(
-            tr("player.rate.tooltip")
-            + "\n"
-            + action_tooltip(RATE_DOWN)
-            + "\n"
-            + action_tooltip(RATE_UP)
-        )
 
         self.loop_a_button = QPushButton("A")
-        self.loop_a_button.setToolTip(
-            action_tooltip(LOOP_A, tr("player.loop_a.tooltip"))
-        )
         self.loop_b_button = QPushButton("B")
-        self.loop_b_button.setToolTip(
-            action_tooltip(LOOP_B, tr("player.loop_b.tooltip"))
-        )
         self.loop_button = QPushButton(tr("player.loop"))
         self.loop_button.setCheckable(True)
         icons.set_icon(self.loop_button, "loop", "text", "text_muted")
         self.loop_button.setIconSize(icons.ICON_SIZE)
-        self.loop_button.setToolTip(
-            action_tooltip(
-                LOOP_TOGGLE,
-                tr("player.loop.tooltip"),
-            )
-        )
+        self.apply_shortcuts({})
         for button in (self.loop_a_button, self.loop_b_button):
             button.setFixedWidth(40)
         for button in (self.loop_a_button, self.loop_b_button, self.loop_button):
@@ -256,6 +237,23 @@ class PlayerBar(QFrame):
             if end > self._loop_a:
                 self._player.set_loop(self._loop_a, end)
         self._update_loop_controls()
+
+    def apply_shortcuts(self, shortcuts: dict[str, tuple[str, ...]]) -> None:
+        """Podpowiedzi przycisków z bieżącymi skrótami (klucz akcji → skróty).
+
+        Brak klucza oznacza skróty domyślne.
+        """
+
+        def tip(key: str, text: str | None = None) -> str:
+            return action_tooltip(key, text, shortcuts.get(key))
+
+        self.play_button.setToolTip(tip(PLAY_PAUSE))
+        self.rate_combo.setToolTip(
+            tr("player.rate.tooltip") + "\n" + tip(RATE_DOWN) + "\n" + tip(RATE_UP)
+        )
+        self.loop_a_button.setToolTip(tip(LOOP_A, tr("player.loop_a.tooltip")))
+        self.loop_b_button.setToolTip(tip(LOOP_B, tr("player.loop_b.tooltip")))
+        self.loop_button.setToolTip(tip(LOOP_TOGGLE, tr("player.loop.tooltip")))
 
     def apply_settings(self, settings: PlayerSettings) -> None:
         """Przyjmuje nowe ustawienia odtwarzacza bez restartu."""

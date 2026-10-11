@@ -21,6 +21,7 @@ from PySide6.QtGui import (
     QContextMenuEvent,
     QFont,
     QHelpEvent,
+    QKeyEvent,
     QTextCharFormat,
     QTextCursor,
 )
@@ -72,6 +73,10 @@ class TranscriptionEditor(QTextEdit):
         # ustawia kontroler notacji (opis ostrzeżenia, „Ignoruj tutaj”).
         self.tooltip_provider: Callable[[int], str | None] | None = None
         self.context_menu_extender: Callable[[QMenu, int], None] | None = None
+        # Autouzupełnianie: obsługa klawisza przed edytorem (True = obsłużony)
+        # i powiadomienie po wpisaniu znaku.
+        self.key_filter: Callable[[QKeyEvent], bool] | None = None
+        self.after_key: Callable[[QKeyEvent], None] | None = None
         self.apply_settings(EditorSettings())
         self.document().setDocumentMargin(16)
 
@@ -109,6 +114,13 @@ class TranscriptionEditor(QTextEdit):
                 event.ignore()
             return True
         return super().viewportEvent(event)
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        if self.key_filter is not None and self.key_filter(event):
+            return
+        super().keyPressEvent(event)
+        if self.after_key is not None:
+            self.after_key(event)
 
     def contextMenuEvent(self, event: QContextMenuEvent) -> None:
         menu = self.createStandardContextMenu(event.pos())
@@ -157,6 +169,30 @@ class TranscriptionEditor(QTextEdit):
         if text == ASIDE_TEXT:
             cursor.setPosition(cursor.position() - 2)
             self.setTextCursor(cursor)
+
+    def insert_formatted(
+        self,
+        text: str,
+        superscript_ranges: tuple[tuple[int, int], ...] = (),
+        replace_before: int = 0,
+    ) -> None:
+        """Wstawia tekst z indeksem górnym jednym krokiem cofania (wstawki).
+
+        Zastępuje zaznaczenie albo — gdy ``replace_before`` > 0 — tyle
+        punktów kodowych przed kursorem (dopełnienie autouzupełniania).
+        """
+        cursor = self.textCursor()
+        cursor.beginEditBlock()
+        if replace_before and not cursor.hasSelection():
+            positions = self.position_map()
+            end = positions.to_py(cursor.position())
+            start = max(end - replace_before, 0)
+            cursor.setPosition(positions.to_qt(start))
+            cursor.setPosition(positions.to_qt(end), QTextCursor.MoveMode.KeepAnchor)
+        self._replace_tracked(cursor, text, superscript_ranges)
+        cursor.endEditBlock()
+        cursor.clearSelection()
+        self.setTextCursor(cursor)
 
     def insert_draft(self, text: str, append: bool) -> int:
         """Wstawia szkic ASR jako jeden krok cofania (REQ-14).

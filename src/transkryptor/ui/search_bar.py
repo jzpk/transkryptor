@@ -72,13 +72,8 @@ class SearchBar(QWidget):
         set_props(self.preview_label, role="muted")
 
         self.previous_button = QPushButton(tr("search.previous"))
-        self.previous_button.setToolTip(
-            _tooltip(tr("search.action.previous"), FIND_PREVIOUS_SHORTCUT)
-        )
         self.next_button = QPushButton(tr("search.next"))
-        self.next_button.setToolTip(
-            _tooltip(tr("search.action.next"), FIND_NEXT_SHORTCUT)
-        )
+        self.apply_shortcuts((FIND_NEXT_SHORTCUT,), (FIND_PREVIOUS_SHORTCUT,))
         self.replace_button = QPushButton(tr("search.replace"))
         self.replace_all_button = QPushButton(tr("search.replace_all"))
         self.replace_all_button.setToolTip(tr("search.replace_all.tooltip"))
@@ -132,6 +127,15 @@ class SearchBar(QWidget):
 
         self.set_replace_mode(False)
         self.hide()
+
+    def apply_shortcuts(
+        self, next_shortcuts: tuple[str, ...], previous_shortcuts: tuple[str, ...]
+    ) -> None:
+        """Podpowiedzi „następne/poprzednie” z bieżącymi skrótami."""
+        self.previous_button.setToolTip(
+            _tooltip(tr("search.action.previous"), *previous_shortcuts)
+        )
+        self.next_button.setToolTip(_tooltip(tr("search.action.next"), *next_shortcuts))
 
     def options(self) -> SearchOptions:
         return SearchOptions(

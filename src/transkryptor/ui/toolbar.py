@@ -23,7 +23,7 @@ from functools import partial
 from pathlib import Path
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction, QKeySequence, QResizeEvent
+from PySide6.QtGui import QAction, QCursor, QKeySequence, QResizeEvent
 from PySide6.QtWidgets import (
     QLabel,
     QMainWindow,
@@ -37,8 +37,16 @@ from PySide6.QtWidgets import (
 from transkryptor.i18n import tr
 from transkryptor.ui import icons
 from transkryptor.ui.markers import MARKERS, SUPERSCRIPT_SHORTCUT
-from transkryptor.ui.shortcuts import SETTINGS_SHORTCUT
-from transkryptor.ui.shortcuts import tooltip_with_shortcut as _tooltip
+from transkryptor.ui.shortcuts import (
+    CLOSE_SHORTCUT,
+    EXPORT_SHORTCUT,
+    NEW_SHORTCUT,
+    OPEN_PROJECT_SHORTCUT,
+    SAVE_PROJECT_AS_SHORTCUT,
+    SAVE_PROJECT_SHORTCUT,
+    SETTINGS_SHORTCUT,
+    set_base_tooltip,
+)
 from transkryptor.ui.theme import set_props
 
 
@@ -91,6 +99,7 @@ class _Slot:
 NOTATION_SECTION = "notation"
 COLLAPSE_ORDER = (
     "update",
+    "snippets",
     *(f"marker:{marker.key}" for marker in reversed(MARKERS)),
     "superscript",
     "asr",
@@ -170,6 +179,23 @@ class MainToolbar:
             )
             self.marker_actions[marker.key] = action
 
+        # Wstawki użytkownika (propozycja 21): menu wypełnia ``SnippetController``.
+        # Przycisk od razu rozwija menu; schowana akcja w „Więcej” otwiera je
+        # przy kursorze.
+        self.snippets_menu = QMenu(tr("toolbar.snippets"), window)
+        self.snippets_action = QAction(tr("toolbar.snippets"), window)
+        self.snippets_action.setToolTip(tr("toolbar.snippets.tooltip"))
+        self.snippets_action.triggered.connect(
+            lambda _checked=False: self.snippets_menu.popup(QCursor.pos())
+        )
+        snippets_handle = self._add(self.snippets_action, menu=self.snippets_menu)
+        self._buttons[self.snippets_action].setPopupMode(
+            QToolButton.ToolButtonPopupMode.InstantPopup
+        )
+        self._slots["snippets"] = _Slot(
+            NOTATION_SECTION, self.snippets_action, (snippets_handle,)
+        )
+
         # Menu schowanych znaczników stoi tuż za nimi — przed „Szkic ASR”.
         self.notation_more_menu, self.notation_more_button = _more_menu(window)
         self.notation_more_menu.aboutToShow.connect(
@@ -213,8 +239,8 @@ class MainToolbar:
 
         self.new_action = QAction(tr("toolbar.new"), window)
         icons.set_icon(self.new_action, "new", "text", "text_muted")
-        self.new_action.setShortcut(QKeySequence.StandardKey.New)
-        self.new_action.setToolTip(_tooltip(tr("toolbar.new.tooltip"), "Ctrl+N"))
+        self.new_action.setShortcut(QKeySequence(NEW_SHORTCUT))
+        set_base_tooltip(self.new_action, tr("toolbar.new.tooltip"))
         self.new_action.triggered.connect(
             lambda _checked=False: handlers.new_document()
         )
@@ -279,8 +305,8 @@ class MainToolbar:
 
         self.export_action = QAction(tr("toolbar.export"), window)
         icons.set_icon(self.export_action, "export", "on_accent", "text_muted")
-        self.export_action.setShortcut(QKeySequence("Ctrl+E"))
-        self.export_action.setToolTip(_tooltip(tr("toolbar.export.tooltip"), "Ctrl+E"))
+        self.export_action.setShortcut(QKeySequence(EXPORT_SHORTCUT))
+        set_base_tooltip(self.export_action, tr("toolbar.export.tooltip"))
         self.export_action.triggered.connect(lambda _checked=False: handlers.export())
         self.export_anonymized_action = QAction(tr("toolbar.export_anonymized"), window)
         self.export_anonymized_action.setToolTip(
@@ -296,8 +322,8 @@ class MainToolbar:
 
         self.close_action = QAction(tr("toolbar.close"), window)
         icons.set_icon(self.close_action, "close", "text_muted", "text_muted")
-        self.close_action.setShortcut(QKeySequence.StandardKey.Close)
-        self.close_action.setToolTip(_tooltip(tr("toolbar.close.tooltip"), "Ctrl+W"))
+        self.close_action.setShortcut(QKeySequence(CLOSE_SHORTCUT))
+        set_base_tooltip(self.close_action, tr("toolbar.close.tooltip"))
         self.close_action.triggered.connect(lambda _checked=False: handlers.close())
         self._slots["close"] = _Slot(
             "session",
@@ -411,11 +437,6 @@ class MainToolbar:
         return self.toolbar.addWidget(button)
 
 
-OPEN_PROJECT_SHORTCUT = "Ctrl+O"
-SAVE_PROJECT_SHORTCUT = "Ctrl+S"
-SAVE_PROJECT_AS_SHORTCUT = "Ctrl+Shift+S"
-
-
 def _window_action(
     window: QMainWindow,
     label: str,
@@ -429,7 +450,7 @@ def _window_action(
     if icon is not None:
         icons.set_icon(action, icon, "text", "text_muted")
     action.setShortcut(QKeySequence(shortcut))
-    action.setToolTip(_tooltip(tooltip, shortcut))
+    set_base_tooltip(action, tooltip)
     action.triggered.connect(lambda _checked=False: handler())
     window.addAction(action)
     return action
@@ -449,7 +470,7 @@ def _action(
         icons.set_icon(action, icon, "text", "text_muted")
     action.setShortcut(QKeySequence(shortcut))
     action.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
-    action.setToolTip(_tooltip(tooltip, shortcut))
+    set_base_tooltip(action, tooltip)
     action.triggered.connect(lambda _checked=False: handler())
     window.addAction(action)
     return action

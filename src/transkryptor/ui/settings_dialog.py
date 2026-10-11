@@ -67,11 +67,17 @@ from transkryptor.settings import (
     PlayerSettings,
     ProjectSettings,
     Settings,
+    ShortcutSettings,
+    SnippetSettings,
     ValidatorSettings,
     encode_bool_map,
+    encode_shortcut_map,
+    encode_snippets,
     split_vocabulary,
 )
 from transkryptor.ui.rules_editor import RulesEditor
+from transkryptor.ui.shortcuts import find_conflicts, shortcut_overrides
+from transkryptor.ui.shortcuts_editor import ShortcutsEditor, SnippetsEditor
 from transkryptor.ui.theme import set_props
 
 
@@ -168,9 +174,15 @@ class SettingsDialog(QDialog):
         self.ellipsis_hint.setWordWrap(True)
         set_props(self.ellipsis_hint, role="muted")
         self.ellipsis_combo.currentIndexChanged.connect(self._update_ellipsis_hint)
+        self.autocomplete_check = QCheckBox(tr("settings.editor.autocomplete"))
+        autocomplete_hint = QLabel(tr("settings.editor.autocomplete.hint"))
+        autocomplete_hint.setWordWrap(True)
+        set_props(autocomplete_hint, role="muted")
         notation_form = _form()
         notation_form.addRow(tr("settings.ellipsis.style"), self.ellipsis_combo)
         notation_form.addRow(self.ellipsis_hint)
+        notation_form.addRow(self.autocomplete_check)
+        notation_form.addRow(autocomplete_hint)
 
         validator_hint = QLabel(tr("settings.validator.hint"))
         validator_hint.setWordWrap(True)
@@ -293,6 +305,12 @@ class SettingsDialog(QDialog):
         self.tabs.addTab(_page(validator_form), tr("settings.tab.validator"))
         self.rules_editor = RulesEditor(builtin_rules, user_rules, document_text)
         self.tabs.addTab(self.rules_editor, tr("settings.tab.rules"))
+        self.shortcuts_editor = ShortcutsEditor()
+        self.snippets_editor = SnippetsEditor()
+        self.shortcuts_editor.changed.connect(self._update_conflicts)
+        self.snippets_editor.changed.connect(self._update_conflicts)
+        self.tabs.addTab(self.shortcuts_editor, tr("settings.tab.shortcuts"))
+        self.tabs.addTab(self.snippets_editor, tr("settings.tab.snippets"))
         self.tabs.addTab(_page(project_form), tr("settings.tab.project"))
         self.tabs.addTab(metadata_page, tr("settings.tab.metadata"))
         self.tabs.addTab(_page(asr_form), tr("settings.tab.asr"))
@@ -348,6 +366,14 @@ class SettingsDialog(QDialog):
         index = self.ellipsis_combo.findData(settings.notation.ellipsis_style)
         self.ellipsis_combo.setCurrentIndex(max(index, 0))
         self._update_ellipsis_hint()
+        self.autocomplete_check.setChecked(settings.editor.autocomplete)
+
+        self.shortcuts_editor.set_overrides(settings.shortcuts.overrides)
+        self.snippets_editor.set_taken_shortcuts(
+            s for seqs in self.shortcuts_editor.mapping().values() for s in seqs
+        )
+        self.snippets_editor.set_snippets(settings.snippets.snippets)
+        self._update_conflicts()
 
         enabled = settings.validator.enabled
         for code, checkbox in self.validator_checks.items():
@@ -487,13 +513,33 @@ class SettingsDialog(QDialog):
         """Reguły fonetyczne użytkownika po edycji (zapisuje okno główne)."""
         return self.rules_editor.user_rules()
 
+    def shortcut_conflicts(self) -> list[str]:
+        """Opisy konfliktów skrótów akcji i wstawek (ACC-43)."""
+        mapping = {
+            **self.shortcuts_editor.mapping(),
+            **self.snippets_editor.shortcut_mapping(),
+        }
+        return [conflict.message for conflict in find_conflicts(mapping)]
+
+    def _update_conflicts(self) -> None:
+        self.shortcuts_editor.conflicts_label.setText(
+            "\n".join(self.shortcut_conflicts())
+        )
+
     def accept(self) -> None:
-        """Błędna reguła użytkownika blokuje zapis — z komunikatem i zakładką."""
-        problem = self.rules_editor.first_problem()
-        if problem is not None:
-            self.tabs.setCurrentWidget(self.rules_editor)
-            QMessageBox.warning(self, tr("settings.tab.rules"), problem)
-            return
+        """Błędna reguła, wstawka albo konflikt skrótów blokuje zapis."""
+        checks = (
+            (self.rules_editor, self.rules_editor.first_problem()),
+            (self.snippets_editor, self.snippets_editor.first_problem()),
+            (self.shortcuts_editor, "\n".join(self.shortcut_conflicts()) or None),
+        )
+        for page, problem in checks:
+            if problem is not None:
+                self.tabs.setCurrentWidget(page)
+                QMessageBox.warning(
+                    self, self.tabs.tabText(self.tabs.indexOf(page)), problem
+                )
+                return
         super().accept()
 
     def settings(self) -> Settings:
@@ -513,6 +559,7 @@ class SettingsDialog(QDialog):
                     else self.font_combo.currentFont().family()
                 ),
                 font_size_pt=0 if size == self.font_size_spin.minimum() else size,
+                autocomplete=self.autocomplete_check.isChecked(),
             ),
             notation=NotationSettings(
                 ellipsis_style=str(self.ellipsis_combo.currentData())
@@ -526,6 +573,14 @@ class SettingsDialog(QDialog):
                         != rule.default_enabled
                     }
                 )
+            ),
+            shortcuts=ShortcutSettings(
+                overrides_spec=encode_shortcut_map(
+                    shortcut_overrides(self.shortcuts_editor.mapping())
+                )
+            ),
+            snippets=SnippetSettings(
+                spec=encode_snippets(self.snippets_editor.snippets())
             ),
             project=ProjectSettings(
                 autosave_enabled=self.autosave_check.isChecked(),

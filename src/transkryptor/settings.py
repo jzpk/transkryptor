@@ -13,7 +13,7 @@ i wpis w ``_FIELDS`` — bez zmian w mechanizmie zapisu.
 from __future__ import annotations
 
 import json
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field, replace
 from typing import Any
 
@@ -65,10 +65,14 @@ class AppearanceSettings:
 
 @dataclass(frozen=True)
 class EditorSettings:
-    """Czcionka edytora; wartości puste/zerowe oznaczają czcionkę domyślną."""
+    """Czcionka edytora; wartości puste/zerowe oznaczają czcionkę domyślną.
+
+    ``autocomplete`` włącza podpowiedzi wstawek i słów z dokumentu.
+    """
 
     font_family: str = ""
     font_size_pt: int = 0
+    autocomplete: bool = False
 
 
 @dataclass(frozen=True)
@@ -120,6 +124,93 @@ def decode_bool_map(raw: str) -> dict[str, bool] | None:
 def encode_bool_map(values: Mapping[str, bool]) -> str:
     """Zapis słownika ``{tekst: bool}``; pusty słownik → pusty napis."""
     return json.dumps(dict(sorted(values.items()))) if values else ""
+
+
+@dataclass(frozen=True)
+class ShortcutSettings:
+    """Skróty różne od domyślnych: JSON ``{id akcji: [skróty]}``.
+
+    Pusta lista oznacza akcję bez skrótu; brak akcji — skróty domyślne.
+    Zapis skrótów jak w ``QKeySequence`` (np. ``Ctrl+Shift+A``).
+    """
+
+    overrides_spec: str = ""
+
+    @property
+    def overrides(self) -> dict[str, list[str]]:
+        decoded = decode_shortcut_map(self.overrides_spec)
+        return decoded if decoded is not None else {}
+
+
+def decode_shortcut_map(raw: str) -> dict[str, list[str]] | None:
+    if not raw:
+        return {}
+    try:
+        data = json.loads(raw)
+    except ValueError:
+        return None
+    if not isinstance(data, dict) or not all(
+        isinstance(key, str)
+        and isinstance(value, list)
+        and all(isinstance(item, str) for item in value)
+        for key, value in data.items()
+    ):
+        return None
+    return data
+
+
+def encode_shortcut_map(values: Mapping[str, list[str]]) -> str:
+    return json.dumps(dict(sorted(values.items()))) if values else ""
+
+
+@dataclass(frozen=True)
+class Snippet:
+    """Wstawka: tekst w składni ``^x`` (indeks górny) i opcjonalny skrót."""
+
+    text: str
+    shortcut: str = ""
+
+
+@dataclass(frozen=True)
+class SnippetSettings:
+    """Wstawki użytkownika: JSON listy ``{"text": …, "shortcut": …}``."""
+
+    spec: str = ""
+
+    @property
+    def snippets(self) -> tuple[Snippet, ...]:
+        decoded = decode_snippets(self.spec)
+        return decoded if decoded is not None else ()
+
+
+def decode_snippets(raw: str) -> tuple[Snippet, ...] | None:
+    if not raw:
+        return ()
+    try:
+        data = json.loads(raw)
+    except ValueError:
+        return None
+    if not isinstance(data, list):
+        return None
+    snippets: list[Snippet] = []
+    for item in data:
+        if not isinstance(item, dict):
+            return None
+        text = item.get("text")
+        shortcut = item.get("shortcut", "")
+        if not isinstance(text, str) or not text or not isinstance(shortcut, str):
+            return None
+        snippets.append(Snippet(text, shortcut))
+    return tuple(snippets)
+
+
+def encode_snippets(snippets: Iterable[Snippet]) -> str:
+    items = [
+        {"text": snippet.text, "shortcut": snippet.shortcut}
+        for snippet in snippets
+        if snippet.text
+    ]
+    return json.dumps(items, ensure_ascii=False) if items else ""
 
 
 @dataclass(frozen=True)
@@ -176,6 +267,8 @@ class Settings:
     editor: EditorSettings = field(default_factory=EditorSettings)
     notation: NotationSettings = field(default_factory=NotationSettings)
     validator: ValidatorSettings = field(default_factory=ValidatorSettings)
+    shortcuts: ShortcutSettings = field(default_factory=ShortcutSettings)
+    snippets: SnippetSettings = field(default_factory=SnippetSettings)
     project: ProjectSettings = field(default_factory=ProjectSettings)
     metadata: MetadataSettings = field(default_factory=MetadataSettings)
     appearance: AppearanceSettings = field(default_factory=AppearanceSettings)
@@ -214,12 +307,22 @@ _FIELDS: tuple[_Field, ...] = (
     _Field("player", "segment_preroll_ms", int, *SEGMENT_PREROLL_RANGE_MS),
     _Field("editor", "font_family", str),
     _Field("editor", "font_size_pt", int, *FONT_SIZE_RANGE_PT),
+    _Field("editor", "autocomplete", bool),
     _Field("notation", "ellipsis_style", str, choices=ELLIPSIS_STYLES),
     _Field(
         "validator",
         "overrides_spec",
         str,
         validate=lambda raw: decode_bool_map(raw) is not None,
+    ),
+    _Field(
+        "shortcuts",
+        "overrides_spec",
+        str,
+        validate=lambda raw: decode_shortcut_map(raw) is not None,
+    ),
+    _Field(
+        "snippets", "spec", str, validate=lambda raw: decode_snippets(raw) is not None
     ),
     _Field("project", "autosave_enabled", bool),
     _Field("project", "autosave_interval_s", int, *AUTOSAVE_INTERVAL_RANGE_S),
@@ -258,6 +361,8 @@ def from_mapping(mapping: Mapping[str, Any]) -> Settings:
         "editor": {},
         "notation": {},
         "validator": {},
+        "shortcuts": {},
+        "snippets": {},
         "project": {},
         "metadata": {},
         "appearance": {},
@@ -277,6 +382,12 @@ def from_mapping(mapping: Mapping[str, Any]) -> Settings:
         ),
         validator=replace(
             ValidatorSettings(), **sections["validator"]  # type: ignore[arg-type]
+        ),
+        shortcuts=replace(
+            ShortcutSettings(), **sections["shortcuts"]  # type: ignore[arg-type]
+        ),
+        snippets=replace(
+            SnippetSettings(), **sections["snippets"]  # type: ignore[arg-type]
         ),
         project=replace(
             ProjectSettings(), **sections["project"]  # type: ignore[arg-type]

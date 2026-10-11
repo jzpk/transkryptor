@@ -41,6 +41,21 @@ Pusta sekcja blokuje wydanie.
   komunikat ze wskazaniem reguły i pola, a pozostałe reguły działają.
   Wzorzec, którego dopasowanie trwa zbyt długo, jest przerywany bez
   zawieszania okna.
+- Własne skróty klawiaturowe: w **Ustawieniach…** nowa zakładka
+  **Skróty** pozwala zmienić skrót każdego znacznika notacji, indeksu
+  górnego, odtwarzacza, wyszukiwania i poleceń projektu oraz dodać skrót
+  zapasowy (np. pedał nożny). Program ostrzega przed zapisem, gdy skrót jest
+  już zajęty przez inną akcję albo przez edycję tekstu (kopiuj, cofnij…).
+  Nowe skróty działają od razu, a podpowiedzi przycisków pokazują bieżące
+  skróty. **Przywróć wszystkie domyślne** wraca do skrótów fabrycznych.
+- Wstawki: w zakładce **Wstawki** można zapisać często używane formy, np.
+  `so^m` (`^m` — „m” w indeksie górnym), i przypisać im skróty — kolejne
+  wstawki dostają podpowiedź `Alt+1`…`Alt+9`. Wstawkę wstawia się skrótem
+  albo z menu **Wstawki** na pasku narzędzi; jedno cofnięcie usuwa ją
+  w całości.
+- Autouzupełnianie (domyślnie wyłączone, **Ustawienia…** → **Notacja**):
+  po wpisaniu dwóch liter edytor podpowiada pasujące wstawki i słowa użyte
+  już w tekście; Enter lub Tab wstawia podpowiedź.
 
 ## 0.5.0 — 2026-10-18
 

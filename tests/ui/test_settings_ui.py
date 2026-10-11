@@ -107,6 +107,8 @@ class TestSettingsDialog:
             "Notacja",
             "Walidator",
             "Reguły fonetyczne",
+            "Skróty",
+            "Wstawki",
             "Projekt",
             "Metryczka",
             "ASR",
