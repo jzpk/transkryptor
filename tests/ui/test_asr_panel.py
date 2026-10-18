@@ -188,7 +188,7 @@ class TestTranscriptionFlow:
         run_transcription(window)
         assert not hasattr(window.asr_panel, "hypothesis_view")
         assert window.asr_panel.segments_list.count() == 1
-        assert window.editor.toPlainText() == "som."
+        assert window.editor.toPlainText() == "[00:00] som."
         assert window.asr_panel.suggestions_list.count() == 1
 
     def test_cancelled_placement_keeps_text_and_allows_reinsert(
@@ -204,7 +204,7 @@ class TestTranscriptionFlow:
 
         window._ask_draft_placement = lambda: DRAFT_APPEND
         window.asr_panel.reinsert_draft_button.click()
-        assert window.editor.toPlainText() == "ręczny tekst\nsom."
+        assert window.editor.toPlainText() == "ręczny tekst\n[00:00] som."
 
     def test_transcription_can_be_cancelled(
         self, qtbot, window_with_asr, monkeypatch
@@ -545,6 +545,20 @@ class TestSegmentSeek:
         )
         panel._on_segment_ready(segment)
         return panel.segments_list.item(panel.segments_list.count() - 1)
+
+    def test_draft_has_timestamped_lines(self, qtbot, panel) -> None:
+        result = TranscriptionResult(
+            text="tak było we wsi",
+            language="pl",
+            segments=(
+                SegmentResult(0.0, 20.0, " tak było", 0.9),
+                SegmentResult(20.0, 45.0, " we wsi", 0.9),
+            ),
+        )
+        panel._transcribe_thread = None
+        with qtbot.waitSignal(panel.draft_ready) as blocker:
+            panel._on_transcribe_succeeded(result)
+        assert blocker.args == ["[00:00] tak było\n[00:20] we wsi"]
 
     def test_click_emits_position_minus_preroll(self, qtbot, panel) -> None:
         item = self._add_segment(panel, 12.3)

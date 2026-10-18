@@ -61,6 +61,9 @@ DEVICES = ("auto", "cpu")
 # 224 tokeny, a długi prompt sprzyja halucynacjom (powtarzaniu promptu).
 PROMPT_MAX_CHARS = 200
 _DEVICE_NOTE_MAX_CHARS = 200
+# Najdłuższy wers szkicu (w sekundach nagrania) — wers zaczyna się
+# znacznikiem czasu, by tekst i eksport nie były jednym blokiem.
+DRAFT_LINE_SECONDS = 30.0
 
 
 class TranscriptionCancelled(Exception):
@@ -92,6 +95,43 @@ class TranscriptionResult:
     # Przyczyna przejścia z GPU na CPU (None, gdy nie było próby GPU
     # albo się udała).
     device_note: str | None = None
+
+
+def draft_text(
+    result: TranscriptionResult, line_seconds: float = DRAFT_LINE_SECONDS
+) -> str:
+    """Szkic do edytora: wersy ze znacznikiem czasu ``[mm:ss]`` na początku.
+
+    Segmenty są łączone w wersy obejmujące najwyżej ``line_seconds`` nagrania
+    (dłuższy pojedynczy segment tworzy własny wers), więc tekst — także
+    w eksporcie DOCX — ma podział co najwyżej co tyle sekund. Wynik bez
+    segmentów (np. ze starszego projektu) zwraca samą hipotezę.
+    """
+    lines: list[str] = []
+    words: list[str] = []
+    line_start = 0.0
+    for segment in result.segments:
+        text = segment.text.strip()
+        if not text:
+            continue
+        if not words or segment.end_s - line_start > line_seconds:
+            if words:
+                lines.append(" ".join(words))
+            line_start = segment.start_s
+            words = [f"[{format_timestamp(line_start)}]"]
+        words.append(text)
+    if words:
+        lines.append(" ".join(words))
+    return "\n".join(lines) if lines else result.text
+
+
+def format_timestamp(seconds: float) -> str:
+    """Czas jako ``mm:ss``, a od godziny nagrania — ``h:mm:ss``."""
+    minutes, secs = divmod(max(0, int(seconds)), 60)
+    hours, minutes = divmod(minutes, 60)
+    if hours:
+        return f"{hours}:{minutes:02d}:{secs:02d}"
+    return f"{minutes:02d}:{secs:02d}"
 
 
 @dataclass(frozen=True)
