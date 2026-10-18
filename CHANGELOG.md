@@ -126,7 +126,8 @@ Pusta sekcja blokuje wydanie.
   korzystają z powiązania tekstu z nagraniem (szkic ASR, znaczniki czasu):
   każdy mówca ma osobną warstwę, a fragmenty bez czasu dostają czas
   wyznaczony z sąsiednich kotwic albo są pomijane — raport po eksporcie
-  wymienia takie fragmenty. Plik ELAN wskazuje nagranie. Wybrany format
+  wymienia takie fragmenty. Znaczniki `[mm:ss]` wierszy szkicu ASR nie
+  trafiają do adnotacji. Plik ELAN wskazuje nagranie. Wybrany format
   i opcje są pamiętane; DOCX pozostaje głównym formatem.
 - Szablon eksportu DOCX: w **Ustawieniach…** nowa zakładka **Eksport**
   pozwala wskazać plik `.docx` instytucji (czcionki, marginesy, nagłówek,

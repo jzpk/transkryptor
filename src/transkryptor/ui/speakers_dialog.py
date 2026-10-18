@@ -64,7 +64,11 @@ class SpeakersDialog(QDialog):
         )
         self.table.verticalHeader().setVisible(False)
         header = self.table.horizontalHeader()
+        header.setSectionResizeMode(KEY_COLUMN, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(LABEL_COLUMN, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(
+            ROLE_COLUMN, QHeaderView.ResizeMode.ResizeToContents
+        )
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.table.setMinimumWidth(420)

@@ -135,6 +135,20 @@ class TestTimeline:
         middle = units[1]
         assert 1500 <= middle.start_ms <= middle.end_ms <= 9000
 
+    def test_draft_line_marker_is_not_a_unit(self) -> None:
+        """Smoke test: „[00:00] ” szkicu ASR nie tworzy pustej jednostki."""
+        text = "[00:00] Rok urodzenia? [00:29] Tysionc"
+        anchors = (
+            Anchor(8, 22, 0, 1500, SEGMENT),
+            Anchor(31, 38, 1600, 2500, SEGMENT),
+        )
+        document = build_export_document(Document(text=text), anchors=anchors)
+        units = build_units(document, UNTIMED_SKIP, ExportReport())
+        assert [(u.text, u.start_ms, u.end_ms) for u in units] == [
+            ("Rok urodzenia?", 0, 1500),
+            ("Tysionc", 1600, 2500),
+        ]
+
     def test_no_anchors_is_an_error(self) -> None:
         with pytest.raises(ExportError):
             build_units(

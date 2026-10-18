@@ -6,15 +6,17 @@ dzielone na początkach kotwic segmentów ASR i ręcznych znaczników czasu
 pochodzi z kotwicy na początku fragmentu, a czas końca — z końca segmentu
 w obrębie fragmentu albo z początku następnej jednostki.
 
-Fragment bez czasu (np. dopisany ręcznie albo przeniesiony do innego akapitu)
-dostaje czas interpolowany liniowo po pozycji znaku między sąsiednimi znanymi
-punktami — albo jest pomijany (opcja ``untimed``). Za ostatnim znanym czasem
+Znacznik czasu wiersza szkicu ASR (``[00:29]``) na początku albo końcu
+fragmentu jest pomijany — czas jest w tych formatach jawny. Fragment bez czasu (np. dopisany ręcznie albo przeniesiony do
+innego akapitu) dostaje czas interpolowany liniowo po pozycji znaku między
+sąsiednimi znanymi punktami — albo jest pomijany (opcja ``untimed``). Za ostatnim znanym czasem
 czas jest szacowany z tempa mowy (``ESTIMATED_MS_PER_CHAR``). Fragmenty
 z czasem wyznaczonym i pominięte trafiają do raportu eksportu (ACC-54).
 """
 
 from __future__ import annotations
 
+import re
 from bisect import bisect_left, bisect_right
 from dataclasses import dataclass
 
@@ -26,6 +28,10 @@ from transkryptor.export.options import UNTIMED_SKIP, ExportReport
 from transkryptor.i18n import tr
 
 EXCERPT_LENGTH = 40
+# Znacznik czasu wiersza szkicu ASR (``[01:23]``, ``[1:02:03]``) — czas jest
+# w formatach z czasami jawny, więc znacznik nie trafia do adnotacji.
+_LINE_TIME_RE = re.compile(r"\[\d{1,2}(?::\d{2}){1,2}\]\s*")
+_TRAILING_TIME_RE = re.compile(r"\s*\[\d{1,2}(?::\d{2}){1,2}\]\s*$")
 # Szacunek tempa mowy za ostatnią kotwicą: ok. 15 znaków na sekundę.
 ESTIMATED_MS_PER_CHAR = 65
 
@@ -113,14 +119,19 @@ def _drafts(document: ExportDocument, anchors: list[Anchor]) -> list[_Draft]:
         lo = bisect_right(start_positions, paragraph.start)
         hi = bisect_left(start_positions, paragraph.end)
         cuts = [paragraph.start, *dict.fromkeys(start_positions[lo:hi]), paragraph.end]
+        pieces: list[_Draft] = []
         for cut, next_cut in zip(cuts, cuts[1:], strict=False):
             piece = text[cut:next_cut]
-            stripped = piece.strip()
+            start = cut + len(piece) - len(piece.lstrip())
+            marker = _LINE_TIME_RE.match(text, start, next_cut)
+            if marker is not None:
+                start = marker.end()
+            # Znacznik tuż przed następną kotwicą (scalone wiersze szkicu).
+            stripped = _TRAILING_TIME_RE.sub("", text[start:next_cut]).rstrip()
             if not stripped:
                 continue
-            start = cut + len(piece) - len(piece.lstrip())
             end = start + len(stripped)
-            drafts.append(
+            pieces.append(
                 _Draft(
                     start,
                     end,
@@ -129,6 +140,7 @@ def _drafts(document: ExportDocument, anchors: list[Anchor]) -> list[_Draft]:
                     _end_time(segments, segment_ends, start, end, next_cut),
                 )
             )
+        drafts += pieces
     # Brak końca: początek następnej jednostki, jeśli jest znany.
     for draft, following in zip(drafts, drafts[1:], strict=False):
         if draft.end_ms is None and following.start_ms is not None:
