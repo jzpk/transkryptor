@@ -49,6 +49,8 @@ from transkryptor.asr.engine import (
     SegmentResult,
     TranscriptionResult,
     build_hotwords,
+    draft_text,
+    format_timestamp,
 )
 from transkryptor.asr.manager import DownloadCancelled, ModelManager
 from transkryptor.asr.models import MODELS, AsrModelInfo, format_size, model_by_key
@@ -866,7 +868,7 @@ class AsrPanel(QWidget):
 
     def _on_segment_ready(self, segment: SegmentResult) -> None:
         item = QListWidgetItem(
-            f"{_format_time(segment.start_s)}–{_format_time(segment.end_s)} "
+            f"{format_timestamp(segment.start_s)}–{format_timestamp(segment.end_s)} "
             f"({segment.confidence:.0%}) {segment.text.strip()}"
         )
         item.setData(Qt.ItemDataRole.UserRole, int(segment.start_s * 1000))
@@ -877,7 +879,7 @@ class AsrPanel(QWidget):
 
     def _on_transcribe_succeeded(self, result: TranscriptionResult) -> None:
         self._finish_transcribe()
-        self._last_draft = result.text
+        self._last_draft = draft_text(result)
         self._last_result = result
         self._last_model_key = self._running_model_key
         self.device_label.setText(_device_text(result))
@@ -886,7 +888,7 @@ class AsrPanel(QWidget):
             return
         self.reinsert_draft_button.setEnabled(True)
         self.transcribe_status_label.setText(tr("asr.draft_ready"))
-        self.draft_ready.emit(result.text)
+        self.draft_ready.emit(self._last_draft)
 
     def _on_transcribe_failed(self, error: AppError) -> None:
         self._finish_transcribe()
@@ -931,7 +933,7 @@ class AsrPanel(QWidget):
         self.device_label.setText("")
         self._last_result = result
         self._last_model_key = model_key
-        self._last_draft = result.text if result is not None else ""
+        self._last_draft = draft_text(result) if result is not None else ""
         if result is not None:
             for segment in result.segments:
                 self._on_segment_ready(segment)
@@ -1103,8 +1105,3 @@ def _device_text(result: TranscriptionResult) -> str:
     if result.device == "cuda":
         return tr("asr.device.gpu")
     return tr("asr.device.cpu")
-
-
-def _format_time(seconds: float) -> str:
-    minutes, secs = divmod(int(seconds), 60)
-    return f"{minutes:02d}:{secs:02d}"

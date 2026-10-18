@@ -7,6 +7,12 @@ Pusta sekcja blokuje wydanie.
 
 ## Nieopublikowane
 
+- Szkic ASR jest dzielony na wersy obejmujące najwyżej 30 sekund nagrania,
+  a każdy wers zaczyna się znacznikiem czasu, np. `[01:30]` (od godziny
+  nagrania `[1:02:03]`). Podział i znaczniki trafiają też do eksportu DOCX
+  zamiast jednego bloku tekstu. W starszych projektach wystarczy użyć
+  **Wstaw szkic ponownie**.
+
 ## 0.4.0 — 2026-10-11
 
 - Wybór modelu ASR: w panelu **Szkic ASR** można wybrać **small**

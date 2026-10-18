@@ -91,7 +91,7 @@ def test_full_workflow(qtbot, window, add_window, tmp_path, monkeypatch) -> None
 
     # 3. Szkic w stylu wielokropka z ustawień (domyślnie „…”), reguła zastosowana.
     assert window.editor.toPlainText() == (
-        "od tego czasu … będzie jeż… kam… som. A będzie lepiej."
+        "[00:00] od tego czasu … będzie jeż… kam… som. A będzie lepiej."
     )
     assert superscripts(window) == ["m"]
 
@@ -99,10 +99,11 @@ def test_full_workflow(qtbot, window, add_window, tmp_path, monkeypatch) -> None
     index = next(
         i
         for i, item in enumerate(window.review.items)
-        if item.suggestion.code == "SUG-LAB-U-INIT" and item.suggestion.start == 0
+        if item.suggestion.code == "SUG-LAB-U-INIT"
+        and item.suggestion.start == len("[00:00] ")
     )
     window._on_apply_review_item(index)
-    assert window.editor.toPlainText().startswith("uod tego")
+    assert window.editor.toPlainText().startswith("[00:00] uod tego")
     assert superscripts(window) == ["u", "m"]
 
     # 5. Wyszukaj i zamień wszystkie z indeksem górnym (jedno cofnięcie).
@@ -112,7 +113,7 @@ def test_full_workflow(qtbot, window, add_window, tmp_path, monkeypatch) -> None
     window.search_bar.replace_edit.setText("be^ndzie")
     window.search_bar.replace_all_button.click()
     assert window.editor.toPlainText() == (
-        "uod tego czasu … bendzie jeż… kam… som. A bendzie lepiej."
+        "[00:00] uod tego czasu … bendzie jeż… kam… som. A bendzie lepiej."
     )
     assert superscripts(window) == ["u", "n", "m", "n"]
     window.search.close()
@@ -125,7 +126,9 @@ def test_full_workflow(qtbot, window, add_window, tmp_path, monkeypatch) -> None
     window.run_validation_now()
     assert window.warnings_panel.warning_count() == 1  # VAL-05
     window.unify_ellipses_action.trigger()
-    expected = "uod tego czasu … bendzie jeż… kam… som. A bendzie lepiej. I tak … no."
+    expected = (
+        "[00:00] uod tego czasu … bendzie jeż… kam… som. A bendzie lepiej. I tak … no."
+    )
     assert window.editor.toPlainText() == expected
     assert window.warnings_panel.warning_count() == 0
 

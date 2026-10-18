@@ -39,6 +39,16 @@ class TestExport:
         # Pozostały tekst bez formatowania: całość bez nosowego „n”.
         assert "".join(r.text for r in plain_runs) == "pamietam uóna zmar-zły"
 
+    def test_timestamped_lines_become_line_breaks(self, tmp_path) -> None:
+        doc = Document(text="[00:00] tak było\n[00:29] we wsi")
+        target = tmp_path / "wersy.docx"
+
+        export_docx(doc, target)
+
+        paragraph = DocxReader(str(target)).paragraphs[-1]
+        assert paragraph._p.xml.count("<w:br/>") == 1
+        assert paragraph.text == "[00:00] tak było\n[00:29] we wsi"
+
     def test_empty_document_exports(self, tmp_path) -> None:
         doc = Document()
         target = tmp_path / "pusty.docx"

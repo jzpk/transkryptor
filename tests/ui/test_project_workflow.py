@@ -137,7 +137,7 @@ class TestSaveAndOpen:
         asr_calls = fake_asr(window, tmp_path)
         window.asr_panel.rule_checkboxes["SUG-LAB-U-INIT"].setChecked(False)
         run_asr(qtbot, window)
-        assert window.editor.toPlainText() == "od som"
+        assert window.editor.toPlainText() == "[00:00] od som"
         cursor = window.editor.textCursor()
         cursor.movePosition(QTextCursor.MoveOperation.End)
         cursor.insertText(" koniec", QTextCharFormat())
@@ -160,7 +160,7 @@ class TestSaveAndOpen:
         reopened = add_window(MainWindow())
         assert reopened.session.open_project(path)
 
-        assert reopened.editor.toPlainText() == "od som koniec"
+        assert reopened.editor.toPlainText() == "[00:00] od som koniec"
         assert superscripts(reopened) == ["m"]
         assert reopened.author_edit.text() == "Anna Nowak"
         assert reopened.metadata_form.value("signature") == "AdK_1954"
@@ -179,12 +179,12 @@ class TestSaveAndOpen:
 
         # Nieukończony przegląd: propozycję można zastosować po otwarciu.
         reopened._on_apply_review_item(0)
-        assert reopened.editor.toPlainText() == "uod som koniec"
+        assert reopened.editor.toPlainText() == "[00:00] uod som koniec"
         # Ponowne wstawienie szkicu bez powtarzania ASR (REQ-14).
         reopened._ask_draft_placement = lambda: DRAFT_REPLACE
         reopened.asr_panel.reinsert_draft_button.click()
         # Reguły wybrane w panelu nowego okna (domyślnie wszystkie).
-        assert reopened.editor.toPlainText() == "uod som"
+        assert reopened.editor.toPlainText() == "[00:00] uod som"
         assert len(asr_calls) == 1
 
     def test_asr_context_is_saved_in_project(

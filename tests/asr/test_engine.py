@@ -14,8 +14,11 @@ from transkryptor.asr.engine import (
     SegmentResult,
     TranscriptionCancelled,
     TranscriptionError,
+    TranscriptionResult,
     build_hotwords,
     chunk_bounds,
+    draft_text,
+    format_timestamp,
     transcribe,
 )
 from transkryptor.asr.models import DEFAULT_MODEL
@@ -506,3 +509,50 @@ class TestAudioDecodingContract:
 
         assert len(samples) > 16_000  # ponad sekunda materiału
         assert float(abs(samples).max()) > 0.0  # dekoder zwrócił sygnał
+
+
+class TestDraftText:
+    """Szkic dzielony na wersy ze znacznikami czasu (najwyżej co 30 s)."""
+
+    @staticmethod
+    def result(*spans: tuple[float, float, str]) -> TranscriptionResult:
+        segments = tuple(SegmentResult(a, b, text, 0.9) for a, b, text in spans)
+        return TranscriptionResult(
+            text="".join(s.text for s in segments).strip(),
+            language="pl",
+            segments=segments,
+        )
+
+    def test_lines_cover_at_most_thirty_seconds(self) -> None:
+        result = self.result(
+            (0.0, 12.0, " tak było"),
+            (12.0, 29.5, " i potem"),
+            (29.5, 41.0, " we wsi"),
+            (41.0, 75.0, " długo"),
+            (75.0, 80.0, " koniec"),
+        )
+        assert draft_text(result).split("\n") == [
+            "[00:00] tak było i potem",
+            "[00:29] we wsi",
+            "[00:41] długo",
+            "[01:15] koniec",
+        ]
+
+    def test_skips_empty_segments(self) -> None:
+        result = self.result((3.0, 4.0, "  "), (4.0, 5.0, " tak"))
+        assert draft_text(result) == "[00:04] tak"
+
+    def test_without_segments_returns_hypothesis(self) -> None:
+        result = TranscriptionResult(text="stary szkic", language="pl")
+        assert draft_text(result) == "stary szkic"
+
+    def test_custom_line_length(self) -> None:
+        result = self.result((0.0, 5.0, " a"), (5.0, 11.0, " b"))
+        assert draft_text(result, line_seconds=10) == "[00:00] a\n[00:05] b"
+
+    @pytest.mark.parametrize(
+        ("seconds", "expected"),
+        [(0, "00:00"), (59.9, "00:59"), (754, "12:34"), (3723, "1:02:03")],
+    )
+    def test_format_timestamp(self, seconds: float, expected: str) -> None:
+        assert format_timestamp(seconds) == expected
