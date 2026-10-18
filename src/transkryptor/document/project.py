@@ -8,7 +8,9 @@ ostatni wynik ASR (tekst i segmenty z czasami i pewnością) oraz pozycje
 przeglądu reguł (zakres w tekście, kod reguły i treść propozycji), a od
 schematu 2 także kontekst nagrania i słownik projektu dla ASR, od
 schematu 3 — ostrzeżenia walidatora zignorowane w konkretnych miejscach,
-a od schematu 4 — kotwice czasowe tekstu (``document/anchors.py``).
+od schematu 4 — kotwice czasowe tekstu (``document/anchors.py``), a od
+schematu 5 — mówcy nagrania i ich przypisanie do akapitów
+(``document/speakers.py``).
 
 Zapis jest atomowy: plik tymczasowy w katalogu docelowym, ``fsync``
 i ``os.replace`` — przerwany zapis nie psuje poprzedniej wersji. Odczyt
@@ -29,10 +31,16 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from transkryptor.document.anchors import Anchor, check_anchor
+from transkryptor.document.speakers import (
+    DEFAULT_SPEAKERS,
+    Speaker,
+    check_speakers,
+    paragraph_count,
+)
 from transkryptor.errors import ProjectError
 from transkryptor.i18n import tr
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 PROJECT_SUFFIX = ".transkr"
 _HASH_CHUNK = 1 << 20
 
@@ -154,6 +162,8 @@ class ProjectState:
     asr_context: AsrContext = field(default_factory=AsrContext)
     ignored_warnings: tuple[IgnoredWarning, ...] = ()
     anchors: tuple[Anchor, ...] = ()
+    speakers: tuple[Speaker, ...] = DEFAULT_SPEAKERS
+    paragraph_speakers: dict[int, str] = field(default_factory=dict)
 
     @property
     def word_count(self) -> int:
@@ -183,6 +193,12 @@ def to_dict(state: ProjectState, project_path: Path | None = None) -> dict[str, 
             "author": state.author,
             "date": state.date,
             "metadata": dict(state.metadata),
+            "speakers": [
+                {"key": s.key, "label": s.label, "role": s.role} for s in state.speakers
+            ],
+            "paragraph_speakers": [
+                [index, key] for index, key in sorted(state.paragraph_speakers.items())
+            ],
         },
         "exported": state.exported,
         "audio": audio,
@@ -313,10 +329,26 @@ def _add_anchors(data: dict[str, Any]) -> dict[str, Any]:
     return {**data, "schema_version": 4, "anchors": []}
 
 
+def _add_speakers(data: dict[str, Any]) -> dict[str, Any]:
+    """4 → 5 (faza 12): domyślni mówcy, akapity bez przypisań."""
+    document = data.get("document")
+    if not isinstance(document, dict):
+        return {**data, "schema_version": 5}  # błąd zgłosi parsowanie
+    speakers = [
+        {"key": s.key, "label": s.label, "role": s.role} for s in DEFAULT_SPEAKERS
+    ]
+    return {
+        **data,
+        "schema_version": 5,
+        "document": {**document, "speakers": speakers, "paragraph_speakers": []},
+    }
+
+
 _MIGRATIONS: dict[int, Callable[[dict[str, Any]], dict[str, Any]]] = {
     1: _add_asr_context,
     2: _add_ignored_warnings,
     3: _add_anchors,
+    4: _add_speakers,
 }
 
 
@@ -593,6 +625,26 @@ def _parse(data: dict[str, Any]) -> ProjectState:
     )
     for anchor in anchors:
         check_anchor(anchor, len(text))
+    speakers = tuple(
+        Speaker(
+            key=_str(entry["key"]),
+            label=_str(entry.get("label", "")),
+            role=_str(entry.get("role", "other")),
+        )
+        for entry in map(_dict, _list(document.get("speakers", [])))
+    )
+    check_speakers(speakers)
+    keys = {speaker.key for speaker in speakers}
+    paragraphs = paragraph_count(text)
+    assignments: dict[int, str] = {}
+    for item in _list(document.get("paragraph_speakers", [])):
+        pair = _list(item)
+        if len(pair) != 2:
+            raise ValueError("przypisanie mówcy musi mieć dwa elementy")
+        index, key = _int(pair[0]), _str(pair[1])
+        if not 0 <= index < paragraphs or key not in keys or index in assignments:
+            raise ValueError("nieprawidłowe przypisanie mówcy")
+        assignments[index] = key
     metadata = _dict(document.get("metadata", {}))
     context = _dict(data.get("asr_context", {}))
     return ProjectState(
@@ -617,6 +669,8 @@ def _parse(data: dict[str, Any]) -> ProjectState:
         ),
         ignored_warnings=ignored,
         anchors=anchors,
+        speakers=speakers,
+        paragraph_speakers=assignments,
     )
 
 

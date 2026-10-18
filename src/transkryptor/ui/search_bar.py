@@ -60,6 +60,10 @@ class SearchBar(QWidget):
         self.whole_words_check = QCheckBox(tr("search.whole_words"))
         self.regex_check = QCheckBox(".*")
         self.regex_check.setToolTip(tr("search.regex.tooltip"))
+        # Filtr wypowiedzi informatorów — widoczny, gdy dokument ma mówców.
+        self.informant_check = QCheckBox(tr("search.informant_only"))
+        self.informant_check.setToolTip(tr("search.informant_only.tooltip"))
+        self.informant_check.hide()
 
         self.count_label = QLabel()
         set_props(self.count_label, role="muted")
@@ -90,15 +94,16 @@ class SearchBar(QWidget):
         layout.addWidget(self.case_check, 0, 1)
         layout.addWidget(self.whole_words_check, 0, 2)
         layout.addWidget(self.regex_check, 0, 3)
-        layout.addWidget(self.count_label, 0, 4)
-        layout.addWidget(self.previous_button, 0, 5)
-        layout.addWidget(self.next_button, 0, 6)
-        layout.addWidget(self.close_button, 0, 7)
+        layout.addWidget(self.informant_check, 0, 4)
+        layout.addWidget(self.count_label, 0, 5)
+        layout.addWidget(self.previous_button, 0, 6)
+        layout.addWidget(self.next_button, 0, 7)
+        layout.addWidget(self.close_button, 0, 8)
         layout.addWidget(self.replace_edit, 1, 0)
-        layout.addWidget(self.preview_label, 1, 1, 1, 4)
-        layout.addWidget(self.replace_button, 1, 5)
-        layout.addWidget(self.replace_all_button, 1, 6)
-        layout.addWidget(self.error_label, 2, 0, 1, 8)
+        layout.addWidget(self.preview_label, 1, 1, 1, 5)
+        layout.addWidget(self.replace_button, 1, 6)
+        layout.addWidget(self.replace_all_button, 1, 7)
+        layout.addWidget(self.error_label, 2, 0, 1, 9)
         layout.setColumnStretch(0, 1)
         self._replace_row = (
             self.replace_edit,
@@ -114,7 +119,12 @@ class SearchBar(QWidget):
         self.addAction(close_action)
 
         self.find_edit.textChanged.connect(self.query_changed)
-        for check in (self.case_check, self.whole_words_check, self.regex_check):
+        for check in (
+            self.case_check,
+            self.whole_words_check,
+            self.regex_check,
+            self.informant_check,
+        ):
             check.toggled.connect(self.query_changed)
         self.replace_edit.textChanged.connect(self.replacement_changed)
         self.find_edit.returnPressed.connect(self.next_requested)
@@ -143,6 +153,14 @@ class SearchBar(QWidget):
             whole_words=self.whole_words_check.isChecked(),
             regex=self.regex_check.isChecked(),
         )
+
+    def set_informant_filter_available(self, available: bool) -> None:
+        """Pokazuje filtr „tylko informator” (dokument z przypisanymi mówcami)."""
+        self.informant_check.setVisible(available)
+
+    @property
+    def informant_only(self) -> bool:
+        return not self.informant_check.isHidden() and self.informant_check.isChecked()
 
     def set_replace_mode(self, enabled: bool) -> None:
         for widget in self._replace_row:

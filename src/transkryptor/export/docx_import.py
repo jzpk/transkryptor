@@ -1,10 +1,12 @@
 """Import DOCX do dokumentu transkrypcji („najlepszy wysiłek”, bez Qt).
 
 Odczytuje runy python-docx i buduje tekst z zakresami indeksu górnego.
-Dokument aplikacji jest jednoakapitowy, więc akapity są łączone znakiem
-nowej linii, a raport mówi, ile ich złączono. Metadane pochodzą z tabeli
-metryczki (rozpoznawanej po etykietach pól), akapitu „Autor: … Data: …”
-z eksportu aplikacji oraz — gdy tych brak — z ``core_properties``.
+Akapity DOCX stają się akapitami dokumentu (rozdzielonymi znakiem nowej
+linii). Pogrubiony prefiks ``B:`` na początku akapitu (eksport aplikacji)
+przypisuje akapit mówcy, a wiersz „Mówcy” metryczki daje opisy mówców.
+Metadane pochodzą z tabeli metryczki (rozpoznawanej po etykietach pól),
+akapitu „Autor: … Data: …” z eksportu aplikacji oraz — gdy tych brak —
+z ``core_properties``.
 
 Wszystko, czego dokument aplikacji nie wyraża (formatowanie inne niż indeks
 górny, tabele poza metryczką, obrazy, przypisy), jest pomijane i liczone
@@ -31,8 +33,17 @@ from transkryptor.document.metadata import (
     label_variants,
 )
 from transkryptor.document.model import normalize_ranges
+from transkryptor.document.speakers import (
+    DEFAULT_SPEAKERS,
+    Speaker,
+    guess_role,
+    parse_legend,
+)
 from transkryptor.errors import ImportDocxError
-from transkryptor.i18n import all_translations, tr, tr_plural
+from transkryptor.i18n import all_translations, tr
+
+# Pogrubiona etykieta mówcy na początku akapitu: ``B:`` (+ tabulator/spacja).
+_SPEAKER_PREFIX_RE = re.compile(r"^\s*(\w{1,8}):\s*")
 
 
 def _header_re() -> re.Pattern[str]:
@@ -48,7 +59,6 @@ def _header_re() -> re.Pattern[str]:
 class ImportReport:
     """Co pominięto przy imporcie (liczniki wystąpień)."""
 
-    merged_paragraphs: int = 0
     formatted_runs: dict[str, int] = field(default_factory=dict)
     skipped_tables: int = 0
     images: int = 0
@@ -62,8 +72,6 @@ class ImportReport:
     def lines(self) -> list[str]:
         """Pozycje raportu dla użytkownika (pusta lista = nic nie pominięto)."""
         lines: list[str] = []
-        if self.merged_paragraphs:
-            lines.append(tr_plural("docx_import.report.merged", self.merged_paragraphs))
         if self.formatted_runs:
             kinds = ", ".join(
                 f"{name} ({count})" for name, count in self.formatted_runs.items()
@@ -93,6 +101,8 @@ class ImportedDocument:
     date: str
     metadata: dict[str, str]
     report: ImportReport
+    speakers: tuple[Speaker, ...] = DEFAULT_SPEAKERS
+    paragraph_speakers: dict[int, str] = field(default_factory=dict)
 
 
 def import_docx(
@@ -119,6 +129,10 @@ class _Reader:
                 labels[_label_key(label)] = metadata_field.key
         self._labels = labels
         self._header_re = _header_re()
+        self._speaker_labels = {
+            _label_key(label) for label in all_translations("docx.speakers")
+        }
+        self._legend: list[Speaker] = []
         self._formatted: dict[str, int] = {}
 
     def read(self) -> ImportedDocument:
@@ -153,15 +167,26 @@ class _Reader:
 
         text_parts: list[str] = []
         ranges: list[tuple[int, int]] = []
+        assignments: dict[int, str] = {}
         offset = 0
         for index, paragraph in enumerate(paragraphs):
             if index:
                 text_parts.append("\n")
                 offset += 1
-            for run in _runs(paragraph):
+            runs = _runs(paragraph)
+            key, skip = _speaker_prefix(runs, {s.key for s in self._legend})
+            if key is not None:
+                assignments[index] = key
+            for run in runs:
                 run_text = run.text
                 if not run_text:
                     continue
+                if skip:
+                    cut = min(skip, len(run_text))
+                    skip -= cut
+                    run_text = run_text[cut:]
+                    if not run_text:
+                        continue
                 if _is_superscript(run):
                     ranges.append((offset, offset + len(run_text)))
                 self._count_formatting(run)
@@ -174,6 +199,13 @@ class _Reader:
         if PLACE not in metadata and core.keywords:
             metadata[PLACE] = core.keywords
 
+        speakers = list(self._legend)
+        known = {speaker.key for speaker in speakers}
+        for key in dict.fromkeys(assignments.values()):
+            if key not in known:
+                speakers.append(Speaker(key, "", guess_role(key)))
+                known.add(key)
+
         body = self._docx.element.body
         return ImportedDocument(
             text="".join(text_parts),
@@ -181,8 +213,9 @@ class _Reader:
             author=author,
             date=date,
             metadata=metadata,
+            speakers=tuple(speakers) if speakers else DEFAULT_SPEAKERS,
+            paragraph_speakers=assignments,
             report=ImportReport(
-                merged_paragraphs=len(paragraphs) if len(paragraphs) > 1 else 0,
                 formatted_runs=dict(self._formatted),
                 skipped_tables=skipped_tables,
                 images=len(body.xpath(".//w:drawing | .//w:pict")),
@@ -200,9 +233,16 @@ class _Reader:
         rows = [[cell.text.strip() for cell in row.cells] for row in table.rows]
         if not rows or any(len(cells) != 2 for cells in rows):
             return False
-        if not any(_label_key(label) in self._labels for label, _value in rows):
+        if not any(
+            _label_key(label) in self._labels
+            or _label_key(label) in self._speaker_labels
+            for label, _value in rows
+        ):
             return False
         for label, value in rows:
+            if _label_key(label) in self._speaker_labels:
+                self._legend = parse_legend(value)
+                continue
             key = self._labels.get(_label_key(label))
             if key is None:
                 if label or value:
@@ -223,6 +263,44 @@ class _Reader:
             if present:
                 name = tr(name)
                 self._formatted[name] = self._formatted.get(name, 0) + 1
+
+
+def _speaker_prefix(runs: list[Run], known: set[str]) -> tuple[str | None, int]:
+    """Klucz mówcy z pogrubionego prefiksu i liczba znaków do pominięcia.
+
+    Prefiks musi być w całości pogrubiony, a po dwukropku stać tabulator
+    (tak zapisuje go eksport) — albo klucz musi być w legendzie mówców.
+    Pogrubione „Uwaga:” ze spacją nie jest mówcą.
+    """
+    bold = ""
+    for run in runs:
+        if not run.text:
+            continue
+        if not _is_bold(run):
+            break
+        bold += run.text
+    match = _SPEAKER_PREFIX_RE.match(bold)
+    if match is None or bold[match.end() :].strip():
+        return None, 0
+    text = "".join(run.text for run in runs)
+    colon = text.index(":") + 1
+    if not text.startswith("\t", colon) and match[1] not in known:
+        return None, 0
+    skip = colon
+    while skip < len(text) and text[skip] in " \t":
+        skip += 1
+    return match[1], skip
+
+
+def _is_bold(run: Run) -> bool:
+    if run.font.bold is not None:
+        return bool(run.font.bold)
+    style = run.style
+    while style is not None:
+        if style.font.bold is not None:
+            return bool(style.font.bold)
+        style = style.base_style
+    return False
 
 
 def _runs(paragraph: Paragraph) -> list[Run]:

@@ -37,6 +37,7 @@ from transkryptor.asr.manager import ModelManager
 from transkryptor.asr.models import model_by_key
 from transkryptor.audio.player import AudioPlayer
 from transkryptor.document.model import Document
+from transkryptor.document.speakers import informant_spans
 from transkryptor.errors import AppError
 from transkryptor.i18n import tr
 from transkryptor.notation.ellipsis import EllipsisStyle
@@ -91,6 +92,7 @@ from transkryptor.ui.shortcuts import (
     search_id,
 )
 from transkryptor.ui.snippets import SnippetController
+from transkryptor.ui.speaker_controller import SpeakerController
 from transkryptor.ui.sync_controller import SyncController
 from transkryptor.ui.theme import apply_theme, resolve_tokens, set_props, tokens
 from transkryptor.ui.toolbar import MainToolbar, ToolbarHandlers
@@ -204,7 +206,16 @@ class MainWindow(QMainWindow):
             lambda: self.settings_store.current.metadata.fields,
             self._update_title,
         )
-        self.search = SearchController(self.editor, self.search_bar, self)
+        self.search = SearchController(
+            self.editor, self.search_bar, self, self._informant_spans
+        )
+        self.speakers = SpeakerController(
+            self.editor,
+            lambda: self.document,
+            self.metadata_form,
+            lambda text: self.statusBar().showMessage(text, STATUS_MESSAGE_MS),
+            self,
+        )
         self.notation = NotationController(
             self.editor,
             self.warnings_panel,
@@ -238,6 +249,7 @@ class MainWindow(QMainWindow):
         )
         self.player_actions = self.player_controller.actions
         self.search_actions = self.search.create_actions(self)
+        self.speaker_actions = self.speakers.create_actions(self)
         self.snippets = SnippetController(
             self, self.editor, self.main_toolbar.snippets_menu, self._on_settings
         )
@@ -246,6 +258,7 @@ class MainWindow(QMainWindow):
         self.loading_overlay = LoadingOverlay(self)
         self._connect_signals()
         self._apply_settings(settings_store.current)
+        self.speakers.refresh()
         self._update_title()
         self.notation.update_warning_count()
 
@@ -393,6 +406,7 @@ class MainWindow(QMainWindow):
         self.asr_panel.model_changed.connect(self._on_asr_model_changed)
         self.asr_panel.context_changed.connect(self._on_asr_context_changed)
         self.sync.timestamps_edited.connect(self.session.project_data_changed)
+        self.speakers.speakers_changed.connect(self._on_speakers_changed)
         self.sync.anchors_changed.connect(self.waveform.refresh_markers)
         self.asr_panel.result_changed.connect(self._on_asr_result_changed)
         self.player.playback_error.connect(
@@ -492,6 +506,7 @@ class MainWindow(QMainWindow):
             actions[player_id(key)] = action
         for key, action in self.search_actions.items():
             actions[search_id(key)] = action
+        actions.update(self.speaker_actions)
         return actions
 
     def _apply_shortcuts(self, shortcuts: dict[str, tuple[str, ...]]) -> None:
@@ -575,12 +590,24 @@ class MainWindow(QMainWindow):
     def _on_session_reset(self) -> None:
         self.notation.clear()
         self.review.finish()
+        self.speakers.refresh()
         self._update_title()
 
     def _on_session_state_changed(self) -> None:
         """Projekt otwarty, zapisany, odzyskany albo zaimportowany."""
+        self.speakers.refresh()
         self._update_title()
         self.notation.schedule_validation()
+
+    def _on_speakers_changed(self) -> None:
+        self._update_title()
+        self.notation.schedule_validation()
+
+    def _informant_spans(self) -> list[tuple[int, int]]:
+        document = self.document
+        return informant_spans(
+            document.text, document.paragraph_speakers, document.speakers
+        )
 
     def _on_import_audio(self, path: str) -> None:
         self.session.import_audio(path)
@@ -661,6 +688,7 @@ class MainWindow(QMainWindow):
             action.setEnabled(not locked)
         self.player_controller.set_locked(locked)
         self.snippets.set_locked(locked)
+        self.speakers.set_locked(locked)
 
     # --- stan --------------------------------------------------------------
 
@@ -673,7 +701,18 @@ class MainWindow(QMainWindow):
         self._sync_timer.stop()
         document = self.document
         words = len(document.text.split())
-        self.word_count_label.setText(f"{words} {words_label(words)}")
+        text = f"{words} {words_label(words)}"
+        uses_speakers = bool(document.paragraph_speakers)
+        if uses_speakers:
+            informant_words = sum(
+                len(document.text[start:end].split())
+                for start, end in self._informant_spans()
+            )
+            text = tr("main.words_informant", words=text, informant=informant_words)
+        self.word_count_label.setText(text)
+        self.search_bar.set_informant_filter_available(uses_speakers)
+        # Cofnięcie przypisania mówcy zmienia tylko format bloku.
+        self.editor.refresh_speakers()
         self._show_dirty_state(self.session.has_unsaved_work, document.is_dirty)
 
     def _show_dirty_state(self, unsaved: bool, dirty: bool) -> None:

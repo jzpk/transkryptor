@@ -494,6 +494,8 @@ class SessionController(QObject):
             asr_context=AsrContext(prompt=prompt, vocabulary=vocabulary),
             ignored_warnings=tuple(self._ignored_warnings.entries()),
             anchors=tuple(self._sync.entries()),
+            speakers=tuple(document.speakers),
+            paragraph_speakers=dict(document.paragraph_speakers),
         )
 
     # --- otwieranie projektu ---------------------------------------------------
@@ -595,7 +597,9 @@ class SessionController(QObject):
         self._player_bar.reset()
         self._asr_panel.set_audio_available(False)
         self._review.finish()
-        self._editor.load_content(state.text, state.superscript_ranges)
+        self._editor.load_content(
+            state.text, state.superscript_ranges, state.paragraph_speakers
+        )
         self._ignored_warnings.restore(state.ignored_warnings)
         self._author_edit.setText(state.author)
         date = QDate.fromString(state.date, DATE_FORMAT)
@@ -631,6 +635,8 @@ class SessionController(QObject):
             author=state.author,
             date=state.date if date.isValid() else "",
             metadata=normalized(state.metadata),
+            speakers=list(state.speakers),
+            paragraph_speakers=dict(state.paragraph_speakers),
             revision=1,
         )
         if saved:
@@ -668,6 +674,8 @@ class SessionController(QObject):
             author=imported.author,
             date=imported.date,
             metadata=imported.metadata,
+            speakers=imported.speakers,
+            paragraph_speakers=imported.paragraph_speakers,
         )
         self.apply_state(state, None, None, saved=False)
         QMessageBox.information(

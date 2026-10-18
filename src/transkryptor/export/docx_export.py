@@ -1,13 +1,14 @@
 """Eksport dokumentu transkrypcji do DOCX.
 
-Kontrakt ``document -> export``: wejściem jest tekst, zakresy indeksu
-górnego, metadane autora i daty oraz metryczka nagrania z modelu
-``Document``. Moduł nie zapisuje stanu roboczego aplikacji — jedynym
-artefaktem jest plik DOCX.
+Kontrakt ``document -> export``: wejściem jest model wyjścia
+``ExportDocument`` (``export/model.py``) — tekst z akapitami, mówcami
+i indeksem górnym, autor, data i metryczka. Moduł nie zapisuje stanu
+roboczego aplikacji — jedynym artefaktem jest plik DOCX.
 
 Układ dokumentu (czytany z powrotem przez ``export/docx_import.py``):
-tabela metryczki (dwie kolumny: etykieta, wartość; tylko niepuste pola),
-akapit „Autor: … Data: …” i jeden akapit tekstu.
+tabela metryczki (dwie kolumny: etykieta, wartość; tylko niepuste pola,
+na końcu legenda mówców), akapit „Autor: … Data: …” i akapity tekstu —
+akapit z mówcą zaczyna się pogrubioną etykietą ``B:`` i tabulatorem.
 """
 
 from __future__ import annotations
@@ -17,15 +18,10 @@ from pathlib import Path
 
 from docx import Document as DocxDocument
 
-from transkryptor.document.metadata import (
-    DEFAULT_FIELDS,
-    PLACE,
-    SIGNATURE,
-    MetadataField,
-    export_items,
-)
-from transkryptor.document.model import Document, clip_ranges
+from transkryptor.document.metadata import DEFAULT_FIELDS, MetadataField
+from transkryptor.document.model import Document
 from transkryptor.errors import ExportError
+from transkryptor.export.model import ExportDocument, build_export_document
 from transkryptor.i18n import tr
 
 METADATA_TABLE_STYLE = "Table Grid"
@@ -39,7 +35,7 @@ def export_docx(
 ) -> None:
     """Zapisuje dokument do pliku DOCX.
 
-    Tekst jest zapisywany jako jeden akapit z runami; znaki objęte
+    Każdy akapit tekstu to akapit DOCX z runami; znaki objęte
     ``superscript_ranges`` otrzymują formatowanie indeksu górnego.
     Autor i data trafiają zarówno do właściwości dokumentu, jak i do
     akapitu nagłówkowego. Metryczka (pola ``fields`` w ich kolejności) trafia
@@ -47,9 +43,14 @@ def export_docx(
     a ``keywords`` — miejscowość. ``anonymize`` pomija pola osobowe
     (także we właściwościach). Błędy zapisu są zgłaszane jako ``ExportError``.
     """
+    write_docx(build_export_document(document, fields, anonymize), path)
+
+
+def write_docx(document: ExportDocument, path: str | Path) -> None:
+    """Zapisuje model wyjścia do DOCX; błędy jako ``ExportError``."""
     target = Path(path)
     try:
-        _write(document, target, tuple(fields), anonymize)
+        _write(document, target)
     except ExportError:
         raise
     except OSError as exc:
@@ -68,57 +69,32 @@ def export_docx(
         ) from exc
 
 
-def _write(
-    document: Document,
-    target: Path,
-    fields: tuple[MetadataField, ...],
-    anonymize: bool,
-) -> None:
+def _write(document: ExportDocument, target: Path) -> None:
     docx = DocxDocument()
-    items = export_items(document.metadata, fields, anonymize)
-    values = {field.key: value for field, value in items}
-
     docx.core_properties.author = document.author
-    docx.core_properties.title = values.get(SIGNATURE, tr("docx.default_title"))
-    docx.core_properties.keywords = values.get(PLACE, "")
+    docx.core_properties.title = document.title
+    docx.core_properties.keywords = document.keywords
 
-    if items:
+    rows = document.header_rows()
+    if rows:
         table = docx.add_table(rows=0, cols=2)
         table.style = METADATA_TABLE_STYLE
-        for field, value in items:
+        for label, value in rows:
             label_cell, value_cell = table.add_row().cells
-            label_cell.text = field.display_label
+            label_cell.text = label
             value_cell.text = value
 
-    if document.author or document.date:
-        docx.add_paragraph(
-            f"{tr('docx.author')}: {document.author}    "
-            f"{tr('docx.date')}: {document.date}"
-        )
+    if document.author_line:
+        docx.add_paragraph(document.author_line)
 
-    paragraph = docx.add_paragraph()
-    for start, end, is_superscript in _split_runs(document):
-        run = paragraph.add_run(document.text[start:end])
-        if is_superscript:
-            run.font.superscript = True
+    for paragraph in document.paragraphs:
+        target_paragraph = docx.add_paragraph()
+        if paragraph.speaker is not None:
+            target_paragraph.add_run(f"{paragraph.speaker.key}:").bold = True
+            target_paragraph.add_run("\t")
+        for run in paragraph.runs:
+            docx_run = target_paragraph.add_run(run.text)
+            if run.superscript:
+                docx_run.font.superscript = True
 
     docx.save(str(target))
-
-
-def _split_runs(document: Document) -> list[tuple[int, int, bool]]:
-    """Dzieli tekst na spójne runy (start, end, indeks_górny).
-
-    Jedno przejście po posortowanych, scalonych zakresach — koszt liniowy
-    także dla tysięcy krótkich zakresów indeksu górnego.
-    """
-    text_length = len(document.text)
-    runs: list[tuple[int, int, bool]] = []
-    position = 0
-    for start, end in clip_ranges(document.superscript_ranges, text_length):
-        if position < start:
-            runs.append((position, start, False))
-        runs.append((start, end, True))
-        position = end
-    if position < text_length:
-        runs.append((position, text_length, False))
-    return runs

@@ -7,7 +7,12 @@ from docx import Document as DocxReader
 
 from transkryptor.document.model import Document
 from transkryptor.errors import ExportError
-from transkryptor.export.docx_export import _split_runs, export_docx
+from transkryptor.export.docx_export import export_docx
+from transkryptor.export.model import split_runs
+
+
+def _split_runs(doc: Document) -> list[tuple[int, int, bool]]:
+    return split_runs(doc.text, doc.superscript_ranges)
 
 
 class TestExport:
@@ -39,15 +44,15 @@ class TestExport:
         # Pozostały tekst bez formatowania: całość bez nosowego „n”.
         assert "".join(r.text for r in plain_runs) == "pamietam uóna zmar-zły"
 
-    def test_timestamped_lines_become_line_breaks(self, tmp_path) -> None:
+    def test_lines_become_paragraphs(self, tmp_path) -> None:
         doc = Document(text="[00:00] tak było\n[00:29] we wsi")
         target = tmp_path / "wersy.docx"
 
         export_docx(doc, target)
 
-        paragraph = DocxReader(str(target)).paragraphs[-1]
-        assert paragraph._p.xml.count("<w:br/>") == 1
-        assert paragraph.text == "[00:00] tak było\n[00:29] we wsi"
+        paragraphs = DocxReader(str(target)).paragraphs
+        assert [p.text for p in paragraphs] == ["[00:00] tak było", "[00:29] we wsi"]
+        assert "<w:br/>" not in paragraphs[0]._p.xml
 
     def test_empty_document_exports(self, tmp_path) -> None:
         doc = Document()

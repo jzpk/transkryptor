@@ -14,6 +14,7 @@ licznik pokazuje wszystkie trafienia. Zamiana idzie przez
 from __future__ import annotations
 
 from bisect import bisect_left, bisect_right
+from collections.abc import Callable
 
 import regex
 from PySide6.QtCore import QEvent, QObject, Qt, QTimer
@@ -26,6 +27,7 @@ from transkryptor.document.search import (
     compile_query,
     find_all,
     parse_replacement,
+    restrict_to,
 )
 from transkryptor.i18n import tr
 from transkryptor.ui.editor import TranscriptionEditor
@@ -51,11 +53,17 @@ class SearchController(QObject):
     """Steruje paskiem ``SearchBar`` dla edytora transkrypcji."""
 
     def __init__(
-        self, editor: TranscriptionEditor, bar: SearchBar, parent: QObject | None = None
+        self,
+        editor: TranscriptionEditor,
+        bar: SearchBar,
+        parent: QObject | None = None,
+        informant_spans: Callable[[], list[tuple[int, int]]] | None = None,
     ) -> None:
         super().__init__(parent)
         self.editor = editor
         self.bar = bar
+        # Akapity informatorów dla filtra „tylko informator” (faza 12).
+        self._informant_spans = informant_spans
         self._matches: list[tuple[int, int]] = []
         self._current: int | None = None
         self._query_error: str | None = None
@@ -195,6 +203,8 @@ class SearchController(QObject):
                 self._matches = find_all(self.editor.plain_text(), pattern)
             except SearchError as error:  # SEC-03: wzorzec zbyt kosztowny
                 self._query_error = str(error)
+            if self.bar.informant_only and self._informant_spans is not None:
+                self._matches = restrict_to(self._matches, self._informant_spans())
         if self._current is not None and self._current >= len(self._matches):
             self._current = None
         self._show_state()

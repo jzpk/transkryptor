@@ -1,7 +1,7 @@
 """Model dokumentu transkrypcji.
 
 Dokument to ciągły tekst z zakresami indeksu górnego, metadanymi (autor,
-data i metryczka nagrania) oraz stanem zmian. Stan zmian jest licznikiem
+data i metryczka nagrania), mówcami akapitów oraz stanem zmian. Stan zmian jest licznikiem
 rewizji: każda mutacja zwiększa ``revision``. Dwa znaczniki zapamiętują
 rewizję ostatniego eksportu DOCX (:meth:`Document.mark_exported`) i ostatniego
 zapisu pliku projektu (:meth:`Document.mark_saved`) — dokument może być
@@ -15,6 +15,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from transkryptor.document.metadata import normalized
+from transkryptor.document.speakers import (
+    DEFAULT_SPEAKERS,
+    Speaker,
+    clean_assignments,
+    shift_assignments,
+)
 
 
 @dataclass
@@ -25,7 +31,9 @@ class Document:
     ``(start, end)`` sformatowanych indeksem górnym, posortowana i bez
     nakładających się elementów — niezmiennik pilnują konstruktor
     i :meth:`replace_all`. ``metadata`` to metryczka nagrania (klucze
-    z ``document/metadata.py``) bez pustych wartości.
+    z ``document/metadata.py``) bez pustych wartości. ``speakers`` to lista
+    mówców nagrania, a ``paragraph_speakers`` — indeks akapitu (kolejny
+    fragment między znakami nowej linii) → klucz mówcy z tej listy.
     """
 
     text: str = ""
@@ -33,12 +41,17 @@ class Document:
     author: str = ""
     date: str = ""
     metadata: dict[str, str] = field(default_factory=dict)
+    speakers: list[Speaker] = field(default_factory=lambda: list(DEFAULT_SPEAKERS))
+    paragraph_speakers: dict[int, str] = field(default_factory=dict)
     revision: int = 0
     exported_revision: int = 0
     saved_revision: int = 0
 
     def __post_init__(self) -> None:
         self.superscript_ranges = clip_ranges(self.superscript_ranges, len(self.text))
+        self.paragraph_speakers = clean_assignments(
+            self.paragraph_speakers, self.text, self.speakers
+        )
 
     @property
     def is_dirty(self) -> bool:
@@ -78,17 +91,61 @@ class Document:
         self.metadata = merged
         self.revision += 1
 
-    def replace_all(self, text: str, superscript_ranges: list[tuple[int, int]]) -> bool:
+    def set_speakers(
+        self, speakers: list[Speaker], renamed: dict[str, str] | None = None
+    ) -> None:
+        """Ustawia listę mówców.
+
+        ``renamed`` (stary klucz → nowy) przepina akapity; przypisania
+        mówców spoza nowej listy są usuwane.
+        """
+        renamed = renamed or {}
+        assignments = clean_assignments(
+            {i: renamed.get(key, key) for i, key in self.paragraph_speakers.items()},
+            self.text,
+            speakers,
+        )
+        if speakers == self.speakers and assignments == self.paragraph_speakers:
+            return
+        self.speakers = list(speakers)
+        self.paragraph_speakers = assignments
+        self.revision += 1
+
+    def speaker(self, key: str) -> Speaker | None:
+        return next((s for s in self.speakers if s.key == key), None)
+
+    def replace_all(
+        self,
+        text: str,
+        superscript_ranges: list[tuple[int, int]],
+        paragraph_speakers: dict[int, str] | None = None,
+    ) -> bool:
         """Zastępuje cały tekst i zakresy indeksu górnego (np. z edytora).
 
-        Zakresy są normalizowane; rewizja rośnie tylko przy faktycznej
-        zmianie. Zwraca True, gdy dokument się zmienił.
+        Zakresy są normalizowane; ``paragraph_speakers`` (None = bez zmian
+        przypisań) jest oczyszczane do akapitów tekstu i znanych mówców.
+        Rewizja rośnie tylko przy faktycznej zmianie. Zwraca True, gdy
+        dokument się zmienił.
         """
         ranges = clip_ranges(superscript_ranges, len(text))
-        if text == self.text and ranges == self.superscript_ranges:
+        assignments = clean_assignments(
+            (
+                self.paragraph_speakers
+                if paragraph_speakers is None
+                else paragraph_speakers
+            ),
+            text,
+            self.speakers,
+        )
+        if (
+            text == self.text
+            and ranges == self.superscript_ranges
+            and assignments == self.paragraph_speakers
+        ):
             return False
         self.text = text
         self.superscript_ranges = ranges
+        self.paragraph_speakers = assignments
         self.revision += 1
         return True
 
@@ -97,11 +154,18 @@ class Document:
 
         Zakresy indeksu górnego za edytowanym fragmentem są przesuwane,
         zakresy przecięte edycją obcinane, a wstawiony tekst nie dziedziczy
-        formatowania.
+        formatowania. Usunięcie granicy akapitów scala je (zostaje mówca
+        pierwszego), a wstawione akapity są bez mówcy.
         """
         if not 0 <= start <= end <= len(self.text):
             raise ValueError(f"Nieprawidłowy zakres edycji: ({start}, {end})")
         delta = len(new_text) - (end - start)
+        self.paragraph_speakers = shift_assignments(
+            self.paragraph_speakers,
+            self.text[start:end],
+            new_text,
+            self.text.count("\n", 0, start),
+        )
         self.text = self.text[:start] + new_text + self.text[end:]
         self.superscript_ranges = _adjust_ranges(
             self.superscript_ranges, start, end, len(new_text), delta

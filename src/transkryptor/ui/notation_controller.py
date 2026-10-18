@@ -176,6 +176,7 @@ class NotationController(QObject):
             self._style(),
             document.superscript_ranges,
             self._enabled_rules(),
+            document.paragraph_speakers,
         )
         positions = self.editor.position_map()
         if positions.text != document.text:

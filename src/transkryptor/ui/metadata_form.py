@@ -2,7 +2,9 @@
 
 Pola i ich kolejność pochodzą z ustawień („Metryczka”); formularz tylko
 pokazuje wartości i zgłasza zmiany sygnałem ``changed``. Zapis do
-``Document.metadata`` wykonuje ``SessionController``. Blokadę na czas ASR
+``Document.metadata`` wykonuje ``SessionController``. Pod polami jest wiersz
+listy mówców nagrania (faza 12) — edycję otwiera ``SpeakerController``
+po sygnale ``speakers_edit_requested``. Blokadę na czas ASR
 zapewnia wyłączenie karty transkrypcji (REQ-13).
 """
 
@@ -13,8 +15,10 @@ from collections.abc import Iterable, Mapping
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QGridLayout,
+    QHBoxLayout,
     QLabel,
     QLineEdit,
+    QPushButton,
     QToolButton,
     QVBoxLayout,
     QWidget,
@@ -32,6 +36,7 @@ class MetadataForm(QWidget):
     """Przycisk zwijania z podsumowaniem i formularz pól metryczki."""
 
     changed = Signal()
+    speakers_edit_requested = Signal()
 
     def __init__(self, fields: Iterable[MetadataField], parent=None) -> None:
         super().__init__(parent)
@@ -45,11 +50,28 @@ class MetadataForm(QWidget):
         self.toggle.toggled.connect(self._on_toggled)
 
         self.details = QWidget()
-        self._grid = QGridLayout(self.details)
-        self._grid.setContentsMargins(16, 4, 16, 8)
+        details_layout = QVBoxLayout(self.details)
+        details_layout.setContentsMargins(16, 4, 16, 8)
+        details_layout.setSpacing(6)
+        fields_widget = QWidget()
+        self._grid = QGridLayout(fields_widget)
+        self._grid.setContentsMargins(0, 0, 0, 0)
         self._grid.setHorizontalSpacing(8)
         for column in range(COLUMNS):
             self._grid.setColumnStretch(column * 2 + 1, 1)
+        details_layout.addWidget(fields_widget)
+
+        self.speakers_label = QLabel()
+        self.speakers_label.setWordWrap(True)
+        self.speakers_button = QPushButton(tr("metadata_form.speakers.edit"))
+        self.speakers_button.setToolTip(tr("metadata_form.speakers.tooltip"))
+        self.speakers_button.clicked.connect(self.speakers_edit_requested)
+        speakers_row = QHBoxLayout()
+        speakers_row.setSpacing(8)
+        speakers_row.addWidget(QLabel(tr("metadata_form.speakers")))
+        speakers_row.addWidget(self.speakers_label, stretch=1)
+        speakers_row.addWidget(self.speakers_button)
+        details_layout.addLayout(speakers_row)
         self.details.setVisible(False)
 
         layout = QVBoxLayout(self)
@@ -117,6 +139,10 @@ class MetadataForm(QWidget):
 
     def value(self, key: str) -> str:
         return self.values().get(key, "")
+
+    def set_speakers_summary(self, text: str) -> None:
+        """Legenda mówców nagrania (``B — Badacz; I — Informator``)."""
+        self.speakers_label.setText(text or tr("metadata_form.speakers.none"))
 
     def _on_edited(self) -> None:
         self._update_summary()

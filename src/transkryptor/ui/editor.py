@@ -26,6 +26,9 @@ from PySide6.QtGui import (
     QPainter,
     QPaintEvent,
     QPolygonF,
+    QResizeEvent,
+    QTextBlock,
+    QTextBlockFormat,
     QTextCharFormat,
     QTextCursor,
 )
@@ -42,6 +45,11 @@ from transkryptor.ui.highlights import (
 from transkryptor.ui.highlights import background as highlight
 from transkryptor.ui.markers import ASIDE_TEXT
 from transkryptor.ui.positions import PositionMap, utf16_len
+from transkryptor.ui.speaker_gutter import (
+    SPEAKER_PROPERTY,
+    SpeakerGutter,
+    block_speaker,
+)
 
 # Półprzezroczyste tło czytelne w jasnym i ciemnym motywie.
 REVIEW_HIGHLIGHT = QColor(255, 200, 0, 90)
@@ -66,6 +74,9 @@ class TranscriptionEditor(QTextEdit):
     # Ctrl+klik lewym przyciskiem: pozycja tekstu (punkty kodowe) — odtworzenie
     # nagrania od kotwicy czasowej (faza 11).
     ctrl_clicked = Signal(int)
+    # Klik w etykietę mówcy: pozycja początku akapitu (punkty kodowe) i punkt
+    # ekranu dla menu wyboru mówcy (faza 12).
+    speaker_label_clicked = Signal(int, QPoint)
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -89,6 +100,11 @@ class TranscriptionEditor(QTextEdit):
         # i powiadomienie po wpisaniu znaku.
         self.key_filter: Callable[[QKeyEvent], bool] | None = None
         self.after_key: Callable[[QKeyEvent], None] | None = None
+        self._speaker_gutter = SpeakerGutter(self, self._on_speaker_label_clicked)
+        self.verticalScrollBar().valueChanged.connect(self._speaker_gutter.update)
+        self.document().documentLayout().documentSizeChanged.connect(
+            self._speaker_gutter.update
+        )
         self.apply_settings(EditorSettings())
         self.document().setDocumentMargin(16)
 
@@ -106,6 +122,7 @@ class TranscriptionEditor(QTextEdit):
         else:
             font.setPointSizeF(self._base_font.pointSizeF() * EDITOR_FONT_SCALE)
         self.setFont(font)
+        self.refresh_speakers()
 
     def text_position_at(self, viewport_point: QPoint) -> int:
         """Pozycja tekstu (punkty kodowe) pod punktem widoku."""
@@ -167,8 +184,13 @@ class TranscriptionEditor(QTextEdit):
         self._point_marker_color = QColor(color)
         self.viewport().update()
 
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        super().resizeEvent(event)
+        self._speaker_gutter.update_geometry()
+
     def paintEvent(self, event: QPaintEvent) -> None:
         super().paintEvent(event)
+        self._speaker_gutter.update()
         if not self._point_markers:
             return
         painter = QPainter(self.viewport())
@@ -299,10 +321,12 @@ class TranscriptionEditor(QTextEdit):
         if append:
             cursor.movePosition(QTextCursor.MoveOperation.End)
             if not self.document().isEmpty():
-                cursor.insertBlock()
+                # Nowy akapit bez mówcy poprzedniego.
+                cursor.insertBlock(QTextBlockFormat())
         else:
             cursor.select(QTextCursor.SelectionType.Document)
             cursor.removeSelectedText()
+            cursor.setBlockFormat(QTextBlockFormat())
         start = cursor.position()
         cursor.insertText(text, QTextCharFormat())
         cursor.endEditBlock()
@@ -311,14 +335,22 @@ class TranscriptionEditor(QTextEdit):
         return self.position_map().to_py(start)
 
     def load_content(
-        self, text: str, superscript_ranges: Iterable[tuple[int, int]]
+        self,
+        text: str,
+        superscript_ranges: Iterable[tuple[int, int]],
+        paragraph_speakers: dict[int, str] | None = None,
     ) -> None:
-        """Wczytuje tekst z zakresami indeksu górnego (projekt, import DOCX).
+        """Wczytuje tekst z indeksem górnym i mówcami (projekt, import DOCX).
 
         Wczytanie zaczyna nową historię cofania — stan sprzed otwarcia
         należy do innego dokumentu.
         """
         self.setPlainText(text)
+        # ``setPlainText`` tworzy blok z każdej linii: indeks bloku = akapit.
+        for index, key in (paragraph_speakers or {}).items():
+            block = self.document().findBlockByNumber(index)
+            if block.isValid():
+                _set_block_speaker(block, key)
         superscript_format = QTextCharFormat()
         superscript_format.setVerticalAlignment(
             QTextCharFormat.VerticalAlignment.AlignSuperScript
@@ -330,6 +362,112 @@ class TranscriptionEditor(QTextEdit):
         cursor = self.textCursor()
         cursor.movePosition(QTextCursor.MoveOperation.Start)
         self.setTextCursor(cursor)
+        self.refresh_speakers()
+
+    # --- mówcy akapitów (faza 12) -----------------------------------------
+
+    def selected_blocks(self, cursor: QTextCursor | None = None) -> list[QTextBlock]:
+        """Akapity objęte zaznaczeniem (albo akapit kursora)."""
+        if cursor is None:
+            cursor = self.textCursor()
+        document = self.document()
+        block = document.findBlock(cursor.selectionStart())
+        last = document.findBlock(cursor.selectionEnd())
+        blocks = [block]
+        while block != last and block.isValid():
+            block = block.next()
+            blocks.append(block)
+        return [b for b in blocks if b.isValid()]
+
+    def set_paragraph_speaker(
+        self, key: str | None, blocks: list[QTextBlock] | None = None
+    ) -> None:
+        """Przypisuje mówcę akapitom zaznaczenia jednym krokiem cofania.
+
+        Gdy wszystkie akapity mają już tego mówcę, przypisanie jest zdejmowane
+        (przełącznik). ``key=None`` usuwa mówcę.
+        """
+        if blocks is None:
+            blocks = self.selected_blocks()
+        if not blocks:
+            return
+        if key is not None and all(block_speaker(b) == key for b in blocks):
+            key = None
+        edit = QTextCursor(self.document())
+        edit.beginEditBlock()
+        for block in blocks:
+            _set_block_speaker(block, key)
+        edit.endEditBlock()
+        self.refresh_speakers()
+
+    def remap_speakers(self, mapping: dict[str, str | None]) -> None:
+        """Zmienia klucze mówców w akapitach (None usuwa przypisanie)."""
+        blocks = [
+            block
+            for block in self._blocks()
+            if (key := block_speaker(block)) is not None and key in mapping
+        ]
+        if not blocks:
+            return
+        edit = QTextCursor(self.document())
+        edit.beginEditBlock()
+        for block in blocks:
+            _set_block_speaker(block, mapping[block_speaker(block) or ""])
+        edit.endEditBlock()
+        self.refresh_speakers()
+
+    def paragraph_speakers(self, text: str | None = None) -> dict[int, str]:
+        """Indeks akapitu (w ``plain_text``) → klucz mówcy.
+
+        Akapity tekstu rozdziela ``\n``; blok Qt może zawierać łamanie wiersza
+        (``Shift+Enter``), więc indeks liczy się po znakach nowej linii.
+        """
+        assigned = [
+            (block.position(), key)
+            for block in self._blocks()
+            if (key := block_speaker(block)) is not None
+        ]
+        if not assigned:
+            return {}
+        if text is None:
+            text = self.plain_text()
+        positions = PositionMap(text)
+        return {
+            text.count("\n", 0, positions.to_py(position)): key
+            for position, key in assigned
+        }
+
+    def speaker_at(self, position: int) -> str | None:
+        """Mówca akapitu zawierającego pozycję (punkty kodowe)."""
+        qt_position = self.position_map().to_qt(position)
+        return block_speaker(self.document().findBlock(qt_position))
+
+    def refresh_speakers(self) -> None:
+        """Dopasowuje kolumnę etykiet do mówców obecnych w tekście."""
+        keys = sorted(
+            {key for block in self._blocks() if (key := block_speaker(block))}
+        )
+        self._speaker_gutter.set_keys(keys)
+        self._speaker_gutter.update()
+
+    @property
+    def speaker_gutter(self) -> SpeakerGutter:
+        return self._speaker_gutter
+
+    def _blocks(self) -> list[QTextBlock]:
+        blocks: list[QTextBlock] = []
+        block = self.document().begin()
+        while block.isValid():
+            blocks.append(block)
+            block = block.next()
+        return blocks
+
+    def _on_speaker_label_clicked(self, block: QTextBlock, global_pos: QPoint) -> None:
+        cursor = QTextCursor(block)
+        self.setTextCursor(cursor)
+        self.speaker_label_clicked.emit(
+            self.position_map().to_py(block.position()), global_pos
+        )
 
     def track_range(
         self, start: int, end: int, positions: PositionMap | None = None
@@ -434,13 +572,23 @@ class TranscriptionEditor(QTextEdit):
         return self._layers.get(name)
 
     def sync_to_document(self, doc: Document) -> bool:
-        """Przepisuje tekst i zakresy indeksu górnego z edytora do dokumentu.
+        """Przepisuje tekst, indeks górny i mówców akapitów z edytora do dokumentu.
 
         Zwraca True, gdy dokument się zmienił (rewizja rośnie tylko wtedy).
         """
         text = self.plain_text()
         ranges = _collect_superscript_ranges(self, PositionMap(text))
-        return doc.replace_all(text, ranges)
+        return doc.replace_all(text, ranges, self.paragraph_speakers(text))
+
+
+def _set_block_speaker(block: QTextBlock, key: str | None) -> None:
+    """Ustawia albo usuwa mówcę bloku (edycja dokumentu, z historią cofania)."""
+    block_format = block.blockFormat()
+    if key is None:
+        block_format.clearProperty(SPEAKER_PROPERTY)
+    else:
+        block_format.setProperty(SPEAKER_PROPERTY, key)
+    QTextCursor(block).setBlockFormat(block_format)
 
 
 def _collect_superscript_ranges(

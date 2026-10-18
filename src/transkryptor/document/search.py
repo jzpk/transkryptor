@@ -126,3 +126,23 @@ def parse_replacement(template: str) -> ParsedReplacement:
         chars.append(char)
         i += 1
     return ParsedReplacement("".join(chars), tuple(ranges))
+
+
+def restrict_to(
+    matches: list[tuple[int, int]], spans: list[tuple[int, int]]
+) -> list[tuple[int, int]]:
+    """Trafienia mieszczące się w całości w jednym z zakresów (posortowanych).
+
+    Filtr „tylko informator”: zakresy to akapity mówców o roli informatora.
+    """
+    result: list[tuple[int, int]] = []
+    index = 0
+    for start, end in matches:
+        while index < len(spans) and spans[index][1] < end:
+            index += 1
+        if index == len(spans):
+            break
+        span_start, span_end = spans[index]
+        if span_start <= start and end <= span_end:
+            result.append((start, end))
+    return result

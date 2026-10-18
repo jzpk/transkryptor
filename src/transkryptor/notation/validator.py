@@ -1,6 +1,6 @@
 """Nieblokujący walidator struktury notacji transkrypcji.
 
-Realizuje reguły VAL-01 do VAL-11 z ``specs/transcription-rules.md``:
+Realizuje reguły VAL-01 do VAL-12 z ``specs/transcription-rules.md``:
 
 - VAL-01: pauza ``...`` lub ``…`` z odstępem przed, ale bez odstępu po.
 - VAL-02: dopisek otwarty przez ``[`` bez zamykającego ``]``.
@@ -16,6 +16,8 @@ Realizuje reguły VAL-01 do VAL-11 z ``specs/transcription-rules.md``:
 - VAL-10: indeks górny na znaku innym niż ``m``, ``n``, ``u``.
 - VAL-11 (wskazówka, domyślnie wyłączona): ``m``/``n``/``u``, które
   wyglądają na nosowość lub labializację, bez indeksu górnego.
+- VAL-12 (wskazówka): niepusty akapit bez mówcy w dokumencie, w którym
+  przypisano mówców innym akapitom.
 
 Walidator jest czystą funkcją: nie mutuje dokumentu, nie poprawia tekstu
 i nie ocenia lingwistycznej poprawności zapisu (VAL-11 jest tylko
@@ -26,9 +28,10 @@ ostrzeżeń z zakresem znaków, kodem i komunikatem.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Collection, Iterable
+from collections.abc import Callable, Collection, Iterable, Mapping
 from dataclasses import dataclass
 
+from transkryptor.document.speakers import paragraph_spans
 from transkryptor.i18n import tr
 from transkryptor.notation.ellipsis import (
     EllipsisStyle,
@@ -47,6 +50,7 @@ VAL_08 = "VAL-08"
 VAL_09 = "VAL-09"
 VAL_10 = "VAL-10"
 VAL_11 = "VAL-11"
+VAL_12 = "VAL-12"
 
 SEVERITY_WARNING = "warning"
 SEVERITY_HINT = "hint"  # niższa ranga: konwencja zapisu, nie błąd struktury
@@ -93,6 +97,7 @@ VALIDATOR_RULES: tuple[ValidatorRule, ...] = (
     ValidatorRule(VAL_09, "validator.rule.val09"),
     ValidatorRule(VAL_10, "validator.rule.val10"),
     ValidatorRule(VAL_11, "validator.rule.val11", SEVERITY_HINT, False),
+    ValidatorRule(VAL_12, "validator.rule.val12", SEVERITY_HINT),
 )
 
 DEFAULT_ENABLED: frozenset[str] = frozenset(
@@ -114,6 +119,7 @@ def validate(
     ellipsis_style: EllipsisStyle | None = None,
     superscript_ranges: Iterable[tuple[int, int]] = (),
     enabled: Collection[str] | None = None,
+    paragraph_speakers: Mapping[int, str] | None = None,
 ) -> list[Warning]:
     """Zwraca listę ostrzeżeń dla tekstu, posortowaną po pozycji.
 
@@ -121,6 +127,7 @@ def validate(
     inaczej niż wybrany styl. ``superscript_ranges`` (półotwarte zakresy
     indeksu górnego) są potrzebne regułom VAL-10 i VAL-11. ``enabled`` to
     kody włączonych reguł; ``None`` oznacza zestaw domyślny.
+    ``paragraph_speakers`` (indeks akapitu → mówca) jest potrzebne VAL-12.
     """
     active = DEFAULT_ENABLED if enabled is None else frozenset(enabled)
     ranges = sorted(superscript_ranges)
@@ -134,6 +141,7 @@ def validate(
         (VAL_09, lambda: _check_nested(text)),
         (VAL_10, lambda: _check_superscript_letters(text, ranges)),
         (VAL_11, lambda: _check_missing_superscript(text, ranges)),
+        (VAL_12, lambda: _check_missing_speaker(text, paragraph_speakers or {})),
     )
     warnings: list[Warning] = []
     for code, check in checks:
@@ -358,6 +366,37 @@ def _check_superscript_letters(
                 )
             )
             i = run_end
+    return warnings
+
+
+def _check_missing_speaker(text: str, speakers: Mapping[int, str]) -> list[Warning]:
+    """VAL-12: niepusty akapit bez mówcy, gdy dokument używa mówców.
+
+    Sama lista mówców (domyślnie B i I) nie wystarcza — wskazówka pojawia
+    się dopiero po przypisaniu mówcy pierwszemu akapitowi. Zakres to
+    pierwsze słowo akapitu.
+    """
+    if not speakers:
+        return []
+    warnings: list[Warning] = []
+    for index, (start, end) in enumerate(paragraph_spans(text)):
+        if index in speakers:
+            continue
+        paragraph = text[start:end]
+        stripped = paragraph.lstrip()
+        if not stripped:
+            continue
+        word_start = start + len(paragraph) - len(stripped)
+        word_end = word_start + (len(stripped.split()[0]))
+        warnings.append(
+            Warning(
+                code=VAL_12,
+                start=word_start,
+                end=word_end,
+                message=tr("validator.missing_speaker"),
+                severity=SEVERITY_HINT,
+            )
+        )
     return warnings
 
 

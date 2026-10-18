@@ -102,6 +102,22 @@ Pusta sekcja blokuje wydanie.
 - Szybsze wstawianie długiego szkicu ASR: przy godzinnym nagraniu
   wyszukiwanie kolidujących propozycji zapisu fonetycznego nie spowalnia
   już okna na kilka sekund.
+- Mówcy wypowiedzi: skrót **Alt+Shift+1…9** przypisuje bieżącemu akapitowi
+  (albo wszystkim zaznaczonym) mówcę o tym numerze na liście, ponowne
+  użycie albo **Alt+Shift+0** zdejmuje przypisanie; to samo jest w menu
+  kontekstowym edytora (**Mówca**). Etykieta `B:` / `I:` jest widoczna obok
+  akapitu, ale nie jest częścią tekstu, a jedno cofnięcie przywraca stan
+  sprzed przypisania. Listę mówców (klucz, opis, rola: badacz, informator
+  albo inny; domyślnie `B` i `I`) edytuje się w metryczce przyciskiem
+  **Mówcy…**. Mówcy są zapisywani w pliku projektu; projektu zapisanego
+  w nowej wersji nie otworzy starsza wersja programu.
+- Eksport DOCX zapisuje każdy wiersz tekstu jako osobny akapit, a akapit
+  z mówcą zaczyna się pogrubioną etykietą `B:`; legenda mówców trafia do
+  metryczki (w eksporcie z anonimizacją bez opisów informatorów). Import
+  DOCX zachowuje akapity i rozpoznaje mówców z takiego dokumentu.
+- Gdy dokument ma mówców, licznik słów pokazuje też liczbę słów
+  informatorów, pasek wyszukiwania ma pole **Tylko informator**, a nowa
+  wskazówka walidatora (VAL-12) wskazuje akapity bez mówcy.
 
 ## 0.5.0 — 2026-10-18
 

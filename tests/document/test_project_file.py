@@ -154,7 +154,14 @@ class TestSchema:
         migrated = migrate({"schema_version": 1, "document": {"text": "x"}})
         assert migrated == {
             "schema_version": next_version,
-            "document": {"text": "x"},
+            "document": {
+                "text": "x",
+                "speakers": [
+                    {"key": "B", "label": "", "role": "researcher"},
+                    {"key": "I", "label": "", "role": "informant"},
+                ],
+                "paragraph_speakers": [],
+            },
             "asr_context": {"prompt": "", "vocabulary": []},
             "ignored_warnings": [],
             "anchors": [],

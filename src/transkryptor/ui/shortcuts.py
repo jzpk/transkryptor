@@ -110,6 +110,7 @@ GROUP_PLAYER = "player"
 GROUP_SEARCH = "search"
 GROUP_PROJECT = "project"
 GROUP_SNIPPETS = "snippets"
+GROUP_SPEAKERS = "speakers"
 
 SUPERSCRIPT_ID = "superscript"
 SNIPPET_PREFIX = "snippet."
@@ -126,9 +127,13 @@ class ShortcutDef:
     label_key: str
     defaults: tuple[str, ...]
     group: str
+    # Numer w etykiecie („Mówca 2”) — akcje numerowane jak przypisanie mówcy.
+    number: int | None = None
 
     @property
     def label(self) -> str:
+        if self.number is not None:
+            return tr(self.label_key, number=self.number)
         return tr(self.label_key)
 
 
@@ -146,6 +151,15 @@ def search_id(key: str) -> str:
 
 def project_id(key: str) -> str:
     return f"project.{key}"
+
+
+# Mówcy (faza 12): n-ty mówca z listy dokumentu i usunięcie mówcy akapitu.
+SPEAKER_COUNT = 9
+SPEAKER_CLEAR_ID = "speaker.clear"
+
+
+def speaker_id(number: int) -> str:
+    return f"speaker.{number}"
 
 
 SHORTCUT_ACTIONS: tuple[ShortcutDef, ...] = (
@@ -206,6 +220,19 @@ SHORTCUT_ACTIONS: tuple[ShortcutDef, ...] = (
         project_id("settings"), "toolbar.settings", (SETTINGS_SHORTCUT,), GROUP_PROJECT
     ),
     ShortcutDef(project_id("close"), "toolbar.close", (CLOSE_SHORTCUT,), GROUP_PROJECT),
+    *(
+        ShortcutDef(
+            speaker_id(number),
+            "speakers.action.assign",
+            (f"Alt+Shift+{number}",),
+            GROUP_SPEAKERS,
+            number,
+        )
+        for number in range(1, SPEAKER_COUNT + 1)
+    ),
+    ShortcutDef(
+        SPEAKER_CLEAR_ID, "speakers.action.clear", ("Alt+Shift+0",), GROUP_SPEAKERS
+    ),
 )
 
 SHORTCUT_ACTIONS_BY_ID: dict[str, ShortcutDef] = {d.id: d for d in SHORTCUT_ACTIONS}
