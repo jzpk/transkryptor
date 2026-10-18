@@ -53,7 +53,7 @@ class Exporter:
 def _docx(
     document: ExportDocument, path: Path, options: ExportOptions, report: ExportReport
 ) -> None:
-    write_docx(document, path)
+    write_docx(document, path, options, report)
 
 
 _TEXT = frozenset({OPTION_SUPERSCRIPT})

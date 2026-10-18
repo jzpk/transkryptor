@@ -9,6 +9,9 @@ funkcje dopisują pola do właściwej zakładki albo dodają nową.
 
 from __future__ import annotations
 
+from dataclasses import replace
+from pathlib import Path
+
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
@@ -42,9 +45,17 @@ from transkryptor.document.metadata import (
     DEFAULT_FIELDS,
     DEFAULT_KEYS,
     MetadataField,
+    enabled_fields,
     encode_fields,
     new_custom_field,
 )
+from transkryptor.export.docx_template import (
+    TemplateCheck,
+    check_template,
+    suggested_placeholders,
+)
+from transkryptor.export.options import UNTIMED_MODES
+from transkryptor.export.superscript import MODES as SUPERSCRIPT_MODES
 from transkryptor.i18n import LANGUAGES, tr
 from transkryptor.notation.ellipsis import EllipsisStyle
 from transkryptor.notation.rules import PhoneticRule
@@ -316,6 +327,43 @@ class SettingsDialog(QDialog):
         asr_form.addRow(tr("settings.asr.vocabulary"), self.vocabulary_edit)
         asr_form.addRow(vocabulary_hint)
 
+        # Eksport (faza 12): szablon DOCX i domyślne opcje formatów tekstowych.
+        self.template_edit = QLineEdit()
+        self.template_edit.setPlaceholderText(tr("settings.export.template.builtin"))
+        self.template_edit.setClearButtonEnabled(True)
+        self.template_edit.editingFinished.connect(self.check_template)
+        self.template_edit.textChanged.connect(
+            lambda text: text or self.check_template()
+        )
+        self.template_button = QPushButton(tr("settings.export.template.choose"))
+        self.template_button.clicked.connect(self._choose_template)
+        template_row = QHBoxLayout()
+        template_row.addWidget(self.template_edit, stretch=1)
+        template_row.addWidget(self.template_button)
+        self.template_status = QLabel()
+        self.template_status.setWordWrap(True)
+        self.template_status.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse
+        )
+        self.placeholders_hint = QLabel()
+        self.placeholders_hint.setWordWrap(True)
+        self.placeholders_hint.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse
+        )
+        set_props(self.placeholders_hint, role="muted")
+        self.superscript_mode_combo = QComboBox()
+        for mode in SUPERSCRIPT_MODES:
+            self.superscript_mode_combo.addItem(tr(f"export.superscript.{mode}"), mode)
+        self.untimed_mode_combo = QComboBox()
+        for mode in UNTIMED_MODES:
+            self.untimed_mode_combo.addItem(tr(f"export.untimed.{mode}"), mode)
+        export_form = _form()
+        export_form.addRow(tr("settings.export.template"), template_row)
+        export_form.addRow(self.template_status)
+        export_form.addRow(self.placeholders_hint)
+        export_form.addRow(tr("export_dialog.superscript"), self.superscript_mode_combo)
+        export_form.addRow(tr("export_dialog.untimed"), self.untimed_mode_combo)
+
         self.tabs = QTabWidget()
         self.tabs.addTab(_page(appearance_form), tr("settings.tab.appearance"))
         self.tabs.addTab(_page(player_form), tr("settings.tab.player"))
@@ -331,6 +379,7 @@ class SettingsDialog(QDialog):
         self.tabs.addTab(self.snippets_editor, tr("settings.tab.snippets"))
         self.tabs.addTab(_page(project_form), tr("settings.tab.project"))
         self.tabs.addTab(metadata_page, tr("settings.tab.metadata"))
+        self.tabs.addTab(_page(export_form), tr("settings.tab.export"))
         self.tabs.addTab(_page(asr_form), tr("settings.tab.asr"))
         self.log_panel = LogPanel()
         self.tabs.addTab(self.log_panel, tr("settings.tab.logs"))
@@ -411,8 +460,19 @@ class SettingsDialog(QDialog):
 
         # Model wybiera się w panelu ASR — okno tylko go przenosi dalej.
         self._asr_model_key = settings.asr.model_key
-        # Ostatni format i opcje okna „Eksportuj jako…” (nie są polami okna).
+        # Ostatni format okna „Eksportuj jako…” nie jest polem tego okna.
         self._export = settings.export
+        self.template_edit.setText(settings.export.template_path)
+        self.superscript_mode_combo.setCurrentIndex(
+            max(
+                self.superscript_mode_combo.findData(settings.export.superscript_mode),
+                0,
+            )
+        )
+        self.untimed_mode_combo.setCurrentIndex(
+            max(self.untimed_mode_combo.findData(settings.export.untimed_mode), 0)
+        )
+        self.check_template()
         self.models_root_edit.setText(settings.asr.models_root)
         index = self.device_combo.findData(settings.asr.device)
         self.device_combo.setCurrentIndex(max(index, 0))
@@ -529,6 +589,49 @@ class SettingsDialog(QDialog):
         if directory:
             self.models_root_edit.setText(directory)
 
+    def _choose_template(self) -> None:
+        start = self.template_edit.text().strip()
+        path, _selected = QFileDialog.getOpenFileName(
+            self,
+            tr("settings.export.template.dialog"),
+            str(Path(start).parent) if start else "",
+            tr("export.filter"),
+        )
+        if path:
+            self.template_edit.setText(path)
+            self.check_template()
+
+    def check_template(self) -> TemplateCheck | None:
+        """ACC-56: walidacja szablonu przy wyborze — ostrzeżenie, nie blokada."""
+        fields = self.metadata_fields()
+        self.placeholders_hint.setText(
+            tr(
+                "settings.export.placeholders",
+                names=" ".join(suggested_placeholders(enabled_fields(fields))),
+            )
+        )
+        path = self.template_edit.text().strip()
+        if not path:
+            self.template_status.setText(tr("settings.export.template.builtin_hint"))
+            set_props(self.template_status, role="muted", tone="")
+            return None
+        check = check_template(path, fields)
+        if check.error is not None:
+            text = tr("settings.export.template.invalid", reason=check.error)
+            tone = "danger"
+        elif check.unknown:
+            text = tr(
+                "settings.export.template.unknown",
+                names=", ".join(f"{{{{{name}}}}}" for name in check.unknown),
+            )
+            tone = "warning"
+        else:
+            text = tr("settings.export.template.ok", count=len(check.placeholders))
+            tone = "success"
+        self.template_status.setText(text)
+        set_props(self.template_status, role="status", tone=tone)
+        return check
+
     def _update_ellipsis_hint(self) -> None:
         """Podpowiedź „Ujednolić” tylko po zmianie stylu względem bieżącego."""
         changed = self.ellipsis_combo.currentData() != self._initial_ellipsis_style
@@ -619,7 +722,12 @@ class SettingsDialog(QDialog):
                 autosave_interval_s=self.autosave_spin.value(),
             ),
             metadata=MetadataSettings(fields_spec=_fields_spec(self.metadata_fields())),
-            export=self._export,
+            export=replace(
+                self._export,
+                template_path=self.template_edit.text().strip(),
+                superscript_mode=str(self.superscript_mode_combo.currentData()),
+                untimed_mode=str(self.untimed_mode_combo.currentData()),
+            ),
             appearance=AppearanceSettings(
                 theme=str(self.theme_combo.currentData()),
                 language=str(self.language_combo.currentData()),

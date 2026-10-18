@@ -652,5 +652,19 @@
   "export.error.no_times": "The text is not linked to recording time — this format needs times.",
   "export.error.no_times.hint": "Insert an ASR draft or manual timestamps (Ctrl+Shift+T) and try again.",
   "export.tier.transcription": "transcription",
-  "export.tier.no_speaker": "no speaker"
+  "export.tier.no_speaker": "no speaker",
+  "settings.tab.export": "Export",
+  "settings.export.template": "DOCX template:",
+  "settings.export.template.builtin": "built-in template",
+  "settings.export.template.choose": "Choose…",
+  "settings.export.template.dialog": "Choose a DOCX template",
+  "settings.export.template.builtin_hint": "Without a template, DOCX export uses the built-in layout: the details table, the “Author/Date” paragraph and the text.",
+  "settings.export.template.invalid": "The template will not work: {reason} Export will use the built-in template.",
+  "settings.export.template.unknown": "The template opens, but it has unknown placeholders: {names}. They will be left unchanged.",
+  "settings.export.template.ok": "The template is valid (placeholders: {count}).",
+  "settings.export.placeholders": "Template placeholders (paragraphs, tables, header, footer): {names}. {{{{transkrypcja}}}} marks where the text goes (otherwise at the end), and {{{{metryczka}}}} the details table. Personal fields are empty in anonymized exports.",
+  "template.error.missing": "the file “{name}” does not exist.",
+  "template.error.unreadable": "the file “{name}” cannot be opened as DOCX (it is damaged or has another format, e.g. .doc or .dotx).",
+  "template.report.fallback": "The DOCX template did not work — {reason} The built-in template was used.",
+  "template.report.unknown": "Unknown template placeholders were left unchanged: {names}."
 }

@@ -652,5 +652,19 @@
   "export.error.no_times": "Tekst nie jest powiązany z czasem nagrania — ten format wymaga czasów.",
   "export.error.no_times.hint": "Wstaw szkic ASR albo ręczne znaczniki czasu (Ctrl+Shift+T) i spróbuj ponownie.",
   "export.tier.transcription": "transkrypcja",
-  "export.tier.no_speaker": "bez mówcy"
+  "export.tier.no_speaker": "bez mówcy",
+  "settings.tab.export": "Eksport",
+  "settings.export.template": "Szablon DOCX:",
+  "settings.export.template.builtin": "szablon wbudowany",
+  "settings.export.template.choose": "Wybierz…",
+  "settings.export.template.dialog": "Wybierz szablon DOCX",
+  "settings.export.template.builtin_hint": "Bez szablonu eksport DOCX ma układ wbudowany: tabela metryczki, akapit „Autor/Data” i tekst.",
+  "settings.export.template.invalid": "Szablon nie zadziała: {reason} Eksport użyje szablonu wbudowanego.",
+  "settings.export.template.unknown": "Szablon otwiera się, ale ma nieznane placeholdery: {names}. Zostaną w dokumencie bez zmian.",
+  "settings.export.template.ok": "Szablon jest poprawny (placeholderów: {count}).",
+  "settings.export.placeholders": "Placeholdery w szablonie (akapity, tabele, nagłówek, stopka): {names}. {{{{transkrypcja}}}} wskazuje miejsce tekstu (bez niego — koniec dokumentu), a {{{{metryczka}}}} — tabelę metryczki. Pola osobowe są puste w eksporcie z anonimizacją.",
+  "template.error.missing": "nie ma pliku „{name}”.",
+  "template.error.unreadable": "pliku „{name}” nie da się otworzyć jako DOCX (jest uszkodzony albo ma inny format, np. .doc lub .dotx).",
+  "template.report.fallback": "Szablon DOCX nie zadziałał — {reason} Użyto szablonu wbudowanego.",
+  "template.report.unknown": "Nieznane placeholdery szablonu zostały w dokumencie bez zmian: {names}."
 }

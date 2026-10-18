@@ -7,6 +7,7 @@ from transkryptor.settings import (
     AppearanceSettings,
     AsrSettings,
     EditorSettings,
+    ExportSettings,
     NotationSettings,
     PlayerSettings,
     Settings,
@@ -111,6 +112,7 @@ class TestSettingsDialog:
             "Wstawki",
             "Projekt",
             "Metryczka",
+            "Eksport",
             "ASR",
             "Dziennik logów",
         ]
@@ -132,6 +134,7 @@ class TestSettingsDialog:
         assert tab_of(dialog.vocabulary_edit) == "ASR"
         assert tab_of(dialog.chunked_check) == "ASR"
         assert tab_of(dialog.models_root_edit) == "ASR"
+        assert tab_of(dialog.template_edit) == "Eksport"
 
     def test_asr_settings_round_trip_and_keep_model(self, qtbot) -> None:
         """Okno nie zmienia modelu wybranego w panelu ASR."""
@@ -289,3 +292,42 @@ def test_vocabulary_with_newlines_survives_ini(isolated_settings) -> None:
     settings = Settings(asr=AsrSettings(vocabulary="Ocieszyn\nOborniki"))
     store.save(settings)
     assert SettingsStore(isolated_settings()).load() == settings
+
+
+class TestExportTab:
+    """Faza 12: szablon DOCX i domyślne opcje eksportu (ACC-56)."""
+
+    def test_round_trip_keeps_last_format(self, qtbot, tmp_path) -> None:
+        from docx import Document as DocxDocument
+
+        template = tmp_path / "szablon.docx"
+        docx = DocxDocument()
+        docx.add_paragraph("{{sygnatura}} {{transkrypcja}}")
+        docx.save(str(template))
+        settings = Settings(
+            export=ExportSettings(
+                template_path=str(template),
+                superscript_mode="caret",
+                untimed_mode="skip",
+                last_format="eaf",
+            )
+        )
+        dialog = SettingsDialog(settings)
+        qtbot.addWidget(dialog)
+        assert dialog.settings().export == settings.export
+        assert "2" in dialog.template_status.text()
+        assert "{{badacz}}" in dialog.placeholders_hint.text()
+
+    def test_broken_template_warns_on_choice(self, qtbot, tmp_path) -> None:
+        broken = tmp_path / "zepsuty.docx"
+        broken.write_bytes(b"x")
+        dialog = SettingsDialog(Settings())
+        qtbot.addWidget(dialog)
+        dialog.template_edit.setText(str(broken))
+        check = dialog.check_template()
+        assert check is not None and not check.ok
+        assert "wbudowanego" in dialog.template_status.text()
+        # Ostrzeżenie nie blokuje zapisu ustawień.
+        assert dialog.settings().export.template_path == str(broken)
+        dialog.template_edit.clear()
+        assert dialog.check_template() is None

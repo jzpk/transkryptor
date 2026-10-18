@@ -114,3 +114,26 @@ def test_docx_export_still_marks_exported(add_window, monkeypatch, tmp_path) -> 
     window.export_action.trigger()
     assert (tmp_path / "wywiad.docx").is_file()
     assert not window.document.is_dirty
+
+
+def test_broken_template_exports_on_builtin_with_warning(
+    add_window, monkeypatch, tmp_path, no_blocking_dialogs
+) -> None:
+    """ACC-56: uszkodzony szablon → eksport na szablonie wbudowanym z ostrzeżeniem."""
+    from dataclasses import replace
+
+    broken = tmp_path / "zepsuty.docx"
+    broken.write_bytes(b"x")
+    window = make_window(add_window)
+    current = window.settings_store.current
+    window.settings_store.save(
+        replace(current, export=replace(current.export, template_path=str(broken)))
+    )
+    save_dialog(monkeypatch, tmp_path / "wynik.docx")
+
+    window.export_action.trigger()
+
+    assert (tmp_path / "wynik.docx").is_file()
+    assert not window.document.is_dirty
+    warnings = [call for call in no_blocking_dialogs if call[0] == "warning"]
+    assert warnings and "zepsuty.docx" in warnings[-1][2]

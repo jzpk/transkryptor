@@ -128,6 +128,16 @@ Pusta sekcja blokuje wydanie.
   wyznaczony z sąsiednich kotwic albo są pomijane — raport po eksporcie
   wymienia takie fragmenty. Plik ELAN wskazuje nagranie. Wybrany format
   i opcje są pamiętane; DOCX pozostaje głównym formatem.
+- Szablon eksportu DOCX: w **Ustawieniach…** nowa zakładka **Eksport**
+  pozwala wskazać plik `.docx` instytucji (czcionki, marginesy, nagłówek,
+  stopka, logo). Placeholdery `{{sygnatura}}`, `{{badacz}}`,
+  `{{miejscowosc}}` itd. w tekście, tabelach, nagłówku i stopce są
+  wypełniane metryczką (w eksporcie z anonimizacją pola osobowe są puste),
+  `{{transkrypcja}}` wskazuje miejsce tekstu, a `{{metryczka}}` — tabelę
+  metryczki. Szablon jest sprawdzany przy wyborze (nieznane placeholdery,
+  uszkodzony plik); gdy nie da się go otworzyć, eksport powstaje na
+  szablonie wbudowanym z ostrzeżeniem. W tej samej zakładce są domyślne
+  opcje indeksu górnego i fragmentów bez czasu.
 
 ## 0.5.0 — 2026-10-18
 

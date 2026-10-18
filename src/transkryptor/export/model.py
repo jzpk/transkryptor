@@ -61,6 +61,8 @@ class ExportDocument:
     anchors: tuple[Anchor, ...] = ()
     audio_path: Path | None = None
     anonymize: bool = False
+    # Konfiguracja pól zespołu (placeholdery szablonu DOCX dla pól bez wartości).
+    fields: tuple[MetadataField, ...] = DEFAULT_FIELDS
 
     def value(self, key: str) -> str:
         """Wartość pola metryczki po anonimizacji (pusta, gdy brak)."""
@@ -104,6 +106,7 @@ def build_export_document(
     audio_path: str | Path | None = None,
 ) -> ExportDocument:
     """Model wyjścia z dokumentu; ``anonymize`` pomija dane osobowe."""
+    fields = tuple(fields)
     speakers = tuple(
         replace(speaker, label="") if anonymize and speaker.is_informant else speaker
         for speaker in document.speakers
@@ -131,6 +134,7 @@ def build_export_document(
         anchors=tuple(anchors),
         audio_path=Path(audio_path) if audio_path is not None else None,
         anonymize=anonymize,
+        fields=tuple(fields),
     )
 
 
