@@ -118,6 +118,16 @@ Pusta sekcja blokuje wydanie.
 - Gdy dokument ma mówców, licznik słów pokazuje też liczbę słów
   informatorów, pasek wyszukiwania ma pole **Tylko informator**, a nowa
   wskazówka walidatora (VAL-12) wskazuje akapity bez mówcy.
+- Nowe formaty eksportu: w menu przycisku **Eksportuj DOCX** pozycja
+  **Eksportuj jako…** zapisuje transkrypcję jako ODT, PDF, zwykły tekst
+  (TXT), plik ELAN (`.eaf`), Praat TextGrid oraz napisy SRT i WebVTT.
+  W formatach tekstowych indeks górny można zapisać znakami Unicode
+  (`ᵐ ⁿ ᵘ`, domyślnie) albo oznaczeniem `^m`. ELAN, Praat i napisy
+  korzystają z powiązania tekstu z nagraniem (szkic ASR, znaczniki czasu):
+  każdy mówca ma osobną warstwę, a fragmenty bez czasu dostają czas
+  wyznaczony z sąsiednich kotwic albo są pomijane — raport po eksporcie
+  wymienia takie fragmenty. Plik ELAN wskazuje nagranie. Wybrany format
+  i opcje są pamiętane; DOCX pozostaje głównym formatem.
 
 ## 0.5.0 — 2026-10-18
 

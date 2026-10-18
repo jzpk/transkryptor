@@ -24,6 +24,9 @@ from transkryptor.document.metadata import (
     MetadataField,
     decode_fields,
 )
+from transkryptor.export.options import UNTIMED_INTERPOLATE, UNTIMED_MODES
+from transkryptor.export.superscript import MODES as SUPERSCRIPT_MODES
+from transkryptor.export.superscript import UNICODE
 from transkryptor.i18n import LANGUAGES
 from transkryptor.notation.ellipsis import DEFAULT_ELLIPSIS_STYLE, EllipsisStyle
 from transkryptor.notation.validator import enabled_codes
@@ -241,6 +244,20 @@ class MetadataSettings:
 
 
 @dataclass(frozen=True)
+class ExportSettings:
+    """Eksport (faza 12): szablon DOCX i domyślne opcje „Eksportuj jako…”.
+
+    ``template_path`` pusty = szablon wbudowany. ``last_format`` to klucz
+    formatu z ``export/registry.py`` ostatnio wybrany w oknie eksportu.
+    """
+
+    template_path: str = ""
+    superscript_mode: str = UNICODE
+    untimed_mode: str = UNTIMED_INTERPOLATE
+    last_format: str = "docx"
+
+
+@dataclass(frozen=True)
 class AsrSettings:
     """Model ASR, katalog modeli, urządzenie i globalny słownik.
 
@@ -284,6 +301,7 @@ class Settings:
     snippets: SnippetSettings = field(default_factory=SnippetSettings)
     project: ProjectSettings = field(default_factory=ProjectSettings)
     metadata: MetadataSettings = field(default_factory=MetadataSettings)
+    export: ExportSettings = field(default_factory=ExportSettings)
     appearance: AppearanceSettings = field(default_factory=AppearanceSettings)
     asr: AsrSettings = field(default_factory=AsrSettings)
 
@@ -348,6 +366,10 @@ _FIELDS: tuple[_Field, ...] = (
         str,
         validate=lambda raw: decode_fields(raw) is not None,
     ),
+    _Field("export", "template_path", str),
+    _Field("export", "superscript_mode", str, choices=SUPERSCRIPT_MODES),
+    _Field("export", "untimed_mode", str, choices=UNTIMED_MODES),
+    _Field("export", "last_format", str),
     _Field("appearance", "theme", str, choices=THEMES),
     _Field("appearance", "language", str, choices=LANGUAGE_CHOICES),
     _Field("asr", "model_key", str, choices=MODEL_KEYS),
@@ -384,6 +406,7 @@ def from_mapping(mapping: Mapping[str, Any]) -> Settings:
         "snippets": {},
         "project": {},
         "metadata": {},
+        "export": {},
         "appearance": {},
         "asr": {},
     }
@@ -413,6 +436,9 @@ def from_mapping(mapping: Mapping[str, Any]) -> Settings:
         ),
         metadata=replace(
             MetadataSettings(), **sections["metadata"]  # type: ignore[arg-type]
+        ),
+        export=replace(
+            ExportSettings(), **sections["export"]  # type: ignore[arg-type]
         ),
         appearance=replace(
             AppearanceSettings(), **sections["appearance"]  # type: ignore[arg-type]

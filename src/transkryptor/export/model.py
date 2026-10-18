@@ -114,7 +114,7 @@ def build_export_document(
         ExportParagraph(
             start,
             end,
-            _slice_runs(document.text, runs, start, end),
+            slice_runs(document.text, runs, start, end),
             by_key.get(document.paragraph_speakers.get(index, "")),
         )
         for index, (start, end) in enumerate(paragraph_spans(document.text))
@@ -155,7 +155,7 @@ def split_runs(
     return runs
 
 
-def _slice_runs(
+def slice_runs(
     text: str, runs: list[tuple[int, int, bool]], start: int, end: int
 ) -> tuple[ExportRun, ...]:
     """Runy akapitu ``[start, end)`` (bez przejścia po całym tekście)."""

@@ -24,7 +24,7 @@ def ask_save_path(
     )
     if not path:
         return None
-    if path.lower().endswith(suffix):
+    if path.lower().endswith(suffix.lower()):
         return Path(path)
     target = Path(path + suffix)
     if target.exists():

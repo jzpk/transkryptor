@@ -42,7 +42,7 @@ from transkryptor.errors import AppError
 from transkryptor.i18n import tr
 from transkryptor.notation.ellipsis import EllipsisStyle
 from transkryptor.notation.suggestions import rule_infos
-from transkryptor.settings import Settings
+from transkryptor.settings import ExportSettings, Settings
 from transkryptor.ui import icons
 from transkryptor.ui.asr_panel import AsrPanel
 from transkryptor.ui.changelog_dialog import ChangelogDialog
@@ -205,6 +205,11 @@ class MainWindow(QMainWindow):
             self.date_edit,
             lambda: self.settings_store.current.metadata.fields,
             self._update_title,
+            anchors=self.sync.entries,
+            audio_path=lambda: self.player.source_path,
+            settings=lambda: self.settings_store.current.export,
+            save_settings=self._save_export_settings,
+            font_family=lambda: self.settings_store.current.editor.font_family,
         )
         self.search = SearchController(
             self.editor, self.search_bar, self, self._informant_spans
@@ -348,6 +353,7 @@ class MainWindow(QMainWindow):
                 save_project_as=self.session.save_project_as,
                 import_docx=self.session.import_docx_dialog,
                 export_anonymized=lambda: self.exporter.export(anonymize=True),
+                export_as=self.exporter.export_as,
             ),
         )
         self.toolbar = bar.toolbar
@@ -358,6 +364,7 @@ class MainWindow(QMainWindow):
         self.new_action = bar.new_action
         self.export_action = bar.export_action
         self.export_anonymized_action = bar.export_anonymized_action
+        self.export_as_action = bar.export_as_action
         self.close_action = bar.close_action
         self.open_action = bar.open_action
         self.save_action = bar.save_action
@@ -529,6 +536,12 @@ class MainWindow(QMainWindow):
                 replace(current, asr=replace(current.asr, model_key=key))
             )
 
+    def _save_export_settings(self, export: ExportSettings) -> None:
+        """Ostatni format i opcje okna „Eksportuj jako…” są pamiętane."""
+        current = self.settings_store.current
+        if current.export != export:
+            self.settings_store.save(replace(current, export=export))
+
     def _on_waveform_expanded(self, expanded: bool) -> None:
         """Zwinięcie fali jest zapamiętywane w ustawieniach."""
         current = self.settings_store.current
@@ -681,6 +694,7 @@ class MainWindow(QMainWindow):
             self.import_docx_action,
             self.export_action,
             self.export_anonymized_action,
+            self.export_as_action,
             self.settings_action,
             self.unify_ellipses_action,
             *self.search_actions.values(),

@@ -411,6 +411,8 @@ class SettingsDialog(QDialog):
 
         # Model wybiera się w panelu ASR — okno tylko go przenosi dalej.
         self._asr_model_key = settings.asr.model_key
+        # Ostatni format i opcje okna „Eksportuj jako…” (nie są polami okna).
+        self._export = settings.export
         self.models_root_edit.setText(settings.asr.models_root)
         index = self.device_combo.findData(settings.asr.device)
         self.device_combo.setCurrentIndex(max(index, 0))
@@ -617,6 +619,7 @@ class SettingsDialog(QDialog):
                 autosave_interval_s=self.autosave_spin.value(),
             ),
             metadata=MetadataSettings(fields_spec=_fields_spec(self.metadata_fields())),
+            export=self._export,
             appearance=AppearanceSettings(
                 theme=str(self.theme_combo.currentData()),
                 language=str(self.language_combo.currentData()),

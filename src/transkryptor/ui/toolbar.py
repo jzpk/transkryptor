@@ -66,6 +66,7 @@ class ToolbarHandlers:
     save_project_as: Callable[[], object]
     import_docx: Callable[[], None]
     export_anonymized: Callable[[], None]
+    export_as: Callable[[], None] = lambda: None
 
 
 @dataclass(frozen=True)
@@ -315,8 +316,15 @@ class MainToolbar:
         self.export_anonymized_action.triggered.connect(
             lambda _checked=False: handlers.export_anonymized()
         )
+        self.export_as_action = QAction(tr("toolbar.export_as"), window)
+        self.export_as_action.setToolTip(tr("toolbar.export_as.tooltip"))
+        self.export_as_action.triggered.connect(
+            lambda _checked=False: handlers.export_as()
+        )
         export_menu = QMenu(window)
         export_menu.addAction(self.export_anonymized_action)
+        export_menu.addSeparator()
+        export_menu.addAction(self.export_as_action)
         self._add(self.export_action, menu=export_menu)
         set_props(self._buttons[self.export_action], variant="primary")
 
