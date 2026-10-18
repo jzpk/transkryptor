@@ -137,3 +137,16 @@ def test_broken_template_exports_on_builtin_with_warning(
     assert not window.document.is_dirty
     warnings = [call for call in no_blocking_dialogs if call[0] == "warning"]
     assert warnings and "zepsuty.docx" in warnings[-1][2]
+
+
+def test_bundled_font_is_default_for_editor_and_pdf(
+    add_window, monkeypatch, tmp_path
+) -> None:
+    """Faza 12: Charis SIL w edytorze i osadzona w PDF."""
+    from transkryptor.ui.fonts import DEFAULT_TEXT_FONT
+
+    window = make_window(add_window)
+    assert window.editor.font().family() == DEFAULT_TEXT_FONT
+    save_dialog(monkeypatch, tmp_path / "wywiad.pdf")
+    assert window.exporter.export_with(exporter_by_key("pdf"), ExportOptions(), False)
+    assert b"CharisSIL" in (tmp_path / "wywiad.pdf").read_bytes()

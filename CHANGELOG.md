@@ -138,6 +138,12 @@ Pusta sekcja blokuje wydanie.
   uszkodzony plik); gdy nie da się go otworzyć, eksport powstaje na
   szablonie wbudowanym z ostrzeżeniem. W tej samej zakładce są domyślne
   opcje indeksu górnego i fragmentów bez czasu.
+- Czcionka Charis SIL (licencja SIL Open Font License) jest dołączona do
+  programu i jest domyślną czcionką tekstu w edytorze i eksporcie: dobrze
+  wyświetla znaki fonetyczne i indeks górny `ᵐ ⁿ ᵘ`. PDF zawiera czcionkę,
+  a w DOCX i ODT zapisana jest jej nazwa (na komputerze bez Charis SIL
+  edytor dokumentów podstawi inną). Inną czcionkę można wybrać jak dotąd
+  w **Ustawieniach…** (zakładka **Wygląd**).
 
 ## 0.5.0 — 2026-10-18
 

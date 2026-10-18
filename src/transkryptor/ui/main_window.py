@@ -48,6 +48,7 @@ from transkryptor.ui.asr_panel import AsrPanel
 from transkryptor.ui.changelog_dialog import ChangelogDialog
 from transkryptor.ui.editor import TranscriptionEditor
 from transkryptor.ui.export_controller import ExportController
+from transkryptor.ui.fonts import text_font_family
 from transkryptor.ui.layout import (
     author_field,
     buddy_caption,
@@ -209,7 +210,9 @@ class MainWindow(QMainWindow):
             audio_path=lambda: self.player.source_path,
             settings=lambda: self.settings_store.current.export,
             save_settings=self._save_export_settings,
-            font_family=lambda: self.settings_store.current.editor.font_family,
+            font_family=lambda: text_font_family(
+                self.settings_store.current.editor.font_family
+            ),
         )
         self.search = SearchController(
             self.editor, self.search_bar, self, self._informant_spans

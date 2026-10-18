@@ -343,6 +343,17 @@ def collect_distribution_licenses(
     return tuple(collected)
 
 
+# Zasoby inne niż kod dołączone w pakiecie ``transkryptor`` (faza 12).
+FONT_DIRECTORY = Path(__file__).resolve().parent.parent / "fonts"
+FONT_LICENSE = "OFL.txt"
+FONT_NOTICE = (
+    "Charis SIL 6.200",
+    "SIL International",
+    "OFL-1.1",
+    "https://software.sil.org/charis/",
+)
+
+
 def render_notices(distributions: tuple[DistributionLicense, ...]) -> str:
     """Treść pliku ``THIRD-PARTY-NOTICES.md`` dołączanego do artefaktu."""
     lines = [
@@ -392,6 +403,19 @@ def render_notices(distributions: tuple[DistributionLicense, ...]) -> str:
     lines += ["", "### Uwagi", ""]
     for note in NATIVE_LIBRARY_NOTES:
         lines.append(f"- **{note.component}** — {note.note}")
+    font, author, font_license, font_url = FONT_NOTICE
+    lines += [
+        "",
+        "## Czcionki",
+        "",
+        "| Czcionka | Autor | Licencja | Tekst licencji | Źródło |",
+        "| --- | --- | --- | --- | --- |",
+        f"| {font} | {author} | {font_license} | "
+        f"`third-party/fonts/{FONT_LICENSE}` | <{font_url}> |",
+        "",
+        "Czcionka jest domyślną czcionką edytora i eksportu; pliki są",
+        "dołączone bez zmian, a nazwy „Charis” i „SIL” są zarezerwowane.",
+    ]
     lines += [
         "",
         "## Kod źródłowy komponentów GPL i LGPL",
@@ -444,6 +468,9 @@ def write_license_bundle(
     collected = collect_distribution_licenses(
         dest / "third-party", distributions=distributions
     )
+    fonts = dest / "third-party" / "fonts"
+    fonts.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(FONT_DIRECTORY / FONT_LICENSE, fonts / FONT_LICENSE)
     notices = dest / "THIRD-PARTY-NOTICES.md"
     notices.write_text(render_notices(collected), encoding="utf-8")
     (dest / "MODEL-LICENSE.md").write_text(render_model_notice(), encoding="utf-8")

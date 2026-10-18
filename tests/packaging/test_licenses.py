@@ -135,3 +135,22 @@ def test_missing_application_license_is_reported(tmp_path) -> None:
         licenses.write_license_bundle(
             tmp_path / "licenses", app_license=tmp_path / "nie-ma.txt"
         )
+
+
+def test_bundled_font_license_is_included(bundle) -> None:
+    """Faza 12: Charis SIL (OFL-1.1) ma tekst licencji i wpis w notach."""
+    text = (bundle.root / "third-party" / "fonts" / "OFL.txt").read_text(
+        encoding="utf-8"
+    )
+    assert "SIL OPEN FONT LICENSE Version 1.1" in text
+    notices = bundle.notices.read_text(encoding="utf-8")
+    assert "Charis SIL" in notices and "OFL-1.1" in notices
+
+
+def test_font_files_are_package_data() -> None:
+    from transkryptor.packaging.bundle import PACKAGE_DATA
+    from transkryptor.ui.fonts import FONT_FILES
+
+    assert ("transkryptor", "fonts") in PACKAGE_DATA
+    for name in (*FONT_FILES, "OFL.txt"):
+        assert (licenses.FONT_DIRECTORY / name).is_file()

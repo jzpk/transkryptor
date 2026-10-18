@@ -37,6 +37,7 @@ from PySide6.QtWidgets import QMenu, QTextEdit, QToolTip
 from transkryptor.document.model import Document
 from transkryptor.i18n import tr
 from transkryptor.settings import EditorSettings
+from transkryptor.ui.fonts import text_font_family
 from transkryptor.ui.highlights import (
     REVIEW_LAYER,
     SEARCH_LAYER,
@@ -109,14 +110,15 @@ class TranscriptionEditor(QTextEdit):
         self.document().setDocumentMargin(16)
 
     def apply_settings(self, settings: EditorSettings) -> None:
-        """Ustawia czcionkę tekstu; puste pola oznaczają czcionkę domyślną.
+        """Ustawia czcionkę tekstu; puste pole = dołączona Charis SIL.
 
-        Czcionka należy do widoku, nie do dokumentu: nie zmienia tekstu,
-        historii cofania ani eksportu DOCX.
+        Czcionka należy do widoku, nie do dokumentu: nie zmienia tekstu ani
+        historii cofania (eksport używa tego samego ustawienia).
         """
         font = QFont(self._base_font)
-        if settings.font_family:
-            font.setFamily(settings.font_family)
+        family = text_font_family(settings.font_family)
+        if family:
+            font.setFamily(family)
         if settings.font_size_pt:
             font.setPointSizeF(settings.font_size_pt)
         else:

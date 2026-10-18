@@ -77,12 +77,14 @@ EXCLUDED_MODULES = (
 # pliku transkrypcja w artefakcie kończy się błędem otwarcia pliku.
 #
 # ``transkryptor/i18n/locales`` to katalogi tłumaczeń interfejsu (JSON)
-# wczytywane przez ``importlib.resources`` przy starcie, a
-# ``transkryptor/notation/data`` — wbudowane reguły fonetyczne (TOML).
+# wczytywane przez ``importlib.resources`` przy starcie,
+# ``transkryptor/notation/data`` — wbudowane reguły fonetyczne (TOML),
+# a ``transkryptor/fonts`` — czcionka tekstu Charis SIL z licencją OFL.
 PACKAGE_DATA = (
     ("faster_whisper", "assets"),
     ("transkryptor", "i18n/locales"),
     ("transkryptor", "notation/data"),
+    ("transkryptor", "fonts"),
 )
 # Historia zmian z katalogu repozytorium trafia obok modułów ``transkryptor``,
 # skąd okno „Co nowego” czyta ją przez ``importlib.resources``.
