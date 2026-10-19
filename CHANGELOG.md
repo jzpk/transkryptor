@@ -90,6 +90,9 @@ Pusta sekcja blokuje wydanie.
   powstaje w tle bez blokowania okna (godzina nagrania — kilkanaście
   sekund) i jest zapamiętywana w pamięci podręcznej, więc przy kolejnym
   otwarciu pojawia się od razu. Falę można zwinąć; wybór jest pamiętany.
+- Szybsze wstawianie długiego szkicu ASR: przy godzinnym nagraniu
+  wyszukiwanie kolidujących propozycji zapisu fonetycznego nie spowalnia
+  już okna na kilka sekund.
 
 ## 0.5.0 — 2026-10-18
 

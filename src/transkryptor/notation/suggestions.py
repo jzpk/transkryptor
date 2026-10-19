@@ -16,6 +16,7 @@ zawsze decyduje o zastosowaniu.
 
 from __future__ import annotations
 
+import bisect
 import re
 import time
 from collections.abc import Collection, Iterable, Iterator
@@ -193,13 +194,22 @@ def without_overlaps(
     stosowania), potem wyższa pewność, przy remisie — wcześniejsza pozycja.
     Wynik jest posortowany po pozycji.
     """
+    # Zachowane zakresy nie nachodzą na siebie, więc posortowane po
+    # (początek, koniec) mają też niemalejące końce: kolizję wystarczy
+    # sprawdzić z ostatnim zakresem zaczynającym się przed końcem kandydata.
+    # Wyszukiwanie binarne zamiast porównania z każdym zachowanym — szkic
+    # 60-minutowego nagrania to tysiące propozycji.
+    spans: list[tuple[int, int]] = []
     kept: list[Suggestion] = []
     ordered = sorted(
         suggestions, key=lambda s: (s.code not in preferred, -s.confidence, s.start)
     )
     for candidate in ordered:
-        if all(candidate.end <= s.start or s.end <= candidate.start for s in kept):
-            kept.append(candidate)
+        index = bisect.bisect_left(spans, (candidate.end,))
+        if index and spans[index - 1][1] > candidate.start:
+            continue
+        bisect.insort(spans, (candidate.start, candidate.end))
+        kept.append(candidate)
     return sorted(kept, key=lambda s: (s.start, s.code))
 
 
