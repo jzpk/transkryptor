@@ -17,6 +17,7 @@ Kontroler zapisuje i otwiera projekty (ACC-28, ACC-29), importuje DOCX
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
@@ -24,6 +25,7 @@ from pathlib import Path
 from PySide6.QtCore import QDate, QObject
 from PySide6.QtWidgets import QDateEdit, QFileDialog, QLineEdit, QMessageBox, QWidget
 
+from transkryptor import diagnostics
 from transkryptor.asr.engine import SegmentResult, TranscriptionResult, WordResult
 from transkryptor.audio.player import AudioPlayer
 from transkryptor.audio.player import file_dialog_filter as audio_filter
@@ -64,6 +66,8 @@ from transkryptor.ui.player_bar import PlayerBar
 from transkryptor.ui.review import ReviewController
 from transkryptor.ui.settings_store import SettingsStore
 from transkryptor.ui.sync_controller import SyncController
+
+logger = logging.getLogger(__name__)
 
 DATE_FORMAT = "yyyy-MM-dd"
 # Ile zamknięcie okna czeka na przerwanie pobierania modelu.
@@ -244,6 +248,7 @@ class SessionController(QObject):
         """
         if not self._confirm_audio_change(path):
             return
+        logger.info("Loading recording: %s", diagnostics.file_summary(path))
         try:
             self._player.load(path)
         except AppError as error:
@@ -434,8 +439,10 @@ class SessionController(QObject):
 
     def _write_project(self, path: Path) -> bool:
         self._wait_for_audio_hash()
+        state = self.capture_state()
+        logger.info("Saving project: %d characters of text", len(state.text))
         try:
-            save_project(self.capture_state(), path)
+            save_project(state, path)
         except AppError as error:
             show_error(self._parent, tr("session.save.error"), error)
             return False
@@ -506,6 +513,7 @@ class SessionController(QObject):
         if confirm and not self.maybe_discard_changes():
             return False
         project_path = Path(path)
+        logger.info("Opening project: %s", diagnostics.file_summary(project_path))
         try:
             state = load_project(project_path)
         except AppError as error:
@@ -648,6 +656,7 @@ class SessionController(QObject):
         """ACC-33: nowy, niezapisany projekt bez nagrania z treścią DOCX."""
         if confirm and not self.maybe_discard_changes():
             return False
+        logger.info("Importing DOCX: %s", diagnostics.file_summary(path))
         try:
             imported = import_docx(path, self._metadata_fields())
         except AppError as error:

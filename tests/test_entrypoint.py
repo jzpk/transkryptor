@@ -39,6 +39,7 @@ def test_missing_model_is_information_not_an_error() -> None:
     stream = io.StringIO()
     assert entrypoint.self_test(stream) == 0
     assert "niepobrany (praca ręczna)" in stream.getvalue()
+    assert "dziennik błędów:" in stream.getvalue()
 
 
 def test_missing_module_fails_the_check(monkeypatch) -> None:

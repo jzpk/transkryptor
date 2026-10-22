@@ -7,6 +7,15 @@ Pusta sekcja blokuje wydanie.
 
 ## Nieopublikowane
 
+- Dziennik błędów: program zapisuje lokalnie plik `transkryptor.log`
+  z informacjami technicznymi o błędach i awariach (także procesu ASR),
+  które pomagają znaleźć przyczynę problemu. Nic nie jest wysyłane —
+  plik można samemu dołączyć do zgłoszenia na GitHubie. Dziennik jest po
+  angielsku i nie zawiera tekstu transkrypcji, metryczki, kontekstu ASR ani
+  nazw i ścieżek plików użytkownika. Dostęp do niego daje nowa zakładka
+  **Ustawienia…** → **Dziennik logów** (dla zaawansowanych użytkowników):
+  odnośnik do folderu dziennika i przycisk **Zgłoś problem…** (formularz
+  zgłoszenia w przeglądarce).
 - Ostrzeżenia w tekście: problemy z notacją są podkreślone falistą linią
   bezpośrednio w edytorze (pomarańczową — ostrzeżenia, szarą — wskazówki),
   a po najechaniu myszą widać opis. Podkreślenia nie trafiają do DOCX.

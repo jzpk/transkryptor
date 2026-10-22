@@ -3,7 +3,7 @@
 Okno tylko edytuje kopię ustawień; zapis i powiadomienie komponentów
 wykonuje ``SettingsStore`` po zatwierdzeniu. Każda zakładka dotyczy jednej
 części aplikacji (wygląd, odtwarzacz, notacja, walidator, projekt, metryczka,
-ASR); kolejne
+ASR, dziennik logów); kolejne
 funkcje dopisują pola do właściwej zakładki albo dodają nową.
 """
 
@@ -76,6 +76,7 @@ from transkryptor.settings import (
     encode_snippets,
     split_vocabulary,
 )
+from transkryptor.ui.log_panel import LogPanel
 from transkryptor.ui.rules_editor import RulesEditor
 from transkryptor.ui.shortcuts import find_conflicts, shortcut_overrides
 from transkryptor.ui.shortcuts_editor import ShortcutsEditor, SnippetsEditor
@@ -331,6 +332,8 @@ class SettingsDialog(QDialog):
         self.tabs.addTab(_page(project_form), tr("settings.tab.project"))
         self.tabs.addTab(metadata_page, tr("settings.tab.metadata"))
         self.tabs.addTab(_page(asr_form), tr("settings.tab.asr"))
+        self.log_panel = LogPanel()
+        self.tabs.addTab(self.log_panel, tr("settings.tab.logs"))
 
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok

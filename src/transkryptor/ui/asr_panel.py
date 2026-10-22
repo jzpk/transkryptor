@@ -18,6 +18,8 @@ globalnym z ustawień (REQ-21).
 
 from __future__ import annotations
 
+import logging
+import time
 from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
@@ -43,6 +45,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from transkryptor import diagnostics
 from transkryptor.asr import engine
 from transkryptor.asr.engine import (
     PROMPT_MAX_CHARS,
@@ -67,7 +70,10 @@ from transkryptor.notation.suggestions import (
 )
 from transkryptor.settings import AsrSettings, split_vocabulary
 from transkryptor.ui import icons
+from transkryptor.ui.messages import log_user_error
 from transkryptor.ui.theme import set_props, tokens
+
+logger = logging.getLogger(__name__)
 
 APPLIED_MARK = "✓"
 PENDING_MARK = "○"
@@ -212,6 +218,7 @@ class AsrPanel(QWidget):
         self._transcribe_impl = transcribe_impl
         self._download_thread: DownloadThread | None = None
         self._transcribe_thread: TranscribeThread | None = None
+        self._transcribe_started = time.monotonic()
         self._review_applied: list[bool] = []
         self._last_draft = ""
         self._last_result: TranscriptionResult | None = None
@@ -588,6 +595,7 @@ class AsrPanel(QWidget):
         try:
             freed = self._manager.delete()
         except (OSError, ValueError) as error:
+            logger.warning("Model could not be deleted", exc_info=True)
             QMessageBox.warning(
                 self, tr("asr.delete.title"), tr("asr.delete.error", reason=error)
             )
@@ -753,6 +761,7 @@ class AsrPanel(QWidget):
         self.download_progress.setVisible(True)
         self.cancel_download_button.setVisible(True)
         self._set_model_status(tr("asr.download.progress"), "accent")
+        logger.info("Model download started: %s", self._manager.model.key)
         thread = DownloadThread(self._manager, self)
         self._download_thread = thread
         self._update_model_actions()
@@ -778,6 +787,7 @@ class AsrPanel(QWidget):
         )
 
     def _on_download_succeeded(self) -> None:
+        logger.info("Model download finished: %s", self._manager.model.key)
         self._finish_download()
         self.refresh_model_status()
 
@@ -787,6 +797,7 @@ class AsrPanel(QWidget):
         self._show_error(tr("asr.download.error"), error)
 
     def _on_download_cancelled(self) -> None:
+        logger.info("Model download cancelled")
         self._finish_download()
         self.refresh_model_status()
         self._set_model_status(tr("asr.download.cancelled"), "neutral")
@@ -858,6 +869,20 @@ class AsrPanel(QWidget):
             self.segments_list.clear()
             self.reinsert_draft_button.setEnabled(False)
         options = replace(self.decoding_options(), clip=clip)
+        # Bez treści kontekstu i słownika — to dane z wywiadu.
+        logger.info(
+            "Transcription started: model=%s, audio=%s, device=%s, chunked=%s, "
+            "word_timestamps=%s, clip=%s, prompt=%s, hotwords=%s",
+            self._manager.model.key,
+            diagnostics.file_summary(audio_path),
+            options.device,
+            options.chunked,
+            options.word_timestamps,
+            "none" if clip is None else f"{clip[1] - clip[0]:.1f} s",
+            bool(options.initial_prompt),
+            bool(options.hotwords),
+        )
+        self._transcribe_started = time.monotonic()
         thread = TranscribeThread(
             audio_path,
             self._manager.model_dir,
@@ -916,6 +941,13 @@ class AsrPanel(QWidget):
         self.segments_list.addItem(item)
 
     def _on_transcribe_succeeded(self, result: TranscriptionResult) -> None:
+        logger.info(
+            "Transcription finished in %.1f s: %d segments, device=%s%s",
+            self._transcription_seconds(),
+            len(result.segments),
+            result.device,
+            f" (GPU fallback: {result.device_note})" if result.device_note else "",
+        )
         self._finish_transcribe()
         if self._clip_mode:
             self.device_label.setText(_device_text(result))
@@ -938,13 +970,22 @@ class AsrPanel(QWidget):
         self.draft_ready.emit(result)
 
     def _on_transcribe_failed(self, error: AppError) -> None:
+        logger.warning(
+            "Transcription failed after %.1f s", self._transcription_seconds()
+        )
         self._finish_transcribe()
         self.transcribe_status_label.setText(tr("asr.failed"))
         self._show_error(tr("asr.failed.title"), error)
 
     def _on_transcribe_cancelled(self) -> None:
+        logger.info(
+            "Transcription cancelled after %.1f s", self._transcription_seconds()
+        )
         self._finish_transcribe()
         self.transcribe_status_label.setText(tr("asr.cancelled"))
+
+    def _transcription_seconds(self) -> float:
+        return time.monotonic() - self._transcribe_started
 
     def _finish_transcribe(self) -> None:
         thread = self._transcribe_thread
@@ -1087,6 +1128,7 @@ class AsrPanel(QWidget):
 
     def _show_error(self, title: str, error: AppError) -> None:
         """NFR-03: zrozumiały komunikat z możliwością ponowienia działania."""
+        log_user_error(error, stacklevel=2)
         message = error.user_message
         if error.retry_hint:
             message += f"\n\n{error.retry_hint}"

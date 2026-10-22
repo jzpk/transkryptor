@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 
 from PySide6.QtCore import QObject
@@ -14,6 +15,8 @@ from transkryptor.export.docx_export import export_docx
 from transkryptor.i18n import tr
 from transkryptor.ui.file_dialogs import ask_save_path
 from transkryptor.ui.messages import show_error
+
+logger = logging.getLogger(__name__)
 
 DOCX_SUFFIX = ".docx"
 
@@ -56,6 +59,11 @@ class ExportController(QObject):
         )
         if path is None:
             return
+        logger.info(
+            "Exporting DOCX: %d characters, anonymized=%s",
+            len(document.text),
+            anonymize,
+        )
         try:
             export_docx(document, path, self._fields(), anonymize=anonymize)
         except AppError as error:

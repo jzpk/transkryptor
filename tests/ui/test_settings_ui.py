@@ -112,6 +112,7 @@ class TestSettingsDialog:
             "Projekt",
             "Metryczka",
             "ASR",
+            "Dziennik logów",
         ]
 
         def tab_of(widget: QWidget) -> str:

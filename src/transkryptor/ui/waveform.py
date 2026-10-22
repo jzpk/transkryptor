@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
@@ -49,6 +50,8 @@ from transkryptor.i18n import tr
 from transkryptor.ui.asr_panel import LOW_CONFIDENCE
 from transkryptor.ui.player_bar import PlayerBar
 from transkryptor.ui.theme import set_props, tokens
+
+logger = logging.getLogger(__name__)
 
 WAVEFORM_HEIGHT = 72
 # Przeciągnięcie krótsze niż tyle pikseli to klik (przewinięcie).
@@ -94,6 +97,7 @@ class EnvelopeThread(QThread):
         except InterruptedError:
             return
         except Exception:  # noqa: BLE001 — fala jest pomocnicza; brak fali to nie błąd
+            logger.warning("Waveform could not be computed", exc_info=True)
             return
         save_cached(digest, envelope, self._cache_dir)
         self.envelope = envelope

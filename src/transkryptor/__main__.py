@@ -9,11 +9,12 @@ serwera okien.
 from __future__ import annotations
 
 import argparse
+import logging
 import multiprocessing
 import sys
 from pathlib import Path
 
-from transkryptor import __version__
+from transkryptor import __version__, diagnostics
 from transkryptor.i18n import (
     ENGLISH,
     current_language,
@@ -21,6 +22,8 @@ from transkryptor.i18n import (
     set_language,
     tr,
 )
+
+logger = logging.getLogger(__name__)
 
 # Moduły, bez których artefakt jest niekompletny. Pakiet ASR jest wymagany
 # nawet bez pobranego modelu: bez niego panel „Szkic ASR” zgłosiłby błąd
@@ -126,6 +129,7 @@ def self_test(stream=None) -> int:
         f"  [info] {tr('selftest.model', status=status, path=manager.model_dir)}",
         file=stream,
     )
+    print(f"  [info] {tr('selftest.log', path=diagnostics.log_dir())}", file=stream)
 
     if problems:
         print("", file=stream)
@@ -213,6 +217,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.self_test:
         return self_test()
 
+    start_diagnostics()
     from PySide6.QtCore import QTimer
     from PySide6.QtWidgets import QApplication
 
@@ -225,13 +230,47 @@ def main(argv: list[str] | None = None) -> int:
     app.setApplicationVersion(__version__)
     install_qt_translations(app)
     apply_theme(app)
+    log_qt_environment(app)
     window = MainWindow()
     window.show()
     window.updates.start_automatic()
     # ACC-30: propozycja odzyskania pracy po awarii — gdy okno już widać.
     QTimer.singleShot(0, window.session.offer_recovery)
     QTimer.singleShot(0, window.report_rule_errors)
-    return app.exec()
+    code = app.exec()
+    logger.info("Session ended (exit code %d)", code)
+    return code
+
+
+def start_diagnostics() -> None:
+    """Dziennik błędów okna: plik, zapis awarii i nagłówek sesji.
+
+    Awaria natywna z poprzedniego uruchomienia (``crash.log``) trafia do
+    dziennika zaraz za nagłówkiem nowej sesji.
+    """
+    if diagnostics.configure_logging() is None:
+        return
+    diagnostics.enable_crash_log()
+    diagnostics.log_session_start([("ui_language", current_language())])
+    diagnostics.collect_crash_report()
+
+
+def log_qt_environment(app) -> None:
+    """Qt, wtyczka platformy i ekrany — częste źródło błędów wyświetlania."""
+    from PySide6.QtCore import QLocale, qVersion
+
+    screens = ", ".join(
+        f"{screen.size().width()}x{screen.size().height()}"
+        f"@{screen.devicePixelRatio():g}"
+        for screen in app.screens()
+    )
+    logger.info(
+        "Qt %s, platform %s, locale %s, screens: %s",
+        qVersion(),
+        app.platformName(),
+        QLocale.system().name(),
+        screens or "none",
+    )
 
 
 if __name__ == "__main__":
