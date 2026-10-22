@@ -70,3 +70,31 @@ def test_english_interface_mentions_polish_only(qtbot) -> None:
     qtbot.addWidget(dialog)
     assert not dialog.language_note.isHidden()
     assert "Polish only" in dialog.language_note.text()
+
+
+def test_dialog_explains_how_to_report_a_problem(qtbot, monkeypatch, tmp_path) -> None:
+    opened: list[str] = []
+
+    def open_url(url) -> bool:
+        opened.append(url.toString())
+        return True
+
+    monkeypatch.setattr(
+        "transkryptor.ui.changelog_dialog.QDesktopServices.openUrl", open_url
+    )
+    monkeypatch.setattr(
+        "transkryptor.ui.changelog_dialog.diagnostics.log_dir",
+        lambda: tmp_path / "logs",
+    )
+    dialog = ChangelogDialog(text=SAMPLE)
+    qtbot.addWidget(dialog)
+    assert "transkryptor.log" in dialog.report_note.text()
+
+    dialog.open_logs_button.click()
+    assert (tmp_path / "logs").is_dir()
+    assert opened[-1].startswith("file://")
+    assert opened[-1].endswith("/logs")
+
+    dialog.report_button.click()
+    assert opened[-1].startswith("https://github.com/jzpk/transkryptor/issues/new?")
+    assert __version__ in opened[-1]

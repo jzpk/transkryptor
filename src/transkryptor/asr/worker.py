@@ -23,6 +23,7 @@ Moduł nie zależy od Qt. Wydanie (PyInstaller) wymaga
 
 from __future__ import annotations
 
+import logging
 import multiprocessing
 import threading
 from collections.abc import Callable
@@ -31,6 +32,7 @@ from multiprocessing.process import BaseProcess
 from pathlib import Path
 from typing import Any
 
+from transkryptor import diagnostics
 from transkryptor.asr import engine
 from transkryptor.asr.engine import (
     LANGUAGE,
@@ -47,6 +49,8 @@ from transkryptor.asr.engine import (
 from transkryptor.asr.models import DEFAULT_MODEL, AsrModelInfo
 from transkryptor.errors import AppError, ModelDownloadError
 from transkryptor.i18n import current_language, set_language, tr
+
+logger = logging.getLogger(__name__)
 
 IDLE_TIMEOUT_S = 600.0
 POLL_INTERVAL_S = 0.1
@@ -164,6 +168,7 @@ class AsrWorker:
                     continue
                 kind, payload = conn.recv()
             except (EOFError, OSError) as error:
+                self._log_exit()
                 self._kill()
                 if received:
                     raise _crash_error() from error
@@ -179,7 +184,8 @@ class AsrWorker:
                 result: TranscriptionResult = payload
                 return result
             elif kind == "error":
-                name, user_message, retry_hint = payload
+                name, user_message, retry_hint, details = payload
+                logger.error("ASR worker reported %s:\n%s", name, details)
                 raise _ERRORS.get(name, TranscriptionError)(
                     user_message=user_message, retry_hint=retry_hint
                 )
@@ -197,6 +203,7 @@ class AsrWorker:
                 self._backend_factory,
                 current_language(),
                 self._idle_timeout_s,
+                _crash_log_dir(),
             ),
             name="transkryptor-asr",
             daemon=True,
@@ -207,6 +214,19 @@ class AsrWorker:
         self._conn = parent_conn
         return parent_conn
 
+    def _log_exit(self) -> None:
+        """Dziennik: proces zakończył się inaczej niż po bezczynności."""
+        process = self._process
+        if process is None:
+            return
+        process.join(POLL_INTERVAL_S)
+        if process.exitcode == 0:
+            return
+        logger.error(
+            "ASR worker process exited unexpectedly (exit code %s)", process.exitcode
+        )
+        diagnostics.collect_crash_report()
+
     def _kill(self) -> None:
         conn, process = self._conn, self._process
         self._conn = None
@@ -216,6 +236,12 @@ class AsrWorker:
 
 class _WorkerExited(Exception):
     """Proces roboczy zakończył się, zanim odpowiedział na zlecenie."""
+
+
+def _crash_log_dir() -> str | None:
+    """Katalog zapisu awarii dla procesu roboczego — tylko gdy dziennik działa."""
+    directory = diagnostics.active_log_dir()
+    return None if directory is None else str(directory)
 
 
 def _crash_error() -> TranscriptionError:
@@ -244,9 +270,14 @@ def _serve(
     backend_factory: BackendFactory | None,
     language: str,
     idle_timeout_s: float,
+    crash_log_dir: str | None = None,
 ) -> None:
     """Pętla procesu roboczego: zlecenia z potoku, bufor backendu."""
     set_language(language)
+    if crash_log_dir is not None:
+        # Awaria natywna (np. CTranslate2) kończy proces bez odpowiedzi —
+        # ślad stosu zostaje w ``crash.log`` dla dziennika procesu głównego.
+        diagnostics.enable_crash_log(Path(crash_log_dir))
     cached: dict[tuple[Path, str], Backend] = {}
     factory = backend_factory or engine.faster_whisper_backend
 
@@ -306,13 +337,19 @@ def _transcribe_request(
             options=options,
         )
     except AppError as error:
-        return "error", (type(error).__name__, error.user_message, error.retry_hint)
+        return "error", (
+            type(error).__name__,
+            error.user_message,
+            error.retry_hint,
+            diagnostics.format_exception(error),
+        )
     except Exception as error:  # noqa: BLE001 — błąd zgłaszany rodzicowi
         app_error = engine.transcription_error(error)
         return "error", (
             "TranscriptionError",
             app_error.user_message,
             app_error.retry_hint,
+            diagnostics.format_exception(error),
         )
     return "done", result
 

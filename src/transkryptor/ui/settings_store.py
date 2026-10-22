@@ -7,9 +7,13 @@ transkryptor.conf``, Windows: rejestr ``HKCU\\Software\\transkryptor``.
 
 from __future__ import annotations
 
+import logging
+
 from PySide6.QtCore import QObject, QSettings, Signal
 
 from transkryptor.settings import Settings, from_mapping, push_recent, to_mapping
+
+logger = logging.getLogger(__name__)
 
 SETTINGS_ORGANIZATION = "transkryptor"
 SETTINGS_APPLICATION = "transkryptor"
@@ -46,6 +50,7 @@ class SettingsStore(QObject):
                 key: self._qsettings.value(key) for key in self._qsettings.allKeys()
             }
         except Exception:  # noqa: BLE001 — uszkodzony magazyn nie blokuje startu
+            logger.warning("Settings could not be read; using defaults", exc_info=True)
             mapping = {}
         self._current = from_mapping(mapping)
         return self._current
@@ -63,6 +68,7 @@ class SettingsStore(QObject):
         try:
             raw = self._qsettings.value(RECENT_PROJECTS_KEY)
         except Exception:  # noqa: BLE001 — uszkodzony magazyn nie blokuje pracy
+            logger.warning("Recent projects could not be read", exc_info=True)
             return []
         if isinstance(raw, str):
             raw = [raw] if raw else []

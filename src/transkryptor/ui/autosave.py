@@ -17,6 +17,7 @@ i „Nowy dokument” usuwają plik autozapisu sesji.
 
 from __future__ import annotations
 
+import logging
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -48,6 +49,8 @@ from transkryptor.errors import AppError
 from transkryptor.i18n import tr
 from transkryptor.settings import ProjectSettings
 from transkryptor.ui.layout import words_label
+
+logger = logging.getLogger(__name__)
 
 LOCK_SUFFIX = ".lock"
 PRIVATE_MODE = 0o600
@@ -121,6 +124,7 @@ class AutosaveController(QObject):
         except (OSError, AppError):
             # Autozapis jest siatką bezpieczeństwa: błąd nie przerywa pracy,
             # kolejna próba nastąpi przy następnym interwale.
+            logger.warning("Autosave failed", exc_info=True)
             return False
         self._last_document = document
         self._last_revision = document.revision

@@ -13,6 +13,7 @@ walidację ``notation.validate`` z debounce — reguły pozostają w module
 
 from __future__ import annotations
 
+import logging
 from dataclasses import replace
 from pathlib import Path
 
@@ -103,6 +104,8 @@ __all__ = [
     "DRAFT_REPLACE",
     "MainWindow",
 ]
+
+logger = logging.getLogger(__name__)
 
 STATUS_MESSAGE_MS = 5000
 # Pełna synchronizacja edytora z dokumentem (licznik słów, stan) po przerwie
@@ -438,6 +441,7 @@ class MainWindow(QMainWindow):
         errors = self.rules_store.errors
         if not errors:
             return
+        logger.warning("User rules file has %d invalid rule(s)", len(errors))
         lines = [error.message for error in errors[:RULE_ERRORS_SHOWN]]
         if len(errors) > RULE_ERRORS_SHOWN:
             lines.append(tr("rules.errors.more", count=len(errors) - RULE_ERRORS_SHOWN))

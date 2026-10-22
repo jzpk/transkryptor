@@ -229,3 +229,37 @@ def test_decoding_options_reach_backend_in_worker(
     )
     assert result.device == "cpu"
     assert events(log_file) == ["load-cpu", "cpu|Wywiad|Ocieszyn"]
+
+
+class _FailingBackend:
+    def transcribe(self, audio_path, language, vad_filter):
+        raise RuntimeError("decoder failed")
+
+
+def failing_factory(model_dir, device="cpu"):
+    return _FailingBackend()
+
+
+def test_worker_error_details_reach_the_log(
+    log_file, model_dir, audio, make_worker, caplog
+) -> None:
+    """Ślad stosu z procesu roboczego trafia do dziennika procesu głównego."""
+    worker = make_worker(failing_factory)
+    with caplog.at_level("ERROR", logger="transkryptor.asr.worker"):
+        with pytest.raises(TranscriptionError):
+            worker.transcribe(audio, model_dir)
+    (record,) = caplog.records
+    message = record.getMessage()
+    assert "ASR worker reported TranscriptionError" in message
+    assert "RuntimeError: decoder failed" in message
+    assert "Traceback (most recent call last)" in message
+
+
+def test_crashed_process_exit_code_is_logged(
+    log_file, model_dir, audio, make_worker, caplog
+) -> None:
+    worker = make_worker(crashing_factory)
+    with caplog.at_level("ERROR", logger="transkryptor.asr.worker"):
+        with pytest.raises(TranscriptionError):
+            worker.transcribe(audio, model_dir)
+    assert any("exit code 3" in record.getMessage() for record in caplog.records)

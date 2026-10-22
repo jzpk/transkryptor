@@ -14,6 +14,7 @@ Logika (limit zapytań, API, pobieranie, instalacja) jest w pakiecie
 from __future__ import annotations
 
 import html
+import logging
 from collections.abc import Callable
 from pathlib import Path
 
@@ -38,6 +39,8 @@ from transkryptor.update.install import apply_update
 from transkryptor.update.releases import is_newer, safe_page_url
 from transkryptor.update.service import UpdateOutcome, UpdateService, UpdateStatus
 
+logger = logging.getLogger(__name__)
+
 # Zamykanie aplikacji czeka na wątek co najwyżej tyle (limit połączenia to 10 s).
 SHUTDOWN_WAIT_MS = 15_000
 
@@ -59,6 +62,7 @@ class UpdateThread(QThread):
         try:
             outcome = self._service.run(lambda: self._cancel_requested)
         except Exception as error:  # noqa: BLE001 — wątek nie może przepaść
+            logger.exception("Update check crashed")
             outcome = UpdateOutcome(
                 UpdateStatus.ERROR,
                 error=UpdateError(user_message=tr("update.error.check", reason=error)),
@@ -136,6 +140,19 @@ class UpdateController(QObject):
         self.check_action.setEnabled(True)
         release = outcome.release
         status = outcome.status
+        logger.info(
+            "Update check finished: %s (latest release %s, manual=%s)",
+            status.name,
+            release.version if release else "unknown",
+            manual,
+        )
+        if outcome.error is not None and not manual:
+            # Ręczne sprawdzenie pokazuje błąd oknem (``show_error`` go zapisze).
+            logger.warning(
+                "Update check error: %s",
+                type(outcome.error).__name__,
+                exc_info=outcome.error,
+            )
 
         if status is UpdateStatus.READY and outcome.artifact is not None:
             self._show_ready(release.version if release else "", outcome.artifact)
