@@ -21,6 +21,11 @@ dependencies = [
     "regex>=2024.11.6",
     # Weryfikacja podpisu Ed25519 (minisign) sum kontrolnych aktualizacji.
     "cryptography>=44",
+    # Podział szkicu ASR na mówców (diaryzacja, Apache-2.0). Koła sherpa-onnx
+    # deklarują sherpa-onnx-core (libonnxruntime) niespójnie, więc uv go nie
+    # rozwiązuje — wersja rdzenia musi być równa wersji sherpa-onnx.
+    "sherpa-onnx==1.13.8",
+    "sherpa-onnx-core==1.13.8",
 ]
 
 [project.scripts]
