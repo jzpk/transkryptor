@@ -211,6 +211,22 @@ class TestSchema:
         state = loads(json.dumps({"schema_version": 3, "document": {"text": "ab"}}))
         assert state.anchors == ()
 
+    def test_asr_segment_speakers_round_trip(self) -> None:
+        """Podział na mówców: numer mówcy segmentu ASR przetrwa zapis."""
+        state = ProjectState(
+            asr=AsrDraft(
+                text="a b",
+                segments=(
+                    AsrSegment(0.0, 1.0, " a", 0.9, speaker=0),
+                    AsrSegment(1.0, 2.0, " b", 0.9, speaker=1),
+                    AsrSegment(2.0, 3.0, " c", 0.9),
+                ),
+            )
+        )
+        data = json.loads(dumps(state))
+        assert "speaker" not in data["asr"]["segments"][2]
+        assert loads(dumps(state)).asr == state.asr
+
     def test_anchors_round_trip(self) -> None:
         state = ProjectState(
             text="ala ma kota",

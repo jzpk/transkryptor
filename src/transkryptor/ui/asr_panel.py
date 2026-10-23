@@ -48,6 +48,7 @@ from PySide6.QtWidgets import (
 from transkryptor import diagnostics
 from transkryptor.asr import engine
 from transkryptor.asr.engine import (
+    DIARIZED_ASR_SHARE,
     PROMPT_MAX_CHARS,
     DecodingOptions,
     SegmentResult,
@@ -57,7 +58,13 @@ from transkryptor.asr.engine import (
     format_timestamp,
 )
 from transkryptor.asr.manager import DownloadCancelled, ModelManager
-from transkryptor.asr.models import MODELS, AsrModelInfo, format_size, model_by_key
+from transkryptor.asr.models import (
+    DIARIZATION_MODEL,
+    MODELS,
+    AsrModelInfo,
+    format_size,
+    model_by_key,
+)
 from transkryptor.asr.system import total_memory_bytes
 from transkryptor.asr.worker import AsrWorker
 from transkryptor.errors import AppError
@@ -229,6 +236,8 @@ class AsrPanel(QWidget):
         self._device = "auto"
         self._chunked = False
         self._word_timestamps = True
+        self._diarize = True
+        self._diarizing = False
         # Katalog modeli z ostatnio zastosowanych ustawień (None — jeszcze
         # nie stosowano; do tego czasu obowiązuje katalog menedżera).
         self._models_root_setting: str | None = None
@@ -495,6 +504,15 @@ class AsrPanel(QWidget):
     # --- wybór modelu i ustawienia ASR ------------------------------------
 
     @property
+    def manager(self) -> ModelManager:
+        """Menedżer wybranego modelu (katalog modeli z ustawień)."""
+        return self._manager
+
+    def diarization_ready(self) -> bool:
+        """Czy model podziału na mówców jest pobrany."""
+        return self._manager.with_model(DIARIZATION_MODEL).is_downloaded()
+
+    @property
     def model(self) -> AsrModelInfo:
         """Model wybrany w panelu."""
         return self._manager.model
@@ -518,6 +536,7 @@ class AsrPanel(QWidget):
         self._device = settings.device
         self._chunked = settings.chunked
         self._word_timestamps = settings.word_timestamps
+        self._diarize = settings.diarize
         self._global_vocabulary = settings.vocabulary_words
         self._update_vocabulary_hint()
         if self.is_downloading() or self.is_transcribing():
@@ -647,14 +666,21 @@ class AsrPanel(QWidget):
             self.context_changed.emit()
 
     def decoding_options(self) -> DecodingOptions:
-        """Parametry dla Whispera: urządzenie, kontekst i suma słowników."""
+        """Parametry dla Whispera: urządzenie, kontekst i suma słowników.
+
+        Podział na mówców — gdy włączony w ustawieniach i model jest pobrany.
+        """
         prompt, vocabulary = self.asr_context()
+        diarization = self._manager.with_model(DIARIZATION_MODEL)
+        diarize = self._diarize and diarization.is_downloaded()
         return DecodingOptions(
             device=self._device,
             initial_prompt=prompt or None,
             hotwords=build_hotwords(self._global_vocabulary, vocabulary),
             chunked=self._chunked,
             word_timestamps=self._word_timestamps,
+            diarize=diarize,
+            diarization_dir=diarization.model_dir if diarize else None,
         )
 
     def _on_context_edited(self) -> None:
@@ -869,15 +895,17 @@ class AsrPanel(QWidget):
             self.segments_list.clear()
             self.reinsert_draft_button.setEnabled(False)
         options = replace(self.decoding_options(), clip=clip)
+        self._diarizing = options.diarizes
         # Bez treści kontekstu i słownika — to dane z wywiadu.
         logger.info(
             "Transcription started: model=%s, audio=%s, device=%s, chunked=%s, "
-            "word_timestamps=%s, clip=%s, prompt=%s, hotwords=%s",
+            "word_timestamps=%s, diarize=%s, clip=%s, prompt=%s, hotwords=%s",
             self._manager.model.key,
             diagnostics.file_summary(audio_path),
             options.device,
             options.chunked,
             options.word_timestamps,
+            options.diarizes,
             "none" if clip is None else f"{clip[1] - clip[0]:.1f} s",
             bool(options.initial_prompt),
             bool(options.hotwords),
@@ -924,9 +952,12 @@ class AsrPanel(QWidget):
         return answer == QMessageBox.StandardButton.Yes
 
     def _on_transcribe_progress(self, fraction: float) -> None:
-        self.transcribe_status_label.setText(
-            tr("asr.transcribing.percent", percent=int(fraction * 100))
+        key = (
+            "asr.diarizing.percent"
+            if self._diarizing and fraction > DIARIZED_ASR_SHARE
+            else "asr.transcribing.percent"
         )
+        self.transcribe_status_label.setText(tr(key, percent=int(fraction * 100)))
         self.transcription_progress.emit(fraction)
 
     def _on_segment_ready(self, segment: SegmentResult) -> None:
@@ -942,11 +973,13 @@ class AsrPanel(QWidget):
 
     def _on_transcribe_succeeded(self, result: TranscriptionResult) -> None:
         logger.info(
-            "Transcription finished in %.1f s: %d segments, device=%s%s",
+            "Transcription finished in %.1f s: %d segments, device=%s%s, "
+            "speakers=%d",
             self._transcription_seconds(),
             len(result.segments),
             result.device,
             f" (GPU fallback: {result.device_note})" if result.device_note else "",
+            len({s.speaker for s in result.segments if s.speaker is not None}),
         )
         self._finish_transcribe()
         if self._clip_mode:
@@ -1213,7 +1246,11 @@ def _review_label(suggestion: Suggestion, applied: bool) -> str:
 def _device_text(result: TranscriptionResult) -> str:
     """Informacja, na czym liczono szkic; przejście z GPU na CPU (ACC-37)."""
     if result.device_note:
-        return tr("asr.device.fallback", reason=result.device_note)
-    if result.device == "cuda":
-        return tr("asr.device.gpu")
-    return tr("asr.device.cpu")
+        text = tr("asr.device.fallback", reason=result.device_note)
+    elif result.device == "cuda":
+        text = tr("asr.device.gpu")
+    else:
+        text = tr("asr.device.cpu")
+    if result.diarization_note:
+        text += "\n" + tr("asr.diarize.failed", reason=result.diarization_note)
+    return text

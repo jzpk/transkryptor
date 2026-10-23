@@ -95,5 +95,5 @@ warn_redundant_casts = true
 
 # Biblioteki bez wskazówek typów (brak py.typed i pakietu stubów w uv.lock).
 [[tool.mypy.overrides]]
-module = ["faster_whisper", "faster_whisper.*", "ctranslate2", "reportlab", "reportlab.*"]
+module = ["faster_whisper", "faster_whisper.*", "ctranslate2", "reportlab", "reportlab.*", "sherpa_onnx", "sherpa_onnx.*"]
 ignore_missing_imports = true

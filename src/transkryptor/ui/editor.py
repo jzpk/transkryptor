@@ -13,7 +13,7 @@ zdefiniowane w ``ui/markers.py`` oraz prezentuje wyniki ``notation``.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 
 from PySide6.QtCore import QEvent, QPoint, QPointF, Qt, Signal
 from PySide6.QtGui import (
@@ -310,13 +310,19 @@ class TranscriptionEditor(QTextEdit):
         cursor.clearSelection()
         self.setTextCursor(cursor)
 
-    def insert_draft(self, text: str, append: bool) -> int:
+    def insert_draft(
+        self,
+        text: str,
+        append: bool,
+        line_speakers: Sequence[str | None] = (),
+    ) -> int:
         """Wstawia szkic ASR jako jeden krok cofania (REQ-14).
 
         ``append=False`` zastępuje całą treść, ``append=True`` dopisuje szkic
         w nowym akapicie na końcu. Szkic dostaje zwykły format znaków, nawet
-        gdy tekst kończy się indeksem górnym. Zwraca pozycję początku szkicu
-        (w punktach kodowych).
+        gdy tekst kończy się indeksem górnym. ``line_speakers`` to mówcy
+        kolejnych wersów szkicu (podział na mówców). Zwraca pozycję początku
+        szkicu (w punktach kodowych).
         """
         cursor = QTextCursor(self.document())
         cursor.beginEditBlock()
@@ -331,9 +337,18 @@ class TranscriptionEditor(QTextEdit):
             cursor.setBlockFormat(QTextBlockFormat())
         start = cursor.position()
         cursor.insertText(text, QTextCharFormat())
+        block = self.document().findBlock(start)
+        for key in line_speakers:
+            if not block.isValid():
+                break
+            if key is not None:
+                _set_block_speaker(block, key)
+            block = block.next()
         cursor.endEditBlock()
         cursor.setPosition(start)
         self.setTextCursor(cursor)
+        if line_speakers:
+            self.refresh_speakers()
         return self.position_map().to_py(start)
 
     def load_content(

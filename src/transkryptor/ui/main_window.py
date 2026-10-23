@@ -32,12 +32,16 @@ from PySide6.QtWidgets import (
 )
 
 from transkryptor import __version__
-from transkryptor.asr.engine import TranscriptionResult, draft_text
+from transkryptor.asr.engine import (
+    TranscriptionResult,
+    draft_line_speakers,
+    draft_text,
+)
 from transkryptor.asr.manager import ModelManager
 from transkryptor.asr.models import model_by_key
 from transkryptor.audio.player import AudioPlayer
 from transkryptor.document.model import Document
-from transkryptor.document.speakers import informant_spans
+from transkryptor.document.speakers import informant_spans, speakers_for_clusters
 from transkryptor.errors import AppError
 from transkryptor.i18n import tr
 from transkryptor.notation.ellipsis import EllipsisStyle
@@ -448,6 +452,7 @@ class MainWindow(QMainWindow):
             builtin_rules=self.rules_store.builtin,
             user_rules=self.rules_store.user_rules,
             document_text=self.editor.plain_text(),
+            model_manager=self.asr_panel.manager,
         )
 
     def accept_settings_dialog(self, dialog: SettingsDialog) -> None:
@@ -629,10 +634,32 @@ class MainWindow(QMainWindow):
         self.session.import_audio(path)
 
     def _on_draft_ready(self, draft: TranscriptionResult | str) -> None:
-        if isinstance(draft, TranscriptionResult):
-            self.review.insert_draft(draft_text(draft), draft.segments)
-        else:
+        if not isinstance(draft, TranscriptionResult):
             self.review.insert_draft(draft)
+            return
+        if not draft.diarized:
+            self.review.insert_draft(draft_text(draft), draft.segments)
+            return
+        # Podział na mówców: głosy w kolejności pojawiania się dostają
+        # kolejnych mówców z listy (B, I, a brakujący — I2, I3…).
+        clusters = draft_line_speakers(draft)
+        count = 1 + max(
+            (number for number in clusters if number is not None), default=0
+        )
+        previous = list(self.document.speakers)
+        speakers, keys = speakers_for_clusters(previous, count)
+        if list(speakers) != previous:
+            self.speakers.apply_speakers(list(speakers))
+        line_speakers = [
+            None if number is None else keys[number] for number in clusters
+        ]
+        if (
+            not self.review.insert_draft(
+                draft_text(draft), draft.segments, line_speakers
+            )
+            and list(speakers) != previous
+        ):
+            self.speakers.apply_speakers(previous)
 
     def _on_fragment_ready(self, result: TranscriptionResult) -> None:
         self.review.insert_fragment(result.text, result.segments)

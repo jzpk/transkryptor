@@ -36,6 +36,7 @@ REQUIRED_MODULES = (
     "faster_whisper",
     "ctranslate2",
     "onnxruntime",
+    "sherpa_onnx",
     "av",
     "httpx",
     "huggingface_hub",

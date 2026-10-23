@@ -81,6 +81,29 @@ def guess_role(key: str) -> str:
     return OTHER
 
 
+def speakers_for_clusters(
+    existing: Iterable[Speaker], count: int
+) -> tuple[tuple[Speaker, ...], list[str]]:
+    """Mówcy dla ``count`` głosów z podziału na mówców i klucz każdego głosu.
+
+    Głosy (numerowane w kolejności pojawiania się) dostają kolejnych mówców
+    z listy dokumentu — domyślnie pierwszy ``B``, drugi ``I``. Gdy głosów
+    jest więcej, lista jest uzupełniana informatorami ``I2``, ``I3``…
+    Pusta lista oznacza mówców domyślnych.
+    """
+    speakers = list(existing) or list(DEFAULT_SPEAKERS)
+    keys = {speaker.key for speaker in speakers}
+    number = 2
+    while len(speakers) < count:
+        key = f"I{number}"
+        number += 1
+        if key in keys:
+            continue
+        keys.add(key)
+        speakers.append(Speaker(key, "", INFORMANT))
+    return tuple(speakers), [speaker.key for speaker in speakers[:count]]
+
+
 def paragraph_spans(text: str) -> list[tuple[int, int]]:
     """Zakresy ``(start, end)`` akapitów (bez znaku nowej linii)."""
     spans: list[tuple[int, int]] = []

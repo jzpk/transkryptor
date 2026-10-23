@@ -40,6 +40,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from transkryptor.asr.manager import ModelManager
 from transkryptor.asr.models import default_models_root
 from transkryptor.document.metadata import (
     DEFAULT_FIELDS,
@@ -87,6 +88,7 @@ from transkryptor.settings import (
     encode_snippets,
     split_vocabulary,
 )
+from transkryptor.ui.diarization_box import DiarizationBox
 from transkryptor.ui.log_panel import LogPanel
 from transkryptor.ui.rules_editor import RulesEditor
 from transkryptor.ui.shortcuts import find_conflicts, shortcut_overrides
@@ -131,7 +133,10 @@ class SettingsDialog(QDialog):
         builtin_rules: tuple[PhoneticRule, ...] = (),
         user_rules: tuple[PhoneticRule, ...] = (),
         document_text: str = "",
+        model_manager: ModelManager | None = None,
     ) -> None:
+        """``model_manager`` — menedżer modeli ASR (model mówców leży w tym
+        samym katalogu); None oznacza katalog z ``settings``."""
         super().__init__(parent)
         self.setWindowTitle(tr("settings.title"))
         self.setObjectName("settings_dialog")
@@ -300,6 +305,13 @@ class SettingsDialog(QDialog):
         self.word_timestamps_check.setToolTip(
             tr("settings.asr.word_timestamps.tooltip")
         )
+        self.diarization_box = DiarizationBox(
+            model_manager
+            or ModelManager(models_root=_models_root(settings.asr.models_root))
+        )
+        self.models_root_edit.textChanged.connect(
+            lambda text: self.diarization_box.set_models_root(_models_root(text))
+        )
         self.uncertain_words_check = QCheckBox(tr("settings.asr.uncertain_words"))
         self.word_threshold_spin = QSpinBox()
         self.word_threshold_spin.setRange(*WORD_THRESHOLD_RANGE_PCT)
@@ -322,6 +334,7 @@ class SettingsDialog(QDialog):
         asr_form.addRow(self.chunked_check)
         asr_form.addRow(chunked_hint)
         asr_form.addRow(self.word_timestamps_check)
+        asr_form.addRow(self.diarization_box)
         asr_form.addRow(self.uncertain_words_check)
         asr_form.addRow(tr("settings.asr.word_threshold"), self.word_threshold_spin)
         asr_form.addRow(tr("settings.asr.vocabulary"), self.vocabulary_edit)
@@ -478,6 +491,7 @@ class SettingsDialog(QDialog):
         self.device_combo.setCurrentIndex(max(index, 0))
         self.chunked_check.setChecked(settings.asr.chunked)
         self.word_timestamps_check.setChecked(settings.asr.word_timestamps)
+        self.diarization_box.set_value(settings.asr.diarize)
         self.uncertain_words_check.setChecked(settings.asr.show_uncertain_words)
         self.word_threshold_spin.setValue(settings.asr.word_threshold_pct)
         self.word_threshold_spin.setEnabled(settings.asr.show_uncertain_words)
@@ -675,6 +689,11 @@ class SettingsDialog(QDialog):
                 return
         super().accept()
 
+    def done(self, result: int) -> None:
+        # Zamknięcie ustawień przerywa pobieranie modelu mówców.
+        self.diarization_box.cancel_and_wait()
+        super().done(result)
+
     def settings(self) -> Settings:
         """Ustawienia odpowiadające bieżącym wartościom pól."""
         size = self.font_size_spin.value()
@@ -741,10 +760,15 @@ class SettingsDialog(QDialog):
                 ),
                 chunked=self.chunked_check.isChecked(),
                 word_timestamps=self.word_timestamps_check.isChecked(),
+                diarize=self.diarization_box.value(),
                 show_uncertain_words=self.uncertain_words_check.isChecked(),
                 word_threshold_pct=self.word_threshold_spin.value(),
             ),
         )
+
+
+def _models_root(text: str) -> Path | None:
+    return Path(text.strip()) if text.strip() else None
 
 
 def _form() -> QFormLayout:

@@ -38,6 +38,7 @@ HIDDEN_IMPORTS = (
     "faster_whisper",
     "ctranslate2",
     "onnxruntime",
+    "sherpa_onnx",  # podział na mówców (asr/diarization.py)
     "tokenizers",
     "av",
     "httpx",
@@ -86,6 +87,16 @@ PACKAGE_DATA = (
     ("transkryptor", "notation/data"),
     ("transkryptor", "fonts"),
 )
+# Biblioteki natywne pakietów, które muszą zostać obok ich modułu.
+#
+# ``sherpa_onnx/lib`` zawiera własną kopię ``onnxruntime`` (z koła
+# sherpa-onnx-core), ładowaną przez moduł ``_sherpa_onnx`` ze swojego
+# katalogu. Pakiet ``onnxruntime`` (VAD faster-whispera) ma bibliotekę o tej
+# samej nazwie na Windows — bez stałego katalogu docelowego PyInstaller
+# mógłby jedną z nich nadpisać drugą.
+PACKAGE_BINARIES = (("sherpa_onnx", "lib"),)
+_NATIVE_SUFFIXES = (".so", ".dll", ".dylib")
+
 # Historia zmian z katalogu repozytorium trafia obok modułów ``transkryptor``,
 # skąd okno „Co nowego” czyta ją przez ``importlib.resources``.
 CHANGELOG_DATA = (REPO_ROOT / "CHANGELOG.md", "transkryptor")
@@ -122,6 +133,26 @@ def collect_datas() -> list[tuple[str, str]]:
     return datas
 
 
+def collect_binaries() -> list[tuple[str, str]]:
+    """Pary ``(biblioteka, katalog_w_artefakcie)`` z ``PACKAGE_BINARIES``."""
+    binaries: list[tuple[str, str]] = []
+    for package, subdir in PACKAGE_BINARIES:
+        source = package_directory(package) / subdir
+        if not source.is_dir():
+            raise FileNotFoundError(
+                f"Brak bibliotek „{package}/{subdir}” w zainstalowanym pakiecie."
+            )
+        for entry in sorted(source.iterdir()):
+            # Moduł rozszerzenia (``_sherpa_onnx``) zbiera PyInstaller sam.
+            if (
+                entry.is_file()
+                and entry.name.endswith(_NATIVE_SUFFIXES)
+                and not entry.name.startswith("_")
+            ):
+                binaries.append((str(entry), f"{package}/{subdir}"))
+    return binaries
+
+
 def icon_for(platform: str) -> str | None:
     """Ikona dla pliku wykonywalnego: ICO na Windows, PNG w pozostałych."""
     icon = ICON_ICO if platform.startswith("win") else ICON_PNG
@@ -134,6 +165,7 @@ def analysis_options(platform: str) -> dict[str, object]:
         "scripts": [str(ENTRY_SCRIPT)],
         "pathex": [str(SOURCE_ROOT)],
         "datas": collect_datas(),
+        "binaries": collect_binaries(),
         "hiddenimports": list(HIDDEN_IMPORTS),
         "excludes": list(EXCLUDED_MODULES),
         "name": BUNDLE_NAME,
@@ -155,9 +187,11 @@ __all__ = [
     "ENTRY_SCRIPT",
     "EXCLUDED_MODULES",
     "HIDDEN_IMPORTS",
+    "PACKAGE_BINARIES",
     "PACKAGE_DATA",
     "SOURCE_ROOT",
     "analysis_options",
+    "collect_binaries",
     "collect_datas",
     "icon_for",
     "package_directory",

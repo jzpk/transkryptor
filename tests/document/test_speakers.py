@@ -25,6 +25,7 @@ from transkryptor.document.speakers import (
     legend,
     paragraph_spans,
     parse_legend,
+    speakers_for_clusters,
 )
 from transkryptor.errors import ProjectError
 from transkryptor.notation.validator import VAL_12, validate
@@ -171,3 +172,26 @@ def from_dict_input(text: str, assignments: list) -> dict:
             "paragraph_speakers": assignments,
         },
     }
+
+
+class TestSpeakersForClusters:
+    def test_voices_take_speakers_in_list_order(self) -> None:
+        speakers, keys = speakers_for_clusters(DEFAULT_SPEAKERS, 2)
+        assert speakers == DEFAULT_SPEAKERS
+        assert keys == ["B", "I"]
+
+    def test_extra_voices_become_new_informants(self) -> None:
+        existing = (*DEFAULT_SPEAKERS, Speaker("I2", "AK", INFORMANT))
+        speakers, keys = speakers_for_clusters(existing, 5)
+        assert [s.key for s in speakers] == ["B", "I", "I2", "I3", "I4"]
+        assert speakers[3] == Speaker("I3", "", INFORMANT)
+        assert keys == ["B", "I", "I2", "I3", "I4"]
+
+    def test_empty_list_starts_from_defaults(self) -> None:
+        speakers, keys = speakers_for_clusters((), 1)
+        assert speakers == DEFAULT_SPEAKERS
+        assert keys == ["B"]
+
+    def test_custom_order_is_kept(self) -> None:
+        custom = (Speaker("I", "", INFORMANT), Speaker("B", "", RESEARCHER))
+        assert speakers_for_clusters(custom, 2)[1] == ["I", "B"]

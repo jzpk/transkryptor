@@ -54,6 +54,8 @@ DIRECT_RUNTIME_DISTRIBUTIONS = (
     "httpx",
     "regex",
     "cryptography",
+    "sherpa-onnx",
+    "sherpa-onnx-core",
 )
 
 # Pliki licencji w katalogu ``*.dist-info`` pakietu.

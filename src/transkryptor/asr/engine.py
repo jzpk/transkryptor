@@ -18,6 +18,11 @@ potrafi zająć kilka GB. Opcja ``DecodingOptions.chunked`` włącza
 kolejne kilkuminutowe fragmenty cięte w ciszy, dzięki czemu szczyt pamięci
 nie zależy od długości nagrania.
 
+``DecodingOptions.diarize`` dzieli wynik na mówców (``asr/diarization.py``)
+po zakończeniu transkrypcji całego nagrania; błąd diaryzacji nie przekreśla
+transkrypcji — wynik jest wtedy bez mówców, z przyczyną w
+``TranscriptionResult.diarization_note``.
+
 ``DecodingOptions.clip`` ogranicza transkrypcję do fragmentu nagrania (pętla
 A–B). Fragment jest wycinany z próbek tym samym backendem co transkrypcja
 fragmentami, a czasy segmentów i słów pozostają bezwzględne. Nie używamy
@@ -28,6 +33,7 @@ nagrania.
 from __future__ import annotations
 
 import itertools
+import logging
 import math
 from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field
@@ -35,6 +41,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any, Protocol
 
+from transkryptor.asr import diarization
+from transkryptor.asr.diarization import DiarizationCancelled, DiarizerFactory
 from transkryptor.asr.models import DEFAULT_MODEL, AsrModelInfo
 from transkryptor.asr.system import cuda_device_count
 from transkryptor.errors import AppError, ModelDownloadError
@@ -43,6 +51,8 @@ from transkryptor.i18n import tr
 if TYPE_CHECKING:
     import numpy as np
     import numpy.typing as npt
+
+logger = logging.getLogger(__name__)
 
 LANGUAGE = "pl"
 SAMPLE_RATE = 16_000
@@ -70,6 +80,9 @@ _DEVICE_NOTE_MAX_CHARS = 200
 # Najdłuższy wers szkicu (w sekundach nagrania) — wers zaczyna się
 # znacznikiem czasu, by tekst i eksport nie były jednym blokiem.
 DRAFT_LINE_SECONDS = 30.0
+# Część paska postępu przypadająca na transkrypcję, gdy po niej działa
+# diaryzacja (reszta to podział na mówców).
+DIARIZED_ASR_SHARE = 0.85
 
 
 class TranscriptionCancelled(Exception):
@@ -98,7 +111,8 @@ class SegmentResult:
     """Fragment hipotezy z czasem i przybliżoną pewnością (0.0–1.0).
 
     ``words`` — słowa z czasami, gdy transkrypcja liczyła je
-    (``DecodingOptions.word_timestamps``).
+    (``DecodingOptions.word_timestamps``). ``speaker`` — numer mówcy
+    z diaryzacji (od 0, w kolejności pojawiania się); None bez diaryzacji.
     """
 
     start_s: float
@@ -106,6 +120,7 @@ class SegmentResult:
     text: str
     confidence: float
     words: tuple[WordResult, ...] = ()
+    speaker: int | None = None
 
 
 @dataclass(frozen=True)
@@ -119,6 +134,13 @@ class TranscriptionResult:
     # Przyczyna przejścia z GPU na CPU (None, gdy nie było próby GPU
     # albo się udała).
     device_note: str | None = None
+    # Przyczyna braku podziału na mówców, gdy diaryzacja zawiodła.
+    diarization_note: str | None = None
+
+    @property
+    def diarized(self) -> bool:
+        """Czy segmenty mają mówców (wynik diaryzacji)."""
+        return any(segment.speaker is not None for segment in self.segments)
 
 
 def draft_text(
@@ -126,27 +148,50 @@ def draft_text(
 ) -> str:
     """Szkic do edytora: wersy ze znacznikiem czasu ``[mm:ss]`` na początku.
 
-    Segmenty są łączone w wersy obejmujące najwyżej ``line_seconds`` nagrania
-    (dłuższy pojedynczy segment tworzy własny wers), więc tekst — także
-    w eksporcie DOCX — ma podział co najwyżej co tyle sekund. Wynik bez
-    segmentów (np. ze starszego projektu) zwraca samą hipotezę.
+    Wynik z mówcami (diaryzacja) ma wers na każdą wypowiedź: nowy wers
+    zaczyna się przy zmianie mówcy. Bez mówców segmenty są łączone w wersy
+    obejmujące najwyżej ``line_seconds`` nagrania (dłuższy pojedynczy
+    segment tworzy własny wers), więc tekst — także w eksporcie DOCX — ma
+    podział co najwyżej co tyle sekund. Wynik bez segmentów (np. ze
+    starszego projektu) zwraca samą hipotezę.
     """
-    lines: list[str] = []
+    lines = _draft_lines(result, line_seconds)
+    return "\n".join(text for text, _speaker in lines) if lines else result.text
+
+
+def draft_line_speakers(
+    result: TranscriptionResult, line_seconds: float = DRAFT_LINE_SECONDS
+) -> list[int | None]:
+    """Mówca każdego wersu ``draft_text`` (puste, gdy szkic nie ma wersów)."""
+    return [speaker for _text, speaker in _draft_lines(result, line_seconds)]
+
+
+def _draft_lines(
+    result: TranscriptionResult, line_seconds: float
+) -> list[tuple[str, int | None]]:
+    by_speaker = result.diarized
+    lines: list[tuple[str, int | None]] = []
     words: list[str] = []
     line_start = 0.0
+    speaker: int | None = None
     for segment in result.segments:
         text = segment.text.strip()
         if not text:
             continue
-        if not words or segment.end_s - line_start > line_seconds:
+        if by_speaker:
+            new_line = segment.speaker != speaker
+        else:
+            new_line = segment.end_s - line_start > line_seconds
+        if not words or new_line:
             if words:
-                lines.append(" ".join(words))
+                lines.append((" ".join(words), speaker))
             line_start = segment.start_s
+            speaker = segment.speaker
             words = [f"[{format_timestamp(line_start)}]"]
         words.append(text)
     if words:
-        lines.append(" ".join(words))
-    return "\n".join(lines) if lines else result.text
+        lines.append((" ".join(words), speaker))
+    return lines
 
 
 def format_timestamp(seconds: float) -> str:
@@ -167,6 +212,9 @@ class DecodingOptions:
     włącza transkrypcję fragmentami (mniej pamięci przy długich nagraniach).
     ``word_timestamps`` dodaje do segmentów słowa z czasami i pewnością,
     a ``clip`` (sekundy od–do) ogranicza transkrypcję do fragmentu (faza 11).
+    ``diarize`` dzieli wynik na mówców modelem z ``diarization_dir``; wymaga
+    słów z czasami (włącza je) i nie dotyczy fragmentu (``clip``) — numery
+    mówców fragmentu nie zgadzałyby się z całym nagraniem.
     """
 
     device: str = "auto"
@@ -175,6 +223,13 @@ class DecodingOptions:
     chunked: bool = False
     word_timestamps: bool = False
     clip: tuple[float, float] | None = None
+    diarize: bool = False
+    diarization_dir: Path | None = None
+
+    @property
+    def diarizes(self) -> bool:
+        """Czy ta transkrypcja kończy się podziałem na mówców."""
+        return self.diarize and self.diarization_dir is not None and self.clip is None
 
 
 CancelCheck = Callable[[], bool]
@@ -214,6 +269,8 @@ def transcribe(
     backend_factory: BackendFactory | None = None,
     language: str = LANGUAGE,
     options: DecodingOptions | None = None,
+    diarizer_factory: DiarizerFactory | None = None,
+    decode: Callable[[str], npt.NDArray[np.float32]] | None = None,
 ) -> TranscriptionResult:
     """Wykonuje lokalną transkrypcję pliku audio.
 
@@ -223,7 +280,9 @@ def transcribe(
 
     ``on_progress`` dostaje po każdym segmencie ułamek przetworzonego
     nagrania (koniec segmentu względem długości audio); nie jest wołane,
-    gdy backend nie zna długości nagrania.
+    gdy backend nie zna długości nagrania. Przy diaryzacji transkrypcja
+    zajmuje ``DIARIZED_ASR_SHARE`` postępu, a podział na mówców — resztę.
+    ``diarizer_factory`` i ``decode`` podstawiają testy.
     """
     cancel = should_cancel or (lambda: False)
     audio = Path(audio_path)
@@ -247,7 +306,7 @@ def transcribe(
         extra["initial_prompt"] = decoding.initial_prompt
     if decoding.hotwords:
         extra["hotwords"] = decoding.hotwords
-    if decoding.word_timestamps:
+    if decoding.word_timestamps or decoding.diarizes:
         extra["word_timestamps"] = True
     device = "cuda" if decoding.device == "auto" and cuda_device_count() else "cpu"
     device_note: str | None = None
@@ -274,6 +333,7 @@ def transcribe(
     if decoding.clip is not None:
         origin = decoding.clip[0]
         duration = max(0.0, min(duration, decoding.clip[1]) - origin)
+    share = DIARIZED_ASR_SHARE if decoding.diarizes else 1.0
     progress = 0.0
     segments: list[SegmentResult] = []
     for raw in _guarded(raw_segments):
@@ -292,7 +352,31 @@ def transcribe(
         if on_progress is not None and duration > 0:
             # Segmenty idą chronologicznie, ale max() chroni przed cofaniem.
             progress = max(progress, min(1.0, (segment.end_s - origin) / duration))
-            on_progress(progress)
+            on_progress(progress * share)
+    if cancel():
+        raise TranscriptionCancelled()
+    diarization_note: str | None = None
+    if decoding.diarizes and segments and decoding.diarization_dir is not None:
+        try:
+            samples = (decode or _decode_audio)(str(audio))
+            turns = diarization.diarize(
+                samples,
+                decoding.diarization_dir,
+                should_cancel=cancel,
+                on_progress=(
+                    None
+                    if on_progress is None
+                    else lambda fraction: on_progress(share + (1 - share) * fraction)
+                ),
+                factory=diarizer_factory,
+            )
+        except DiarizationCancelled:
+            raise TranscriptionCancelled() from None
+        except Exception as error:  # noqa: BLE001 — szkic bez mówców
+            logger.warning("Speaker diarization failed", exc_info=error)
+            diarization_note = _short(error)
+        else:
+            segments = list(diarization.assign_speakers(segments, turns))
     if cancel():
         raise TranscriptionCancelled()
     return TranscriptionResult(
@@ -301,6 +385,7 @@ def transcribe(
         segments=tuple(segments),
         device=device,
         device_note=device_note,
+        diarization_note=diarization_note,
     )
 
 
@@ -561,6 +646,8 @@ __all__ = [
     "ChunkedWhisperBackend",
     "DecodingOptions",
     "build_hotwords",
+    "draft_line_speakers",
+    "draft_text",
     "SegmentResult",
     "WordResult",
     "TranscriptionCancelled",

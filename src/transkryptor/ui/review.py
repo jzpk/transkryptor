@@ -69,19 +69,26 @@ class ReviewController(QObject):
         self._ellipsis_style = ellipsis_style
         self.items: list[ReviewItem] = []
 
-    def insert_draft(self, text: str, segments: Sequence[TimedSegment] = ()) -> None:
+    def insert_draft(
+        self,
+        text: str,
+        segments: Sequence[TimedSegment] = (),
+        line_speakers: Sequence[str | None] = (),
+    ) -> bool:
         """REQ-14/15: wstawia szkic ASR i stosuje reguły wybrane przez autora.
 
         Wstawienie i reguły to dwa osobne kroki cofania: pierwsze Ctrl+Z
         przywraca surowy szkic, drugie — stan sprzed wstawienia (ACC-15).
-        ``segments`` (z czasami) dają kotwice czasowe szkicu (REQ-22).
+        ``segments`` (z czasami) dają kotwice czasowe szkicu (REQ-22),
+        a ``line_speakers`` — mówców kolejnych wersów. Zwraca False, gdy
+        szkic nie został wstawiony (pusty albo rezygnacja użytkownika).
         """
         if not text.strip():
-            return
+            return False
         if self.editor.plain_text().strip():
             placement = self._ask_placement()
             if placement is None:
-                return
+                return False
         else:
             placement = DRAFT_REPLACE
         self.finish()
@@ -90,7 +97,9 @@ class ReviewController(QObject):
         text, anchors = build_draft(
             text, segments, lambda value: normalize_ellipses(value, style)
         )
-        start = self.editor.insert_draft(text, append=placement == DRAFT_APPEND)
+        start = self.editor.insert_draft(
+            text, append=placement == DRAFT_APPEND, line_speakers=line_speakers
+        )
         if self._sync is not None:
             if placement == DRAFT_REPLACE:
                 self._sync.clear()
@@ -130,6 +139,7 @@ class ReviewController(QObject):
                 tr("review.rules_timeout.title"),
                 tr("review.rules_timeout", codes=", ".join(proposal.failed)),
             )
+        return True
 
     def insert_fragment(self, text: str, segments: Sequence[TimedSegment] = ()) -> None:
         """Wstawia wynik transkrypcji fragmentu w miejscu kursora (ACC-49).

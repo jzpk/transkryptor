@@ -23,11 +23,17 @@ from transkryptor.paths import user_data_dir
 
 @dataclass(frozen=True)
 class ModelFile:
-    """Plik modelu z oczekiwanym rozmiarem i sumą SHA-256 (szesnastkowo)."""
+    """Plik modelu z oczekiwanym rozmiarem i sumą SHA-256 (szesnastkowo).
+
+    ``repo_id`` i ``revision`` nadpisują repozytorium i rewizję modelu, gdy
+    plik pochodzi z innego repozytorium (model mówców składa się z dwóch).
+    """
 
     name: str
     size: int
     sha256: str
+    repo_id: str | None = None
+    revision: str | None = None
 
 
 @dataclass(frozen=True)
@@ -184,6 +190,43 @@ WHISPER_LARGE_V3 = AsrModelInfo(
 )
 
 DEFAULT_MODEL = WHISPER_MEDIUM
+
+# Model podziału na mówców (diaryzacja, sherpa-onnx): segmentacja mowy
+# pyannote/segmentation-3.0 w ONNX (MIT, CNRS) i model głosu mówcy CAM++
+# z projektu 3D-Speaker trenowany na VoxCeleb (Apache-2.0). Rewizje, rozmiary
+# i sumy odczytane z repozytoriów (2026-10-23; commity z 2024-10).
+DIARIZATION_SEGMENTATION_FILE = "model.onnx"
+DIARIZATION_EMBEDDING_FILE = "3dspeaker_speech_campplus_sv_en_voxceleb_16k.onnx"
+_DIARIZATION_FILES = (
+    ModelFile(
+        DIARIZATION_SEGMENTATION_FILE,
+        5_992_913,
+        "220ad67ca923bef2fa91f2390c786097bf305bceb5e261d4af67b38e938e1079",
+    ),
+    ModelFile(
+        DIARIZATION_EMBEDDING_FILE,
+        29_596_978,
+        "357a834f702b80161e5b981182c038e18553c1f2ca752ed6cec2052365d4129b",
+        repo_id="csukuangfj/speaker-embedding-models",
+        revision="0743f301363dec56491a490f6d6cbc9d67f9a3bf",
+    ),
+)
+
+DIARIZATION_MODEL = AsrModelInfo(
+    key="diarization",
+    display_name="pyannote segmentation-3.0 + 3D-Speaker CAM++ (sherpa-onnx)",
+    hf_repo_id="csukuangfj/sherpa-onnx-pyannote-segmentation-3-0",
+    hf_revision="9403a6902bb58e3d5ae8c7e77c3422de279db2e0",
+    files=_DIARIZATION_FILES,
+    approx_size_bytes=sum(file.size for file in _DIARIZATION_FILES),
+    license_id="MIT, Apache-2.0",
+    source_url="https://huggingface.co/csukuangfj/sherpa-onnx-pyannote-segmentation-3-0",
+    min_ram_bytes=1_000_000_000,
+    description=(
+        "Lokalny model podziału szkicu na mówców: wykrywa zmiany mówcy "
+        "i grupuje wypowiedzi po głosie. Po pobraniu działa w pełni offline."
+    ),
+)
 
 # Modele do wyboru w kolejności od najmniejszego (lista w panelu ASR).
 MODELS: tuple[AsrModelInfo, ...] = (WHISPER_SMALL, WHISPER_MEDIUM, WHISPER_LARGE_V3)

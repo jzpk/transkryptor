@@ -203,8 +203,8 @@ def hf_streaming_download(
             partial = target.with_name(target.name + PARTIAL_SUFFIX)
             target.parent.mkdir(parents=True, exist_ok=True)
             url = (
-                f"https://huggingface.co/{model.hf_repo_id}"
-                f"/resolve/{model.hf_revision}/{file.name}"
+                f"https://huggingface.co/{file.repo_id or model.hf_repo_id}"
+                f"/resolve/{file.revision or model.hf_revision}/{file.name}"
             )
             digest = hashlib.sha256()
             size = 0

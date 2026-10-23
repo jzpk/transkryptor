@@ -145,6 +145,18 @@ Pusta sekcja blokuje wydanie.
   a w DOCX i ODT zapisana jest jej nazwa (na komputerze bez Charis SIL
   edytor dokumentów podstawi inną). Inną czcionkę można wybrać jak dotąd
   w **Ustawieniach…** (zakładka **Wygląd**).
+- Podział szkicu ASR na mówców: po transkrypcji program rozpoznaje, kto
+  mówi, i każda wypowiedź staje się osobnym akapitem ze znacznikiem czasu
+  `[mm:ss]` i mówcą — w edytorze i w eksporcie DOCX (pogrubiona etykieta
+  `B:` / `I:`). Ten podział zastępuje dzielenie szkicu na wersy co 30 sekund.
+  Mówcy są przypisywani w kolejności pojawiania się w nagraniu: pierwszy
+  głos to pierwszy mówca z listy (domyślnie `B`), drugi — `I`, a kolejne
+  głosy dostają nowych informatorów `I2`, `I3`… Przypisanie można poprawić
+  jak dotąd (**Alt+Shift+1…9**, **Mówcy…**). Opcja jest w **Ustawieniach…**
+  (zakładka **ASR**, domyślnie włączona) i wymaga jednorazowego pobrania
+  modelu podziału na mówców (ok. 36 MB, za zgodą użytkownika) — bez niego
+  pole jest zablokowane, a szkic dzieli się jak dotąd. Model działa w pełni
+  lokalnie. Rozpoznanie fragmentu A–B nie dzieli tekstu na mówców.
 
 ## 0.5.0 — 2026-10-18
 

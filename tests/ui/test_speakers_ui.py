@@ -5,6 +5,7 @@ from PySide6.QtCore import QPoint
 from PySide6.QtGui import QTextCursor
 from PySide6.QtWidgets import QMenu, QTableWidgetItem
 
+from transkryptor.asr.engine import SegmentResult, TranscriptionResult
 from transkryptor.document.speakers import INFORMANT, Speaker
 from transkryptor.export.docx_export import export_docx
 from transkryptor.notation.validator import VAL_12
@@ -189,3 +190,76 @@ def test_gutter_click_opens_speaker_menu(add_window, qtbot, monkeypatch) -> None
     assert block is not None and block.blockNumber() == 0
     window.editor.speaker_gutter._on_click(block, QPoint(0, 0))
     assert shown and shown[0] >= 3
+
+
+def diarized_result(*turns: tuple[float, float, str, int]) -> TranscriptionResult:
+    segments = tuple(
+        SegmentResult(start, end, text, 0.9, speaker=speaker)
+        for start, end, text, speaker in turns
+    )
+    return TranscriptionResult(
+        text="".join(s.text for s in segments).strip(),
+        language="pl",
+        segments=segments,
+    )
+
+
+DIARIZED = diarized_result(
+    (0.0, 2.0, " Gdzie pani mieszka?", 0),
+    (2.0, 5.0, " Tu, we wsi.", 1),
+    (5.0, 7.0, " A brat?", 0),
+)
+
+
+def test_diarized_draft_gets_speaker_paragraphs(add_window, tmp_path) -> None:
+    """Podział na mówców: wypowiedź = akapit z mówcą, także w DOCX."""
+    window = add_window(MainWindow())
+    window._on_draft_ready(DIARIZED)
+    window.session.mark_editor_changed()
+
+    assert window.document.text == (
+        "[00:00] Gdzie pani mieszka?\n[00:02] Tu, we wsi.\n[00:05] A brat?"
+    )
+    # Pierwszy głos to pierwszy mówca z listy (B), drugi — I.
+    assert window.document.paragraph_speakers == {0: "B", 1: "I", 2: "B"}
+    assert window.editor.speaker_gutter.isVisibleTo(window)
+
+    target = tmp_path / "wywiad.docx"
+    export_docx(window.document, target)
+    texts = [p.text for p in DocxDocument(str(target)).paragraphs]
+    assert texts[-3:] == [
+        "B:\t[00:00] Gdzie pani mieszka?",
+        "I:\t[00:02] Tu, we wsi.",
+        "B:\t[00:05] A brat?",
+    ]
+
+    # Wstawienie razem z mówcami to jeden krok cofania.
+    window.editor.undo()
+    window.session.mark_editor_changed()
+    assert window.document.text == ""
+    assert window.document.paragraph_speakers == {}
+
+
+def test_extra_voices_get_new_informants(add_window) -> None:
+    window = add_window(MainWindow())
+    window._on_draft_ready(
+        diarized_result(
+            (0.0, 1.0, " Pytanie.", 0),
+            (1.0, 2.0, " Odpowiedź.", 1),
+            (2.0, 3.0, " Wtrącenie.", 2),
+        )
+    )
+    window.session.mark_editor_changed()
+    assert [s.key for s in window.document.speakers] == ["B", "I", "I2"]
+    assert window.document.speaker("I2") == Speaker("I2", "", INFORMANT)
+    assert window.document.paragraph_speakers == {0: "B", 1: "I", 2: "I2"}
+
+
+def test_cancelled_placement_keeps_speaker_list(add_window, monkeypatch) -> None:
+    window = make_window(add_window)
+    monkeypatch.setattr(window, "_ask_draft_placement", lambda: None)
+    window._on_draft_ready(
+        diarized_result((0.0, 1.0, " a", 0), (1.0, 2.0, " b", 1), (2.0, 3.0, " c", 2))
+    )
+    assert window.document.text == TEXT
+    assert [s.key for s in window.document.speakers] == ["B", "I"]

@@ -2,7 +2,6 @@
 
 import time
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 from docx import Document as DocxDocument
@@ -13,17 +12,20 @@ from PySide6.QtWidgets import QMessageBox
 
 from transkryptor.asr.engine import SegmentResult, TranscriptionResult
 from transkryptor.asr.manager import DownloadCancelled, ModelManager
-from transkryptor.asr.models import WHISPER_SMALL, AsrModelInfo
+from transkryptor.asr.models import DIARIZATION_MODEL, WHISPER_SMALL, AsrModelInfo
 from transkryptor.export.docx_export import export_docx
 from transkryptor.i18n import tr
 from transkryptor.notation.suggestions import default_rules, rule_infos
+from transkryptor.settings import AsrSettings, Settings
 from transkryptor.ui.asr_panel import (
     APPLIED_MARK,
     PENDING_MARK,
     AsrPanel,
 )
+from transkryptor.ui.diarization_box import DiarizationBox
 from transkryptor.ui.loading_overlay import loading_messages
 from transkryptor.ui.main_window import DRAFT_APPEND, DRAFT_REPLACE, MainWindow
+from transkryptor.ui.settings_dialog import SettingsDialog
 
 
 def fake_downloader(
@@ -37,7 +39,7 @@ def fake_downloader(
 def fake_transcribe(
     audio_path, model_dir, should_cancel, on_segment, on_progress=None, **_kwargs
 ):
-    segment = SimpleNamespace(start_s=0.0, end_s=2.0, text=" są.", confidence=0.9)
+    segment = SegmentResult(start_s=0.0, end_s=2.0, text=" są.", confidence=0.9)
     on_segment(segment)
     if on_progress is not None:
         on_progress(0.5)
@@ -855,3 +857,76 @@ class TestContextAndVocabulary:
         wait_until(lambda: panel._transcribe_thread is None, what="transkrypcja")
         assert "brak libcublas" in panel.device_label.text()
         assert "CPU" in panel.device_label.text()
+
+
+class TestDiarizationOption:
+    """Podział na mówców: opcja w ustawieniach, model za zgodą użytkownika."""
+
+    @staticmethod
+    def box(qtbot, manager) -> DiarizationBox:
+        widget = DiarizationBox(manager)
+        qtbot.addWidget(widget, before_close_func=lambda w: w.cancel_and_wait())
+        return widget
+
+    def test_option_is_locked_without_model(self, qtbot, manager) -> None:
+        box = self.box(qtbot, manager)
+        box.set_value(True)
+        assert not box.check.isEnabled()
+        assert not box.check.isChecked()
+        assert box.download_button.isVisibleTo(box)
+        # Wybór użytkownika zostaje — zadziała po pobraniu modelu.
+        assert box.value() is True
+
+    def test_download_needs_consent(self, qtbot, manager, monkeypatch) -> None:
+        monkeypatch.setattr(
+            QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.No
+        )
+        box = self.box(qtbot, manager)
+        box.download_button.click()
+        assert not box.is_downloading()
+        assert not box.is_available()
+
+    def test_download_unlocks_and_enables_option(
+        self, qtbot, manager, monkeypatch
+    ) -> None:
+        accept_consent(monkeypatch)
+        box = self.box(qtbot, manager)
+        box.set_value(False)
+        assert "36 MB" in box.consent_text()
+        box.download_button.click()
+        wait_until(lambda: not box.is_downloading(), what="pobranie modelu mówców")
+        assert box.is_available()
+        assert box.check.isEnabled() and box.check.isChecked()
+        assert box.value() is True
+        box.check.setChecked(False)
+        assert box.value() is False
+        assert box.delete_button.isVisibleTo(box)
+
+    def test_settings_dialog_saves_choice(self, qtbot, manager) -> None:
+        dialog = SettingsDialog(Settings(), model_manager=manager)
+        qtbot.addWidget(dialog)
+        assert dialog.settings().asr.diarize is True
+        dialog.diarization_box.set_value(False)
+        assert dialog.settings().asr.diarize is False
+
+    def test_decoding_options_diarize_only_with_model(self, panel, manager) -> None:
+        panel.set_asr_settings(
+            AsrSettings(diarize=True, models_root=str(manager.models_root))
+        )
+        assert not panel.decoding_options().diarize
+        diarization = manager.with_model(DIARIZATION_MODEL)
+        diarization.download()
+        options = panel.decoding_options()
+        assert options.diarize
+        assert options.diarization_dir == diarization.model_dir
+        panel.set_asr_settings(
+            AsrSettings(diarize=False, models_root=str(manager.models_root))
+        )
+        assert not panel.decoding_options().diarize
+
+    def test_status_shows_speaker_phase(self, panel) -> None:
+        panel._diarizing = True
+        panel._on_transcribe_progress(0.95)
+        assert panel.transcribe_status_label.text() == tr(
+            "asr.diarizing.percent", percent=95
+        )

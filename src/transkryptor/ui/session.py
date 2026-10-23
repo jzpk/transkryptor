@@ -484,6 +484,7 @@ class SessionController(QObject):
                                 AsrWord(w.start_s, w.end_s, w.text, w.probability)
                                 for w in s.words
                             ),
+                            speaker=s.speaker,
                         )
                         for s in result.segments
                     ),
@@ -733,6 +734,7 @@ def _transcription_result(draft: AsrDraft | None) -> TranscriptionResult | None:
                     WordResult(w.start_s, w.end_s, w.text, w.probability)
                     for w in s.words
                 ),
+                speaker=s.speaker,
             )
             for s in draft.segments
         ),

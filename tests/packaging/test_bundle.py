@@ -47,11 +47,27 @@ def test_collected_data_sources_exist() -> None:
         assert Path(source).is_file()
 
 
+def test_sherpa_onnx_runtime_stays_next_to_its_module() -> None:
+    """Kopia onnxruntime z sherpa-onnx-core nie miesza się z pakietem onnxruntime."""
+    binaries = bundle.collect_binaries()
+    assert binaries
+    for source, destination in binaries:
+        assert Path(source).is_file()
+        assert destination == "sherpa_onnx/lib"
+        assert not Path(source).name.startswith("_")
+    assert any("onnxruntime" in Path(source).name for source, _ in binaries)
+    assert "binaries" in bundle.analysis_options("linux")
+
+
 def test_hidden_imports_cover_lazily_loaded_stack() -> None:
     """Silnik ASR i pobieranie modelu importują się dopiero w czasie pracy."""
-    assert {"faster_whisper", "ctranslate2", "httpx", "huggingface_hub"} <= set(
-        bundle.HIDDEN_IMPORTS
-    )
+    assert {
+        "faster_whisper",
+        "ctranslate2",
+        "httpx",
+        "huggingface_hub",
+        "sherpa_onnx",
+    } <= set(bundle.HIDDEN_IMPORTS)
 
 
 def test_excludes_do_not_remove_modules_the_application_uses() -> None:

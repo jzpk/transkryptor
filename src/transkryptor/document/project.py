@@ -9,8 +9,8 @@ przeglądu reguł (zakres w tekście, kod reguły i treść propozycji), a od
 schematu 2 także kontekst nagrania i słownik projektu dla ASR, od
 schematu 3 — ostrzeżenia walidatora zignorowane w konkretnych miejscach,
 od schematu 4 — kotwice czasowe tekstu (``document/anchors.py``), a od
-schematu 5 — mówcy nagrania i ich przypisanie do akapitów
-(``document/speakers.py``).
+schematu 5 — mówcy nagrania, ich przypisanie do akapitów
+(``document/speakers.py``) i mówcy segmentów ASR z podziału na mówców.
 
 Zapis jest atomowy: plik tymczasowy w katalogu docelowym, ``fsync``
 i ``os.replace`` — przerwany zapis nie psuje poprzedniej wersji. Odczyt
@@ -87,6 +87,8 @@ class AsrSegment:
     confidence: float
     # Słowa z czasami (schemat 4; puste, gdy ASR ich nie liczył).
     words: tuple[AsrWord, ...] = ()
+    # Numer mówcy z podziału na mówców (schemat 5; None bez diaryzacji).
+    speaker: int | None = None
 
 
 @dataclass(frozen=True)
@@ -266,6 +268,8 @@ def _segment_dict(segment: AsrSegment) -> dict[str, Any]:
             }
             for w in segment.words
         ]
+    if segment.speaker is not None:
+        data["speaker"] = segment.speaker
     return data
 
 
@@ -570,6 +574,7 @@ def _parse(data: dict[str, Any]) -> ProjectState:
                         )
                         for w in map(_dict, _list(s.get("words", [])))
                     ),
+                    speaker=_optional_int(s.get("speaker")),
                 )
                 for s in map(_dict, _list(asr_dict.get("segments", [])))
             ),

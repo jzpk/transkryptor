@@ -26,7 +26,7 @@ options = analysis_options(sys.platform)
 analysis = Analysis(
     options["scripts"],
     pathex=options["pathex"],
-    binaries=[],
+    binaries=options["binaries"],
     datas=options["datas"],
     hiddenimports=options["hiddenimports"],
     hookspath=[],
