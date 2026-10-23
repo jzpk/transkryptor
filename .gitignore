@@ -224,3 +224,6 @@ specs/
 
 # Specyfikacja PyInstallera jest częścią procesu wydania.
 !packaging/transkryptor.spec
+
+# Strona projektu zbudowana lokalnie (python -m transkryptor.packaging.site).
+_site/

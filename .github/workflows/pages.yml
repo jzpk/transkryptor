@@ -1,0 +1,75 @@
+# Strona projektu na GitHub Pages: opis, pobieranie i historia zmian.
+#
+# Workflow „Wydanie” wywołuje go po publikacji wydania (z tagiem wydania
+# w `ref`), bo wydanie i commit z [skip ci] nie uruchamiają innych
+# workflow. Zmiana samej strony (pages/, generator) wdraża się po pushu na
+# main; ręcznie: Actions → „Strona” → Run workflow.
+#
+# Strona pokazuje najnowsze wydanie i jego historię zmian, a nie stan main
+# (src/transkryptor/packaging/site.py). Environment github-pages musi
+# dopuszczać gałąź main i tagi v* (Settings → Environments).
+name: Strona
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: "Tag albo gałąź, z której powstaje strona"
+        type: string
+        required: false
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "pages/**"
+      - "src/transkryptor/packaging/site.py"
+      - ".github/workflows/pages.yml"
+
+permissions:
+  contents: read
+
+# Jedno wdrożenie naraz; rozpoczęte kończy się, nowsze czeka.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  budowanie:
+    name: Budowanie strony
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Instalacja uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          enable-cache: true
+
+      - name: Środowisko z uv.lock
+        run: uv sync --locked
+
+      - name: Generowanie strony
+        run: uv run python -m transkryptor.packaging.site --out _site
+
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: _site
+
+  wdrozenie:
+    name: Wdrożenie
+    needs: budowanie
+    runs-on: ubuntu-22.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.wdrozenie.outputs.page_url }}
+    steps:
+      - id: wdrozenie
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

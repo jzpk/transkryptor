@@ -13,6 +13,7 @@ Podział odpowiedzialności:
 - ``checksums`` — sumy kontrolne w formacie ``sha256sum``;
 - ``changelog`` — nowości wersji z ``CHANGELOG.md``;
 - ``release_notes`` — noty wydania dla użytkownika;
+- ``site`` — strona projektu na GitHub Pages;
 - ``build`` — narzędzie wiersza poleceń spinające powyższe kroki.
 """
 

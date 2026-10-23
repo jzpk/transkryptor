@@ -122,6 +122,9 @@ def test_workflows_pin_actions_to_commit_shas() -> None:
     for workflow in WORKFLOW.parent.glob("*.yml"):
         for line in workflow.read_text(encoding="utf-8").splitlines():
             if "uses:" in line:
+                # Workflow z tego repozytorium idzie z tym samym commitem.
+                if line.split("uses:", 1)[1].strip().startswith("./"):
+                    continue
                 ref = line.split("@", 1)[1].split()[0]
                 assert re.fullmatch(r"[0-9a-f]{40}", ref), f"{workflow.name}: {line}"
 

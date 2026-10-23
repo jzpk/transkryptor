@@ -431,3 +431,16 @@ jobs:
             --notes-file dist/RELEASE-NOTES.md \
             dist/*.AppImage dist/*-setup.exe dist/SHA256SUMS.txt \
             dist/SHA256SUMS.txt.minisig dist/RELEASE-NOTES.md
+
+  # Strona projektu z nowymi linkami pobierania i historią zmian. Błąd tutaj
+  # nie cofa wydania — stronę można wdrożyć ponownie z Actions → „Strona”.
+  strona:
+    name: Strona projektu
+    needs: [wersja, publikacja]
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/pages.yml
+    with:
+      ref: ${{ needs.wersja.outputs.tag }}
