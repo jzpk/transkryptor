@@ -7,6 +7,8 @@ Pusta sekcja blokuje wydanie.
 
 ## Nieopublikowane
 
+- Więcej żartobliwych komunikatów w trakcie transkrypcji: pula wzrosła
+  z 30 do 50, więc teksty rzadziej się powtarzają.
 - Dziennik błędów: program zapisuje lokalnie plik `transkryptor.log`
   z informacjami technicznymi o błędach i awariach (także procesu ASR),
   które pomagają znaleźć przyczynę problemu. Nic nie jest wysyłane —

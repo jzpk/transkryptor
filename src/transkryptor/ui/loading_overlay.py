@@ -40,7 +40,7 @@ ETA_TICK_MS = 1_000
 # Szacunek pokazujemy dopiero po tylu sekundach od pierwszego postępu —
 # wcześniej tempo jest zbyt chwiejne, by cokolwiek obiecywać.
 ETA_MIN_SAMPLE_S = 10.0
-LOADING_MESSAGE_COUNT = 30
+LOADING_MESSAGE_COUNT = 50
 
 
 def loading_messages() -> tuple[str, ...]:

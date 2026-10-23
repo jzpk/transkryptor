@@ -19,9 +19,9 @@ def make_overlay(qtbot, **kwargs) -> tuple[QWidget, LoadingOverlay]:
     return host, LoadingOverlay(host, **kwargs)
 
 
-def test_has_thirty_distinct_messages() -> None:
-    assert len(loading_messages()) == 30
-    assert len(set(loading_messages())) == 30
+def test_has_fifty_distinct_messages() -> None:
+    assert len(loading_messages()) == 50
+    assert len(set(loading_messages())) == 50
 
 
 def test_every_message_shown_before_any_repeats(qtbot) -> None:
