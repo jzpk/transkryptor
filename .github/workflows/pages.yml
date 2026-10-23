@@ -2,8 +2,8 @@
 #
 # Workflow „Wydanie” wywołuje go po publikacji wydania (z tagiem wydania
 # w `ref`), bo wydanie i commit z [skip ci] nie uruchamiają innych
-# workflow. Zmiana samej strony (pages/, generator) wdraża się po pushu na
-# main; ręcznie: Actions → „Strona” → Run workflow.
+# workflow. Push nie wdraża strony — zmianę samej strony (pages/, generator)
+# wdraża się ręcznie: Actions → „Strona” → Run workflow.
 #
 # Strona pokazuje najnowsze wydanie i jego historię zmian, a nie stan main
 # (src/transkryptor/packaging/site.py). Environment github-pages musi
@@ -18,13 +18,6 @@ on:
         type: string
         required: false
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths:
-      - "pages/**"
-      - "src/transkryptor/packaging/site.py"
-      - ".github/workflows/pages.yml"
 
 permissions:
   contents: read
