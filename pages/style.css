@@ -94,7 +94,7 @@ h3 {
 
 h2 {
   font-size: 1.75rem;
-  margin: 0 0 16px;
+  margin: 0 0 20px;
 }
 
 h3 {
@@ -105,12 +105,14 @@ h3 {
 .wrap {
   max-width: 1120px;
   margin: 0 auto;
-  padding: 0 16px;
+  /* Tylko poziomo — sekcje z klasą .wrap biorą odstępy z main > section. */
+  padding-left: 16px;
+  padding-right: 16px;
 }
 
 main > section {
-  padding-top: 56px;
-  padding-bottom: 56px;
+  padding-top: 72px;
+  padding-bottom: 72px;
 }
 
 .small {
@@ -436,7 +438,7 @@ thead th {
   }
 
   main > section {
-    padding-top: 40px;
-    padding-bottom: 40px;
+    padding-top: 48px;
+    padding-bottom: 48px;
   }
 }

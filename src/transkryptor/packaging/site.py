@@ -213,7 +213,6 @@ def page_fields(releases: list[Release], repo: str) -> dict[str, str]:
         "windows_file": artifacts["windows"].artifact_name,
         "linux_url": f"{download}/{artifacts['linux'].artifact_name}",
         "linux_file": artifacts["linux"].artifact_name,
-        "checksums_url": f"{download}/SHA256SUMS.txt",
         # Instrukcja z taga wydania — ta w main może opisywać nowości,
         # których pobrana wersja jeszcze nie ma.
         "guide_url": f"{repo_url}/raw/v{version}/docs/user_guide_pl.pdf",

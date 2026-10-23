@@ -75,7 +75,7 @@ def test_build_links_downloads_of_the_latest_release(changelog_file, tmp_path) -
     download = "https://github.com/owner/repo/releases/download/v0.2.4"
     for target in targets("0.2.4").values():
         assert f'href="{download}/{target.artifact_name}"' in page
-    assert f"{download}/SHA256SUMS.txt" in page
+    assert "SHA256SUMS.txt" not in page
     assert 'id="v0.2.3"' in page
     assert "Funkcja w toku" not in page
     assert (out / "style.css").is_file()
