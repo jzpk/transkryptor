@@ -227,3 +227,6 @@ specs/
 
 # Strona projektu zbudowana lokalnie (python -m transkryptor.packaging.site).
 _site/
+
+# Worktree agentów Claude Code (praca równoległa).
+.claude/worktrees/
