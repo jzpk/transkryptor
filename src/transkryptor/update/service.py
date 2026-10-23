@@ -29,6 +29,7 @@ from transkryptor.errors import UpdateError
 from transkryptor.i18n import tr
 from transkryptor.update.download import (
     DownloadCancelled,
+    DownloadProgress,
     clear_downloads,
     download_release,
 )
@@ -45,6 +46,16 @@ from transkryptor.update.releases import (
 # Krótki limit na nawiązanie połączenia (start nie czeka na wolną sieć),
 # dłuższy na odczyt kolejnych porcji pobieranego artefaktu.
 TIMEOUT = httpx.Timeout(30.0, connect=10.0)
+
+
+class UpdateStage(Enum):
+    """Etap przebiegu zgłaszany warstwie UI (ekran startowy)."""
+
+    CHECKING = "checking"
+    DOWNLOADING = "downloading"
+
+
+StageCallback = Callable[[UpdateStage, ReleaseInfo | None], None]
 
 
 class UpdateStatus(Enum):
@@ -95,7 +106,15 @@ class UpdateService:
         )
         self._today = today
 
-    def run(self, should_cancel: Callable[[], bool] = lambda: False) -> UpdateOutcome:
+    def run(
+        self,
+        should_cancel: Callable[[], bool] = lambda: False,
+        on_progress: DownloadProgress | None = None,
+        on_stage: StageCallback | None = None,
+    ) -> UpdateOutcome:
+        """Jeden przebieg; ``on_stage`` i ``on_progress`` zasilają ekran startowy."""
+        stage = on_stage or (lambda _stage, _release: None)
+        stage(UpdateStage.CHECKING, None)
         today = self._today()
         with self._client_factory() as client:
             release = self.quota.cached_release(today)
@@ -118,9 +137,14 @@ class UpdateService:
             if not self._self_update or release.artifact is None:
                 return UpdateOutcome(UpdateStatus.AVAILABLE, release)
 
+            stage(UpdateStage.DOWNLOADING, release)
             try:
                 artifact = download_release(
-                    release, client, self._download_root, should_cancel
+                    release,
+                    client,
+                    self._download_root,
+                    should_cancel,
+                    on_progress=on_progress,
                 )
             except DownloadCancelled:
                 return UpdateOutcome(UpdateStatus.CANCELLED, release)

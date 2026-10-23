@@ -46,6 +46,31 @@ def test_download_verifies_and_stores_the_artifact(github, tmp_path) -> None:
     assert not list(path.parent.glob("*.part"))
 
 
+def test_download_reports_byte_progress(github, tmp_path) -> None:
+    """Ekran startowy pokazuje postęp: bajty pobrane i całość z nagłówka."""
+    github.publish("1.0.0", {ASSET: b"nowy obraz"})
+    progress: list[tuple[int, int | None]] = []
+    with github.client() as client:
+        download_release(
+            release_from(github),
+            client,
+            tmp_path,
+            on_progress=lambda done, total: progress.append((done, total)),
+        )
+    assert progress[0] == (0, 10)
+    assert progress[-1] == (10, 10)
+    # Gotowy plik z poprzedniego uruchomienia to od razu 100%.
+    progress.clear()
+    with github.client() as client:
+        download_release(
+            release_from(github),
+            client,
+            tmp_path,
+            on_progress=lambda done, total: progress.append((done, total)),
+        )
+    assert progress == [(10, 10)]
+
+
 def test_checksum_mismatch_rejects_the_file(github, tmp_path) -> None:
     github.publish("1.0.0", {ASSET: b"nowy obraz"})
     github.checksums_override = f"{'0' * 64}  {ASSET}\n"

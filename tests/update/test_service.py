@@ -6,8 +6,8 @@ from datetime import date
 
 import pytest
 
-from transkryptor.update.quota import RequestQuota
-from transkryptor.update.service import UpdateService, UpdateStatus
+from transkryptor.update.quota import DAILY_LIMIT, RequestQuota
+from transkryptor.update.service import UpdateService, UpdateStage, UpdateStatus
 
 ASSET = "Transkryptor-1.0.0-x86_64.AppImage"
 TODAY = date(2026, 10, 8)
@@ -37,6 +37,28 @@ def test_newer_release_is_downloaded(github, make_service, tmp_path) -> None:
     assert outcome.release is not None and outcome.release.version == "1.0.0"
 
 
+def test_stages_and_progress_reach_the_caller(github, make_service) -> None:
+    github.publish("1.0.0", {ASSET: b"obraz"})
+    stages: list[tuple[UpdateStage, str | None]] = []
+    progress: list[tuple[int, int | None]] = []
+    outcome = make_service().run(
+        on_progress=lambda done, total: progress.append((done, total)),
+        on_stage=lambda stage, release: stages.append(
+            (stage, release.version if release else None)
+        ),
+    )
+    assert outcome.status is UpdateStatus.READY
+    assert stages == [(UpdateStage.CHECKING, None), (UpdateStage.DOWNLOADING, "1.0.0")]
+    assert progress[-1] == (5, 5)
+
+
+def test_up_to_date_check_has_no_download_stage(github, make_service) -> None:
+    github.publish("0.2.0", {ASSET: b"obraz"})
+    stages: list[UpdateStage] = []
+    make_service().run(on_stage=lambda stage, _release: stages.append(stage))
+    assert stages == [UpdateStage.CHECKING]
+
+
 def test_current_version_is_up_to_date(github, make_service, tmp_path) -> None:
     (tmp_path / "updates" / "0.9.0").mkdir(parents=True)
     github.publish("0.2.0", {ASSET: b"obraz"})
@@ -53,12 +75,12 @@ def test_development_mode_only_reports_new_version(github, make_service) -> None
     assert github.downloads == []
 
 
-def test_at_most_two_api_requests_per_day(github, make_service) -> None:
+def test_at_most_five_api_requests_per_day(github, make_service) -> None:
     github.publish("0.2.0", {ASSET: b"obraz"})
-    assert make_service().run().status is UpdateStatus.UP_TO_DATE
-    assert make_service().run().status is UpdateStatus.UP_TO_DATE
+    for _ in range(DAILY_LIMIT):
+        assert make_service().run().status is UpdateStatus.UP_TO_DATE
     assert make_service().run().status is UpdateStatus.QUOTA_EXHAUSTED
-    assert github.api_calls == 2
+    assert github.api_calls == DAILY_LIMIT
 
 
 def test_offline_does_not_consume_the_limit(github, make_service) -> None:
@@ -67,8 +89,8 @@ def test_offline_does_not_consume_the_limit(github, make_service) -> None:
         assert make_service().run().status is UpdateStatus.OFFLINE
     github.offline = False
     github.publish("0.2.0", {ASSET: b"obraz"})
-    assert make_service().run().status is UpdateStatus.UP_TO_DATE
-    assert make_service().run().status is UpdateStatus.UP_TO_DATE
+    for _ in range(DAILY_LIMIT):
+        assert make_service().run().status is UpdateStatus.UP_TO_DATE
     assert make_service().run().status is UpdateStatus.QUOTA_EXHAUSTED
 
 

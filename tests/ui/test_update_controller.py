@@ -1,17 +1,29 @@
-"""Testy aktualizacji w oknie głównym: baner, komunikaty, ochrona pracy."""
+"""Testy aktualizacji: ekran startowy, baner w oknie, ochrona pracy."""
 
 from __future__ import annotations
 
 import socket
+import threading
 from pathlib import Path
+from typing import cast
 
 import pytest
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QAction
 
 from transkryptor.errors import UpdateError
 from transkryptor.i18n import tr
 from transkryptor.ui.main_window import MainWindow
+from transkryptor.ui.startup_screen import StartupScreen
+from transkryptor.ui.toolbar import COLLAPSE_ORDER
+from transkryptor.ui.update_controller import UpdateThread
 from transkryptor.update.releases import ReleaseInfo
-from transkryptor.update.service import UpdateOutcome, UpdateStatus
+from transkryptor.update.service import (
+    UpdateOutcome,
+    UpdateService,
+    UpdateStage,
+    UpdateStatus,
+)
 
 RELEASE = ReleaseInfo(
     "9.0.0", "https://github.com/jzpk/transkryptor/releases/tag/v9.0.0", None, None
@@ -20,11 +32,28 @@ ARTIFACT = Path("/tmp/Transkryptor-9.0.0-x86_64.AppImage")
 
 
 class FakeService:
-    def __init__(self, outcome: UpdateOutcome) -> None:
-        self.outcome = outcome
+    """Przebieg z etapami i postępem pobierania; ``gate`` wstrzymuje koniec."""
 
-    def run(self, should_cancel=lambda: False) -> UpdateOutcome:
+    def __init__(self, outcome: UpdateOutcome, gate=None) -> None:
+        self.outcome = outcome
+        self.gate = gate
+        self.cancelled = False
+
+    def run(self, should_cancel=lambda: False, on_progress=None, on_stage=None):
+        if on_stage is not None:
+            on_stage(UpdateStage.CHECKING, None)
+            if self.outcome.status is UpdateStatus.READY:
+                on_stage(UpdateStage.DOWNLOADING, self.outcome.release)
+        if on_progress is not None and self.outcome.status is UpdateStatus.READY:
+            on_progress(5 << 20, 10 << 20)
+        if self.gate is not None:
+            self.gate.wait(5)
+        self.cancelled = should_cancel()
         return self.outcome
+
+
+def as_service(fake: FakeService) -> UpdateService:
+    return cast(UpdateService, fake)
 
 
 @pytest.fixture
@@ -32,13 +61,10 @@ def window(add_window):
     return add_window(MainWindow())
 
 
-def run_check(qtbot, window, outcome: UpdateOutcome, *, manual: bool) -> None:
+def run_check(qtbot, window, outcome: UpdateOutcome) -> None:
     updates = window.updates
     updates._service_factory = lambda: FakeService(outcome)
-    if manual:
-        updates.check_now()
-    else:
-        updates.start_automatic()
+    updates.start_automatic()
     qtbot.waitUntil(lambda: not updates.is_running, timeout=5000)
 
 
@@ -58,19 +84,19 @@ def test_creating_the_window_does_not_touch_the_network(
 
 def test_ready_update_shows_banner_with_install_button(qtbot, window) -> None:
     outcome = UpdateOutcome(UpdateStatus.READY, RELEASE, ARTIFACT)
-    run_check(qtbot, window, outcome, manual=False)
+    run_check(qtbot, window, outcome)
     assert window.updates.banner.isVisibleTo(window)
     assert "9.0.0" in window.updates.banner_label.text()
     assert window.updates.install_button.text() == tr("update.install")
     assert window.updates.install_button.isVisibleTo(window)
 
 
-def test_available_update_shows_link_without_install(qtbot, window) -> None:
-    run_check(
-        qtbot, window, UpdateOutcome(UpdateStatus.AVAILABLE, RELEASE), manual=False
-    )
+def test_available_update_is_reported_without_download_link(qtbot, window) -> None:
+    run_check(qtbot, window, UpdateOutcome(UpdateStatus.AVAILABLE, RELEASE))
     assert window.updates.banner.isVisibleTo(window)
-    assert RELEASE.page_url in window.updates.banner_label.text()
+    text = window.updates.banner_label.text()
+    assert text == tr("update.available", version="9.0.0")
+    assert "href" not in text and RELEASE.page_url not in text
     assert not window.updates.install_button.isVisibleTo(window)
 
 
@@ -85,36 +111,17 @@ def test_available_update_shows_link_without_install(qtbot, window) -> None:
 )
 def test_automatic_check_is_silent(qtbot, window, no_blocking_dialogs, status) -> None:
     error = UpdateError("błąd") if status is UpdateStatus.ERROR else None
-    run_check(qtbot, window, UpdateOutcome(status, error=error), manual=False)
+    run_check(qtbot, window, UpdateOutcome(status, error=error))
     assert no_blocking_dialogs == []
     assert not window.updates.banner.isVisibleTo(window)
 
 
-@pytest.mark.parametrize(
-    ("status", "kind", "text"),
-    [
-        (UpdateStatus.OFFLINE, "warning", tr("update.offline")),
-        (UpdateStatus.QUOTA_EXHAUSTED, "information", tr("update.quota")),
-    ],
-)
-def test_manual_check_always_answers(
-    qtbot, window, no_blocking_dialogs, status, kind, text
-) -> None:
-    run_check(qtbot, window, UpdateOutcome(status), manual=True)
-    assert [(k, t) for k, _title, t in no_blocking_dialogs] == [(kind, text)]
-
-
-def test_manual_check_reports_up_to_date(qtbot, window, no_blocking_dialogs) -> None:
-    run_check(qtbot, window, UpdateOutcome(UpdateStatus.UP_TO_DATE), manual=True)
-    ((kind, _title, text),) = no_blocking_dialogs
-    assert kind == "information"
-    assert "najnowszą wersję" in text
-
-
-def test_check_action_is_in_the_toolbar(window) -> None:
-    button = window.main_toolbar.button_for(window.updates.check_action)
-    assert button.defaultAction() is window.updates.check_action
-    assert button.parent() is window.toolbar
+def test_no_manual_update_button(window) -> None:
+    """Sprawdzanie jest tylko przy starcie — bez przycisku na pasku."""
+    assert "update" not in COLLAPSE_ORDER
+    assert not hasattr(window.updates, "check_action")
+    texts = [action.text() for action in window.findChildren(QAction)]
+    assert "Sprawdź aktualizacje" not in texts
 
 
 def test_install_respects_unsaved_work(qtbot, window, no_blocking_dialogs) -> None:
@@ -124,7 +131,6 @@ def test_install_respects_unsaved_work(qtbot, window, no_blocking_dialogs) -> No
         qtbot,
         window,
         UpdateOutcome(UpdateStatus.READY, RELEASE, ARTIFACT),
-        manual=False,
     )
     window.editor.setPlainText("niewyeksportowany tekst")
     window.show()
@@ -149,24 +155,80 @@ def test_failed_install_is_reported(qtbot, window, no_blocking_dialogs) -> None:
         qtbot,
         window,
         UpdateOutcome(UpdateStatus.READY, RELEASE, ARTIFACT),
-        manual=False,
     )
     window.updates.install_button.click()
     assert [k for k, _t, _x in no_blocking_dialogs] == ["warning"]
 
 
-@pytest.mark.parametrize(
-    "url",
-    [
-        'https://github.com/jzpk/transkryptor/releases/tag/v9"><b>x</b>',
-        "javascript:alert(1)",
-        "https://evil.example/releases",
-    ],
-)
-def test_banner_link_is_escaped_and_limited_to_github(window, url) -> None:
-    window.updates._show_available("9.0.0", url)
-    text = window.updates.banner_label.text()
-    assert "<b>" not in text
-    assert "javascript:" not in text
-    assert "evil.example" not in text
-    assert 'href="https://github.com/' in text
+def test_banner_text_is_not_html(window) -> None:
+    window.updates._show_available('9.0.0"><b>x</b>')
+    assert window.updates.banner_label.textFormat() == Qt.TextFormat.PlainText
+
+
+# --- ekran startowy -------------------------------------------------------------
+
+
+def test_startup_screen_shows_stages_and_closes_when_done(qtbot) -> None:
+    screen = StartupScreen()
+    qtbot.addWidget(screen)
+    assert screen.status_label.text() == tr("startup.checking")
+    screen.set_stage(UpdateStage.DOWNLOADING, RELEASE)
+    assert screen.status_label.text() == tr("startup.downloading", version="9.0.0")
+    screen.set_progress(5 << 20, 10 << 20)
+    assert screen.progress.value() * 2 == screen.progress.maximum()
+    assert "50%" in screen.detail_label.text()
+    screen.set_progress(1 << 20, None)
+    assert screen.progress.maximum() == 0  # bez całości — pasek nieokreślony
+    screen.finish()
+    screen.wait()  # zakończony ekran nie blokuje
+    assert screen.is_done
+
+
+def test_startup_check_hands_result_to_window(qtbot, add_window) -> None:
+    """Okno powstaje w trakcie sprawdzania i dostaje gotowy wynik."""
+    screen = StartupScreen()
+    qtbot.addWidget(screen)
+    thread = UpdateThread(
+        as_service(FakeService(UpdateOutcome(UpdateStatus.READY, RELEASE, ARTIFACT)))
+    )
+    screen.attach(thread)
+    stages: list[object] = []
+    thread.stage_changed.connect(lambda stage, _release: stages.append(stage))
+    thread.start()
+    window = add_window(MainWindow())
+    screen.wait()
+    assert screen.is_done
+    window.updates.adopt(thread)
+    qtbot.waitUntil(lambda: not window.updates.is_running, timeout=5000)
+    assert window.updates.install_button.isVisibleTo(window)
+    assert stages == [UpdateStage.CHECKING, UpdateStage.DOWNLOADING]
+    assert tr("startup.downloading", version="9.0.0") == screen.status_label.text()
+
+
+def test_skipped_startup_check_finishes_in_background(qtbot, add_window) -> None:
+    gate = threading.Event()
+    service = FakeService(UpdateOutcome(UpdateStatus.READY, RELEASE, ARTIFACT), gate)
+    screen = StartupScreen()
+    qtbot.addWidget(screen)
+    thread = UpdateThread(as_service(service))
+    screen.attach(thread)
+    thread.start()
+    window = add_window(MainWindow())
+    screen.skip_button.click()
+    screen.wait()
+    assert screen.is_done
+    window.updates.adopt(thread)
+    assert window.updates.is_running
+    assert not window.updates.banner.isVisibleTo(window)
+    gate.set()
+    qtbot.waitUntil(lambda: not window.updates.is_running, timeout=5000)
+    assert not service.cancelled
+    assert window.updates.install_button.isVisibleTo(window)
+
+
+def test_escape_skips_startup_screen(qtbot) -> None:
+    screen = StartupScreen()
+    qtbot.addWidget(screen)
+    with qtbot.waitSignal(screen.skipped):
+        qtbot.keyClick(screen, Qt.Key.Key_Escape)
+    assert screen.is_done

@@ -73,7 +73,7 @@ def test_export_stays_and_rare_buttons_go_first(qtbot, window) -> None:
     toolbar = window.main_toolbar
     assert toolbar.button_for(window.export_action).isVisible()
     collapsed = toolbar.collapsed_actions()
-    assert window.updates.check_action in collapsed
+    assert toolbar._slots[COLLAPSE_ORDER[0]].action in collapsed
     assert window.save_action not in collapsed
 
 
@@ -96,14 +96,18 @@ def test_widening_restores_buttons(qtbot, window) -> None:
 
 def test_each_group_collapses_into_menu_next_to_it(qtbot, window) -> None:
     """Znaczniki — do ☰ przed „Szkic ASR”; narzędzia i sesja — do ☰ na końcu."""
-    resize(qtbot, window, 700)
+    # Narzędzia mieszczą się w najwęższym oknie (karta edytora), więc
+    # zwężamy sam pasek — na stałe, żeby układ okna go nie rozszerzył.
+    window.toolbar.setMaximumWidth(400)
+    qtbot.waitUntil(lambda: window.toolbar.width() <= 400)
+    qtbot.wait(20)
     toolbar = window.main_toolbar
     slots = toolbar._slots.values()
     notation = [s.action for s in slots if s.section == NOTATION_SECTION]
     collapsed = toolbar.collapsed_actions()
     hidden_notation = [a for a in collapsed if a in notation]
     hidden_tools = [a for a in collapsed if a not in notation]
-    assert hidden_notation and hidden_tools  # oba menu w użyciu przy 700 px
+    assert hidden_notation and hidden_tools  # oba menu w użyciu
 
     assert toolbar.notation_more_button.isVisible()
     assert texts_of(toolbar.notation_more_menu) == [a.text() for a in hidden_notation]

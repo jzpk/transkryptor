@@ -344,7 +344,6 @@ class MainWindow(QMainWindow):
         bar = MainToolbar(
             self,
             self.asr_dock.toggleViewAction(),
-            self.updates.check_action,
             ToolbarHandlers(
                 superscript=self._on_superscript,
                 marker=self.notation.insert_marker,

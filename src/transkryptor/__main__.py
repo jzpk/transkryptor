@@ -222,7 +222,6 @@ def main(argv: list[str] | None = None) -> int:
     from PySide6.QtCore import QTimer
     from PySide6.QtWidgets import QApplication
 
-    from transkryptor.ui.main_window import MainWindow
     from transkryptor.ui.theme import apply_theme
 
     app = QApplication(sys.argv[:1])
@@ -232,15 +231,40 @@ def main(argv: list[str] | None = None) -> int:
     install_qt_translations(app)
     apply_theme(app)
     log_qt_environment(app)
-    window = MainWindow()
-    window.show()
-    window.updates.start_automatic()
+    window = open_main_window(app)
     # ACC-30: propozycja odzyskania pracy po awarii — gdy okno już widać.
     QTimer.singleShot(0, window.session.offer_recovery)
     QTimer.singleShot(0, window.report_rule_errors)
     code = app.exec()
     logger.info("Session ended (exit code %d)", code)
     return code
+
+
+def open_main_window(app):
+    """Ekran startowy ze sprawdzaniem aktualizacji, potem okno główne.
+
+    Okno powstaje, gdy ekran sprawdza aktualizacje (i ewentualnie pobiera
+    nową wersję). Po zakończeniu albo „Pomiń” przebieg przejmuje kontroler
+    aktualizacji okna — pominięte pobieranie kończy się w tle.
+    """
+    from transkryptor.ui.main_window import MainWindow
+    from transkryptor.ui.startup_screen import StartupScreen
+    from transkryptor.ui.update_controller import UpdateThread
+    from transkryptor.update.service import UpdateService
+
+    screen = StartupScreen()
+    thread = UpdateThread(UpdateService())
+    screen.attach(thread)
+    screen.skipped.connect(lambda: logger.info("Startup update check skipped"))
+    screen.show()
+    app.processEvents()
+    thread.start()
+    window = MainWindow()
+    screen.wait()
+    window.updates.adopt(thread)
+    window.show()
+    screen.deleteLater()
+    return window
 
 
 def start_diagnostics() -> None:

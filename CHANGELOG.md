@@ -157,6 +157,13 @@ Pusta sekcja blokuje wydanie.
   modelu podziału na mówców (ok. 36 MB, za zgodą użytkownika) — bez niego
   pole jest zablokowane, a szkic dzieli się jak dotąd. Model działa w pełni
   lokalnie. Rozpoznanie fragmentu A–B nie dzieli tekstu na mówców.
+- Aktualizacje są sprawdzane przy każdym uruchomieniu, na ekranie
+  startowym: najpierw „Sprawdzanie dostępnych aktualizacji…”, a gdy jest
+  nowa wersja — postęp jej pobierania. **Pomiń** otwiera program od razu,
+  a pobieranie kończy się w tle. Gotowa wersja jak dotąd czeka w pasku stanu
+  z przyciskiem **Uruchom ponownie i zaktualizuj**. Limit zapytań do serwera
+  wydań wzrósł z 2 do 5 na dobę. Przycisk **Sprawdź aktualizacje** i odnośnik
+  „pobierz” w pasku stanu zostały usunięte.
 
 ## 0.5.0 — 2026-10-18
 

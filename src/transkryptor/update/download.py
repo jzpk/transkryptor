@@ -35,6 +35,9 @@ from transkryptor.update.signature import SignatureError, verify_release_checksu
 CHUNK_SIZE = 1 << 20
 PART_SUFFIX = ".part"
 
+# Postęp pobierania: (pobrane bajty, całość albo None, gdy serwer jej nie podał).
+DownloadProgress = Callable[[int, int | None], None]
+
 
 class DownloadCancelled(Exception):
     """Pobieranie przerwane, bo aplikacja się zamyka (nie jest błędem)."""
@@ -69,6 +72,7 @@ def download_release(
     root: Path | None = None,
     should_cancel: Callable[[], bool] = lambda: False,
     trusted_keys: Iterable[str] | None = None,
+    on_progress: DownloadProgress | None = None,
 ) -> Path:
     """Pobiera artefakt wydania dla bieżącej platformy i zwraca jego ścieżkę.
 
@@ -77,7 +81,10 @@ def download_release(
     ``httpx.TransportError``; pozostałe problemy jako ``UpdateError``.
     ``should_cancel`` jest sprawdzane między porcjami danych.
     ``trusted_keys=None`` oznacza klucze wbudowane w aplikację.
+    ``on_progress`` dostaje po każdej porcji (pobrane bajty, całość z
+    nagłówka ``Content-Length`` albo None).
     """
+    progress = on_progress or (lambda _done, _total: None)
     artifact, checksums = release.artifact, release.checksums
     if artifact is None or checksums is None:
         raise UpdateError(
@@ -114,6 +121,8 @@ def download_release(
     _write_file(target_dir / CHECKSUMS_ASSET, sums)
     _write_file(target_dir / SIGNATURE_ASSET, signature)
     if target.is_file() and sha256_of(target) == expected:
+        size = target.stat().st_size
+        progress(size, size)
         return target
 
     partial = target.with_name(target.name + PART_SUFFIX)
@@ -129,12 +138,17 @@ def download_release(
                     ),
                     retry_hint=tr("update.error.later.hint"),
                 )
+            total = _content_length(stream)
+            done = 0
+            progress(done, total)
             with partial.open("wb") as handle:
                 for chunk in stream.iter_bytes(chunk_size=CHUNK_SIZE):
                     if should_cancel():
                         raise DownloadCancelled()
                     handle.write(chunk)
                     digest.update(chunk)
+                    done += len(chunk)
+                    progress(done, total)
     except BaseException:
         partial.unlink(missing_ok=True)
         raise
@@ -175,6 +189,14 @@ def verify_downloaded(artifact: Path, trusted_keys: Iterable[str] | None = None)
             retry_hint=tr("update.error.verify_failed.hint"),
         ) from error
     return expected
+
+
+def _content_length(response: httpx.Response) -> int | None:
+    try:
+        total = int(response.headers.get("content-length", ""))
+    except ValueError:
+        return None
+    return total if total > 0 else None
 
 
 def _fetch(client: httpx.Client, url: str) -> bytes:

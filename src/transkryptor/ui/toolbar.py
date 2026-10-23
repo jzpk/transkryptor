@@ -99,7 +99,6 @@ class _Slot:
 # pozostałe sekcje chowają się do menu na końcu paska.
 NOTATION_SECTION = "notation"
 COLLAPSE_ORDER = (
-    "update",
     "snippets",
     *(f"marker:{marker.key}" for marker in reversed(MARKERS)),
     "superscript",
@@ -131,7 +130,6 @@ class MainToolbar:
         self,
         window: QMainWindow,
         asr_toggle: QAction,
-        update_action: QAction,
         handlers: ToolbarHandlers,
     ) -> None:
         toolbar = _ToolBar(tr("toolbar.title"), window)
@@ -214,12 +212,6 @@ class MainToolbar:
         icons.set_icon(asr_toggle, "sparkles", "text", "text_muted")
         asr_toggle.setToolTip(tr("toolbar.asr.tooltip"))
         self._slots["asr"] = _Slot("tools", asr_toggle, (self._add(asr_toggle),))
-
-        self.update_action = update_action
-        icons.set_icon(update_action, "download", "text", "text_muted")
-        self._slots["update"] = _Slot(
-            "tools", update_action, (self._add(update_action, icon_only=True),)
-        )
 
         self.settings_action = _action(
             window,

@@ -2,7 +2,7 @@
 
 Nieuwierzytelnione API ma limit na adres IP, a wiele instalacji może dzielić
 jeden adres (sieć instytucji). Dlatego aplikacja wykonuje najwyżej
-``DAILY_LIMIT`` zapytań na dobę, licząc także ręczne sprawdzenia.
+``DAILY_LIMIT`` zapytań na dobę — jedno przy każdym uruchomieniu.
 
 Stan leży w pliku JSON w katalogu danych użytkownika::
 
@@ -26,7 +26,7 @@ from typing import Any
 from transkryptor.paths import user_data_dir
 from transkryptor.update.releases import ReleaseInfo
 
-DAILY_LIMIT = 2
+DAILY_LIMIT = 5
 STATE_FILE_NAME = "update-state.json"
 
 
