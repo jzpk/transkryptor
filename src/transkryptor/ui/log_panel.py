@@ -81,10 +81,13 @@ class LogPanel(QWidget):
         buttons.addWidget(self.report_button)
         buttons.addStretch(1)
 
+        # Marginesy i odstępy jak w formularzach pozostałych zakładek.
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(10)
         layout.addWidget(intro)
         layout.addWidget(privacy)
+        layout.addSpacing(6)
         layout.addWidget(caption)
         layout.addWidget(self.folder_link)
         layout.addLayout(buttons)

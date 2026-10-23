@@ -9,8 +9,9 @@ próbkach całego nagrania (16 kHz, mono) po transkrypcji Whispera:
 2. :func:`assign_speakers` przypisuje mówcę każdemu słowu Whispera
    (największe nakładanie czasu) i dzieli segment w miejscu zmiany mówcy.
 
-Liczba mówców jest wyznaczana automatycznie (próg grupowania). Numery
-mówców w wyniku idą w kolejności pojawiania się w tekście, od 0.
+Liczba mówców jest podana przez użytkownika albo wyznaczana automatycznie
+(próg grupowania — w nagraniach terenowych często daje za dużo mówców).
+Numery mówców w wyniku idą w kolejności pojawiania się w tekście, od 0.
 """
 
 from __future__ import annotations
@@ -19,6 +20,7 @@ import bisect
 import os
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, replace
+from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
 
@@ -33,9 +35,11 @@ if TYPE_CHECKING:
 
     from transkryptor.asr.engine import SegmentResult, WordResult
 
-# Próg odległości przy grupowaniu wypowiedzi po głosie (wartość domyślna
-# sherpa-onnx): wyższy łączy więcej wypowiedzi w jednego mówcę.
+# Próg odległości przy grupowaniu wypowiedzi po głosie, gdy liczba mówców
+# nie jest znana (wartość domyślna sherpa-onnx): wyższy łączy więcej
+# wypowiedzi w jednego mówcę.
 CLUSTER_THRESHOLD = 0.5
+MAX_SPEAKERS = 8
 # Najkrótszy fragment mowy i najkrótsza przerwa w wypowiedzi (sekundy).
 MIN_DURATION_ON_S = 0.3
 MIN_DURATION_OFF_S = 0.5
@@ -70,8 +74,11 @@ class Diarizer(Protocol):
 DiarizerFactory = Callable[[Path], Diarizer]
 
 
-def sherpa_diarizer(model_dir: Path) -> Diarizer:
-    """Diaryzator sherpa-onnx z plików pobranego modelu (offline, CPU)."""
+def sherpa_diarizer(model_dir: Path, speakers: int | None = None) -> Diarizer:
+    """Diaryzator sherpa-onnx z plików pobranego modelu (offline, CPU).
+
+    ``speakers`` — znana liczba mówców; None wyznacza ją progiem grupowania.
+    """
     import sherpa_onnx
 
     for name in (DIARIZATION_SEGMENTATION_FILE, DIARIZATION_EMBEDDING_FILE):
@@ -90,7 +97,7 @@ def sherpa_diarizer(model_dir: Path) -> Diarizer:
             num_threads=threads,
         ),
         clustering=sherpa_onnx.FastClusteringConfig(
-            num_clusters=-1, threshold=CLUSTER_THRESHOLD
+            num_clusters=speakers or -1, threshold=CLUSTER_THRESHOLD
         ),
         min_duration_on=MIN_DURATION_ON_S,
         min_duration_off=MIN_DURATION_OFF_S,
@@ -107,14 +114,16 @@ def diarize(
     *,
     should_cancel: Callable[[], bool] = lambda: False,
     on_progress: DiarizationProgress | None = None,
+    speakers: int | None = None,
     factory: DiarizerFactory | None = None,
 ) -> tuple[Turn, ...]:
     """Wypowiedzi mówców w nagraniu, posortowane po czasie początku.
 
+    ``speakers`` — znana liczba mówców (None: wyznaczana automatycznie).
     Podnosi :class:`DiarizationCancelled` przy anulowaniu; pozostałe błędy
     (brak pliku modelu, błąd biblioteki) przechodzą bez zmian.
     """
-    diarizer = (factory or sherpa_diarizer)(model_dir)
+    diarizer = (factory or partial(sherpa_diarizer, speakers=speakers))(model_dir)
 
     def callback(done: int, total: int) -> int:
         if on_progress is not None and total > 0:
@@ -255,6 +264,7 @@ __all__ = [
     "DiarizationCancelled",
     "Diarizer",
     "DiarizerFactory",
+    "MAX_SPEAKERS",
     "Turn",
     "assign_speakers",
     "diarize",

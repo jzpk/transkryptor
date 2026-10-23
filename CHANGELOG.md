@@ -159,6 +159,10 @@ Pusta sekcja blokuje wydanie.
   modelu podziału na mówców (ok. 36 MB, za zgodą użytkownika) — bez niego
   pole jest zablokowane, a szkic dzieli się jak dotąd. Model działa w pełni
   lokalnie. Rozpoznanie fragmentu A–B nie dzieli tekstu na mówców.
+  Pod opcją można podać **Liczbę mówców** w nagraniu (domyślnie 2 — badacz
+  i informator, do wyboru 2–8 albo **Automatycznie**). Podana liczba daje
+  dużo pewniejszy podział: tryb automatyczny w nagraniach terenowych często
+  widzi więcej głosów, niż jest (`I2`, `I3`…).
 - Aktualizacje są sprawdzane przy każdym uruchomieniu, na ekranie
   startowym: najpierw „Sprawdzanie dostępnych aktualizacji…”, a gdy jest
   nowa wersja — postęp jej pobierania. **Pomiń** otwiera program od razu,

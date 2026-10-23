@@ -1,6 +1,8 @@
 """Podział na mówców w zakładce ASR ustawień: opcja i model do pobrania.
 
 Opcja działa tylko z pobranym modelem diaryzacji (``asr.models.DIARIZATION_MODEL``).
+Liczba mówców (albo „automatycznie”) ogranicza grupowanie głosów — bez niej
+model w nagraniach terenowych często widzi więcej mówców, niż jest.
 Pobranie wymaga jawnej zgody — bez modelu pole wyboru jest wyłączone, a
 zapamiętany wybór użytkownika zostaje bez zmian. Po pobraniu opcja jest
 włączona (domyślnie). Pobieranie biegnie w tle (``DownloadThread``).
@@ -13,6 +15,7 @@ from pathlib import Path
 
 from PySide6.QtWidgets import (
     QCheckBox,
+    QComboBox,
     QHBoxLayout,
     QLabel,
     QMessageBox,
@@ -22,6 +25,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from transkryptor.asr.diarization import MAX_SPEAKERS
 from transkryptor.asr.manager import ModelManager
 from transkryptor.asr.models import DIARIZATION_MODEL, format_size
 from transkryptor.errors import AppError
@@ -45,6 +49,13 @@ class DiarizationBox(QWidget):
         self.check = QCheckBox(tr("settings.asr.diarize"))
         self.check.setToolTip(tr("settings.asr.diarize.tooltip"))
         self.check.toggled.connect(self._on_toggled)
+        self.speakers_combo = QComboBox()
+        self.speakers_combo.addItem(tr("settings.asr.diarize.speakers.auto"), 0)
+        for count in range(2, MAX_SPEAKERS + 1):
+            self.speakers_combo.addItem(str(count), count)
+        self.speakers_combo.setToolTip(tr("settings.asr.diarize.speakers.tooltip"))
+        self.speakers_label = QLabel(tr("settings.asr.diarize.speakers"))
+        self.speakers_label.setBuddy(self.speakers_combo)
         self.status_label = QLabel()
         self.status_label.setWordWrap(True)
         set_props(self.status_label, role="muted")
@@ -63,9 +74,15 @@ class DiarizationBox(QWidget):
         buttons.addWidget(self.delete_button)
         buttons.addWidget(self.cancel_button)
         buttons.addStretch(1)
+        speakers_row = QHBoxLayout()
+        speakers_row.setContentsMargins(0, 0, 0, 0)
+        speakers_row.addWidget(self.speakers_label)
+        speakers_row.addWidget(self.speakers_combo)
+        speakers_row.addStretch(1)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.check)
+        layout.addLayout(speakers_row)
         layout.addWidget(self.status_label)
         layout.addWidget(self.progress)
         layout.addLayout(buttons)
@@ -86,6 +103,14 @@ class DiarizationBox(QWidget):
         self._wanted = wanted
         self.refresh()
 
+    def speakers(self) -> int:
+        """Wybrana liczba mówców; 0 — automatycznie."""
+        return int(self.speakers_combo.currentData())
+
+    def set_speakers(self, count: int) -> None:
+        index = self.speakers_combo.findData(count)
+        self.speakers_combo.setCurrentIndex(max(index, 0))
+
     def set_models_root(self, models_root: Path | None) -> None:
         """Katalog modeli zmieniony w ustawieniach — stan modelu od nowa."""
         if self._thread is not None:
@@ -100,6 +125,7 @@ class DiarizationBox(QWidget):
         self.check.setChecked(ready and self._wanted)
         self.check.blockSignals(False)
         self.check.setEnabled(ready and not downloading)
+        self.speakers_combo.setEnabled(ready and self._wanted and not downloading)
         self.download_button.setVisible(not ready and not downloading)
         self.delete_button.setVisible(ready and not downloading)
         self.cancel_button.setVisible(downloading)
@@ -117,6 +143,7 @@ class DiarizationBox(QWidget):
     def _on_toggled(self, checked: bool) -> None:
         if self.is_available():
             self._wanted = checked
+            self.refresh()
 
     # --- pobieranie ------------------------------------------------------
 

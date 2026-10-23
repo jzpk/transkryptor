@@ -214,7 +214,8 @@ class DecodingOptions:
     a ``clip`` (sekundy od–do) ogranicza transkrypcję do fragmentu (faza 11).
     ``diarize`` dzieli wynik na mówców modelem z ``diarization_dir``; wymaga
     słów z czasami (włącza je) i nie dotyczy fragmentu (``clip``) — numery
-    mówców fragmentu nie zgadzałyby się z całym nagraniem.
+    mówców fragmentu nie zgadzałyby się z całym nagraniem. ``speakers`` to
+    znana liczba mówców (None: wyznaczana automatycznie).
     """
 
     device: str = "auto"
@@ -225,6 +226,7 @@ class DecodingOptions:
     clip: tuple[float, float] | None = None
     diarize: bool = False
     diarization_dir: Path | None = None
+    speakers: int | None = None
 
     @property
     def diarizes(self) -> bool:
@@ -368,6 +370,7 @@ def transcribe(
                     if on_progress is None
                     else lambda fraction: on_progress(share + (1 - share) * fraction)
                 ),
+                speakers=decoding.speakers,
                 factory=diarizer_factory,
             )
         except DiarizationCancelled:

@@ -237,6 +237,7 @@ class AsrPanel(QWidget):
         self._chunked = False
         self._word_timestamps = True
         self._diarize = True
+        self._diarize_speakers = 0
         self._diarizing = False
         # Katalog modeli z ostatnio zastosowanych ustawień (None — jeszcze
         # nie stosowano; do tego czasu obowiązuje katalog menedżera).
@@ -537,6 +538,7 @@ class AsrPanel(QWidget):
         self._chunked = settings.chunked
         self._word_timestamps = settings.word_timestamps
         self._diarize = settings.diarize
+        self._diarize_speakers = settings.diarize_speakers
         self._global_vocabulary = settings.vocabulary_words
         self._update_vocabulary_hint()
         if self.is_downloading() or self.is_transcribing():
@@ -681,6 +683,7 @@ class AsrPanel(QWidget):
             word_timestamps=self._word_timestamps,
             diarize=diarize,
             diarization_dir=diarization.model_dir if diarize else None,
+            speakers=self._diarize_speakers or None,
         )
 
     def _on_context_edited(self) -> None:
@@ -899,13 +902,15 @@ class AsrPanel(QWidget):
         # Bez treści kontekstu i słownika — to dane z wywiadu.
         logger.info(
             "Transcription started: model=%s, audio=%s, device=%s, chunked=%s, "
-            "word_timestamps=%s, diarize=%s, clip=%s, prompt=%s, hotwords=%s",
+            "word_timestamps=%s, diarize=%s, speakers=%s, clip=%s, prompt=%s, "
+            "hotwords=%s",
             self._manager.model.key,
             diagnostics.file_summary(audio_path),
             options.device,
             options.chunked,
             options.word_timestamps,
             options.diarizes,
+            options.speakers or "auto",
             "none" if clip is None else f"{clip[1] - clip[0]:.1f} s",
             bool(options.initial_prompt),
             bool(options.hotwords),

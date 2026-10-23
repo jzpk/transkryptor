@@ -492,6 +492,7 @@ class SettingsDialog(QDialog):
         self.chunked_check.setChecked(settings.asr.chunked)
         self.word_timestamps_check.setChecked(settings.asr.word_timestamps)
         self.diarization_box.set_value(settings.asr.diarize)
+        self.diarization_box.set_speakers(settings.asr.diarize_speakers)
         self.uncertain_words_check.setChecked(settings.asr.show_uncertain_words)
         self.word_threshold_spin.setValue(settings.asr.word_threshold_pct)
         self.word_threshold_spin.setEnabled(settings.asr.show_uncertain_words)
@@ -761,6 +762,7 @@ class SettingsDialog(QDialog):
                 chunked=self.chunked_check.isChecked(),
                 word_timestamps=self.word_timestamps_check.isChecked(),
                 diarize=self.diarization_box.value(),
+                diarize_speakers=self.diarization_box.speakers(),
                 show_uncertain_words=self.uncertain_words_check.isChecked(),
                 word_threshold_pct=self.word_threshold_spin.value(),
             ),

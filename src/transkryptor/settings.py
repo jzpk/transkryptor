@@ -276,6 +276,9 @@ class AsrSettings:
     word_timestamps: bool = True
     # Podział szkicu na mówców (diaryzacja) — działa po pobraniu modelu.
     diarize: bool = True
+    # Liczba mówców w nagraniu; 0 — wyznaczana automatycznie. Domyślnie
+    # wywiad: badacz i informator.
+    diarize_speakers: int = 2
     show_uncertain_words: bool = True
     word_threshold_pct: int = 40
 
@@ -331,6 +334,7 @@ SEGMENT_PREROLL_RANGE_MS = (0, 5_000)
 FONT_SIZE_RANGE_PT = (6, 48)  # 0 = domyślny, poza zakresem
 AUTOSAVE_INTERVAL_RANGE_S = (30, 600)
 WORD_THRESHOLD_RANGE_PCT = (5, 95)
+DIARIZE_SPEAKERS_RANGE = (0, 8)  # 0 = automatycznie
 ELLIPSIS_STYLES = tuple(style.value for style in EllipsisStyle)
 MODEL_KEYS = tuple(model.key for model in MODELS)
 
@@ -381,6 +385,7 @@ _FIELDS: tuple[_Field, ...] = (
     _Field("asr", "chunked", bool),
     _Field("asr", "word_timestamps", bool),
     _Field("asr", "diarize", bool),
+    _Field("asr", "diarize_speakers", int, *DIARIZE_SPEAKERS_RANGE),
     _Field("asr", "show_uncertain_words", bool),
     _Field("asr", "word_threshold_pct", int, *WORD_THRESHOLD_RANGE_PCT),
 )

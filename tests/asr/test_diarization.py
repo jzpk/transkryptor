@@ -6,6 +6,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+from transkryptor.asr import diarization
 from transkryptor.asr.diarization import (
     DiarizationCancelled,
     Turn,
@@ -140,6 +141,18 @@ class TestDiarize:
                 factory=lambda path: diarizer,
             )
         assert diarizer.aborted
+
+    def test_speaker_count_reaches_the_factory(self, tmp_path, monkeypatch) -> None:
+        calls: list[tuple[Path, int | None]] = []
+
+        def fake(model_dir: Path, speakers: int | None = None) -> FakeDiarizer:
+            calls.append((model_dir, speakers))
+            return FakeDiarizer([item(0.0, 1.0, 0)])
+
+        monkeypatch.setattr(diarization, "sherpa_diarizer", fake)
+        diarize(np.zeros(16_000, dtype=np.float32), tmp_path, speakers=2)
+        diarize(np.zeros(16_000, dtype=np.float32), tmp_path)
+        assert calls == [(tmp_path, 2), (tmp_path, None)]
 
     def test_missing_model_file_is_an_error(self, tmp_path) -> None:
         with pytest.raises(FileNotFoundError):
