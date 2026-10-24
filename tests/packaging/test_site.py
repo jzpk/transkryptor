@@ -99,3 +99,18 @@ def test_project_site_builds_for_the_current_version(tmp_path) -> None:
     """Strona z repozytorium: najnowsza wydana wersja to wersja programu."""
     page = site.build(tmp_path).read_text(encoding="utf-8")
     assert f"Pobierz wersję {__version__}" in page
+
+
+def test_build_adds_the_author_page_linked_from_the_header(
+    changelog_file, tmp_path
+) -> None:
+    out = tmp_path / "site"
+    index = site.build(out, changelog_file, repo="owner/repo", expected_version="0.2.4")
+
+    author = (out / "autor.html").read_text(encoding="utf-8")
+    assert site.AUTHOR_NAME in author
+    assert f'href="{site.LINKEDIN_URL}"' in author
+    assert 'href="https://github.com/owner"' in author
+    assert 'href="autor.html"' in index.read_text(encoding="utf-8")
+    assert (out / "img" / "autor.jpg").is_file()
+    assert (out / "img" / "ikony.svg").is_file()
