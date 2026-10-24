@@ -941,6 +941,41 @@ class TestDiarizationOption:
         )
         assert not panel.decoding_options().diarize
 
+    def test_panel_speaker_count_shown_only_with_diarization(
+        self, panel, manager
+    ) -> None:
+        root = str(manager.models_root)
+        panel.set_asr_settings(AsrSettings(diarize=True, models_root=root))
+        assert not panel.speakers_row.isVisibleTo(panel)  # brak modelu
+        manager.with_model(DIARIZATION_MODEL).download()
+        panel.refresh_model_status()
+        assert panel.speakers_row.isVisibleTo(panel)
+        assert panel.speakers_combo.currentData() == 2
+        panel.set_asr_settings(AsrSettings(diarize=False, models_root=root))
+        assert not panel.speakers_row.isVisibleTo(panel)
+
+    def test_panel_speaker_count_follows_settings_and_emits(
+        self, panel, manager
+    ) -> None:
+        manager.with_model(DIARIZATION_MODEL).download()
+        root = str(manager.models_root)
+        spy = QSignalSpy(panel.speakers_changed)
+        panel.set_asr_settings(AsrSettings(diarize_speakers=5, models_root=root))
+        assert panel.speakers_combo.currentData() == 5
+        assert spy.count() == 0  # zmiana z ustawień nie wraca sygnałem
+        panel.speakers_combo.setCurrentIndex(panel.speakers_combo.findData(0))
+        assert spy.count() == 1 and spy.at(0) == [0]
+        assert panel.decoding_options().speakers is None
+
+    def test_panel_speaker_count_is_saved_in_settings(
+        self, window_with_asr, manager, isolated_settings
+    ) -> None:
+        panel = window_with_asr.asr_panel
+        manager.with_model(DIARIZATION_MODEL).download()
+        panel.refresh_model_status()
+        panel.speakers_combo.setCurrentIndex(panel.speakers_combo.findData(4))
+        assert window_with_asr.settings_store.current.asr.diarize_speakers == 4
+
     def test_status_shows_speaker_phase(self, panel) -> None:
         panel._diarizing = True
         panel._on_transcribe_progress(0.95)

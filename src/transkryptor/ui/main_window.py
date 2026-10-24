@@ -417,6 +417,7 @@ class MainWindow(QMainWindow):
             app.styleHints().colorSchemeChanged.connect(self._on_color_scheme_changed)
         self.asr_panel.seek_requested.connect(self.player_controller.seek_to_segment)
         self.asr_panel.model_changed.connect(self._on_asr_model_changed)
+        self.asr_panel.speakers_changed.connect(self._on_asr_speakers_changed)
         self.asr_panel.context_changed.connect(self._on_asr_context_changed)
         self.sync.timestamps_edited.connect(self.session.project_data_changed)
         self.speakers.speakers_changed.connect(self._on_speakers_changed)
@@ -541,6 +542,14 @@ class MainWindow(QMainWindow):
         if current.asr.model_key != key:
             self.settings_store.save(
                 replace(current, asr=replace(current.asr, model_key=key))
+            )
+
+    def _on_asr_speakers_changed(self, count: int) -> None:
+        """Liczba mówców wybrana w panelu ASR jest zapamiętywana w ustawieniach."""
+        current = self.settings_store.current
+        if current.asr.diarize_speakers != count:
+            self.settings_store.save(
+                replace(current, asr=replace(current.asr, diarize_speakers=count))
             )
 
     def _save_export_settings(self, export: ExportSettings) -> None:

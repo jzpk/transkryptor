@@ -612,7 +612,7 @@ QScrollArea {{
     background: transparent;
     border: none;
 }}
-QWidget#asr_panel_content {{
+QWidget#asr_panel_content, QWidget#settings_page {{
     background: {t.surface};
 }}
 QWidget#asr_panel {{

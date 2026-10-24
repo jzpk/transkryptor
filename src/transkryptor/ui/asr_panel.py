@@ -47,6 +47,7 @@ from PySide6.QtWidgets import (
 
 from transkryptor import diagnostics
 from transkryptor.asr import engine
+from transkryptor.asr.diarization import MAX_SPEAKERS
 from transkryptor.asr.engine import (
     DIARIZED_ASR_SHARE,
     PROMPT_MAX_CHARS,
@@ -200,6 +201,7 @@ class AsrPanel(QWidget):
     fragment_ready = Signal(object)
     result_changed = Signal()  # nowy albo odtworzony wynik ASR całego nagrania
     model_changed = Signal(str)  # klucz modelu wybranego przez użytkownika
+    speakers_changed = Signal(int)  # liczba mówców wybrana w panelu; 0 — auto
     context_changed = Signal()  # kontekst nagrania lub słownik projektu
 
     def __init__(
@@ -284,6 +286,21 @@ class AsrPanel(QWidget):
         self.vocabulary_hint = QLabel()
         self.vocabulary_hint.setWordWrap(True)
         set_props(self.vocabulary_hint, role="muted")
+        # Liczba mówców — widoczna, gdy podział na mówców jest włączony
+        # i model pobrany; zmiana trafia do ustawień (jak wybór modelu).
+        self.speakers_combo = QComboBox()
+        self.speakers_combo.addItem(tr("settings.asr.diarize.speakers.auto"), 0)
+        for count in range(2, MAX_SPEAKERS + 1):
+            self.speakers_combo.addItem(str(count), count)
+        self.speakers_combo.setToolTip(tr("settings.asr.diarize.speakers.tooltip"))
+        speakers_label = QLabel(tr("settings.asr.diarize.speakers"))
+        speakers_label.setBuddy(self.speakers_combo)
+        self.speakers_row = QWidget()
+        speakers_layout = QHBoxLayout(self.speakers_row)
+        speakers_layout.setContentsMargins(0, 0, 0, 0)
+        speakers_layout.addWidget(speakers_label)
+        speakers_layout.addWidget(self.speakers_combo)
+        speakers_layout.addStretch(1)
         self.device_label = _AutoHideLabel()
         self.device_label.setWordWrap(True)
         set_props(self.device_label, role="muted")
@@ -395,6 +412,7 @@ class AsrPanel(QWidget):
                 QLabel(tr("asr.vocabulary")),
                 self.vocabulary_edit,
                 self.vocabulary_hint,
+                self.speakers_row,
                 transcribe_row,
                 self.fragment_button,
                 self.transcribe_status_label,
@@ -441,6 +459,7 @@ class AsrPanel(QWidget):
         self.setMinimumWidth(360)
 
         self.model_combo.currentIndexChanged.connect(self._on_model_combo_changed)
+        self.speakers_combo.currentIndexChanged.connect(self._on_speakers_selected)
         self.delete_model_button.clicked.connect(self._on_delete_clicked)
         self.context_edit.textChanged.connect(self._on_context_edited)
         self.vocabulary_edit.textChanged.connect(self._on_context_edited)
@@ -501,6 +520,7 @@ class AsrPanel(QWidget):
         self._refresh_combo_labels()
         self._update_model_actions()
         self._update_transcribe_availability()
+        self._update_speakers_row()
 
     # --- wybór modelu i ustawienia ASR ------------------------------------
 
@@ -541,6 +561,7 @@ class AsrPanel(QWidget):
         self._diarize_speakers = settings.diarize_speakers
         self._global_vocabulary = settings.vocabulary_words
         self._update_vocabulary_hint()
+        self._update_speakers_row()
         if self.is_downloading() or self.is_transcribing():
             return  # model i katalog zmienią się przy następnych ustawieniach
         manager = self._manager
@@ -554,6 +575,20 @@ class AsrPanel(QWidget):
         self._manager = manager
         self._select_combo(manager.model.key)
         self.refresh_model_status()
+
+    def _update_speakers_row(self) -> None:
+        """Liczba mówców w panelu: widoczna przy podziale na mówców."""
+        self.speakers_row.setVisible(self._diarize and self.diarization_ready())
+        index = self.speakers_combo.findData(self._diarize_speakers)
+        self.speakers_combo.blockSignals(True)
+        self.speakers_combo.setCurrentIndex(max(index, 0))
+        self.speakers_combo.blockSignals(False)
+
+    def _on_speakers_selected(self, index: int) -> None:
+        if index < 0:
+            return
+        self._diarize_speakers = int(self.speakers_combo.itemData(index))
+        self.speakers_changed.emit(self._diarize_speakers)
 
     def _select_combo(self, key: str) -> None:
         index = self.model_combo.findData(key)

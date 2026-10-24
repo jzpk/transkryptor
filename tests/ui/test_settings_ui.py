@@ -117,6 +117,17 @@ class TestSettingsDialog:
             "Dziennik logów",
         ]
 
+        # Wszystkie sekcje są widoczne na liście po lewej (bez paska zakładek).
+        assert dialog.tabs.tabBar().isHidden()
+        sections = [
+            dialog.sections.item(i).text() for i in range(dialog.sections.count())
+        ]
+        assert sections == titles
+        dialog.sections.setCurrentRow(titles.index("ASR"))
+        assert dialog.tabs.tabText(dialog.tabs.currentIndex()) == "ASR"
+        dialog.tabs.setCurrentIndex(0)
+        assert dialog.sections.currentRow() == 0
+
         def tab_of(widget: QWidget) -> str:
             for index in range(dialog.tabs.count()):
                 page = dialog.tabs.widget(index)

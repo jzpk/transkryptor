@@ -24,14 +24,17 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QFontComboBox,
     QFormLayout,
+    QFrame,
     QHBoxLayout,
     QHeaderView,
     QInputDialog,
     QLabel,
     QLineEdit,
+    QListWidget,
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
+    QScrollArea,
     QSpinBox,
     QTableWidget,
     QTableWidgetItem,
@@ -412,11 +415,30 @@ class SettingsDialog(QDialog):
             lambda: self.set_settings(Settings())
         )
 
+        # Zakładek jest za dużo na jeden wiersz, a przewijany pasek ukrywa
+        # dalsze — sekcje są więc listą po lewej, zawsze widoczną w całości.
+        self.tabs.tabBar().hide()
+        self.sections = QListWidget()
+        self.sections.setObjectName("settings_sections")
+        for index in range(self.tabs.count()):
+            self.sections.addItem(self.tabs.tabText(index))
+        self.sections.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        self.sections.setFixedWidth(self.sections.sizeHintForColumn(0) + 40)
+        self.sections.currentRowChanged.connect(self.tabs.setCurrentIndex)
+        self.tabs.currentChanged.connect(self.sections.setCurrentRow)
+        self.sections.setCurrentRow(self.tabs.currentIndex())
+        body = QHBoxLayout()
+        body.addWidget(self.sections)
+        body.addWidget(self.tabs, stretch=1)
+
         layout = QVBoxLayout(self)
-        layout.addWidget(self.tabs, stretch=1)
+        layout.addLayout(body, stretch=1)
         layout.addWidget(buttons)
-        self.setMinimumSize(560, 480)
-        self.resize(860, 680)
+        # Lista sekcji + najszersza strona (Wygląd) bez ucinania pól.
+        self.setMinimumSize(760, 480)
+        self.resize(940, 680)
 
         self._initial_ellipsis_style = settings.notation.ellipsis_style
         self._initial_language = settings.appearance.language
@@ -781,12 +803,21 @@ def _form() -> QFormLayout:
 
 
 def _page(form: QFormLayout) -> QWidget:
-    """Strona zakładki z formularzem przy górnej krawędzi."""
-    page = QWidget()
-    layout = QVBoxLayout(page)
+    """Strona zakładki z formularzem przy górnej krawędzi.
+
+    Długi formularz (np. ASR) przewija się w pionie zamiast ściskać pola
+    w niskim oknie.
+    """
+    content = QWidget()
+    content.setObjectName("settings_page")
+    layout = QVBoxLayout(content)
     layout.setContentsMargins(0, 0, 0, 0)
     layout.addLayout(form)
     layout.addStretch(1)
+    page = QScrollArea()
+    page.setWidgetResizable(True)
+    page.setFrameShape(QFrame.Shape.NoFrame)
+    page.setWidget(content)
     return page
 
 

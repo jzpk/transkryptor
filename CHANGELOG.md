@@ -7,6 +7,14 @@ Pusta sekcja blokuje wydanie.
 
 ## Nieopublikowane
 
+- **Ustawienia…**: sekcje (Wygląd, Odtwarzacz, … ASR, Dziennik logów) są
+  listą po lewej stronie okna, zawsze widoczną w całości — wcześniej
+  ostatnie zakładki chowały się za krawędzią okna. Długie sekcje (np. ASR)
+  przewijają się, zamiast ściskać pola.
+- **Liczba mówców** jest też w panelu **Szkic ASR** (krok 3, nad
+  przyciskiem transkrypcji), gdy podział na mówców jest włączony — można ją
+  szybko zmienić przed rozpoznaniem każdego nagrania. Wybór jest pamiętany
+  i ten sam co w **Ustawieniach…**.
 - Więcej żartobliwych komunikatów w trakcie transkrypcji: pula wzrosła
   z 30 do 50, więc teksty rzadziej się powtarzają.
 - Dziennik błędów: program zapisuje lokalnie plik `transkryptor.log`
