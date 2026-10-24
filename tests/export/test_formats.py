@@ -2,6 +2,7 @@
 
 import os
 import re
+import sys
 import zipfile
 from datetime import UTC, datetime
 from pathlib import Path
@@ -28,6 +29,12 @@ from transkryptor.export.text_export import render_text
 from transkryptor.export.timeline import build_units
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+if sys.platform == "win32":
+    # Na Windows platforma offscreen czyta czcionki z <Qt>/lib/fonts, których
+    # PySide6 nie dostarcza — bez czcionek PDF nie ma tekstu ani /FontFile.
+    os.environ.setdefault(
+        "QT_QPA_FONTDIR", os.path.join(os.environ.get("WINDIR", r"C:\Windows"), "Fonts")
+    )
 
 XSD = Path("tests/fixtures/elan/EAFv3.0.xsd")
 TEXT = "Rok urodzenia?\nTysionc dziewińćset dwadzieścia\nA brat? Umar."
