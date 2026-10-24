@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from docx import Document as DocxDocument
+from docx.styles.style import CharacterStyle
 from docx.table import Table
 from docx.text.hyperlink import Hyperlink
 from docx.text.paragraph import Paragraph
@@ -44,6 +45,8 @@ from transkryptor.i18n import all_translations, tr
 
 # Pogrubiona etykieta mówcy na początku akapitu: ``B:`` (+ tabulator/spacja).
 _SPEAKER_PREFIX_RE = re.compile(r"^\s*(\w{1,8}):\s*")
+# Style znakowe runów importowanego dokumentu według identyfikatora stylu.
+_StyleCache = dict[str | None, CharacterStyle | None]
 
 
 def _header_re() -> re.Pattern[str]:
@@ -134,6 +137,7 @@ class _Reader:
         }
         self._legend: list[Speaker] = []
         self._formatted: dict[str, int] = {}
+        self._styles: _StyleCache = {}
 
     def read(self) -> ImportedDocument:
         metadata: dict[str, str] = {}
@@ -174,7 +178,9 @@ class _Reader:
                 text_parts.append("\n")
                 offset += 1
             runs = _runs(paragraph)
-            key, skip = _speaker_prefix(runs, {s.key for s in self._legend})
+            key, skip = _speaker_prefix(
+                runs, {s.key for s in self._legend}, self._styles
+            )
             if key is not None:
                 assignments[index] = key
             for run in runs:
@@ -187,7 +193,7 @@ class _Reader:
                     run_text = run_text[cut:]
                     if not run_text:
                         continue
-                if _is_superscript(run):
+                if _is_superscript(run, self._styles):
                     ranges.append((offset, offset + len(run_text)))
                 self._count_formatting(run)
                 text_parts.append(run_text)
@@ -265,7 +271,9 @@ class _Reader:
                 self._formatted[name] = self._formatted.get(name, 0) + 1
 
 
-def _speaker_prefix(runs: list[Run], known: set[str]) -> tuple[str | None, int]:
+def _speaker_prefix(
+    runs: list[Run], known: set[str], styles: _StyleCache
+) -> tuple[str | None, int]:
     """Klucz mówcy z pogrubionego prefiksu i liczba znaków do pominięcia.
 
     Prefiks musi być w całości pogrubiony, a po dwukropku stać tabulator
@@ -276,7 +284,7 @@ def _speaker_prefix(runs: list[Run], known: set[str]) -> tuple[str | None, int]:
     for run in runs:
         if not run.text:
             continue
-        if not _is_bold(run):
+        if not _is_bold(run, styles):
             break
         bold += run.text
     match = _SPEAKER_PREFIX_RE.match(bold)
@@ -292,10 +300,23 @@ def _speaker_prefix(runs: list[Run], known: set[str]) -> tuple[str | None, int]:
     return match[1], skip
 
 
-def _is_bold(run: Run) -> bool:
+def _run_style(run: Run, styles: _StyleCache) -> CharacterStyle | None:
+    """Styl znakowy runu, zapamiętany dla identyfikatora stylu.
+
+    ``Run.style`` przy każdym wywołaniu szuka stylu domyślnego wśród
+    wszystkich stylów dokumentu — przy tysiącach runów to większość czasu
+    importu (PERF-05).
+    """
+    style_id = run._r.style
+    if style_id not in styles:
+        styles[style_id] = run.style
+    return styles[style_id]
+
+
+def _is_bold(run: Run, styles: _StyleCache) -> bool:
     if run.font.bold is not None:
         return bool(run.font.bold)
-    style = run.style
+    style = _run_style(run, styles)
     while style is not None:
         if style.font.bold is not None:
             return bool(style.font.bold)
@@ -314,10 +335,10 @@ def _runs(paragraph: Paragraph) -> list[Run]:
     return runs
 
 
-def _is_superscript(run: Run) -> bool:
+def _is_superscript(run: Run, styles: _StyleCache) -> bool:
     if run.font.superscript is not None:
         return bool(run.font.superscript)
-    style = run.style
+    style = _run_style(run, styles)
     while style is not None:
         if style.font.superscript is not None:
             return bool(style.font.superscript)
