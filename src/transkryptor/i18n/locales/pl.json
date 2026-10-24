@@ -594,7 +594,7 @@
   "settings.asr.diarize.tooltip": "Każda wypowiedź mówcy to osobny akapit ze znacznikiem czasu [mm:ss] i etykietą mówcy (B:, I:…), także w eksporcie DOCX. Mówcy są przypisywani w kolejności pojawiania się w nagraniu. Wydłuża transkrypcję.",
   "settings.asr.diarize.speakers": "Liczba mówców:",
   "settings.asr.diarize.speakers.auto": "Automatycznie",
-  "settings.asr.diarize.speakers.tooltip": "Ilu mówców słychać w nagraniu. Podana liczba daje dużo pewniejszy podział niż tryb automatyczny, który w nagraniach terenowych często wykrywa za dużo mówców (np. B, I, I2, I3…).",
+  "settings.asr.diarize.speakers.tooltip": "Ilu mówców słychać w nagraniu. Podana liczba daje pewniejszy podział niż tryb automatyczny, który sam ocenia liczbę głosów i może wykryć ich za dużo albo za mało.",
   "settings.asr.diarize.download": "Pobierz model mówców…",
   "settings.asr.diarize.title": "Model podziału na mówców",
   "settings.asr.diarize.consent": "Transkryptor pobierze jednorazowo model podziału na mówców.\n\nModel: {model}\nŹródło: {url}\nLicencja: {license}\nRozmiar: ok. {size}\nLokalizacja: {path}\n\nPo pobraniu podział na mówców działa w pełni lokalnie, bez połączenia z Internetem. Czy pobrać model teraz?",

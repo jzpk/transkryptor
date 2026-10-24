@@ -156,13 +156,15 @@ Pusta sekcja blokuje wydanie.
   głosy dostają nowych informatorów `I2`, `I3`… Przypisanie można poprawić
   jak dotąd (**Alt+Shift+1…9**, **Mówcy…**). Opcja jest w **Ustawieniach…**
   (zakładka **ASR**, domyślnie włączona) i wymaga jednorazowego pobrania
-  modelu podziału na mówców (ok. 36 MB, za zgodą użytkownika) — bez niego
+  modelu podziału na mówców (ok. 28 MB, za zgodą użytkownika) — bez niego
   pole jest zablokowane, a szkic dzieli się jak dotąd. Model działa w pełni
   lokalnie. Rozpoznanie fragmentu A–B nie dzieli tekstu na mówców.
-  Pod opcją można podać **Liczbę mówców** w nagraniu (domyślnie 2 — badacz
-  i informator, do wyboru 2–8 albo **Automatycznie**). Podana liczba daje
-  dużo pewniejszy podział: tryb automatyczny w nagraniach terenowych często
-  widzi więcej głosów, niż jest (`I2`, `I3`…).
+  Podział wychwytuje także szybkie wymiany pytań i jednowyrazowych
+  odpowiedzi w wywiadzie („Zajęcie?” — „Rolnik.”), a zmianę mówcy stawia
+  na końcu zdania. Pod opcją można podać **Liczbę mówców** w nagraniu
+  (domyślnie 2 — badacz i informator, do wyboru 2–8 albo
+  **Automatycznie**). Podana liczba daje pewniejszy podział niż tryb
+  automatyczny, który sam ocenia liczbę głosów.
 - Aktualizacje są sprawdzane przy każdym uruchomieniu, na ekranie
   startowym: najpierw „Sprawdzanie dostępnych aktualizacji…”, a gdy jest
   nowa wersja — postęp jej pobierania. **Pomiń** otwiera program od razu,

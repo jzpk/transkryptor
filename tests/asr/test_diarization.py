@@ -73,13 +73,48 @@ class TestAssignSpeakers:
         assert result.speaker == 0
         assert result.text == " słowo"
 
-    def test_single_word_of_other_speaker_does_not_split(self) -> None:
+    def test_one_word_answer_is_its_own_turn(self) -> None:
         source = segment(
-            0.0, 3.0, (0.0, 1.0, " raz"), (1.0, 1.2, " dwa"), (1.2, 3.0, " trzy")
+            0.0,
+            3.0,
+            (0.0, 1.0, " Zajęcie?"),
+            (1.0, 1.6, " Rolnik."),
+            (1.6, 3.0, " Jak długo?"),
         )
-        turns = [Turn(0.0, 1.0, 0), Turn(1.0, 1.2, 1), Turn(1.2, 3.0, 0)]
-        [result] = assign_speakers([source], turns)
-        assert result.text == " raz dwa trzy"
+        turns = [Turn(0.0, 1.0, 0), Turn(1.0, 1.6, 1), Turn(1.6, 3.0, 0)]
+        result = assign_speakers([source], turns)
+        assert [(s.text, s.speaker) for s in result] == [
+            (" Zajęcie?", 0),
+            (" Rolnik.", 1),
+            (" Jak długo?", 0),
+        ]
+
+    def test_change_one_word_before_sentence_end_moves_to_it(self) -> None:
+        source = segment(
+            0.0,
+            4.0,
+            (0.0, 1.0, " Osoby starsze,"),
+            (1.0, 1.5, " młodsze?"),
+            (1.5, 4.0, " To już starsze."),
+        )
+        turns = [Turn(0.0, 1.0, 0), Turn(1.0, 4.0, 1)]
+        first, second = assign_speakers([source], turns)
+        assert (first.text, second.text) == (
+            " Osoby starsze, młodsze?",
+            " To już starsze.",
+        )
+
+    def test_change_one_word_after_sentence_end_moves_to_it(self) -> None:
+        segments = [
+            segment(0.0, 2.0, (0.0, 1.0, " Swaty"), (1.0, 2.0, " mówili.")),
+            segment(2.0, 4.0, (2.0, 2.4, " I"), (2.4, 4.0, " kto swatał?")),
+        ]
+        turns = [Turn(0.0, 2.4, 0), Turn(2.4, 4.0, 1)]
+        result = assign_speakers(segments, turns)
+        assert [(s.text, s.speaker) for s in result] == [
+            (" Swaty mówili.", 0),
+            (" I kto swatał?", 1),
+        ]
 
     def test_segment_without_words_uses_segment_overlap(self) -> None:
         plain = SegmentResult(5.0, 8.0, " bez słów", 0.7)
@@ -99,64 +134,100 @@ class TestAssignSpeakers:
         assert result.speaker is None
 
 
-class FakeDiarizer:
-    def __init__(self, items, chunks: int = 4) -> None:
-        self.items = items
-        self.chunks = chunks
-        self.aborted = False
+class FakeEmbedder:
+    """Głos rozpoznawany po znaku próbek: dodatnie — mówca A, ujemne — B."""
 
-    def process(self, samples, callback=None):
-        for done in range(1, self.chunks + 1):
-            if callback is not None and callback(done, self.chunks):
-                self.aborted = True
-                break
-        result = SimpleNamespace(sort_by_start_time=lambda: self.items)
-        return result
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def embed(self, samples):
+        self.calls += 1
+        mean = float(np.mean(samples)) if len(samples) else 0.0
+        return [1.0, 0.1] if mean > 0 else [0.1, 1.0]
 
 
-def item(start: float, end: float, speaker: int):
-    return SimpleNamespace(start=start, end=end, speaker=speaker)
+def voices(*parts: tuple[float, float]) -> np.ndarray:
+    """Próbki 16 kHz: kolejne odcinki (sekundy, znak głosu)."""
+    return np.concatenate(
+        [
+            np.full(int(seconds * 16_000), sign, dtype=np.float32)
+            for seconds, sign in parts
+        ]
+    )
 
 
 class TestDiarize:
-    def test_returns_sorted_turns_and_reports_progress(self, tmp_path) -> None:
-        diarizer = FakeDiarizer([item(3.0, 4.0, 1), item(0.0, 2.0, 0)])
-        progress: list[float] = []
+    def test_windows_are_grouped_by_voice(self, tmp_path) -> None:
+        samples = voices((4.0, 0.5), (3.0, -0.5), (3.0, 0.5))
         turns = diarize(
-            np.zeros(16_000, dtype=np.float32),
+            samples,
             tmp_path,
-            on_progress=progress.append,
-            factory=lambda path: diarizer,
+            [(0.0, 10.0)],
+            speakers=2,
+            factory=lambda path: FakeEmbedder(),
         )
-        assert turns == (Turn(0.0, 2.0, 0), Turn(3.0, 4.0, 1))
-        assert progress == [0.25, 0.5, 0.75, 1.0]
+        assert [turn.speaker for turn in turns] == [0, 1, 0]
+        assert turns[0].start_s == 0.0 and turns[-1].end_s == pytest.approx(10.125)
+        assert 3.5 <= turns[1].start_s <= 4.5
+        assert 6.5 <= turns[1].end_s <= 7.5
+
+    def test_speaker_count_is_found_automatically(self, tmp_path) -> None:
+        samples = voices((4.0, 0.5), (3.0, -0.5), (3.0, 0.5))
+        turns = diarize(
+            samples, tmp_path, [(0.0, 10.0)], factory=lambda path: FakeEmbedder()
+        )
+        assert {turn.speaker for turn in turns} == {0, 1}
+
+    def test_only_speech_is_analysed(self, tmp_path) -> None:
+        embedder = FakeEmbedder()
+        turns = diarize(
+            voices((10.0, 0.5)),
+            tmp_path,
+            [(1.0, 2.0), (8.05, 8.15)],
+            factory=lambda path: embedder,
+        )
+        # Krótki fragment (krótszy niż krok okna) też dostaje okno.
+        assert embedder.calls == 6
+        assert [(turn.start_s, turn.end_s) for turn in turns] == [
+            (0.875, 2.125),
+            (7.875, 8.125),
+        ]
+
+    def test_without_speech_there_are_no_turns(self, tmp_path) -> None:
+        assert (
+            diarize(
+                voices((1.0, 0.5)), tmp_path, [], factory=lambda path: FakeEmbedder()
+            )
+            == ()
+        )
+
+    def test_reports_progress(self, tmp_path) -> None:
+        progress: list[float] = []
+        diarize(
+            voices((10.0, 0.5)),
+            tmp_path,
+            [(0.0, 10.0)],
+            on_progress=progress.append,
+            factory=lambda path: FakeEmbedder(),
+        )
+        assert progress[0] == 0.0 and progress[-1] == 1.0
+        assert progress == sorted(progress)
 
     def test_cancel_aborts_processing(self, tmp_path) -> None:
-        diarizer = FakeDiarizer([item(0.0, 1.0, 0)])
+        embedder = FakeEmbedder()
         with pytest.raises(DiarizationCancelled):
             diarize(
-                np.zeros(16_000, dtype=np.float32),
+                voices((10.0, 0.5)),
                 tmp_path,
+                [(0.0, 10.0)],
                 should_cancel=lambda: True,
-                factory=lambda path: diarizer,
+                factory=lambda path: embedder,
             )
-        assert diarizer.aborted
-
-    def test_speaker_count_reaches_the_factory(self, tmp_path, monkeypatch) -> None:
-        calls: list[tuple[Path, int | None]] = []
-
-        def fake(model_dir: Path, speakers: int | None = None) -> FakeDiarizer:
-            calls.append((model_dir, speakers))
-            return FakeDiarizer([item(0.0, 1.0, 0)])
-
-        monkeypatch.setattr(diarization, "sherpa_diarizer", fake)
-        diarize(np.zeros(16_000, dtype=np.float32), tmp_path, speakers=2)
-        diarize(np.zeros(16_000, dtype=np.float32), tmp_path)
-        assert calls == [(tmp_path, 2), (tmp_path, None)]
+        assert embedder.calls == 0
 
     def test_missing_model_file_is_an_error(self, tmp_path) -> None:
         with pytest.raises(FileNotFoundError):
-            diarize(np.zeros(16_000, dtype=np.float32), tmp_path)
+            diarize(voices((1.0, 0.5)), tmp_path, [(0.0, 1.0)])
 
 
 def test_diarization_model_files_are_pinned() -> None:
@@ -164,8 +235,7 @@ def test_diarization_model_files_are_pinned() -> None:
     assert len(set(names)) == len(names)
     for file in DIARIZATION_MODEL.files:
         assert len(file.sha256) == 64 and file.size > 0
-    embedding = DIARIZATION_MODEL.files[1]
-    assert embedding.repo_id and embedding.revision
+    assert DIARIZATION_MODEL.files[0].name == diarization.DIARIZATION_EMBEDDING_FILE
 
 
 # --- integracja z silnikiem ---------------------------------------------------
@@ -211,7 +281,7 @@ class WordBackend:
         return iter(segments), SimpleNamespace(language="pl", duration=6.0)
 
 
-def run(tmp_path, *, diarizer=None, clip=None, **kwargs) -> TranscriptionResult:
+def run(tmp_path, *, embedder=None, clip=None, **kwargs) -> TranscriptionResult:
     audio = tmp_path / "nagranie.mp3"
     audio.write_bytes(b"fake-audio")
     backend = kwargs.pop("backend", WordBackend())
@@ -222,9 +292,8 @@ def run(tmp_path, *, diarizer=None, clip=None, **kwargs) -> TranscriptionResult:
         options=DecodingOptions(
             diarize=True, diarization_dir=tmp_path / "diarization", clip=clip
         ),
-        diarizer_factory=lambda path: diarizer
-        or FakeDiarizer([item(0.0, 2.2, 3), item(2.2, 4.0, 1), item(4.0, 6.0, 3)]),
-        decode=lambda path: np.zeros(16_000 * 6, dtype=np.float32),
+        embedder_factory=lambda path: embedder or FakeEmbedder(),
+        decode=lambda path: voices((2.2, 0.5), (1.8, -0.5), (2.0, 0.5)),
         **kwargs,
     )
 
@@ -255,10 +324,10 @@ class TestTranscribeWithDiarization:
 
     def test_failure_keeps_draft_without_speakers(self, tmp_path) -> None:
         class Broken:
-            def process(self, samples, callback=None):
+            def embed(self, samples):
                 raise RuntimeError("onnx failed")
 
-        result = run(tmp_path, diarizer=Broken())
+        result = run(tmp_path, embedder=Broken())
         assert not result.diarized
         assert result.diarization_note == "onnx failed"
         assert len(result.segments) == 2

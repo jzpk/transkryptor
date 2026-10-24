@@ -42,7 +42,7 @@ from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any, Protocol
 
 from transkryptor.asr import diarization
-from transkryptor.asr.diarization import DiarizationCancelled, DiarizerFactory
+from transkryptor.asr.diarization import DiarizationCancelled, EmbedderFactory
 from transkryptor.asr.models import DEFAULT_MODEL, AsrModelInfo
 from transkryptor.asr.system import cuda_device_count
 from transkryptor.errors import AppError, ModelDownloadError
@@ -271,7 +271,7 @@ def transcribe(
     backend_factory: BackendFactory | None = None,
     language: str = LANGUAGE,
     options: DecodingOptions | None = None,
-    diarizer_factory: DiarizerFactory | None = None,
+    embedder_factory: EmbedderFactory | None = None,
     decode: Callable[[str], npt.NDArray[np.float32]] | None = None,
 ) -> TranscriptionResult:
     """Wykonuje lokalną transkrypcję pliku audio.
@@ -284,7 +284,7 @@ def transcribe(
     nagrania (koniec segmentu względem długości audio); nie jest wołane,
     gdy backend nie zna długości nagrania. Przy diaryzacji transkrypcja
     zajmuje ``DIARIZED_ASR_SHARE`` postępu, a podział na mówców — resztę.
-    ``diarizer_factory`` i ``decode`` podstawiają testy.
+    ``embedder_factory`` i ``decode`` podstawiają testy.
     """
     cancel = should_cancel or (lambda: False)
     audio = Path(audio_path)
@@ -364,6 +364,7 @@ def transcribe(
             turns = diarization.diarize(
                 samples,
                 decoding.diarization_dir,
+                _speech(segments),
                 should_cancel=cancel,
                 on_progress=(
                     None
@@ -371,7 +372,7 @@ def transcribe(
                     else lambda fraction: on_progress(share + (1 - share) * fraction)
                 ),
                 speakers=decoding.speakers,
-                factory=diarizer_factory,
+                factory=embedder_factory,
             )
         except DiarizationCancelled:
             raise TranscriptionCancelled() from None
@@ -390,6 +391,17 @@ def transcribe(
         device_note=device_note,
         diarization_note=diarization_note,
     )
+
+
+def _speech(segments: Iterable[SegmentResult]) -> list[tuple[float, float]]:
+    """Fragmenty mowy dla diaryzacji: słowa, a bez słów — cały segment."""
+    spans: list[tuple[float, float]] = []
+    for segment in segments:
+        if segment.words:
+            spans.extend((word.start_s, word.end_s) for word in segment.words)
+        else:
+            spans.append((segment.start_s, segment.end_s))
+    return spans
 
 
 def _start(

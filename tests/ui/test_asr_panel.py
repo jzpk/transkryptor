@@ -892,7 +892,7 @@ class TestDiarizationOption:
         accept_consent(monkeypatch)
         box = self.box(qtbot, manager)
         box.set_value(False)
-        assert "36 MB" in box.consent_text()
+        assert "28 MB" in box.consent_text()
         box.download_button.click()
         wait_until(lambda: not box.is_downloading(), what="pobranie modelu mówców")
         assert box.is_available()

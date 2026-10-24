@@ -191,40 +191,35 @@ WHISPER_LARGE_V3 = AsrModelInfo(
 
 DEFAULT_MODEL = WHISPER_MEDIUM
 
-# Model podziału na mówców (diaryzacja, sherpa-onnx): segmentacja mowy
-# pyannote/segmentation-3.0 w ONNX (MIT, CNRS) i model głosu mówcy CAM++
-# z projektu 3D-Speaker trenowany na VoxCeleb (Apache-2.0). Rewizje, rozmiary
-# i sumy odczytane z repozytoriów (2026-10-23; commity z 2024-10).
-DIARIZATION_SEGMENTATION_FILE = "model.onnx"
-DIARIZATION_EMBEDDING_FILE = "3dspeaker_speech_campplus_sv_en_voxceleb_16k.onnx"
+# Model podziału na mówców (diaryzacja, sherpa-onnx): model głosu mówcy
+# CAM++ z projektu 3D-Speaker (Apache-2.0) trenowany na ok. 200 tys.
+# mówców (zh/en). Wariant VoxCeleb nie odróżniał w nagraniach terenowych
+# głosu badaczki od informatorki. Rewizja, rozmiar i suma odczytane
+# z repozytorium (2026-10-24; commit z 2024-10-14).
+DIARIZATION_EMBEDDING_FILE = (
+    "3dspeaker_speech_campplus_sv_zh_en_16k-common_advanced.onnx"
+)
 _DIARIZATION_FILES = (
     ModelFile(
-        DIARIZATION_SEGMENTATION_FILE,
-        5_992_913,
-        "220ad67ca923bef2fa91f2390c786097bf305bceb5e261d4af67b38e938e1079",
-    ),
-    ModelFile(
         DIARIZATION_EMBEDDING_FILE,
-        29_596_978,
-        "357a834f702b80161e5b981182c038e18553c1f2ca752ed6cec2052365d4129b",
-        repo_id="csukuangfj/speaker-embedding-models",
-        revision="0743f301363dec56491a490f6d6cbc9d67f9a3bf",
+        28_281_164,
+        "aa3cfc16963a10586a9393f5035d6d6b57e98d358b347f80c2a30bf4f00ceba2",
     ),
 )
 
 DIARIZATION_MODEL = AsrModelInfo(
     key="diarization",
-    display_name="pyannote segmentation-3.0 + 3D-Speaker CAM++ (sherpa-onnx)",
-    hf_repo_id="csukuangfj/sherpa-onnx-pyannote-segmentation-3-0",
-    hf_revision="9403a6902bb58e3d5ae8c7e77c3422de279db2e0",
+    display_name="3D-Speaker CAM++ (sherpa-onnx)",
+    hf_repo_id="csukuangfj/speaker-embedding-models",
+    hf_revision="0743f301363dec56491a490f6d6cbc9d67f9a3bf",
     files=_DIARIZATION_FILES,
     approx_size_bytes=sum(file.size for file in _DIARIZATION_FILES),
-    license_id="MIT, Apache-2.0",
-    source_url="https://huggingface.co/csukuangfj/sherpa-onnx-pyannote-segmentation-3-0",
+    license_id="Apache-2.0",
+    source_url="https://huggingface.co/csukuangfj/speaker-embedding-models",
     min_ram_bytes=1_000_000_000,
     description=(
-        "Lokalny model podziału szkicu na mówców: wykrywa zmiany mówcy "
-        "i grupuje wypowiedzi po głosie. Po pobraniu działa w pełni offline."
+        "Lokalny model podziału szkicu na mówców: rozpoznaje głosy "
+        "i grupuje wypowiedzi według mówcy. Po pobraniu działa w pełni offline."
     ),
 )
 
