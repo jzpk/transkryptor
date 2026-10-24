@@ -4,8 +4,8 @@ Strona jest statyczna i powstaje przy każdym wydaniu (workflow „Strona”
 wywoływany z „Wydania”), więc przyciski pobierania wskazują pliki najnowszego
 wydania, a historia zmian obejmuje tylko wydane wersje — sekcja
 „Nieopublikowane” nie trafia na stronę. Opis i wygląd są w katalogu
-``pages/`` (szablon ``index.html`` z polami ``${...}``, arkusz stylów,
-zrzuty ekranu); wymagania i nazwy plików pochodzą z ``packaging.metadata``,
+``pages/`` (szablony ``index.html`` i ``autor.html`` z polami ``${...}``,
+arkusz stylów, zrzuty ekranu, zdjęcie autora i ikony); wymagania i nazwy plików pochodzą z ``packaging.metadata``,
 tak jak w notach wydania.
 
     uv run python -m transkryptor.packaging.site --out _site
@@ -41,9 +41,14 @@ from transkryptor.packaging.metadata import (
 )
 from transkryptor.update.releases import GITHUB_REPO
 
+AUTHOR_NAME = "Jeremiasz Pauszek"
+LINKEDIN_URL = "https://www.linkedin.com/in/jeremiasz-pauszek-55a744213"
+
 PAGES_DIR = REPO_ROOT / "pages"
 TEMPLATE_FILE = "index.html"
-# Pliki z pages/ kopiowane bez zmian (poza szablonem).
+# Strony z polami ${...}; pierwsza to strona główna.
+TEMPLATE_FILES = (TEMPLATE_FILE, "autor.html")
+# Pliki z pages/ kopiowane bez zmian (poza szablonami).
 STATIC_FILES = ("style.css",)
 STATIC_DIRS = ("img",)
 
@@ -205,6 +210,9 @@ def page_fields(releases: list[Release], repo: str) -> dict[str, str]:
         "summary": html.escape(SUMMARY),
         "version": version,
         "release_date": format_date(latest.date) if latest.date else "",
+        "author_name": AUTHOR_NAME,
+        "linkedin_url": LINKEDIN_URL,
+        "profile_url": f"https://github.com/{repo.split('/')[0]}",
         "repo_url": repo_url,
         "releases_url": f"{repo_url}/releases",
         "release_url": f"{repo_url}/releases/tag/v{version}",
@@ -245,23 +253,25 @@ def build(
             f"Najnowsza wersja w {Path(changelog_file).name} ({fields['version']}) "
             f"różni się od wersji programu ({expected_version})."
         )
-    template = Template((source / TEMPLATE_FILE).read_text(encoding="utf-8"))
-    try:
-        page = template.substitute(fields)
-    except KeyError as error:
-        raise SiteError(f"Szablon strony używa nieznanego pola {error}.") from None
-    except ValueError as error:
-        raise SiteError(f"Błędne pole w szablonie strony: {error}.") from None
+    pages = {}
+    for name in TEMPLATE_FILES:
+        template = Template((source / name).read_text(encoding="utf-8"))
+        try:
+            pages[name] = template.substitute(fields)
+        except KeyError as error:
+            raise SiteError(f"Szablon {name} używa nieznanego pola {error}.") from None
+        except ValueError as error:
+            raise SiteError(f"Błędne pole w szablonie {name}: {error}.") from None
 
     out.mkdir(parents=True, exist_ok=True)
-    index = out / TEMPLATE_FILE
-    index.write_text(page, encoding="utf-8")
+    for name, page in pages.items():
+        (out / name).write_text(page, encoding="utf-8")
     for name in STATIC_FILES:
         shutil.copy2(source / name, out / name)
     for name in STATIC_DIRS:
         shutil.copytree(source / name, out / name, dirs_exist_ok=True)
     shutil.copy2(ICON_PNG, out / "icon.png")
-    return index
+    return out / TEMPLATE_FILE
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -285,6 +295,8 @@ def main(argv: list[str] | None = None) -> int:
 
 
 __all__ = [
+    "AUTHOR_NAME",
+    "LINKEDIN_URL",
     "PAGES_DIR",
     "Release",
     "SiteError",

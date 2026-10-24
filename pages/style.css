@@ -149,20 +149,69 @@ main > section {
   text-decoration: none;
 }
 
-.topbar nav {
+/* Odnośniki paska i stopki mają ten sam kształt co przyciski (.button):
+   promień 8px, tło po najechaniu w kolorze akcentu. */
+
+.nav,
+.footer-links {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 18px;
+  gap: 4px;
 }
 
-.topbar nav a {
+.nav {
+  margin-left: auto;
+}
+
+.nav a,
+.footer-links a {
+  padding: 6px 12px;
+  border-radius: 8px;
   color: var(--muted);
-  text-decoration: none;
   font-size: 0.95rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background-color 0.15s, color 0.15s;
 }
 
-.topbar nav a:hover {
+.nav a:hover,
+.footer-links a:hover,
+.nav a[aria-current="page"] {
+  background: var(--accent-soft);
   color: var(--accent);
+}
+
+.social {
+  display: flex;
+  gap: 8px;
+}
+
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--muted);
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.icon-button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.icon-button svg {
+  width: 18px;
+  height: 18px;
+}
+
+:is(.nav a, .footer-links a, .icon-button, .button, .brand, .author-chip):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* Nagłówek strony */
@@ -224,6 +273,17 @@ main > section {
 
 .button.primary:hover {
   filter: brightness(1.08);
+}
+
+.button.with-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.button.with-icon svg {
+  width: 18px;
+  height: 18px;
 }
 
 .shot {
@@ -411,30 +471,144 @@ thead th {
   margin-top: 8px;
 }
 
+/* O autorze */
+
+.author {
+  display: grid;
+  grid-template-columns: minmax(0, 280px) minmax(0, 1fr);
+  gap: 48px;
+  align-items: center;
+  min-height: calc(100vh - 57px - 160px);
+}
+
+.author-photo {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 4px solid var(--surface);
+  box-shadow: 0 0 0 1px var(--border), var(--shadow);
+}
+
+.author h1 {
+  font-size: clamp(1.75rem, 3.4vw, 2.6rem);
+  margin: 0 0 12px;
+}
+
+.author-kicker {
+  margin: 0 0 4px;
+  color: var(--accent);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.author-text p {
+  max-width: 62ch;
+}
+
+.author .actions {
+  margin-top: 28px;
+}
+
 /* Stopka */
 
 .footer {
+  background: var(--surface);
   border-top: 1px solid var(--border);
   color: var(--muted);
   font-size: 0.92rem;
 }
 
 .footer-inner {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 8px 24px;
-  padding-top: 24px;
-  padding-bottom: 24px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 20px 40px;
+  padding-top: 28px;
+  padding-bottom: 28px;
 }
 
 .footer p {
-  margin: 0;
+  margin: 4px 0 0;
+}
+
+.footer-links {
+  margin: 0 -12px;
+}
+
+.footer-author {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.author-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 14px 4px 4px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text);
+  font-weight: 600;
+  line-height: 1.2;
+  text-decoration: none;
+  transition: border-color 0.15s;
+}
+
+.author-chip:hover {
+  border-color: var(--accent);
+}
+
+.author-chip img {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.author-chip-label {
+  display: block;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 500;
 }
 
 @media (max-width: 820px) {
-  .hero-inner {
+  .hero-inner,
+  .author {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .author {
+    gap: 24px;
+    min-height: 0;
+  }
+
+  .author-photo {
+    max-width: 200px;
+  }
+
+  .footer-inner {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .footer-author {
+    flex-wrap: wrap;
+  }
+
+  .nav {
+    order: 3;
+    width: calc(100% + 16px);
+    margin: 0 -8px 8px;
+    gap: 0;
+  }
+
+  .nav a {
+    padding: 6px 8px;
+    font-size: 0.9rem;
   }
 
   main > section {
