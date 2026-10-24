@@ -760,5 +760,7 @@
   "comments.reply_item": "↳ {author} · {date}\n{text}",
   "comments.item.tooltip": "Click to select the commented fragment in the text",
   "comments.tooltip": "💬 {author} ({date}): {text}",
-  "comments.tooltip.reply": "   ↳ {author}: {text}"
+  "comments.tooltip.reply": "   ↳ {author}: {text}",
+  "docx.comment.anonymous": "Unsigned",
+  "docx.comment.reply": "Reply — {author} ({date}): {text}"
 }

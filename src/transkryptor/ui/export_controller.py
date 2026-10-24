@@ -16,6 +16,7 @@ from PySide6.QtCore import QObject
 from PySide6.QtWidgets import QDateEdit, QMessageBox, QWidget
 
 from transkryptor.document.anchors import Anchor
+from transkryptor.document.comments import Comment
 from transkryptor.document.metadata import SIGNATURE, MetadataField
 from transkryptor.document.model import Document
 from transkryptor.errors import AppError
@@ -48,6 +49,7 @@ class ExportController(QObject):
         fields: Callable[[], tuple[MetadataField, ...]],
         on_exported: Callable[[], None],
         anchors: Callable[[], Iterable[Anchor]] = tuple,
+        comments: Callable[[], Iterable[Comment]] = tuple,
         audio_path: Callable[[], Path | None] = lambda: None,
         settings: Callable[[], ExportSettings] = ExportSettings,
         save_settings: Callable[[ExportSettings], None] = lambda _settings: None,
@@ -60,6 +62,7 @@ class ExportController(QObject):
         self._on_exported = on_exported
         self._fields = fields
         self._anchors = anchors
+        self._comments = comments
         self._audio_path = audio_path
         self._settings = settings
         self._save_settings = save_settings
@@ -158,6 +161,7 @@ class ExportController(QObject):
                 anonymize,
                 self._anchors() if exporter.timed else (),
                 self._audio_path(),
+                self._comments() if exporter.key == DOCX else (),
             )
             report = run_export(exporter, export_document, path, options)
         except AppError as error:

@@ -11,10 +11,14 @@ na końcu legenda mówców), akapit „Autor: … Data: …” i akapity tekstu 
 akapit z mówcą zaczyna się pogrubioną etykietą ``B:`` i tabulatorem.
 Szablon (``export/docx_template.py``) może przenieść metryczkę i tekst
 w wybrane miejsca oraz wypełnić placeholdery w nagłówku i stopce.
+Komentarze recenzji stają się komentarzami Worda obejmującymi swój
+fragment; odpowiedzi z wątku są kolejnymi akapitami komentarza (Word
+nie ma wątków w podstawowym formacie komentarzy).
 """
 
 from __future__ import annotations
 
+from bisect import bisect_right
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
@@ -22,7 +26,9 @@ from typing import Any
 from docx import Document as DocxDocument
 from docx.oxml.ns import qn
 from docx.text.paragraph import Paragraph
+from docx.text.run import Run
 
+from transkryptor.document.comments import Comment
 from transkryptor.document.metadata import DEFAULT_FIELDS, MetadataField
 from transkryptor.document.model import Document
 from transkryptor.errors import ExportError
@@ -57,6 +63,7 @@ def export_docx(
     fields: Iterable[MetadataField] = DEFAULT_FIELDS,
     anonymize: bool = False,
     options: ExportOptions | None = None,
+    comments: Iterable[Comment] = (),
 ) -> ExportReport:
     """Zapisuje dokument do pliku DOCX i zwraca raport (np. błędny szablon).
 
@@ -70,7 +77,10 @@ def export_docx(
     """
     report = ExportReport()
     write_docx(
-        build_export_document(document, fields, anonymize), path, options, report
+        build_export_document(document, fields, anonymize, comments=comments),
+        path,
+        options,
+        report,
     )
     return report
 
@@ -151,19 +161,74 @@ def _write(
         if document.author_line:
             _new_paragraph(docx, transcript_at).add_run(document.author_line)
 
+    # Granice komentarzy dzielą runy, bo komentarz Worda obejmuje całe runy.
+    boundaries = sorted(
+        {position for c in document.comments for position in (c.start, c.end)}
+    )
+    placed: list[tuple[int, int, Run]] = []
     for paragraph in document.paragraphs:
         target_paragraph = _new_paragraph(docx, transcript_at)
         if paragraph.speaker is not None:
             target_paragraph.add_run(f"{paragraph.speaker.key}:").bold = True
             target_paragraph.add_run("\t")
+        position = paragraph.start
         for run in paragraph.runs:
-            docx_run = target_paragraph.add_run(run.text)
-            if run.superscript:
-                docx_run.font.superscript = True
+            for start, end in _pieces(position, position + len(run.text), boundaries):
+                text = run.text[start - position : end - position]
+                docx_run = target_paragraph.add_run(text)
+                if run.superscript:
+                    docx_run.font.superscript = True
+                placed.append((start, end, docx_run))
+            position += len(run.text)
     if transcript_at is not None:
         remove_placeholder(transcript_at, TRANSCRIPT)
+    for comment in document.comments:
+        _add_comment(docx, comment, placed)
 
     docx.save(str(target))
+
+
+def _pieces(start: int, end: int, boundaries: list[int]) -> list[tuple[int, int]]:
+    """Zakres ``[start, end)`` podzielony na granicach komentarzy."""
+    cuts = boundaries[bisect_right(boundaries, start) : bisect_right(boundaries, end)]
+    edges = [start, *(cut for cut in cuts if cut < end), end]
+    return [(a, b) for a, b in zip(edges, edges[1:], strict=False) if a < b]
+
+
+def _add_comment(
+    docx: Any, comment: Comment, placed: list[tuple[int, int, Run]]
+) -> None:
+    """Komentarz Worda na runach fragmentu (punktowy — na sąsiednim runie)."""
+    runs = [
+        run for start, end, run in placed if start < comment.end and end > comment.start
+    ]
+    if not runs:
+        after = [run for start, _end, run in placed if start >= comment.start]
+        runs = after[:1] or [run for _start, _end, run in placed[-1:]]
+    if not runs:
+        return
+    author = comment.author or tr("docx.comment.anonymous")
+    word_comment = docx.add_comment(
+        [runs[0], runs[-1]],
+        text=comment.text,
+        author=author,
+        initials=_initials(author),
+    )
+    if comment.created:
+        word_comment._comment_elm.set(qn("w:date"), f"{comment.created}:00")
+    for reply in comment.replies:
+        word_comment.add_paragraph(
+            tr(
+                "docx.comment.reply",
+                author=reply.author or tr("docx.comment.anonymous"),
+                date=reply.created.replace("T", " "),
+                text=reply.text,
+            )
+        )
+
+
+def _initials(author: str) -> str:
+    return "".join(word[0] for word in author.split())[:4].upper()
 
 
 def _new_paragraph(docx: Any, before: Paragraph | None) -> Paragraph:

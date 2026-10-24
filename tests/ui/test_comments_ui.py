@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import pytest
+from docx import Document as DocxReader
 from PySide6.QtGui import QTextCursor
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
@@ -156,3 +157,18 @@ def test_new_document_clears_comments(window) -> None:
     window.document.mark_exported()
     window.session.new_document()
     assert window.comments.items == []
+
+
+def test_docx_export_contains_comments(window, tmp_path, monkeypatch) -> None:
+    answer(window, "Weryfikator", "uwaga")
+    select(window, 4, 8)
+    window.comments.add_from_selection()
+    target = tmp_path / "eksport.docx"
+    monkeypatch.setattr(
+        QFileDialog, "getSaveFileName", staticmethod(lambda *a, **k: (str(target), ""))
+    )
+    window.exporter.export()
+    (comment,) = list(DocxReader(str(target)).comments)
+    assert comment.author == "Weryfikator"
+    window.exporter.export(anonymize=True)
+    assert list(DocxReader(str(target)).comments) == []

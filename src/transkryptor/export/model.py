@@ -3,7 +3,8 @@
 ``ExportDocument`` to dokument przygotowany do zapisu w dowolnym formacie:
 metryczka po anonimizacji i w kolejności konfiguracji, mówcy (etykiety
 informatorów puste przy anonimizacji), akapity z mówcą i runami indeksu
-górnego oraz kotwice czasowe i ścieżka nagrania dla formatów z czasami.
+górnego, kotwice czasowe i ścieżka nagrania dla formatów z czasami oraz
+komentarze recenzji (eksportuje je tylko DOCX; anonimizacja je pomija).
 Eksportery (``export/registry.py``) czytają tylko ten model — nie
 ``Document`` ani ustawienia.
 """
@@ -16,6 +17,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 from transkryptor.document.anchors import Anchor
+from transkryptor.document.comments import Comment
 from transkryptor.document.metadata import (
     DEFAULT_FIELDS,
     PLACE,
@@ -61,6 +63,7 @@ class ExportDocument:
     anchors: tuple[Anchor, ...] = ()
     audio_path: Path | None = None
     anonymize: bool = False
+    comments: tuple[Comment, ...] = ()
     # Konfiguracja pól zespołu (placeholdery szablonu DOCX dla pól bez wartości).
     fields: tuple[MetadataField, ...] = DEFAULT_FIELDS
 
@@ -104,8 +107,13 @@ def build_export_document(
     anonymize: bool = False,
     anchors: Iterable[Anchor] = (),
     audio_path: str | Path | None = None,
+    comments: Iterable[Comment] = (),
 ) -> ExportDocument:
-    """Model wyjścia z dokumentu; ``anonymize`` pomija dane osobowe."""
+    """Model wyjścia z dokumentu; ``anonymize`` pomija dane osobowe.
+
+    Przy anonimizacji pomijane są też komentarze — ich autorzy i treść mogą
+    zawierać dane osobowe.
+    """
     fields = tuple(fields)
     speakers = tuple(
         replace(speaker, label="") if anonymize and speaker.is_informant else speaker
@@ -134,6 +142,7 @@ def build_export_document(
         anchors=tuple(anchors),
         audio_path=Path(audio_path) if audio_path is not None else None,
         anonymize=anonymize,
+        comments=() if anonymize else tuple(comments),
         fields=tuple(fields),
     )
 

@@ -760,5 +760,7 @@
   "comments.reply_item": "↳ {author} · {date}\n{text}",
   "comments.item.tooltip": "Kliknij, aby zaznaczyć komentowany fragment w tekście",
   "comments.tooltip": "💬 {author} ({date}): {text}",
-  "comments.tooltip.reply": "   ↳ {author}: {text}"
+  "comments.tooltip.reply": "   ↳ {author}: {text}",
+  "docx.comment.anonymous": "Bez podpisu",
+  "docx.comment.reply": "Odpowiedź — {author} ({date}): {text}"
 }

@@ -233,6 +233,7 @@ class MainWindow(QMainWindow):
             lambda: self.settings_store.current.metadata.fields,
             self._update_title,
             anchors=self.sync.entries,
+            comments=self.comments.entries,
             audio_path=lambda: self.player.source_path,
             settings=lambda: self.settings_store.current.export,
             save_settings=self._save_export_settings,

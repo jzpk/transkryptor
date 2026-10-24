@@ -16,6 +16,9 @@ Pusta sekcja blokuje wydanie.
   a gdy fragment zostanie usunięty, komentarz zostaje z cytatem. Komentarze
   są zapisywane w pliku projektu — projektu z komentarzami nie otworzy już
   starsza wersja programu.
+- Eksport DOCX zawiera komentarze recenzji jako komentarze Worda przy
+  komentowanym fragmencie, z odpowiedziami w treści komentarza. Eksport
+  anonimizowany i pozostałe formaty komentarzy nie zawierają.
 - **Porównaj z…** (menu przycisku **Otwórz**): bieżący projekt można
   porównać z innym plikiem projektu tego samego nagrania, np. wersją
   poprawioną przez weryfikatora. Obie wersje są widoczne obok siebie —
