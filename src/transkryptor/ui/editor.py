@@ -417,6 +417,29 @@ class TranscriptionEditor(QTextEdit):
         edit.endEditBlock()
         self.refresh_speakers()
 
+    def assign_paragraph_speakers(
+        self, start: int, keys: Sequence[str | None], text: str | None = None
+    ) -> None:
+        """Ustawia mówców kolejnych akapitów od akapitu zawierającego ``start``.
+
+        Bez przełączania (jak w :meth:`set_paragraph_speaker`): ``keys[i]`` to
+        mówca i-tego akapitu, None usuwa przypisanie. Wołane wewnątrz bloku
+        edycji, więc nie tworzy osobnego kroku cofania.
+        """
+        if text is None:
+            text = self.plain_text()
+        positions = PositionMap(text)
+        paragraph_start = text.rfind("\n", 0, start) + 1
+        for key in keys:
+            block = self.document().findBlock(positions.to_qt(paragraph_start))
+            if block.isValid() and block_speaker(block) != key:
+                _set_block_speaker(block, key)
+            next_start = text.find("\n", paragraph_start)
+            if next_start < 0:
+                break
+            paragraph_start = next_start + 1
+        self.refresh_speakers()
+
     def remap_speakers(self, mapping: dict[str, str | None]) -> None:
         """Zmienia klucze mówców w akapitach (None usuwa przypisanie)."""
         blocks = [

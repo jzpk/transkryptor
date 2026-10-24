@@ -114,6 +114,9 @@ class SessionController(QObject):
         self._settings_store = settings_store
         self._on_reset = on_reset
         self._on_state_changed = on_state_changed
+        # Wołane przed zastąpieniem treści edytora (nowy dokument, projekt,
+        # import DOCX, odzyskanie) — np. koniec porównania wersji.
+        self.before_replace: Callable[[], None] = lambda: None
         # Liczenie sumy nagrania w tle; testy podstawiają wolną imitację.
         self.hash_impl: HashFunction = file_sha256
         self._hash_thread: HashThread | None = None
@@ -149,6 +152,11 @@ class SessionController(QObject):
             return False
         self._editor_pending = False
         return self._editor.sync_to_document(self._document)
+
+    @property
+    def audio_sha256(self) -> str | None:
+        """Suma SHA-256 bieżącego nagrania (None — brak albo jeszcze liczona)."""
+        return self._audio.sha256 if self._audio is not None else None
 
     @property
     def project_name(self) -> str | None:
@@ -222,6 +230,7 @@ class SessionController(QObject):
     def new_document(self) -> None:
         if not self.maybe_discard_changes():
             return
+        self.before_replace()
         self._player.stop_and_unload()
         self._player_bar.reset()
         self._asr_panel.set_audio_available(False)
@@ -594,6 +603,7 @@ class SessionController(QObject):
 
         ``audio_sha256`` to znana już suma nagrania; bez niej jest liczona w tle.
         """
+        self.before_replace()
         self._player.stop_and_unload()
         self._player_bar.reset()
         self._asr_panel.set_audio_available(False)

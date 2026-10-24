@@ -7,6 +7,17 @@ Pusta sekcja blokuje wydanie.
 
 ## Nieopublikowane
 
+- **Porównaj z…** (menu przycisku **Otwórz**): bieżący projekt można
+  porównać z innym plikiem projektu tego samego nagrania, np. wersją
+  poprawioną przez weryfikatora. Obie wersje są widoczne obok siebie —
+  po lewej bieżący dokument, po prawej porównywana (tylko do odczytu) —
+  a panel **Porównanie** wymienia zmiany: wstawienia, usunięcia, zmiany
+  tekstu, indeksu górnego i mówcy akapitu. Kliknięcie zmiany zaznacza ją
+  w obu wersjach, **Odsłuchaj** odtwarza fragment z nagrania. Zmiany
+  przyjmuje się albo odrzuca pojedynczo lub wszystkie naraz, a każdą
+  decyzję można cofnąć (`Ctrl+Z`). Na czas porównania bieżący tekst jest
+  tylko do odczytu; **Zakończ porównanie** zostawia dokument z przyjętymi
+  zmianami.
 - Import DOCX dużego dokumentu jest kilkukrotnie szybszy (np. 3000
   akapitów — ok. 0,3 s zamiast 2 s).
 - **Ustawienia…**: sekcje (Wygląd, Odtwarzacz, … ASR, Dziennik logów) są

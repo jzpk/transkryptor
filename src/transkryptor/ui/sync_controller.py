@@ -315,6 +315,17 @@ class SyncController(QObject):
         if anchor is None:
             self._show_status(tr("sync.no_anchor"))
             return False
+        return self.play_anchor(anchor)
+
+    def anchor_at(self, position: int, word_level: bool = True) -> Anchor | None:
+        """Kotwica bieżącego tekstu dla pozycji (None — brak)."""
+        return anchor_at(self._current(), position, word_level)
+
+    def play_anchor(self, anchor: Anchor) -> bool:
+        """Odtwarza nagranie od kotwicy (także spoza bieżącego tekstu)."""
+        if self._player.source_path is None or not self._bar.has_media:
+            self._show_status(tr("sync.no_media"))
+            return False
         if anchor.source == WORD:
             self._player.play_loop_once(
                 anchor.start_ms - WORD_MARGIN_MS, anchor.end_ms + WORD_MARGIN_MS

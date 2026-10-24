@@ -92,6 +92,15 @@ _PATHS: dict[str, str] = {
         '<path d="M17 2.5l3 3-3 3"/><path d="M4 11.5v-2a4 4 0 0 1 4-4h12"/>'
         '<path d="M7 21.5l-3-3 3-3"/><path d="M20 12.5v2a4 4 0 0 1-4 4H4"/>'
     ),
+    "compare": (
+        '<rect x="3" y="4" width="7.5" height="16" rx="1.5"/>'
+        '<rect x="13.5" y="4" width="7.5" height="16" rx="1.5"/>'
+        '<path d="M5.5 9h2.5M5.5 13h2.5M16 9h2.5M16 13h2.5"/>'
+    ),
+    "comment": (
+        '<path d="M4 5h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H10l-4.5 3.5V17H4'
+        'a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/>'
+    ),
     "audio_file": (
         '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/>'
         '<path d="M14 3v5h5M9 13.5v3M12 11.5v7M15 13v4"/>'
