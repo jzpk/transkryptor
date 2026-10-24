@@ -756,7 +756,7 @@
   "comments.anonymous": "bez podpisu",
   "comments.quote": "«{quote}»",
   "comments.quote.removed": "«{quote}» (fragment usunięty)",
-  "comments.item": "{quote}\n{author} · {date}\n{text}",
+  "comments.item": "{author} · {date} — {quote}\n{text}",
   "comments.reply_item": "↳ {author} · {date}\n{text}",
   "comments.item.tooltip": "Kliknij, aby zaznaczyć komentowany fragment w tekście",
   "comments.tooltip": "💬 {author} ({date}): {text}",

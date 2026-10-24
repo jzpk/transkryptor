@@ -1,8 +1,9 @@
 """Porównanie dwóch wersji transkrypcji na poziomie słów (bez Qt).
 
 Wersja to tekst z zakresami indeksu górnego i mówcami akapitów
-(:class:`Version`). :func:`diff_versions` porównuje tokeny — słowa, odstępy
-i znaki nowej linii osobno, więc granice akapitów są zachowane —
+(:class:`Version`). :func:`diff_versions` porównuje tokeny — słowa,
+interpunkcję, odstępy i znaki nowej linii osobno, więc granice akapitów są
+zachowane —
 ``difflib.SequenceMatcher`` i zwraca listę zmian (:class:`Change`):
 wstawienie, usunięcie, zmianę tekstu, zmianę indeksu górnego w słowie
 o tym samym tekście i zmianę mówcy akapitu. Wersja A to dokument bieżący
@@ -32,8 +33,9 @@ FORMAT = "format"
 SPEAKER = "speaker"
 KINDS = (INSERT, DELETE, REPLACE, FORMAT, SPEAKER)
 
-# Nowa linia, odstęp bez nowej linii albo słowo (ciąg znaków niebiałych).
-_TOKEN_RE = re.compile(r"\n|[^\S\n]+|\S+")
+# Nowa linia, odstęp bez nowej linii, słowo albo ciąg znaków interpunkcji
+# i notacji — przecinek przy słowie nie wchodzi do zmiany słowa.
+_TOKEN_RE = re.compile(r"\n|[^\S\n]+|\w+|[^\w\s]+")
 
 
 @dataclass(frozen=True)

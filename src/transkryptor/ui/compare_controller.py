@@ -389,7 +389,6 @@ class CompareController(QObject):
             INSERT: QColor(t.success),
             DELETE: QColor(t.danger),
             REPLACE: QColor(t.warning),
-            SPEAKER: QColor(t.accent),
         }
         for color in colors.values():
             color.setAlpha(CHANGE_ALPHA)
@@ -400,6 +399,10 @@ class CompareController(QObject):
             if item.state != PENDING:
                 continue
             kind = item.change.kind
+            if kind == SPEAKER:
+                # Tło całego akapitu zasłoniłoby inne zmiany — mówcę widać
+                # w etykietach obok akapitów, a przejście zaznacza akapit.
+                continue
             if kind == FORMAT:
                 mine.append(solid_underline(QTextCursor(item.cursor), accent))
                 theirs.append(solid_underline(QTextCursor(item.other), accent))

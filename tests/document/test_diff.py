@@ -180,3 +180,10 @@ def test_apply_all_reaches_b(a_text: str, b_text: str) -> None:
     a = Version(a_text)
     b = Version(b_text)
     assert apply_all(a, b) == b
+
+
+def test_punctuation_is_a_separate_token() -> None:
+    a = Version("jak godoł, że")
+    b = Version("jak godał, że")
+    (change,) = diff_versions(a, b)
+    assert a.text[change.a_start : change.a_end] == "godoł"

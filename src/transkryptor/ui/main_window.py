@@ -348,7 +348,7 @@ class MainWindow(QMainWindow):
             stretch_index=0,
         )
         self.compare_card.hide()
-        columns = QSplitter(Qt.Orientation.Horizontal)
+        self.compare_columns = columns = QSplitter(Qt.Orientation.Horizontal)
         columns.setChildrenCollapsible(False)
         columns.setHandleWidth(12)
         columns.addWidget(editor_card)
@@ -727,6 +727,9 @@ class MainWindow(QMainWindow):
         """Kolumna i lista porównania z nazwą projektu (None — schowane)."""
         self.compare_card.setVisible(name is not None)
         if name is not None:
+            # Obie wersje równej szerokości.
+            half = max(self.compare_columns.width() // 2, 1)
+            self.compare_columns.setSizes([half, half])
             self.compare_title.setText(name)
             self.compare_dock.show()
             self.compare_dock.raise_()
