@@ -229,6 +229,13 @@ class ProjectSettings:
 
 
 @dataclass(frozen=True)
+class ReviewSettings:
+    """Recenzja (faza 14): podpis autora komentarzy, zapamiętany z okna komentarza."""
+
+    comment_author: str = ""
+
+
+@dataclass(frozen=True)
 class MetadataSettings:
     """Pola metryczki zespołu: JSON z ``document.metadata.encode_fields``.
 
@@ -309,6 +316,7 @@ class Settings:
     export: ExportSettings = field(default_factory=ExportSettings)
     appearance: AppearanceSettings = field(default_factory=AppearanceSettings)
     asr: AsrSettings = field(default_factory=AsrSettings)
+    review: ReviewSettings = field(default_factory=ReviewSettings)
 
 
 @dataclass(frozen=True)
@@ -388,6 +396,7 @@ _FIELDS: tuple[_Field, ...] = (
     _Field("asr", "diarize_speakers", int, *DIARIZE_SPEAKERS_RANGE),
     _Field("asr", "show_uncertain_words", bool),
     _Field("asr", "word_threshold_pct", int, *WORD_THRESHOLD_RANGE_PCT),
+    _Field("review", "comment_author", str),
 )
 
 
@@ -417,6 +426,7 @@ def from_mapping(mapping: Mapping[str, Any]) -> Settings:
         "export": {},
         "appearance": {},
         "asr": {},
+        "review": {},
     }
     for spec in _FIELDS:
         if spec.key not in mapping:
@@ -452,6 +462,9 @@ def from_mapping(mapping: Mapping[str, Any]) -> Settings:
             AppearanceSettings(), **sections["appearance"]  # type: ignore[arg-type]
         ),
         asr=replace(AsrSettings(), **sections["asr"]),  # type: ignore[arg-type]
+        review=replace(
+            ReviewSettings(), **sections["review"]  # type: ignore[arg-type]
+        ),
     )
 
 

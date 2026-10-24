@@ -41,7 +41,11 @@ from transkryptor.asr.manager import ModelManager
 from transkryptor.asr.models import model_by_key
 from transkryptor.audio.player import AudioPlayer
 from transkryptor.document.model import Document
-from transkryptor.document.speakers import informant_spans, speakers_for_clusters
+from transkryptor.document.speakers import (
+    Speaker,
+    informant_spans,
+    speakers_for_clusters,
+)
 from transkryptor.errors import AppError
 from transkryptor.i18n import tr
 from transkryptor.notation.ellipsis import EllipsisStyle
@@ -50,6 +54,8 @@ from transkryptor.settings import ExportSettings, Settings
 from transkryptor.ui import icons
 from transkryptor.ui.asr_panel import AsrPanel
 from transkryptor.ui.changelog_dialog import ChangelogDialog
+from transkryptor.ui.comments_controller import CommentsController
+from transkryptor.ui.compare_controller import CompareController
 from transkryptor.ui.editor import TranscriptionEditor
 from transkryptor.ui.export_controller import ExportController
 from transkryptor.ui.fonts import text_font_family
@@ -85,6 +91,7 @@ from transkryptor.ui.session import SessionController
 from transkryptor.ui.settings_dialog import SettingsDialog
 from transkryptor.ui.settings_store import SettingsStore
 from transkryptor.ui.shortcuts import (
+    ADD_COMMENT_ID,
     BASE_TOOLTIP,
     INSERT_TIMESTAMP,
     PLAY_FROM_CURSOR,
@@ -141,6 +148,11 @@ class MainWindow(QMainWindow):
         self.metadata_form = MetadataForm(settings_store.current.metadata.fields)
 
         self.editor = TranscriptionEditor()
+        # Prawa kolumna porównania wersji (tylko do odczytu, faza 14).
+        self.compare_view = TranscriptionEditor()
+        self.compare_view.setObjectName("compare_view")
+        self.compare_view.setReadOnly(True)
+        self.compare_view.setPlaceholderText("")
         self.search_bar = SearchBar()
         self.player_bar = PlayerBar(self.player, settings_store.current.player)
         self.warnings_panel = WarningsPanel()
@@ -188,6 +200,15 @@ class MainWindow(QMainWindow):
             self,
         )
         self.ignored_warnings = IgnoredWarnings(self.editor)
+        self.comments = CommentsController(
+            self.editor,
+            self.sync,
+            self._comment_author,
+            self._remember_comment_author,
+            # Późne wiązanie: sesja powstaje niżej.
+            lambda: self.session.comments_changed(),
+            self,
+        )
         self.session = SessionController(
             self,
             self.editor,
@@ -197,6 +218,7 @@ class MainWindow(QMainWindow):
             self.review,
             self.ignored_warnings,
             self.sync,
+            self.comments,
             self.author_edit,
             self.date_edit,
             self.metadata_form,
@@ -211,6 +233,7 @@ class MainWindow(QMainWindow):
             lambda: self.settings_store.current.metadata.fields,
             self._update_title,
             anchors=self.sync.entries,
+            comments=self.comments.entries,
             audio_path=lambda: self.player.source_path,
             settings=lambda: self.settings_store.current.export,
             save_settings=self._save_export_settings,
@@ -218,6 +241,18 @@ class MainWindow(QMainWindow):
                 self.settings_store.current.editor.font_family
             ),
         )
+        self.compare = CompareController(
+            self.editor,
+            self.compare_view,
+            self._show_compare_column,
+            self.sync,
+            lambda: self.document,
+            self._add_compared_speakers,
+            lambda: self.session.audio_sha256,
+            lambda text: self.statusBar().showMessage(text, STATUS_MESSAGE_MS),
+            self,
+        )
+        self.session.before_replace = self.compare.finish
         self.search = SearchController(
             self.editor, self.search_bar, self, self._informant_spans
         )
@@ -244,6 +279,7 @@ class MainWindow(QMainWindow):
         self._sync_timer.setSingleShot(True)
         self._sync_timer.setInterval(SYNC_DEBOUNCE_MS)
         self._sync_timer.timeout.connect(self._update_title)
+        self._sync_timer.timeout.connect(self.comments.refresh)
 
         self._build_layout()
         # Bez połączeń sieciowych przy tworzeniu okna: sprawdzanie startuje
@@ -301,6 +337,22 @@ class MainWindow(QMainWindow):
         editor_card = card(
             header, self.metadata_form, self.editor, self.search_bar, stretch_index=1
         )
+        self.compare_title = shrinkable(label("", "muted"))
+        self.compare_card = card(
+            header_row(
+                (16, 10, 12, 10),
+                label(tr("compare.column"), "section"),
+                self.compare_title,
+            ),
+            self.compare_view,
+            stretch_index=0,
+        )
+        self.compare_card.hide()
+        self.compare_columns = columns = QSplitter(Qt.Orientation.Horizontal)
+        columns.setChildrenCollapsible(False)
+        columns.setHandleWidth(12)
+        columns.addWidget(editor_card)
+        columns.addWidget(self.compare_card)
 
         self.unify_ellipses_action = self.notation.create_unify_action(self)
         unify_button = QToolButton()
@@ -319,7 +371,7 @@ class MainWindow(QMainWindow):
         splitter = QSplitter(Qt.Orientation.Vertical)
         splitter.setChildrenCollapsible(False)
         splitter.setHandleWidth(12)
-        splitter.addWidget(editor_card)
+        splitter.addWidget(columns)
         splitter.addWidget(warnings_card)
         splitter.setStretchFactor(0, 1)
         splitter.setStretchFactor(1, 0)
@@ -339,12 +391,25 @@ class MainWindow(QMainWindow):
         self.resize(1280, 800)
 
         self.asr_dock = side_dock(self, tr("main.asr_dock"), "asr_dock", self.asr_panel)
+        self.compare_dock = side_dock(
+            self, tr("compare.dock"), "compare_dock", self.compare.panel
+        )
+        self.tabifyDockWidget(self.asr_dock, self.compare_dock)
+        self.comments_dock = side_dock(
+            self, tr("comments.dock"), "comments_dock", self.comments.panel
+        )
+        self.tabifyDockWidget(self.asr_dock, self.comments_dock)
+        self.asr_dock.raise_()
+        self.compare_dock.hide()
+        # Zamknięcie doku kończy porównanie (kolumna nie zostaje bez listy).
+        self.compare_dock.visibilityChanged.connect(self._on_compare_dock_visibility)
 
     def _build_toolbar(self) -> None:
         bar = MainToolbar(
             self,
             self.asr_dock.toggleViewAction(),
-            ToolbarHandlers(
+            comments_toggle=self.comments_dock.toggleViewAction(),
+            handlers=ToolbarHandlers(
                 superscript=self._on_superscript,
                 marker=self.notation.insert_marker,
                 settings=self._on_settings,
@@ -358,6 +423,7 @@ class MainWindow(QMainWindow):
                 save_project=self.session.save_project,
                 save_project_as=self.session.save_project_as,
                 import_docx=self.session.import_docx_dialog,
+                compare=self.compare.compare_dialog,
                 export_anonymized=lambda: self.exporter.export(anonymize=True),
                 export_as=self.exporter.export_as,
             ),
@@ -376,6 +442,7 @@ class MainWindow(QMainWindow):
         self.save_action = bar.save_action
         self.save_as_action = bar.save_as_action
         self.import_docx_action = bar.import_docx_action
+        self.compare_action = bar.compare_action
         self.main_toolbar = bar
 
     def _build_status_bar(self) -> None:
@@ -488,6 +555,7 @@ class MainWindow(QMainWindow):
         self.player_bar.apply_settings(settings.player)
         self.waveform.panel.set_expanded(settings.player.waveform_visible)
         self.editor.apply_settings(settings.editor)
+        self.compare_view.apply_settings(settings.editor)
         self.metadata_form.set_fields(settings.metadata.fields)
         self.session.autosave.configure(settings.project)
         self.asr_panel.set_segment_preroll_ms(settings.player.segment_preroll_ms)
@@ -522,6 +590,7 @@ class MainWindow(QMainWindow):
         for key, action in self.search_actions.items():
             actions[search_id(key)] = action
         actions.update(self.speaker_actions)
+        actions[ADD_COMMENT_ID] = self.comments.add_action
         return actions
 
     def _apply_shortcuts(self, shortcuts: dict[str, tuple[str, ...]]) -> None:
@@ -641,7 +710,43 @@ class MainWindow(QMainWindow):
     def _on_import_audio(self, path: str) -> None:
         self.session.import_audio(path)
 
+    def _comment_author(self) -> str:
+        """Podpis komentarzy: zapamiętany, a za pierwszym razem autor transkrypcji."""
+        return (
+            self.settings_store.current.review.comment_author
+            or self.author_edit.text().strip()
+        )
+
+    def _remember_comment_author(self, author: str) -> None:
+        current = self.settings_store.current
+        self.settings_store.save(
+            replace(current, review=replace(current.review, comment_author=author))
+        )
+
+    def _show_compare_column(self, name: str | None) -> None:
+        """Kolumna i lista porównania z nazwą projektu (None — schowane)."""
+        self.compare_card.setVisible(name is not None)
+        if name is not None:
+            # Obie wersje równej szerokości.
+            half = max(self.compare_columns.width() // 2, 1)
+            self.compare_columns.setSizes([half, half])
+            self.compare_title.setText(name)
+            self.compare_dock.show()
+            self.compare_dock.raise_()
+        else:
+            self.compare_dock.hide()
+
+    def _on_compare_dock_visibility(self, visible: bool) -> None:
+        # Dok schowany za zakładką ASR też jest „niewidoczny” — porównanie
+        # kończy dopiero zamknięcie doku.
+        if not visible and self.compare_dock.isHidden() and self.compare.active:
+            self.compare.finish()
+
+    def _add_compared_speakers(self, missing: list[Speaker]) -> None:
+        self.speakers.apply_speakers([*self.document.speakers, *missing])
+
     def _on_draft_ready(self, draft: TranscriptionResult | str) -> None:
+        self.compare.finish()
         if not isinstance(draft, TranscriptionResult):
             self.review.insert_draft(draft)
             return
@@ -670,6 +775,7 @@ class MainWindow(QMainWindow):
             self.speakers.apply_speakers(previous)
 
     def _on_fragment_ready(self, result: TranscriptionResult) -> None:
+        self.compare.finish()
         self.review.insert_fragment(result.text, result.segments)
 
     def _ask_draft_placement(self) -> str | None:
@@ -730,6 +836,8 @@ class MainWindow(QMainWindow):
             self.save_action,
             self.save_as_action,
             self.import_docx_action,
+            self.compare_action,
+            self.comments.add_action,
             self.export_action,
             self.export_anonymized_action,
             self.export_as_action,

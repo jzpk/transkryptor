@@ -111,6 +111,7 @@ GROUP_SEARCH = "search"
 GROUP_PROJECT = "project"
 GROUP_SNIPPETS = "snippets"
 GROUP_SPEAKERS = "speakers"
+GROUP_REVIEW = "review"
 
 SUPERSCRIPT_ID = "superscript"
 SNIPPET_PREFIX = "snippet."
@@ -156,6 +157,8 @@ def project_id(key: str) -> str:
 # Mówcy (faza 12): n-ty mówca z listy dokumentu i usunięcie mówcy akapitu.
 SPEAKER_COUNT = 9
 SPEAKER_CLEAR_ID = "speaker.clear"
+# Recenzja (faza 14): komentarz do zaznaczenia, jak w Wordzie.
+ADD_COMMENT_ID = "review.add_comment"
 
 
 def speaker_id(number: int) -> str:
@@ -233,6 +236,7 @@ SHORTCUT_ACTIONS: tuple[ShortcutDef, ...] = (
     ShortcutDef(
         SPEAKER_CLEAR_ID, "speakers.action.clear", ("Alt+Shift+0",), GROUP_SPEAKERS
     ),
+    ShortcutDef(ADD_COMMENT_ID, "comments.action.add", ("Ctrl+Alt+M",), GROUP_REVIEW),
 )
 
 SHORTCUT_ACTIONS_BY_ID: dict[str, ShortcutDef] = {d.id: d for d in SHORTCUT_ACTIONS}

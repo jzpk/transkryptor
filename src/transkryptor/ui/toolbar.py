@@ -67,6 +67,7 @@ class ToolbarHandlers:
     import_docx: Callable[[], None]
     export_anonymized: Callable[[], None]
     export_as: Callable[[], None] = lambda: None
+    compare: Callable[[], object] = lambda: None
 
 
 @dataclass(frozen=True)
@@ -102,6 +103,7 @@ COLLAPSE_ORDER = (
     "snippets",
     *(f"marker:{marker.key}" for marker in reversed(MARKERS)),
     "superscript",
+    "comments",
     "asr",
     "settings",
     "new",
@@ -131,6 +133,7 @@ class MainToolbar:
         window: QMainWindow,
         asr_toggle: QAction,
         handlers: ToolbarHandlers,
+        comments_toggle: QAction | None = None,
     ) -> None:
         toolbar = _ToolBar(tr("toolbar.title"), window)
         toolbar.setObjectName("main_toolbar")
@@ -213,6 +216,18 @@ class MainToolbar:
         asr_toggle.setToolTip(tr("toolbar.asr.tooltip"))
         self._slots["asr"] = _Slot("tools", asr_toggle, (self._add(asr_toggle),))
 
+        # Panel komentarzy recenzji (faza 14) — przełącznik doku jak ASR.
+        if comments_toggle is None:
+            comments_toggle = QAction(window)
+            comments_toggle.setVisible(False)
+        self.comments_panel_action = comments_toggle
+        comments_toggle.setText(tr("comments.dock"))
+        icons.set_icon(comments_toggle, "comment", "text", "text_muted")
+        comments_toggle.setToolTip(tr("toolbar.comments.tooltip"))
+        self._slots["comments"] = _Slot(
+            "tools", comments_toggle, (self._add(comments_toggle),)
+        )
+
         self.settings_action = _action(
             window,
             tr("toolbar.settings"),
@@ -256,6 +271,10 @@ class MainToolbar:
         self.import_docx_action.triggered.connect(
             lambda _checked=False: handlers.import_docx()
         )
+        self.compare_action = QAction(tr("toolbar.compare"), window)
+        icons.set_icon(self.compare_action, "compare", "text", "text_muted")
+        self.compare_action.setToolTip(tr("toolbar.compare.tooltip"))
+        self.compare_action.triggered.connect(lambda _checked=False: handlers.compare())
         self.clear_recent_action = QAction(tr("toolbar.clear_recent"), window)
         self.clear_recent_action.triggered.connect(
             lambda _checked=False: handlers.clear_recent()
@@ -376,7 +395,7 @@ class MainToolbar:
                 self._more_handle.setVisible(True)
 
     def refresh_recent_menu(self) -> None:
-        """Menu „Otwórz”: ostatnie projekty, import DOCX, czyszczenie listy."""
+        """Menu „Otwórz”: ostatnie projekty, import DOCX, porównanie, czyszczenie."""
         menu = self.open_menu
         menu.clear()
         recent = self._recent_provider()
@@ -392,6 +411,7 @@ class MainToolbar:
             placeholder.setEnabled(False)
         menu.addSeparator()
         menu.addAction(self.import_docx_action)
+        menu.addAction(self.compare_action)
         menu.addAction(self.clear_recent_action)
         self.clear_recent_action.setEnabled(bool(recent))
 

@@ -7,6 +7,30 @@ Pusta sekcja blokuje wydanie.
 
 ## Nieopublikowane
 
+- Komentarze recenzji: do zaznaczonego fragmentu można dodać komentarz
+  (menu kontekstowe **Dodaj komentarz…**, skrót `Ctrl+Alt+M` albo panel
+  **Komentarze** na pasku narzędzi) z podpisem autora i datą, a na
+  komentarz — odpowiedzieć. Komentowane fragmenty mają w tekście tło, po
+  najechaniu widać treść; z panelu można przejść do fragmentu i odsłuchać
+  go z nagrania. Komentarz przesuwa się razem z tekstem przy edycji,
+  a gdy fragment zostanie usunięty, komentarz zostaje z cytatem. Komentarze
+  są zapisywane w pliku projektu — projektu z komentarzami nie otworzy już
+  starsza wersja programu.
+- Eksport DOCX zawiera komentarze recenzji jako komentarze Worda przy
+  komentowanym fragmencie, z odpowiedziami w treści komentarza. Eksport
+  anonimizowany i pozostałe formaty komentarzy nie zawierają.
+- **Porównaj z…** (menu przycisku **Otwórz**): bieżący projekt można
+  porównać z innym plikiem projektu tego samego nagrania, np. wersją
+  poprawioną przez weryfikatora. Obie wersje są widoczne obok siebie —
+  po lewej bieżący dokument, po prawej porównywana (tylko do odczytu) —
+  a panel **Porównanie** wymienia zmiany: wstawienia, usunięcia, zmiany
+  tekstu, indeksu górnego i mówcy akapitu. Kliknięcie zmiany zaznacza ją
+  w obu wersjach, **Odsłuchaj** odtwarza fragment z nagrania. Zmiany
+  przyjmuje się albo odrzuca pojedynczo lub wszystkie naraz, a każdą
+  decyzję można cofnąć (`Ctrl+Z`). Na czas porównania bieżący tekst jest
+  tylko do odczytu; **Zakończ porównanie** zostawia dokument z przyjętymi
+  zmianami.
+
 ## 0.6.0 — 2026-10-24
 
 - Import DOCX dużego dokumentu jest kilkukrotnie szybszy (np. 3000

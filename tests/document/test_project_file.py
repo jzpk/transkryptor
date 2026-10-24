@@ -165,6 +165,7 @@ class TestSchema:
             "asr_context": {"prompt": "", "vocabulary": []},
             "ignored_warnings": [],
             "anchors": [],
+            "comments": [],
             "nowe_pole": [],
         }
 

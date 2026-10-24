@@ -11,17 +11,23 @@ from __future__ import annotations
 from PySide6.QtGui import QColor, QTextCharFormat, QTextCursor
 from PySide6.QtWidgets import QTextEdit
 
-# Od spodu: aktywny segment odtwarzania (tło), niepewne słowa ASR i ostrzeżenia
-# (podkreślenia), przegląd ASR, wyszukiwanie na wierzchu.
+# Od spodu: aktywny segment odtwarzania i komentowane fragmenty (tło),
+# niepewne słowa ASR i ostrzeżenia
+# (podkreślenia), zmiany porównania wersji, przegląd ASR, wyszukiwanie na
+# wierzchu.
 ACTIVE_LAYER = "active"
+COMMENT_LAYER = "comment"
 UNCERTAIN_LAYER = "uncertain"
 WARNINGS_LAYER = "warnings"
+COMPARE_LAYER = "compare"
 REVIEW_LAYER = "review"
 SEARCH_LAYER = "search"
 LAYER_ORDER = (
     ACTIVE_LAYER,
+    COMMENT_LAYER,
     UNCERTAIN_LAYER,
     WARNINGS_LAYER,
+    COMPARE_LAYER,
     REVIEW_LAYER,
     SEARCH_LAYER,
 )
@@ -63,6 +69,15 @@ def wave_underline(cursor: QTextCursor, color: QColor) -> QTextEdit.ExtraSelecti
     selection = QTextEdit.ExtraSelection()
     selection.cursor = cursor
     selection.format.setUnderlineStyle(QTextCharFormat.UnderlineStyle.WaveUnderline)
+    selection.format.setUnderlineColor(color)
+    return selection
+
+
+def solid_underline(cursor: QTextCursor, color: QColor) -> QTextEdit.ExtraSelection:
+    """Ciągłe podkreślenie zakresu (zmiana formatu w porównaniu wersji)."""
+    selection = QTextEdit.ExtraSelection()
+    selection.cursor = cursor
+    selection.format.setUnderlineStyle(QTextCharFormat.UnderlineStyle.SingleUnderline)
     selection.format.setUnderlineColor(color)
     return selection
 

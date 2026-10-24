@@ -57,6 +57,7 @@ from transkryptor.i18n import tr
 from transkryptor.ui.asr_panel import AsrPanel
 from transkryptor.ui.audio_hash import HashFunction, HashThread, wait_for
 from transkryptor.ui.autosave import AutosaveController, RecoveryDialog, find_orphans
+from transkryptor.ui.comments_controller import CommentsController
 from transkryptor.ui.editor import TranscriptionEditor
 from transkryptor.ui.file_dialogs import ask_save_path
 from transkryptor.ui.messages import show_error
@@ -87,6 +88,7 @@ class SessionController(QObject):
         review: ReviewController,
         ignored_warnings: IgnoredWarnings,
         sync: SyncController,
+        comments: CommentsController,
         author_edit: QLineEdit,
         date_edit: QDateEdit,
         metadata_form: MetadataForm,
@@ -108,12 +110,16 @@ class SessionController(QObject):
         self._review = review
         self._ignored_warnings = ignored_warnings
         self._sync = sync
+        self._comments = comments
         self._author_edit = author_edit
         self._date_edit = date_edit
         self._metadata_form = metadata_form
         self._settings_store = settings_store
         self._on_reset = on_reset
         self._on_state_changed = on_state_changed
+        # Wołane przed zastąpieniem treści edytora (nowy dokument, projekt,
+        # import DOCX, odzyskanie) — np. koniec porównania wersji.
+        self.before_replace: Callable[[], None] = lambda: None
         # Liczenie sumy nagrania w tle; testy podstawiają wolną imitację.
         self.hash_impl: HashFunction = file_sha256
         self._hash_thread: HashThread | None = None
@@ -149,6 +155,11 @@ class SessionController(QObject):
             return False
         self._editor_pending = False
         return self._editor.sync_to_document(self._document)
+
+    @property
+    def audio_sha256(self) -> str | None:
+        """Suma SHA-256 bieżącego nagrania (None — brak albo jeszcze liczona)."""
+        return self._audio.sha256 if self._audio is not None else None
 
     @property
     def project_name(self) -> str | None:
@@ -219,9 +230,15 @@ class SessionController(QObject):
             self.document.mark_exported()
         self._on_state_changed()
 
+    def comments_changed(self) -> None:
+        """Komentarze trafiają do eksportu DOCX — zmiana jak zmiana tekstu."""
+        self.document.touch()
+        self._on_state_changed()
+
     def new_document(self) -> None:
         if not self.maybe_discard_changes():
             return
+        self.before_replace()
         self._player.stop_and_unload()
         self._player_bar.reset()
         self._asr_panel.set_audio_available(False)
@@ -231,6 +248,7 @@ class SessionController(QObject):
         self._editor.clear()
         self._editor.blockSignals(False)
         self._sync.clear()
+        self._comments.clear()
         self._author_edit.clear()
         self._date_edit.setDate(QDate.currentDate())
         self._metadata_form.set_values({})
@@ -497,6 +515,7 @@ class SessionController(QObject):
             anchors=tuple(self._sync.entries()),
             speakers=tuple(document.speakers),
             paragraph_speakers=dict(document.paragraph_speakers),
+            comments=tuple(self._comments.entries()),
         )
 
     # --- otwieranie projektu ---------------------------------------------------
@@ -594,6 +613,7 @@ class SessionController(QObject):
 
         ``audio_sha256`` to znana już suma nagrania; bez niej jest liczona w tle.
         """
+        self.before_replace()
         self._player.stop_and_unload()
         self._player_bar.reset()
         self._asr_panel.set_audio_available(False)
@@ -602,6 +622,7 @@ class SessionController(QObject):
             state.text, state.superscript_ranges, state.paragraph_speakers
         )
         self._ignored_warnings.restore(state.ignored_warnings)
+        self._comments.restore(state.comments)
         self._author_edit.setText(state.author)
         date = QDate.fromString(state.date, DATE_FORMAT)
         self._date_edit.setDate(
