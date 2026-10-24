@@ -4,7 +4,7 @@ Lokalna aplikacja desktopowa do ręcznej transkrypcji fonetycznej języka
 polskiego, wspomagana automatycznym szkicem ASR.
 
 Strona projektu z opisem i pobieraniem najnowszej wersji:
-<https://jzpk.github.io/transkryptor/>
+<https://transkryptorapp.pl/>
 
 ## Wymagania deweloperskie
 
