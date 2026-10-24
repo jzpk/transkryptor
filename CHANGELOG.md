@@ -7,6 +7,8 @@ Pusta sekcja blokuje wydanie.
 
 ## Nieopublikowane
 
+## 0.6.0 — 2026-10-24
+
 - Import DOCX dużego dokumentu jest kilkukrotnie szybszy (np. 3000
   akapitów — ok. 0,3 s zamiast 2 s).
 - **Ustawienia…**: sekcje (Wygląd, Odtwarzacz, … ASR, Dziennik logów) są
