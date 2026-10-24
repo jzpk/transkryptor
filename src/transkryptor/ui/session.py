@@ -57,6 +57,7 @@ from transkryptor.i18n import tr
 from transkryptor.ui.asr_panel import AsrPanel
 from transkryptor.ui.audio_hash import HashFunction, HashThread, wait_for
 from transkryptor.ui.autosave import AutosaveController, RecoveryDialog, find_orphans
+from transkryptor.ui.comments_controller import CommentsController
 from transkryptor.ui.editor import TranscriptionEditor
 from transkryptor.ui.file_dialogs import ask_save_path
 from transkryptor.ui.messages import show_error
@@ -87,6 +88,7 @@ class SessionController(QObject):
         review: ReviewController,
         ignored_warnings: IgnoredWarnings,
         sync: SyncController,
+        comments: CommentsController,
         author_edit: QLineEdit,
         date_edit: QDateEdit,
         metadata_form: MetadataForm,
@@ -108,6 +110,7 @@ class SessionController(QObject):
         self._review = review
         self._ignored_warnings = ignored_warnings
         self._sync = sync
+        self._comments = comments
         self._author_edit = author_edit
         self._date_edit = date_edit
         self._metadata_form = metadata_form
@@ -227,6 +230,11 @@ class SessionController(QObject):
             self.document.mark_exported()
         self._on_state_changed()
 
+    def comments_changed(self) -> None:
+        """Komentarze trafiają do eksportu DOCX — zmiana jak zmiana tekstu."""
+        self.document.touch()
+        self._on_state_changed()
+
     def new_document(self) -> None:
         if not self.maybe_discard_changes():
             return
@@ -240,6 +248,7 @@ class SessionController(QObject):
         self._editor.clear()
         self._editor.blockSignals(False)
         self._sync.clear()
+        self._comments.clear()
         self._author_edit.clear()
         self._date_edit.setDate(QDate.currentDate())
         self._metadata_form.set_values({})
@@ -506,6 +515,7 @@ class SessionController(QObject):
             anchors=tuple(self._sync.entries()),
             speakers=tuple(document.speakers),
             paragraph_speakers=dict(document.paragraph_speakers),
+            comments=tuple(self._comments.entries()),
         )
 
     # --- otwieranie projektu ---------------------------------------------------
@@ -612,6 +622,7 @@ class SessionController(QObject):
             state.text, state.superscript_ranges, state.paragraph_speakers
         )
         self._ignored_warnings.restore(state.ignored_warnings)
+        self._comments.restore(state.comments)
         self._author_edit.setText(state.author)
         date = QDate.fromString(state.date, DATE_FORMAT)
         self._date_edit.setDate(

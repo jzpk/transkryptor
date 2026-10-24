@@ -8,9 +8,10 @@ ostatni wynik ASR (tekst i segmenty z czasami i pewnością) oraz pozycje
 przeglądu reguł (zakres w tekście, kod reguły i treść propozycji), a od
 schematu 2 także kontekst nagrania i słownik projektu dla ASR, od
 schematu 3 — ostrzeżenia walidatora zignorowane w konkretnych miejscach,
-od schematu 4 — kotwice czasowe tekstu (``document/anchors.py``), a od
+od schematu 4 — kotwice czasowe tekstu (``document/anchors.py``), od
 schematu 5 — mówcy nagrania, ich przypisanie do akapitów
-(``document/speakers.py``) i mówcy segmentów ASR z podziału na mówców.
+(``document/speakers.py``) i mówcy segmentów ASR z podziału na mówców, a od
+schematu 6 — komentarze recenzji z odpowiedziami (``document/comments.py``).
 
 Zapis jest atomowy: plik tymczasowy w katalogu docelowym, ``fsync``
 i ``os.replace`` — przerwany zapis nie psuje poprzedniej wersji. Odczyt
@@ -31,6 +32,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from transkryptor.document.anchors import Anchor, check_anchor
+from transkryptor.document.comments import Comment, Reply, check_comment
 from transkryptor.document.speakers import (
     DEFAULT_SPEAKERS,
     Speaker,
@@ -40,7 +42,7 @@ from transkryptor.document.speakers import (
 from transkryptor.errors import ProjectError
 from transkryptor.i18n import tr
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 PROJECT_SUFFIX = ".transkr"
 _HASH_CHUNK = 1 << 20
 
@@ -166,6 +168,7 @@ class ProjectState:
     anchors: tuple[Anchor, ...] = ()
     speakers: tuple[Speaker, ...] = DEFAULT_SPEAKERS
     paragraph_speakers: dict[int, str] = field(default_factory=dict)
+    comments: tuple[Comment, ...] = ()
 
     @property
     def word_count(self) -> int:
@@ -248,6 +251,7 @@ def to_dict(state: ProjectState, project_path: Path | None = None) -> dict[str, 
             for w in state.ignored_warnings
         ],
         "anchors": [_anchor_dict(a) for a in state.anchors],
+        "comments": [_comment_dict(c) for c in state.comments],
     }
 
 
@@ -286,6 +290,22 @@ def _anchor_dict(anchor: Anchor) -> dict[str, Any]:
     if anchor.edited:
         data["edited"] = True
     return data
+
+
+def _comment_dict(comment: Comment) -> dict[str, Any]:
+    return {
+        "id": comment.id,
+        "start": comment.start,
+        "end": comment.end,
+        "quote": comment.quote,
+        "author": comment.author,
+        "created": comment.created,
+        "text": comment.text,
+        "replies": [
+            {"author": r.author, "created": r.created, "text": r.text}
+            for r in comment.replies
+        ],
+    }
 
 
 def dumps(state: ProjectState, project_path: Path | None = None) -> str:
@@ -348,11 +368,17 @@ def _add_speakers(data: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _add_comments(data: dict[str, Any]) -> dict[str, Any]:
+    """5 → 6 (faza 14): brak komentarzy recenzji."""
+    return {**data, "schema_version": 6, "comments": []}
+
+
 _MIGRATIONS: dict[int, Callable[[dict[str, Any]], dict[str, Any]]] = {
     1: _add_asr_context,
     2: _add_ignored_warnings,
     3: _add_anchors,
     4: _add_speakers,
+    5: _add_comments,
 }
 
 
@@ -630,6 +656,30 @@ def _parse(data: dict[str, Any]) -> ProjectState:
     )
     for anchor in anchors:
         check_anchor(anchor, len(text))
+    comments = tuple(
+        Comment(
+            id=_str(c["id"]),
+            start=_int(c["start"]),
+            end=_int(c["end"]),
+            quote=_str(c.get("quote", "")),
+            author=_str(c.get("author", "")),
+            created=_str(c.get("created", "")),
+            text=_str(c["text"]),
+            replies=tuple(
+                Reply(
+                    author=_str(r.get("author", "")),
+                    created=_str(r.get("created", "")),
+                    text=_str(r["text"]),
+                )
+                for r in map(_dict, _list(c.get("replies", [])))
+            ),
+        )
+        for c in map(_dict, _list(data.get("comments", [])))
+    )
+    for comment in comments:
+        check_comment(comment, len(text))
+    if len({comment.id for comment in comments}) != len(comments):
+        raise ValueError("powtórzony identyfikator komentarza")
     speakers = tuple(
         Speaker(
             key=_str(entry["key"]),
@@ -676,6 +726,7 @@ def _parse(data: dict[str, Any]) -> ProjectState:
         anchors=anchors,
         speakers=speakers,
         paragraph_speakers=assignments,
+        comments=comments,
     )
 
 

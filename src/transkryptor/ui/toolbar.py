@@ -103,6 +103,7 @@ COLLAPSE_ORDER = (
     "snippets",
     *(f"marker:{marker.key}" for marker in reversed(MARKERS)),
     "superscript",
+    "comments",
     "asr",
     "settings",
     "new",
@@ -132,6 +133,7 @@ class MainToolbar:
         window: QMainWindow,
         asr_toggle: QAction,
         handlers: ToolbarHandlers,
+        comments_toggle: QAction | None = None,
     ) -> None:
         toolbar = _ToolBar(tr("toolbar.title"), window)
         toolbar.setObjectName("main_toolbar")
@@ -213,6 +215,18 @@ class MainToolbar:
         icons.set_icon(asr_toggle, "sparkles", "text", "text_muted")
         asr_toggle.setToolTip(tr("toolbar.asr.tooltip"))
         self._slots["asr"] = _Slot("tools", asr_toggle, (self._add(asr_toggle),))
+
+        # Panel komentarzy recenzji (faza 14) — przełącznik doku jak ASR.
+        if comments_toggle is None:
+            comments_toggle = QAction(window)
+            comments_toggle.setVisible(False)
+        self.comments_panel_action = comments_toggle
+        comments_toggle.setText(tr("comments.dock"))
+        icons.set_icon(comments_toggle, "comment", "text", "text_muted")
+        comments_toggle.setToolTip(tr("toolbar.comments.tooltip"))
+        self._slots["comments"] = _Slot(
+            "tools", comments_toggle, (self._add(comments_toggle),)
+        )
 
         self.settings_action = _action(
             window,

@@ -6,6 +6,7 @@ import pytest
 
 from transkryptor.document.model import Document
 from transkryptor.document.project import (
+    SCHEMA_VERSION,
     ProjectState,
     dumps,
     from_dict,
@@ -141,7 +142,7 @@ class TestProject:
             "anchors": [],
         }
         migrated = migrate(data)
-        assert migrated["schema_version"] == 5
+        assert migrated["schema_version"] == SCHEMA_VERSION
         assert "speakers" not in data["document"]  # wejście bez zmian
         state = from_dict(data)
         assert state.speakers == DEFAULT_SPEAKERS

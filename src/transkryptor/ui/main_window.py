@@ -54,6 +54,7 @@ from transkryptor.settings import ExportSettings, Settings
 from transkryptor.ui import icons
 from transkryptor.ui.asr_panel import AsrPanel
 from transkryptor.ui.changelog_dialog import ChangelogDialog
+from transkryptor.ui.comments_controller import CommentsController
 from transkryptor.ui.compare_controller import CompareController
 from transkryptor.ui.editor import TranscriptionEditor
 from transkryptor.ui.export_controller import ExportController
@@ -90,6 +91,7 @@ from transkryptor.ui.session import SessionController
 from transkryptor.ui.settings_dialog import SettingsDialog
 from transkryptor.ui.settings_store import SettingsStore
 from transkryptor.ui.shortcuts import (
+    ADD_COMMENT_ID,
     BASE_TOOLTIP,
     INSERT_TIMESTAMP,
     PLAY_FROM_CURSOR,
@@ -198,6 +200,15 @@ class MainWindow(QMainWindow):
             self,
         )
         self.ignored_warnings = IgnoredWarnings(self.editor)
+        self.comments = CommentsController(
+            self.editor,
+            self.sync,
+            self._comment_author,
+            self._remember_comment_author,
+            # Późne wiązanie: sesja powstaje niżej.
+            lambda: self.session.comments_changed(),
+            self,
+        )
         self.session = SessionController(
             self,
             self.editor,
@@ -207,6 +218,7 @@ class MainWindow(QMainWindow):
             self.review,
             self.ignored_warnings,
             self.sync,
+            self.comments,
             self.author_edit,
             self.date_edit,
             self.metadata_form,
@@ -266,6 +278,7 @@ class MainWindow(QMainWindow):
         self._sync_timer.setSingleShot(True)
         self._sync_timer.setInterval(SYNC_DEBOUNCE_MS)
         self._sync_timer.timeout.connect(self._update_title)
+        self._sync_timer.timeout.connect(self.comments.refresh)
 
         self._build_layout()
         # Bez połączeń sieciowych przy tworzeniu okna: sprawdzanie startuje
@@ -381,6 +394,11 @@ class MainWindow(QMainWindow):
             self, tr("compare.dock"), "compare_dock", self.compare.panel
         )
         self.tabifyDockWidget(self.asr_dock, self.compare_dock)
+        self.comments_dock = side_dock(
+            self, tr("comments.dock"), "comments_dock", self.comments.panel
+        )
+        self.tabifyDockWidget(self.asr_dock, self.comments_dock)
+        self.asr_dock.raise_()
         self.compare_dock.hide()
         # Zamknięcie doku kończy porównanie (kolumna nie zostaje bez listy).
         self.compare_dock.visibilityChanged.connect(self._on_compare_dock_visibility)
@@ -389,7 +407,8 @@ class MainWindow(QMainWindow):
         bar = MainToolbar(
             self,
             self.asr_dock.toggleViewAction(),
-            ToolbarHandlers(
+            comments_toggle=self.comments_dock.toggleViewAction(),
+            handlers=ToolbarHandlers(
                 superscript=self._on_superscript,
                 marker=self.notation.insert_marker,
                 settings=self._on_settings,
@@ -570,6 +589,7 @@ class MainWindow(QMainWindow):
         for key, action in self.search_actions.items():
             actions[search_id(key)] = action
         actions.update(self.speaker_actions)
+        actions[ADD_COMMENT_ID] = self.comments.add_action
         return actions
 
     def _apply_shortcuts(self, shortcuts: dict[str, tuple[str, ...]]) -> None:
@@ -689,6 +709,19 @@ class MainWindow(QMainWindow):
     def _on_import_audio(self, path: str) -> None:
         self.session.import_audio(path)
 
+    def _comment_author(self) -> str:
+        """Podpis komentarzy: zapamiętany, a za pierwszym razem autor transkrypcji."""
+        return (
+            self.settings_store.current.review.comment_author
+            or self.author_edit.text().strip()
+        )
+
+    def _remember_comment_author(self, author: str) -> None:
+        current = self.settings_store.current
+        self.settings_store.save(
+            replace(current, review=replace(current.review, comment_author=author))
+        )
+
     def _show_compare_column(self, name: str | None) -> None:
         """Kolumna i lista porównania z nazwą projektu (None — schowane)."""
         self.compare_card.setVisible(name is not None)
@@ -800,6 +833,7 @@ class MainWindow(QMainWindow):
             self.save_as_action,
             self.import_docx_action,
             self.compare_action,
+            self.comments.add_action,
             self.export_action,
             self.export_anonymized_action,
             self.export_as_action,

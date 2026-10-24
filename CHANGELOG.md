@@ -7,6 +7,15 @@ Pusta sekcja blokuje wydanie.
 
 ## Nieopublikowane
 
+- Komentarze recenzji: do zaznaczonego fragmentu można dodać komentarz
+  (menu kontekstowe **Dodaj komentarz…**, skrót `Ctrl+Alt+M` albo panel
+  **Komentarze** na pasku narzędzi) z podpisem autora i datą, a na
+  komentarz — odpowiedzieć. Komentowane fragmenty mają w tekście tło, po
+  najechaniu widać treść; z panelu można przejść do fragmentu i odsłuchać
+  go z nagrania. Komentarz przesuwa się razem z tekstem przy edycji,
+  a gdy fragment zostanie usunięty, komentarz zostaje z cytatem. Komentarze
+  są zapisywane w pliku projektu — projektu z komentarzami nie otworzy już
+  starsza wersja programu.
 - **Porównaj z…** (menu przycisku **Otwórz**): bieżący projekt można
   porównać z innym plikiem projektu tego samego nagrania, np. wersją
   poprawioną przez weryfikatora. Obie wersje są widoczne obok siebie —
