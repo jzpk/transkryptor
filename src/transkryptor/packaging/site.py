@@ -5,7 +5,7 @@ wywoływany z „Wydania”), więc przyciski pobierania wskazują pliki najnows
 wydania, a historia zmian obejmuje tylko wydane wersje — sekcja
 „Nieopublikowane” nie trafia na stronę. Opis i wygląd są w katalogu
 ``pages/`` (szablony ``index.html`` i ``autor.html`` z polami ``${...}``,
-arkusz stylów, zrzuty ekranu, zdjęcie autora i ikony); wymagania i nazwy plików pochodzą z ``packaging.metadata``,
+arkusz stylów, skrypt motywu, zrzuty ekranu, zdjęcie autora i ikony); wymagania i nazwy plików pochodzą z ``packaging.metadata``,
 tak jak w notach wydania.
 
     uv run python -m transkryptor.packaging.site --out _site
@@ -49,7 +49,7 @@ TEMPLATE_FILE = "index.html"
 # Strony z polami ${...}; pierwsza to strona główna.
 TEMPLATE_FILES = (TEMPLATE_FILE, "autor.html")
 # Pliki z pages/ kopiowane bez zmian (poza szablonami).
-STATIC_FILES = ("style.css",)
+STATIC_FILES = ("style.css", "theme.js")
 STATIC_DIRS = ("img",)
 
 _VERSION_DATE = re.compile(r"^\d+\.\d+\.\d+\s+—\s+(?P<date>\d{4}-\d{2}-\d{2})$")

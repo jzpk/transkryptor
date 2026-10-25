@@ -16,6 +16,7 @@
     <meta name="color-scheme" content="light dark" />
     <link rel="icon" type="image/png" href="icon.png" />
     <link rel="stylesheet" href="style.css" />
+    <script src="theme.js"></script>
   </head>
   <body>
     <header class="topbar">
@@ -30,6 +31,20 @@
           <a href="autor.html" aria-current="page">O autorze</a>
         </nav>
         <div class="social">
+          <button
+            class="icon-button theme-toggle"
+            type="button"
+            title="Zmień motyw"
+            aria-label="Zmień motyw"
+            hidden
+          >
+            <svg class="icon-moon" aria-hidden="true">
+              <use href="img/ikony.svg#ksiezyc" />
+            </svg>
+            <svg class="icon-sun" aria-hidden="true">
+              <use href="img/ikony.svg#slonce" />
+            </svg>
+          </button>
           <a
             class="icon-button"
             href="${repo_url}"

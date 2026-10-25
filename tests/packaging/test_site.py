@@ -114,3 +114,14 @@ def test_build_adds_the_author_page_linked_from_the_header(
     assert 'href="autor.html"' in index.read_text(encoding="utf-8")
     assert (out / "img" / "autor.jpg").is_file()
     assert (out / "img" / "ikony.svg").is_file()
+
+
+def test_build_adds_the_theme_toggle_to_every_page(changelog_file, tmp_path) -> None:
+    out = tmp_path / "site"
+    site.build(out, changelog_file, repo="owner/repo", expected_version="0.2.4")
+
+    assert (out / "theme.js").is_file()
+    for name in site.TEMPLATE_FILES:
+        page = (out / name).read_text(encoding="utf-8")
+        assert '<script src="theme.js"></script>' in page
+        assert 'class="icon-button theme-toggle"' in page

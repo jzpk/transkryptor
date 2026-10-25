@@ -1,7 +1,10 @@
-/* Strona projektu Transkryptor. Kolory jak w aplikacji (akcent #4f5bd5),
-   motyw ciemny według ustawień systemu. Bez zewnętrznych zasobów. */
+/* Strona projektu Transkryptor. Kolory jak w aplikacji (akcent #4f5bd5).
+   Motyw domyślnie według ustawień przeglądarki; przycisk w pasku górnym
+   (theme.js) ustawia data-theme="light" albo "dark" na <html>.
+   Bez zewnętrznych zasobów. */
 
 :root {
+  color-scheme: light;
   --bg: #f7f7fb;
   --surface: #ffffff;
   --text: #1d1f2b;
@@ -19,8 +22,12 @@
     monospace;
 }
 
+/* Kolory ciemne są w dwóch blokach: według przeglądarki (gdy nie wybrano
+   jasnego) i z wyboru przyciskiem — zmieniaj je w obu. */
+
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
     --bg: #14151c;
     --surface: #1d1f29;
     --text: #e7e8f0;
@@ -32,6 +39,20 @@
     --code-bg: #262836;
     --shadow: 0 1px 2px rgb(0 0 0 / 30%), 0 8px 24px rgb(0 0 0 / 35%);
   }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #14151c;
+  --surface: #1d1f29;
+  --text: #e7e8f0;
+  --muted: #a3a6b8;
+  --border: #2f3240;
+  --accent: #8d96ff;
+  --accent-text: #11131c;
+  --accent-soft: #262a45;
+  --code-bg: #262836;
+  --shadow: 0 1px 2px rgb(0 0 0 / 30%), 0 8px 24px rgb(0 0 0 / 35%);
 }
 
 *,
@@ -207,6 +228,26 @@ main > section {
 .icon-button svg {
   width: 18px;
   height: 18px;
+}
+
+.theme-toggle {
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+}
+
+.theme-toggle[hidden] {
+  display: none;
+}
+
+/* Ikona pokazuje motyw, na który przełącza przycisk. */
+.theme-toggle .icon-sun,
+[data-theme="dark"] .theme-toggle .icon-moon {
+  display: none;
+}
+
+[data-theme="dark"] .theme-toggle .icon-sun {
+  display: block;
 }
 
 :is(.nav a, .footer-links a, .icon-button, .button, .brand, .author-chip):focus-visible {
