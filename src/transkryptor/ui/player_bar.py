@@ -1,5 +1,9 @@
 """Karta odtwarzacza nagrań: import, nazwa pliku, transport, pozycja i prędkość.
 
+Menu **Dźwięk** (``SoundMenu``) ustawia głośność i filtry odsłuchu
+(``audio/processing.py``); przefiltrowaną kopię nagrania przygotowuje
+``ui/audio_filters.py``.
+
 UI jedynie steruje modułem ``audio`` i prezentuje jego stan; nie zawiera
 logiki odczytu plików. Publiczne metody (``toggle_play``, ``skip``,
 ``step_rate``, ``mark_a``/``mark_b``/``toggle_loop``) wywołują zarówno
@@ -8,7 +12,10 @@ przyciski karty, jak i skróty klawiaturowe z ``ui/shortcuts.py``.
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QAction, QActionGroup
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
@@ -16,10 +23,13 @@ from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
+    QMenu,
     QPushButton,
     QSlider,
+    QToolButton,
     QVBoxLayout,
     QWidget,
+    QWidgetAction,
 )
 
 from transkryptor.audio.player import (
@@ -27,6 +37,7 @@ from transkryptor.audio.player import (
     AudioPlayer,
     file_dialog_filter,
 )
+from transkryptor.audio.processing import CHANNELS
 from transkryptor.document.project import PlayerState
 from transkryptor.i18n import tr
 from transkryptor.settings import PlayerSettings
@@ -74,12 +85,108 @@ def format_loop(start_ms: int | None, end_ms: int | None) -> str:
     return label
 
 
+class SoundMenu(QMenu):
+    """Głośność i filtry odsłuchu; ``changed`` - wybór do zapamiętania."""
+
+    changed = Signal()
+
+    def __init__(self, player: AudioPlayer, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._player = player
+        self.setObjectName("sound_menu")
+        row = QWidget()
+        row_layout = QHBoxLayout(row)
+        row_layout.setContentsMargins(12, 6, 12, 6)
+        caption = QLabel(tr("player.sound.volume"))
+        self.volume_slider = QSlider(Qt.Orientation.Horizontal)
+        self.volume_slider.setRange(0, 100)
+        self.volume_slider.setValue(100)
+        self.volume_slider.setMinimumWidth(140)
+        self.volume_slider.setToolTip(tr("player.sound.volume.tooltip"))
+        self.volume_label = QLabel("100%")
+        self.volume_label.setMinimumWidth(36)
+        row_layout.addWidget(caption)
+        row_layout.addWidget(self.volume_slider, stretch=1)
+        row_layout.addWidget(self.volume_label)
+        volume_action = QWidgetAction(self)
+        volume_action.setDefaultWidget(row)
+        self.addAction(volume_action)
+        self.addSeparator()
+        self.normalize_action = self._check(
+            "player.sound.normalize", "player.sound.normalize.tooltip"
+        )
+        self.highpass_action = self._check(
+            "player.sound.highpass", "player.sound.highpass.tooltip"
+        )
+        self.addSeparator()
+        self.channel_group = QActionGroup(self)
+        self.channel_group.setExclusive(True)
+        self.channel_actions: dict[str, QAction] = {}
+        for channel in CHANNELS:
+            action = self.addAction(tr(f"player.sound.channel.{channel}"))
+            action.setCheckable(True)
+            action.setData(channel)
+            self.channel_group.addAction(action)
+            self.channel_actions[channel] = action
+        self.channel_actions[CHANNELS[0]].setChecked(True)
+        self.setToolTipsVisible(True)
+        self.volume_slider.valueChanged.connect(self._on_volume)
+        self.volume_slider.sliderReleased.connect(self.changed)
+        self.channel_group.triggered.connect(lambda _action: self.changed.emit())
+
+    def _check(self, text_key: str, tooltip_key: str) -> QAction:
+        action = self.addAction(tr(text_key))
+        action.setCheckable(True)
+        action.setToolTip(tr(tooltip_key))
+        action.triggered.connect(lambda _checked=False: self.changed.emit())
+        return action
+
+    @property
+    def channel(self) -> str:
+        checked = self.channel_group.checkedAction()
+        return str(checked.data()) if checked is not None else CHANNELS[0]
+
+    def set_values(self, settings: PlayerSettings) -> None:
+        """Pokazuje ustawienia bez emitowania ``changed``."""
+        self.blockSignals(True)
+        self.volume_slider.blockSignals(True)
+        self.volume_slider.setValue(settings.volume_pct)
+        self.volume_slider.blockSignals(False)
+        self.normalize_action.setChecked(settings.normalize_audio)
+        self.highpass_action.setChecked(settings.highpass_filter)
+        action = self.channel_actions.get(settings.audio_channel)
+        if action is not None:
+            action.setChecked(True)
+        self.blockSignals(False)
+        self._show_volume(settings.volume_pct)
+
+    def values(self, base: PlayerSettings) -> PlayerSettings:
+        return replace(
+            base,
+            volume_pct=self.volume_slider.value(),
+            normalize_audio=self.normalize_action.isChecked(),
+            highpass_filter=self.highpass_action.isChecked(),
+            audio_channel=self.channel,
+        )
+
+    def _on_volume(self, value: int) -> None:
+        self._show_volume(value)
+        # Przeciąganie zmienia głośność od razu, a zapis - po puszczeniu.
+        if not self.volume_slider.isSliderDown():
+            self.changed.emit()
+
+    def _show_volume(self, value: int) -> None:
+        self._player.set_volume(value / 100)
+        self.volume_label.setText(f"{value}%")
+
+
 class PlayerBar(QFrame):
     """Karta sterowania odtwarzaniem umieszczana nad edytorem."""
 
     import_requested = Signal(str)  # ścieżka wybranego nagrania
     media_available_changed = Signal(bool)
     loop_points_changed = Signal()  # punkty A-B albo stan pętli
+    sound_changed = Signal()  # głośność albo filtry w menu „Dźwięk”
 
     def __init__(
         self,
@@ -141,6 +248,39 @@ class PlayerBar(QFrame):
         set_props(self.loop_label, role="muted")
         self.loop_label.setFont(time_font)
 
+        self.sound_menu = SoundMenu(player, self)
+        self.sound_button = QToolButton()
+        self.sound_button.setObjectName("sound_button")
+        self.sound_button.setText(tr("player.sound"))
+        self.sound_button.setToolTip(tr("player.sound.tooltip"))
+        self.sound_button.setToolButtonStyle(
+            Qt.ToolButtonStyle.ToolButtonTextBesideIcon
+        )
+        self.sound_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        self.sound_button.setMenu(self.sound_menu)
+        icons.set_icon(self.sound_button, "volume", "text", "text_muted")
+        self.sound_button.setIconSize(icons.ICON_SIZE)
+        # Postęp weryfikacji nagrania (``ui/verification.py``): procent
+        # i menu akcji; widoczny tylko z nagraniem.
+        self.verification_menu = QMenu(self)
+        self.verification_button = QToolButton()
+        self.verification_button.setObjectName("verification_button")
+        self.verification_button.setToolButtonStyle(
+            Qt.ToolButtonStyle.ToolButtonTextBesideIcon
+        )
+        self.verification_button.setPopupMode(
+            QToolButton.ToolButtonPopupMode.InstantPopup
+        )
+        self.verification_button.setMenu(self.verification_menu)
+        icons.set_icon(self.verification_button, "flag", "text", "text_muted")
+        self.verification_button.setIconSize(icons.ICON_SIZE)
+        self.verification_button.setVisible(False)
+        self.sound_status_label = QLabel()
+        set_props(self.sound_status_label, role="muted")
+        shrinkable(self.sound_status_label)
+        self.sound_menu.set_values(self._settings)
+        self.sound_menu.changed.connect(self.sound_changed)
+
         file_icon = QLabel()
         icons.set_pixmap(file_icon, "audio_file", "accent", 28)
         self.file_label = QLabel(tr("player.no_media"))
@@ -159,6 +299,9 @@ class PlayerBar(QFrame):
         header.setSpacing(10)
         header.addWidget(file_icon)
         header.addLayout(file_text, stretch=1)
+        header.addWidget(self.sound_status_label)
+        header.addWidget(self.verification_button)
+        header.addWidget(self.sound_button)
         header.addWidget(self.import_button)
 
         rate_caption = QLabel(tr("player.rate"))
@@ -281,6 +424,31 @@ class PlayerBar(QFrame):
     def apply_settings(self, settings: PlayerSettings) -> None:
         """Przyjmuje nowe ustawienia odtwarzacza bez restartu."""
         self._settings = settings
+        self.sound_menu.set_values(settings)
+
+    def sound_settings(self, base: PlayerSettings) -> PlayerSettings:
+        """``base`` z głośnością i filtrami wybranymi w menu „Dźwięk”."""
+        return self.sound_menu.values(base)
+
+    def set_verification_actions(self, actions: list[QAction | None]) -> None:
+        """Pozycje menu postępu weryfikacji (None - separator)."""
+        self.verification_menu.clear()
+        for action in actions:
+            if action is None:
+                self.verification_menu.addSeparator()
+            else:
+                self.verification_menu.addAction(action)
+
+    def set_verification_progress(self, text: str | None, tooltip: str) -> None:
+        """Procent sprawdzonego nagrania (None - przycisk schowany)."""
+        self.verification_button.setVisible(text is not None)
+        self.verification_button.setText(text or "")
+        self.verification_button.setToolTip(tooltip)
+
+    def set_sound_status(self, text: str) -> None:
+        """Stan przygotowania filtrów odsłuchu (pusty - brak komunikatu)."""
+        self.sound_status_label.setText(text)
+        self.sound_status_label.setVisible(bool(text))
 
     def _on_import_clicked(self) -> None:
         path, _selected_filter = QFileDialog.getOpenFileName(

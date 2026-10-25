@@ -11,7 +11,8 @@ schematu 3 - ostrzeżenia walidatora zignorowane w konkretnych miejscach,
 od schematu 4 - kotwice czasowe tekstu (``document/anchors.py``), od
 schematu 5 - mówcy nagrania, ich przypisanie do akapitów
 (``document/speakers.py``) i mówcy segmentów ASR z podziału na mówców, a od
-schematu 6 - komentarze recenzji z odpowiedziami (``document/comments.py``).
+schematu 6 - komentarze recenzji z odpowiedziami (``document/comments.py``)
+i sprawdzone zakresy nagrania (``document/verification.py``).
 
 Zapis jest atomowy: plik tymczasowy w katalogu docelowym, ``fsync``
 i ``os.replace`` - przerwany zapis nie psuje poprzedniej wersji. Odczyt
@@ -39,6 +40,7 @@ from transkryptor.document.speakers import (
     check_speakers,
     paragraph_count,
 )
+from transkryptor.document.verification import normalized as verified_ranges
 from transkryptor.errors import ProjectError
 from transkryptor.i18n import tr
 
@@ -169,6 +171,8 @@ class ProjectState:
     speakers: tuple[Speaker, ...] = DEFAULT_SPEAKERS
     paragraph_speakers: dict[int, str] = field(default_factory=dict)
     comments: tuple[Comment, ...] = ()
+    # Sprawdzone zakresy nagrania (ms), posortowane i rozłączne.
+    verified: tuple[tuple[int, int], ...] = ()
 
     @property
     def word_count(self) -> int:
@@ -252,6 +256,7 @@ def to_dict(state: ProjectState, project_path: Path | None = None) -> dict[str, 
         ],
         "anchors": [_anchor_dict(a) for a in state.anchors],
         "comments": [_comment_dict(c) for c in state.comments],
+        "verified": [list(r) for r in state.verified],
     }
 
 
@@ -369,8 +374,8 @@ def _add_speakers(data: dict[str, Any]) -> dict[str, Any]:
 
 
 def _add_comments(data: dict[str, Any]) -> dict[str, Any]:
-    """5 → 6 (faza 14): brak komentarzy recenzji."""
-    return {**data, "schema_version": 6, "comments": []}
+    """5 → 6 (faza 14): brak komentarzy recenzji i sprawdzonych zakresów."""
+    return {**data, "schema_version": 6, "comments": [], "verified": []}
 
 
 _MIGRATIONS: dict[int, Callable[[dict[str, Any]], dict[str, Any]]] = {
@@ -727,6 +732,7 @@ def _parse(data: dict[str, Any]) -> ProjectState:
         speakers=speakers,
         paragraph_speakers=assignments,
         comments=comments,
+        verified=verified_ranges(_ranges(data.get("verified", []))),
     )
 
 

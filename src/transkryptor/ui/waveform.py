@@ -4,8 +4,8 @@
   → dekodowanie PyAV (``audio/envelope.py``), z postępem i przerwaniem przy
   zmianie nagrania.
 - ``WaveformView`` rysuje falę w ``paintEvent`` w kolorach motywu: kursor
-  pozycji, pętlę A-B, segmenty ASR (paski w kolorze pewności) i ręczne
-  znaczniki czasu. Klik przewija nagranie, przeciągnięcie ustawia pętlę A-B,
+  pozycji, pętlę A-B, segmenty ASR (paski w kolorze pewności), ręczne
+  znaczniki czasu i tło sprawdzonych fragmentów (postęp weryfikacji). Klik przewija nagranie, przeciągnięcie ustawia pętlę A-B,
   ``Ctrl`` + kółko powiększa, kółko przewija w poziomie.
 - ``WaveformPanel`` to zwijany nagłówek z postępem, widok i pasek przewijania.
 - ``WaveformController`` łączy panel z odtwarzaczem, panelem ASR
@@ -60,6 +60,8 @@ DRAG_THRESHOLD_PX = 4
 MIN_MS_PER_PX = 2.0
 ZOOM_STEP = 1.5
 SEGMENT_STRIP_PX = 4
+# Pasek sprawdzonych fragmentów u góry fali (widoczny także przy gęstej fali).
+VERIFIED_STRIP_PX = 3
 
 # Segment ASR na fali: (początek ms, koniec ms, pewność 0-1).
 SegmentSpan = tuple[int, int, float]
@@ -133,6 +135,8 @@ class WaveformView(QWidget):
         self.loop: tuple[int, int] | None = None
         self.segments: list[SegmentSpan] = []
         self.markers: list[int] = []
+        # Sprawdzone zakresy nagrania (ms) - tło pod falą.
+        self.verified: list[tuple[int, int]] = []
         self.view_start_ms = 0.0
         self.ms_per_px = 0.0  # 0 = całe nagranie w szerokości widoku
         self._press_x: float | None = None
@@ -227,6 +231,12 @@ class WaveformView(QWidget):
         wave_height = height - SEGMENT_STRIP_PX - 2
         middle = wave_height / 2
 
+        verified = QColor(t.success_soft)
+        for start, end in self.verified:
+            left, right = self.x_at(start), self.x_at(end)
+            if right >= 0 and left <= width:
+                painter.fillRect(QRectF(left, 0, right - left, wave_height), verified)
+
         loop = self._selection() or self.loop
         if loop is not None:
             soft = QColor(t.accent)
@@ -263,6 +273,13 @@ class WaveformView(QWidget):
                 QRectF(left, strip_top, max(1.0, right - left - 1), SEGMENT_STRIP_PX),
                 color,
             )
+
+        for start, end in self.verified:
+            left, right = self.x_at(start), self.x_at(end)
+            if right >= 0 and left <= width:
+                painter.fillRect(
+                    QRectF(left, 0, right - left, VERIFIED_STRIP_PX), QColor(t.success)
+                )
 
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(QColor(t.text))
@@ -525,6 +542,10 @@ class WaveformController(QObject):
 
     def set_segments(self, segments: list[SegmentSpan]) -> None:
         self.view.segments = segments
+        self.view.update()
+
+    def set_verified(self, ranges: Sequence[tuple[int, int]]) -> None:
+        self.view.verified = list(ranges)
         self.view.update()
 
     def refresh_markers(self) -> None:

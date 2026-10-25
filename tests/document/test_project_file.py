@@ -166,6 +166,7 @@ class TestSchema:
             "ignored_warnings": [],
             "anchors": [],
             "comments": [],
+            "verified": [],
             "nowe_pole": [],
         }
 

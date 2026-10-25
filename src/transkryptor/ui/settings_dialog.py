@@ -80,7 +80,6 @@ from transkryptor.settings import (
     EditorSettings,
     MetadataSettings,
     NotationSettings,
-    PlayerSettings,
     ProjectSettings,
     Settings,
     ShortcutSettings,
@@ -459,8 +458,8 @@ class SettingsDialog(QDialog):
         self.auto_rewind_spin.setEnabled(player.auto_rewind_enabled)
         self.preroll_spin.setValue(player.segment_preroll_ms / 1000)
         self.follow_playback_check.setChecked(player.follow_playback)
-        # Zwinięcie fali ustawia się nad falą - okno tylko je przenosi dalej.
-        self._waveform_visible = player.waveform_visible
+        # Pola spoza okna (zwinięcie fali, menu „Dźwięk”) zostają bez zmian.
+        self._player = player
 
         editor = settings.editor
         self.default_font_check.setChecked(not editor.font_family)
@@ -497,6 +496,8 @@ class SettingsDialog(QDialog):
         self._asr_model_key = settings.asr.model_key
         # Ostatni format okna „Eksportuj jako…” nie jest polem tego okna.
         self._export = settings.export
+        # Podpis komentarzy recenzji nie ma pola w oknie - zostaje bez zmian.
+        self._review = settings.review
         self.template_edit.setText(settings.export.template_path)
         self.superscript_mode_combo.setCurrentIndex(
             max(
@@ -721,13 +722,13 @@ class SettingsDialog(QDialog):
         """Ustawienia odpowiadające bieżącym wartościom pól."""
         size = self.font_size_spin.value()
         return Settings(
-            player=PlayerSettings(
+            player=replace(
+                self._player,
                 skip_ms=_ms(self.skip_spin),
                 auto_rewind_enabled=self.auto_rewind_check.isChecked(),
                 auto_rewind_ms=_ms(self.auto_rewind_spin),
                 segment_preroll_ms=_ms(self.preroll_spin),
                 follow_playback=self.follow_playback_check.isChecked(),
-                waveform_visible=self._waveform_visible,
             ),
             editor=EditorSettings(
                 font_family=(
@@ -788,6 +789,7 @@ class SettingsDialog(QDialog):
                 show_uncertain_words=self.uncertain_words_check.isChecked(),
                 word_threshold_pct=self.word_threshold_spin.value(),
             ),
+            review=self._review,
         )
 
 

@@ -14,7 +14,8 @@ Obsługuje:
   i eksport DOCX);
 - niepewne słowa ASR: kropkowane podkreślenie (``UNCERTAIN_LAYER``) słów
   o pewności poniżej progu z ustawień, w widocznej części tekstu; poprawione
-  słowo traci podkreślenie.
+  słowo traci podkreślenie. Skróty „następne/poprzednie niepewne słowo”
+  zaznaczają kolejne takie słowo i odtwarzają je w pętli.
 
 Kursor segmentu lub słowa, którego tekst usunięto, przestaje być kotwicą.
 """
@@ -46,6 +47,7 @@ from transkryptor.ui.highlights import (
     background,
     dotted_underline,
 )
+from transkryptor.ui.navigation import step
 from transkryptor.ui.player_bar import PlayerBar, format_ms
 from transkryptor.ui.positions import PositionMap
 from transkryptor.ui.theme import tokens
@@ -278,6 +280,43 @@ class SyncController(QObject):
             )
         ]
 
+    def go_to_uncertain(self, direction: int) -> bool:
+        """Zaznacza następne (1) albo poprzednie (-1) niepewne słowo.
+
+        Z nagraniem słowo jest od razu odtwarzane w pętli (do pauzy), jak
+        po ``Ctrl+klik``. False - w tekście nie ma niepewnych słów.
+        """
+        items = sorted(
+            self._uncertain_items(0, self._editor.document().characterCount()),
+            key=lambda item: item.cursor.selectionStart(),
+        )
+        cursor = self._editor.textCursor()
+        target = step(
+            [(i.cursor.selectionStart(), i.cursor.selectionEnd()) for i in items],
+            (cursor.selectionStart(), cursor.selectionEnd()),
+            direction,
+        )
+        if target is None:
+            self._show_status(tr("sync.uncertain.none"))
+            return False
+        index, wrapped = target
+        item = items[index]
+        self._editor.setTextCursor(QTextCursor(item.cursor))
+        self._editor.ensureCursorVisible()
+        self._editor.setFocus()
+        message = tr(
+            "sync.uncertain.position",
+            index=index + 1,
+            count=len(items),
+            percent=round((item.anchor.probability or 0.0) * 100),
+        )
+        if wrapped:
+            message = f"{message} - {tr('sync.uncertain.wrapped')}"
+        self._show_status(message)
+        if self._player.source_path is not None and self._bar.has_media:
+            self.play_anchor(item.anchor)
+        return True
+
     def tooltip_at(self, position: int) -> str | None:
         positions = self._editor.position_map()
         qt_position = positions.to_qt(position)
@@ -316,6 +355,48 @@ class SyncController(QObject):
             self._show_status(tr("sync.no_anchor"))
             return False
         return self.play_anchor(anchor)
+
+    def time_span(self, start: int, end: int) -> tuple[int, int] | None:
+        """Czas nagrania (ms) fragmentu tekstu ``[start, end)`` z jego kotwic.
+
+        Słowa z czasem są dokładniejsze niż segment, w którym leżą - gdy
+        fragment je obejmuje, liczą się tylko one. None - fragment nie ma
+        kotwic czasowych albo ich czas jest pusty.
+        """
+        touching = [
+            anchor
+            for anchor in self._current()
+            if (anchor.start < end and anchor.end > start)
+            or (anchor.is_point and start <= anchor.start <= end)
+        ]
+        words = [anchor for anchor in touching if anchor.source == WORD]
+        spans = [(anchor.start_ms, anchor.end_ms) for anchor in words or touching]
+        if not spans:
+            return None
+        first = min(span[0] for span in spans)
+        last = max(span[1] for span in spans)
+        return (first, last) if last > first else None
+
+    def cursor_to_time(self, time_ms: int) -> bool:
+        """Kursor na początku tekstu dla czasu nagrania (segment albo znacznik).
+
+        Najpierw segment trwający w ``time_ms``, a bez niego - pierwsza
+        kotwica zaczynająca się później. False - brak takiej kotwicy.
+        """
+        timed = [a for a in self._current() if a.source != WORD]
+        during = [a for a in timed if a.start_ms <= time_ms < a.end_ms]
+        later = [a for a in timed if a.start_ms >= time_ms]
+        if during:
+            anchor = max(during, key=lambda a: a.start_ms)
+        elif later:
+            anchor = min(later, key=lambda a: (a.start_ms, a.start))
+        else:
+            return False
+        cursor = self._editor.textCursor()
+        cursor.setPosition(self._editor.position_map().to_qt(anchor.start))
+        self._editor.setTextCursor(cursor)
+        self._editor.scroll_to_cursor(cursor)
+        return True
 
     def anchor_at(self, position: int, word_level: bool = True) -> Anchor | None:
         """Kotwica bieżącego tekstu dla pozycji (None - brak)."""
