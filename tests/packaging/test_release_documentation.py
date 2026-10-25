@@ -186,3 +186,51 @@ def test_manual_release_builds_in_one_run_without_retriggering_ci() -> None:
     text = WORKFLOW.read_text(encoding="utf-8")
     assert 'git commit -am "Wydanie v$VERSION" -m "[skip ci]"' in text
     assert "outputs.publish" not in text
+
+
+def _job(text: str, name: str) -> str:
+    """Treść joba ``name`` z workflow (do następnego joba najwyższego poziomu)."""
+    match = re.search(rf"^  {name}:\n(.*?)(?=^  [\w-]+:\n|\Z)", text, re.M | re.S)
+    assert match, f"brak joba {name}"
+    return match.group(1)
+
+
+def test_signing_job_runs_no_repository_or_python_dependency_code() -> None:
+    """Klucz podpisu widzi tylko minisign z przypiętą sumą.
+
+    Kod uruchomiony w tym samym jobie (zależność z uv.lock, kod repozytorium)
+    mógłby przechwycić klucz i podpisywać złośliwe aktualizacje.
+    """
+    text = WORKFLOW.read_text(encoding="utf-8")
+    signing = _job(text, "podpis")
+    assert "environment: Release" in signing
+    assert "secrets.MINISIGN_SECRET_KEY" in signing
+    for forbidden in ("actions/checkout", "setup-uv", "uv ", "python"):
+        assert forbidden not in signing, forbidden
+    assert text.count("environment: Release") == 1
+    assert text.count("MINISIGN_SECRET_KEY: ${{ secrets") == 1
+
+
+def test_signing_job_uses_the_application_trusted_comment() -> None:
+    from transkryptor.update.signature import trusted_comment_for
+
+    signing = _job(WORKFLOW.read_text(encoding="utf-8"), "podpis")
+    expected = trusted_comment_for("$VERSION")
+    assert f'COMMENT="{expected}"' in signing
+
+
+def test_checkouts_do_not_persist_tokens_outside_the_release_push() -> None:
+    """Token zostaje w .git/config tylko w jobie, który pushuje commit wydania."""
+    for workflow in WORKFLOW.parent.glob("*.yml"):
+        text = workflow.read_text(encoding="utf-8")
+        for match in re.finditer(r"^  ([\w-]+):\n", text, re.M):
+            job = _job(text, match.group(1))
+            if "actions/checkout" not in job:
+                continue
+            step = job.split("actions/checkout", 1)[1].split("- name:", 1)[0]
+            if workflow == WORKFLOW and match.group(1) == "wersja":
+                assert "secrets.RELEASE_PAT" in step
+                continue
+            assert (
+                "persist-credentials: false" in step
+            ), f"{workflow.name}: {match.group(1)}"

@@ -10,7 +10,11 @@
 
 Przed instalacją pobrany plik jest sprawdzany ponownie (podpis sum i suma
 pliku), bo od pobrania mogły minąć godziny. AppImage jest dodatkowo
-sprawdzany już jako kopia obok celu, tuż przed podmianą.
+sprawdzany już jako kopia obok celu, tuż przed podmianą. Instalator Windows
+jest przed sprawdzeniem otwierany z blokadą zapisu i usuwania
+(``_lock_for_launch``): między weryfikacją a uruchomieniem (być może
+z monitem UAC) nikt nie podmieni sprawdzonego pliku. Blokada trwa do
+zamknięcia aplikacji, bo instalator czyta swój plik także po starcie.
 
 Samoaktualizacja działa tylko w artefakcie wydania. W środowisku
 deweloperskim (``uv run``) aplikacja tylko informuje o nowej wersji.
@@ -111,10 +115,18 @@ def apply_update(
     current = None if windows else appimage_path(environ)
     if not windows and current is None:
         raise UpdateError(user_message=tr("update.error.unsupported"))
-    expected = verify_downloaded(artifact, trusted_keys)
     if current is None:
-        _run_windows_installer(artifact)
+        lock = _lock_for_launch(artifact)
+        try:
+            verify_downloaded(artifact, trusted_keys)
+            _run_windows_installer(artifact)
+        except BaseException:
+            _release(lock)
+            raise
+        if lock is not None:
+            _LAUNCH_LOCKS.append(lock)
         return
+    expected = verify_downloaded(artifact, trusted_keys)
     replace_appimage(artifact, current, expected)
     artifact.unlink(missing_ok=True)
     start = launcher or _start_detached
@@ -129,6 +141,69 @@ def _start_detached(command: Sequence[str]) -> object:
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
+
+
+# Uchwyty blokujące uruchomione instalatory; system zwalnia je przy wyjściu.
+_LAUNCH_LOCKS: list[int] = []
+
+_GENERIC_READ = 0x80000000
+_FILE_SHARE_READ = 0x00000001
+_OPEN_EXISTING = 3
+_FILE_ATTRIBUTE_NORMAL = 0x80
+
+
+def _lock_for_launch(path: Path) -> int | None:
+    """Uchwyt pliku tylko do odczytu, który zabrania innym zapisu i usuwania.
+
+    Odczyt (weryfikacja, uruchomienie instalatora) nadal działa, ale zapis,
+    podmiana (``os.replace``) i usunięcie kończą się błędem współdzielenia.
+    Poza Windows → None (podmiany AppImage pilnuje ``replace_appimage``).
+    """
+    if sys.platform != "win32":
+        return None
+    import ctypes
+    from ctypes import wintypes
+
+    create_file = ctypes.windll.kernel32.CreateFileW
+    create_file.restype = wintypes.HANDLE
+    create_file.argtypes = (
+        wintypes.LPCWSTR,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.LPVOID,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.HANDLE,
+    )
+    handle = create_file(
+        str(path),
+        _GENERIC_READ,
+        _FILE_SHARE_READ,
+        None,
+        _OPEN_EXISTING,
+        _FILE_ATTRIBUTE_NORMAL,
+        None,
+    )
+    if handle is None or handle == wintypes.HANDLE(-1).value:
+        raise UpdateError(
+            user_message=tr("update.error.verify_failed", version=path.parent.name),
+            retry_hint=tr("update.error.verify_failed.hint"),
+        )
+    return int(handle)
+
+
+def _release(lock: int | None) -> None:
+    if lock is None or sys.platform != "win32":
+        return
+    import ctypes
+
+    ctypes.windll.kernel32.CloseHandle(lock)
+
+
+def release_launch_locks() -> None:
+    """Zwalnia blokady uruchomionych instalatorów (testy; wyjście robi to samo)."""
+    while _LAUNCH_LOCKS:
+        _release(_LAUNCH_LOCKS.pop())
 
 
 def _run_windows_installer(installer: Path) -> None:

@@ -15,9 +15,13 @@
 # poprawkę po commicie wydania) - workflow sprawdza, że tag zgadza się
 # z wersją w kodzie, a CHANGELOG.md ma sekcję tej wersji, i publikuje wydanie.
 #
-# Łańcuch zaufania: job „publikacja” podpisuje SHA256SUMS.txt kluczem
-# minisign z sekretu environment „Release” (wymagane zatwierdzenie), a
-# aplikacja instaluje tylko aktualizacje pasujące do klucza publicznego
+# Łańcuch zaufania: job „podpis” podpisuje SHA256SUMS.txt kluczem
+# minisign z sekretu environment „Release” (wymagane zatwierdzenie). Job ten
+# nie uruchamia kodu repozytorium ani zależności Pythona - sumy i noty
+# powstają wcześniej w jobie „sumy”, a weryfikacja i publikacja w jobie
+# „publikacja”. Checkout poza jobem „wersja” (push commitu wydania) nie
+# zostawia tokenu w .git/config (persist-credentials: false). Aplikacja
+# instaluje tylko aktualizacje pasujące do klucza publicznego
 # z src/transkryptor/update/keys.py. Akcje są przypięte do SHA commitów,
 # a pobierane narzędzia (appimagetool, Inno Setup, minisign) do wersji
 # i sum SHA-256 - aktualizuje je Dependabot albo ręczna zmiana sumy.
@@ -68,6 +72,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Instalacja uv
         uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
@@ -180,6 +186,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.wersja.outputs.tag }}
+          persist-credentials: false
 
       - name: Instalacja uv
         uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
@@ -234,6 +241,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.wersja.outputs.tag }}
+          persist-credentials: false
 
       - name: Instalacja uv
         uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
@@ -322,19 +330,17 @@ jobs:
           path: dist/*.exe
           if-no-files-found: error
 
-  publikacja:
-    name: GitHub Release
+  # Sumy i noty wydania powstają bez sekretów: ten job uruchamia kod
+  # repozytorium i zależności Pythona, więc nie może widzieć klucza podpisu.
+  sumy:
+    name: Sumy kontrolne i noty
     needs: [wersja, linux, windows]
     runs-on: ubuntu-22.04
-    # Sekret MINISIGN_SECRET_KEY jest tylko w tym environment; publikacja
-    # czeka na zatwierdzenie recenzenta (Settings → Environments → Release).
-    environment: Release
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.wersja.outputs.tag }}
+          persist-credentials: false
 
       - name: Instalacja uv
         uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
@@ -347,6 +353,7 @@ jobs:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           path: dist
+          pattern: transkryptor-*
           merge-multiple: true
 
       # Każdy runner liczył sumy tylko dla swojego artefaktu; aplikacja
@@ -360,8 +367,37 @@ jobs:
         env:
           TAG: ${{ needs.wersja.outputs.tag }}
 
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: wydanie-sumy
+          path: |
+            dist/SHA256SUMS.txt
+            dist/RELEASE-NOTES.md
+          if-no-files-found: error
+
+  # Jedyny job z kluczem podpisu. Nie pobiera repozytorium, nie instaluje
+  # zależności Pythona i nie uruchamia kodu aplikacji - tylko minisign
+  # z przypiętą sumą. Kod uruchomiony wcześniej w tym samym jobie (np.
+  # przejęta zależność z sudo na runnerze) mógłby podmienić narzędzia
+  # i przechwycić klucz, a z nim podpisywać „aktualizacje” dla wszystkich
+  # instalacji. Sekret MINISIGN_SECRET_KEY jest tylko w environment Release;
+  # podpis czeka na zatwierdzenie recenzenta (Settings → Environments →
+  # Release).
+  podpis:
+    name: Podpis sum kontrolnych
+    needs: [wersja, sumy]
+    runs-on: ubuntu-22.04
+    environment: Release
+    permissions: {}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: wydanie-sumy
+          path: dist
+
       # Klucz bez hasła (minisign -G -W) - chroni go sekret environment.
-      # Zaufany komentarz wiąże podpis z wersją (update/signature.py).
+      # Zaufany komentarz wiąże podpis z wersją (update/signature.py,
+      # trusted_comment_for); zgodność sprawdza job publikacji kodem aplikacji.
       #
       # Plik klucza minisign to dwie linie: „untrusted comment: …” i klucz
       # w base64; z jedną linią minisign kończy się tylko komunikatem „Error
@@ -382,7 +418,7 @@ jobs:
             "https://github.com/jedisct1/minisign/releases/download/$MINISIGN_VERSION/minisign-$MINISIGN_VERSION-linux.tar.gz"
           echo "$MINISIGN_SHA256  $RUNNER_TEMP/minisign.tar.gz" | sha256sum --check --strict
           tar -xzf "$RUNNER_TEMP/minisign.tar.gz" -C "$RUNNER_TEMP" minisign-linux/x86_64/minisign
-          COMMENT="$(uv run python -c 'import sys; from transkryptor.update.signature import trusted_comment_for as c; print(c(sys.argv[1]))' "$VERSION")"
+          COMMENT="transkryptor $VERSION SHA256SUMS.txt"
           umask 077
           KEY="$(printf '%s\n' "$MINISIGN_SECRET_KEY" | tr -d '\r' \
             | grep -v '^[[:space:]]*$' | grep -v '^untrusted comment:' || true)"
@@ -408,14 +444,49 @@ jobs:
         if: always()
         run: rm -f "$RUNNER_TEMP/minisign.key"
 
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: wydanie-podpis
+          path: dist/SHA256SUMS.txt.minisig
+          if-no-files-found: error
+
+  publikacja:
+    name: GitHub Release
+    needs: [wersja, podpis]
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.wersja.outputs.tag }}
+          persist-credentials: false
+
+      - name: Instalacja uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          enable-cache: true
+
+      - name: Środowisko z uv.lock
+        run: uv sync --locked
+
+      # Artefakty z runnerów oraz sumy, noty i podpis z jobów sumy i podpis.
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: dist
+          merge-multiple: true
+
       # Ten sam kod, którym aplikacja sprawdza aktualizację: podpis złym
-      # kluczem albo w innym formacie zatrzymuje publikację.
+      # kluczem, w innym formacie albo z komentarzem innej wersji zatrzymuje
+      # publikację. Sumy muszą też pasować do artefaktów, które trafią do
+      # wydania.
       - name: Weryfikacja podpisu kodem aplikacji
         env:
           VERSION: ${{ needs.wersja.outputs.version }}
         run: |
           uv run python -m transkryptor.update.signature \
             dist/SHA256SUMS.txt dist/SHA256SUMS.txt.minisig --version "$VERSION"
+          (cd dist && sha256sum --check SHA256SUMS.txt)
 
       - name: Publikacja wydania
         env:

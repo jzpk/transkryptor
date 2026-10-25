@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import hashlib
 import os
+import sys
 
 import pytest
 
 from transkryptor.errors import UpdateError
+from transkryptor.update import install
 from transkryptor.update.install import apply_update, can_self_update
 from transkryptor.update.signature import trusted_comment_for
 
@@ -121,3 +123,62 @@ def test_windows_installer_is_verified_before_launch(tmp_path, release_key) -> N
     with pytest.raises(UpdateError) as caught:
         apply_update(new, platform="win32")
     assert "1.0.0" in caught.value.user_message
+
+
+windows_only = pytest.mark.skipif(
+    sys.platform != "win32", reason="blokada pliku instalatora tylko na Windows"
+)
+
+
+@windows_only
+def test_installer_cannot_be_replaced_between_verification_and_launch(
+    tmp_path, release_key, monkeypatch
+) -> None:
+    new = downloaded(tmp_path, release_key)
+    swapped = tmp_path / "podmiana.exe"
+    swapped.write_bytes(b"obcy instalator")
+    launched = []
+
+    def run_installer(installer) -> None:
+        with pytest.raises(PermissionError):
+            installer.write_bytes(b"obcy instalator")
+        with pytest.raises(PermissionError):
+            os.replace(swapped, installer)
+        with pytest.raises(PermissionError):
+            installer.unlink()
+        assert installer.read_bytes() == b"nowa wersja"
+        launched.append(installer)
+
+    monkeypatch.setattr(install, "_run_windows_installer", run_installer)
+    try:
+        apply_update(new, platform="win32")
+        assert launched == [new]
+        # Instalator czyta swój plik także po starcie - blokada trwa dalej.
+        with pytest.raises(PermissionError):
+            new.write_bytes(b"obcy instalator")
+    finally:
+        install.release_launch_locks()
+    new.write_bytes(b"po zwolnieniu blokady")
+
+
+@windows_only
+def test_failed_launch_releases_the_installer_lock(
+    tmp_path, release_key, monkeypatch
+) -> None:
+    new = downloaded(tmp_path, release_key)
+
+    def run_installer(_installer) -> None:
+        raise UpdateError(user_message="odmowa UAC")
+
+    monkeypatch.setattr(install, "_run_windows_installer", run_installer)
+    with pytest.raises(UpdateError):
+        apply_update(new, platform="win32")
+    new.write_bytes(b"po zwolnieniu blokady")
+
+
+def test_installer_lock_is_windows_only(tmp_path) -> None:
+    if sys.platform == "win32":
+        pytest.skip("sprawdza zachowanie poza Windows")
+    target = tmp_path / "setup.exe"
+    target.write_bytes(b"instalator")
+    assert install._lock_for_launch(target) is None
