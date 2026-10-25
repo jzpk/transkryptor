@@ -168,15 +168,14 @@ def render_markdown(text: str) -> str:
 
 def _changelog_html(releases: list[Release]) -> str:
     entries = []
-    for index, release in enumerate(releases):
+    for release in releases:
         when = (
             f' <time datetime="{release.date}">{format_date(release.date)}</time>'
             if release.date
             else ""
         )
         entries.append(
-            f'<details class="release" id="v{release.version}"'
-            f'{" open" if index == 0 else ""}>'
+            f'<details class="release" id="v{release.version}">'
             f'<summary><span class="release-version">{release.version}</span>'
             f"{when}</summary>\n{render_markdown(release.body)}\n</details>"
         )
@@ -204,32 +203,47 @@ def _systems_html(version: str) -> str:
     )
 
 
-def letters_html(count: int = LETTER_COUNT, seed: int = _LETTERS_SEED) -> str:
-    """Warstwa liter tła: każda leci po prostej przez cały ekran.
+def background_letters(
+    count: int = LETTER_COUNT, seed: int = _LETTERS_SEED
+) -> tuple[str, str]:
+    """Warstwa liter tła (HTML) i klatki ich animacji (CSS).
 
-    Tor przechodzi przez losowy punkt ekranu w losowym kierunku; dłuższa
-    składowa przesunięcia ma 120 jednostek (vw albo vh), więc oba końce toru
-    leżą poza ekranem i powrót animacji na początek jest niewidoczny.
+    Każda litera leci po prostej przez cały ekran. Tor przechodzi przez losowy
+    punkt ekranu w losowym kierunku; dłuższa składowa przesunięcia ma 120
+    jednostek (vw albo vh), więc oba końce toru leżą poza ekranem i powrót
+    animacji na początek jest niewidoczny. Każda litera ma własne klatki
+    ze stałymi wartościami — klatki ze zmiennymi CSS przeglądarka może
+    liczyć w wątku głównym zamiast na GPU, co daje przycięcia ruchu.
     """
     rng = random.Random(seed)
     spans = []
-    for _ in range(count):
+    keyframes = []
+    for index in range(count):
         letter = rng.choice(LETTERS)
         angle = rng.uniform(0, 2 * math.pi)
         dx, dy = math.cos(angle), math.sin(angle)
         scale = 120 / max(abs(dx), abs(dy))
         dx, dy = dx * scale, dy * scale
         cx, cy = rng.uniform(0, 100), rng.uniform(0, 100)
+        r0, r1 = rng.randint(-180, 180), rng.randint(-180, 180)
+        size = rng.uniform(1.5, 5)
         duration = rng.uniform(35, 110)
+        delay = rng.uniform(0, duration)
+        name = f"litera-{index}"
+        keyframes.append(
+            f"@keyframes {name}{{"
+            f"from{{transform:translate({cx - dx:.1f}vw,{cy - dy:.1f}vh)"
+            f" rotate({r0}deg)}}"
+            f"to{{transform:translate({cx + dx:.1f}vw,{cy + dy:.1f}vh)"
+            f" rotate({r1}deg)}}}}"
+        )
         style = (
-            f"--x0:{cx - dx:.1f};--y0:{cy - dy:.1f};"
-            f"--x1:{cx + dx:.1f};--y1:{cy + dy:.1f};"
-            f"--r0:{rng.randint(-180, 180)}deg;--r1:{rng.randint(-180, 180)}deg;"
-            f"--s:{rng.uniform(1.5, 5):.2f}rem;"
-            f"--t:{duration:.0f}s;--d:-{rng.uniform(0, duration):.0f}s"
+            f"font-size:{size:.2f}rem;"
+            f"animation:{name} {duration:.0f}s linear -{delay:.0f}s infinite"
         )
         spans.append(f'<span style="{style}">{letter}</span>')
-    return f'<div class="letters" aria-hidden="true">{"".join(spans)}</div>'
+    layer = f'<div class="letters" aria-hidden="true">{"".join(spans)}</div>'
+    return layer, "\n".join(keyframes)
 
 
 def page_fields(releases: list[Release], repo: str) -> dict[str, str]:
@@ -241,6 +255,7 @@ def page_fields(releases: list[Release], repo: str) -> dict[str, str]:
     repo_url = f"https://github.com/{repo}"
     download = f"{repo_url}/releases/download/v{version}"
     artifacts = targets(version)
+    letters, letters_css = background_letters()
     return {
         "app_name": APP_NAME,
         "summary": html.escape(SUMMARY),
@@ -263,7 +278,8 @@ def page_fields(releases: list[Release], repo: str) -> dict[str, str]:
         "systems": _systems_html(version),
         "requirements": _requirements_html(),
         "changelog": _changelog_html(releases),
-        "letters": letters_html(),
+        "letters": letters,
+        "letters_css": letters_css,
     }
 
 
@@ -342,7 +358,7 @@ __all__ = [
     "build",
     "format_date",
     "page_fields",
-    "letters_html",
+    "background_letters",
     "released_sections",
     "render_markdown",
 ]

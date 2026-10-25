@@ -130,13 +130,16 @@ def test_build_adds_the_theme_toggle_to_every_page(changelog_file, tmp_path) -> 
 
 
 def test_background_letters_are_polish_and_reproducible() -> None:
-    layer = site.letters_html()
+    layer, css = site.background_letters()
 
     letters = re.findall(r'<span style="[^"]*">(.)</span>', layer)
     assert len(letters) == site.LETTER_COUNT
     assert set(letters) <= set(site.LETTERS)
-    assert layer == site.letters_html()
+    assert (layer, css) == site.background_letters()
     assert layer.startswith('<div class="letters" aria-hidden="true">')
+    # Klatki ze stałymi wartościami, bez var() — animacja zostaje na GPU.
+    assert css.count("@keyframes litera-") == site.LETTER_COUNT
+    assert "var(" not in css
 
 
 def test_build_adds_background_letters_to_every_page(changelog_file, tmp_path) -> None:
@@ -146,3 +149,13 @@ def test_build_adds_background_letters_to_every_page(changelog_file, tmp_path) -
     for name in site.TEMPLATE_FILES:
         page = (out / name).read_text(encoding="utf-8")
         assert '<div class="letters" aria-hidden="true">' in page
+        assert "@keyframes litera-0{" in page
+
+
+def test_changelog_releases_start_collapsed(changelog_file, tmp_path) -> None:
+    out = tmp_path / "site"
+    index = site.build(out, changelog_file, repo="owner/repo", expected_version="0.2.4")
+
+    page = index.read_text(encoding="utf-8")
+    assert page.count('<details class="release"') == 2
+    assert " open>" not in page
