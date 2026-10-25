@@ -10,7 +10,7 @@ z ``ui/markers.py`` i ``ui/shortcuts.py``.
 W wąskim oknie pasek chowa przyciski według priorytetu (najpierw rzadko
 używane; eksport DOCX zostaje zawsze) do menu „Więcej poleceń” (☰). Menu są
 dwa, każde obok swojej grupy: znaczniki notacji trafiają do ☰ tuż za nimi
-(przed „Szkic ASR”), a narzędzia i polecenia sesji — do ☰ na końcu paska.
+(przed „Szkic ASR”), a narzędzia i polecenia sesji - do ☰ na końcu paska.
 Wszystkie akcje są dodane do okna, więc skróty działają także wtedy, gdy
 przycisk jest schowany.
 """
@@ -198,7 +198,7 @@ class MainToolbar:
             NOTATION_SECTION, self.snippets_action, (snippets_handle,)
         )
 
-        # Menu schowanych znaczników stoi tuż za nimi — przed „Szkic ASR”.
+        # Menu schowanych znaczników stoi tuż za nimi - przed „Szkic ASR”.
         self.notation_more_menu, self.notation_more_button = _more_menu(window)
         self.notation_more_menu.aboutToShow.connect(
             lambda: self._fill_more_menu(self.notation_more_menu, notation=True)
@@ -216,7 +216,7 @@ class MainToolbar:
         asr_toggle.setToolTip(tr("toolbar.asr.tooltip"))
         self._slots["asr"] = _Slot("tools", asr_toggle, (self._add(asr_toggle),))
 
-        # Panel komentarzy recenzji (faza 14) — przełącznik doku jak ASR.
+        # Panel komentarzy recenzji (faza 14) - przełącznik doku jak ASR.
         if comments_toggle is None:
             comments_toggle = QAction(window)
             comments_toggle.setVisible(False)
@@ -350,7 +350,7 @@ class MainToolbar:
             (self._add(self.close_action, icon_only=True),),
         )
 
-        # Skrót akcji działa tylko, gdy akcja należy do widocznego widżetu —
+        # Skrót akcji działa tylko, gdy akcja należy do widocznego widżetu -
         # samo okno, bo przycisk w pasku może być schowany.
         for action in self._buttons:
             window.addAction(action)

@@ -93,9 +93,9 @@ class TestDocument:
 def test_legend_round_trip_and_anonymization() -> None:
     speakers = [*DEFAULT_SPEAKERS, I2, Speaker("X", "", OTHER)]
     text = legend(speakers)
-    assert text == "B — Badacz; I — Informator; I2 — AK; X — Inny"
+    assert text == "B - Badacz; I - Informator; I2 - AK; X - Inny"
     assert parse_legend(text) == speakers
-    assert legend(speakers, anonymize=True).split("; ")[2] == "I2 — Informator"
+    assert legend(speakers, anonymize=True).split("; ")[2] == "I2 - Informator"
 
 
 def test_informant_spans_and_search_filter() -> None:

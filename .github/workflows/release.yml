@@ -6,13 +6,13 @@
 # sekcji „Nieopublikowane” w CHANGELOG.md numer wersji (pusta sekcja przerywa
 # wydanie), commituje i nadaje tag vX.Y.Z, po czym ten sam przebieg buduje
 # oba artefakty z taga i publikuje wydanie. Commit wydania ma w opisie
-# [skip ci]: jego push nie uruchamia ponownie CI ani tego workflow — kod
+# [skip ci]: jego push nie uruchamia ponownie CI ani tego workflow - kod
 # przeszedł już testy na początku przebiegu, a commit zmienia tylko numer
 # wersji i nagłówek changeloga. Zainstalowane aplikacje znajdują wydania
 # przez GitHub Releases API (src/transkryptor/update/).
 #
 # Droga awaryjna: ręcznie wypchnięty tag v* (na commit bez [skip ci], np.
-# poprawkę po commicie wydania) — workflow sprawdza, że tag zgadza się
+# poprawkę po commicie wydania) - workflow sprawdza, że tag zgadza się
 # z wersją w kodzie, a CHANGELOG.md ma sekcję tej wersji, i publikuje wydanie.
 #
 # Łańcuch zaufania: job „publikacja” podpisuje SHA256SUMS.txt kluczem
@@ -20,11 +20,11 @@
 # aplikacja instaluje tylko aktualizacje pasujące do klucza publicznego
 # z src/transkryptor/update/keys.py. Akcje są przypięte do SHA commitów,
 # a pobierane narzędzia (appimagetool, Inno Setup, minisign) do wersji
-# i sum SHA-256 — aktualizuje je Dependabot albo ręczna zmiana sumy.
+# i sum SHA-256 - aktualizuje je Dependabot albo ręczna zmiana sumy.
 #
 # Artefakty powstają natywnie na każdej platformie docelowej: instalator
 # Windows na runnerze Windows, AppImage na Ubuntu 22.04. Runner Ubuntu
-# wyznacza najstarszą obsługiwaną glibc (2.35) — po jego zmianie trzeba
+# wyznacza najstarszą obsługiwaną glibc (2.35) - po jego zmianie trzeba
 # poprawić LINUX_GLIBC_BASELINE w src/transkryptor/packaging/metadata.py.
 name: Wydanie
 
@@ -96,7 +96,7 @@ jobs:
             libegl1 libgl1 libxkbcommon-x11-0 libdbus-1-3 libpulse0
 
       # Test oznaczony asr_model wymaga pobranego modelu (1.53 GB) i jest
-      # pomijany w CI. Bramka wydania wymaga wykonania go przed publikacją —
+      # pomijany w CI. Bramka wydania wymaga wykonania go przed publikacją -
       # patrz docs/release-process.md.
       - name: Testy jednostkowe i integracyjne
         run: uv run pytest -m "not asr_model"
@@ -118,7 +118,7 @@ jobs:
           token: ${{ secrets.RELEASE_PAT }}
 
       # Bez klucza publicznego w aplikacji żadna instalacja nie przyjmie
-      # aktualizacji — wydanie zatrzymuje się przed commitem i tagiem.
+      # aktualizacji - wydanie zatrzymuje się przed commitem i tagiem.
       - name: Klucz podpisu wydań
         run: PYTHONPATH=src python3 -m transkryptor.update.keys
 
@@ -127,10 +127,10 @@ jobs:
 
       # Push przez RELEASE_PAT omija regułę wymaganych testów na main.
       # [skip ci] w opisie commita: push gałęzi i taga nie uruchamia CI ani
-      # drugiego przebiegu tego workflow — budowanie i publikacja dzieją się
+      # drugiego przebiegu tego workflow - budowanie i publikacja dzieją się
       # w tym przebiegu (joby linux, windows, publikacja). RELEASE_PAT to
       # fine-grained PAT ograniczony do tego repozytorium (Contents: read and
-      # write) z krótką ważnością — patrz specs/docs/release-process.md.
+      # write) z krótką ważnością - patrz specs/docs/release-process.md.
       # --atomic: odrzucony push na main nie może zostawić osieroconego taga.
       - name: Podbicie wersji, commit i tag
         if: github.event_name == 'workflow_dispatch'
@@ -244,7 +244,7 @@ jobs:
         run: uv sync --locked --group packaging
 
       # Przypięta wersja z sumą (ta sama co w windows.Dockerfile), w osobnym
-      # katalogu — wersja z obrazu runnera zmienia się bez zapowiedzi.
+      # katalogu - wersja z obrazu runnera zmienia się bez zapowiedzi.
       - name: Inno Setup
         shell: pwsh
         run: |
@@ -282,7 +282,7 @@ jobs:
       #
       # Bez Start-Process -Wait: czeka ono na całe drzewo procesów, a cicha
       # instalacja uruchamia program (WizardSilent w packaging/windows.py),
-      # którego okno nigdy się samo nie zamknie — krok wisiałby do anulowania.
+      # którego okno nigdy się samo nie zamknie - krok wisiałby do anulowania.
       # WaitForExit czeka tylko na wskazany proces; odczyt Handle zaraz po
       # starcie zachowuje ExitCode po jego zakończeniu.
       - name: Instalacja i --self-test
@@ -360,13 +360,13 @@ jobs:
         env:
           TAG: ${{ needs.wersja.outputs.tag }}
 
-      # Klucz bez hasła (minisign -G -W) — chroni go sekret environment.
+      # Klucz bez hasła (minisign -G -W) - chroni go sekret environment.
       # Zaufany komentarz wiąże podpis z wersją (update/signature.py).
       #
       # Plik klucza minisign to dwie linie: „untrusted comment: …” i klucz
       # w base64; z jedną linią minisign kończy się tylko komunikatem „Error
       # while loading the secret key file”. Sekret bywa wklejony bez linii
-      # komentarza, z CRLF albo sklejony w jeden wiersz — krok odtwarza z niego
+      # komentarza, z CRLF albo sklejony w jeden wiersz - krok odtwarza z niego
       # poprawny plik (komentarz nie wpływa na podpis), a zły format albo klucz
       # zaszyfrowany hasłem zgłasza czytelnym błędem.
       - name: Podpis sum kontrolnych (minisign)
@@ -392,12 +392,12 @@ jobs:
           fi
           KEY="$(printf '%s' "$KEY" | tr -d '[:space:]')"
           if ! printf '%s' "$KEY" | grep -Eq '^[A-Za-z0-9+/]{100,}={0,2}$'; then
-            echo "::error::MINISIGN_SECRET_KEY nie jest kluczem prywatnym minisign — wklej całą zawartość pliku z minisign -G -W (dwie linie)."
+            echo "::error::MINISIGN_SECRET_KEY nie jest kluczem prywatnym minisign - wklej całą zawartość pliku z minisign -G -W (dwie linie)."
             exit 1
           fi
           # Bajty 2–3 struktury klucza: algorytm KDF („Sc” = klucz z hasłem).
           if [ "$(printf '%s' "$KEY" | base64 -d 2>/dev/null | head -c 4 | tail -c 2)" = "Sc" ]; then
-            echo "::error::Klucz w MINISIGN_SECRET_KEY jest zaszyfrowany hasłem — CI go nie odszyfruje. Wygeneruj klucz z minisign -G -W."
+            echo "::error::Klucz w MINISIGN_SECRET_KEY jest zaszyfrowany hasłem - CI go nie odszyfruje. Wygeneruj klucz z minisign -G -W."
             exit 1
           fi
           printf 'untrusted comment: minisign secret key\n%s\n' "$KEY" > "$RUNNER_TEMP/minisign.key"
@@ -433,7 +433,7 @@ jobs:
             dist/SHA256SUMS.txt.minisig dist/RELEASE-NOTES.md
 
   # Strona projektu z nowymi linkami pobierania i historią zmian. Błąd tutaj
-  # nie cofa wydania — stronę można wdrożyć ponownie z Actions → „Strona”.
+  # nie cofa wydania - stronę można wdrożyć ponownie z Actions → „Strona”.
   strona:
     name: Strona projektu
     needs: [wersja, publikacja]

@@ -42,7 +42,7 @@ def test_standard_dialog_buttons_are_polish(qapp) -> None:
 
 
 def test_english_needs_no_qt_translation(qapp) -> None:
-    """Angielski to język źródłowy Qt — przyciski są angielskie bez pliku."""
+    """Angielski to język źródłowy Qt - przyciski są angielskie bez pliku."""
     before = len(qapp.findChildren(QTranslator))
     assert install_qt_translations(qapp, ENGLISH)
     assert len(qapp.findChildren(QTranslator)) == before

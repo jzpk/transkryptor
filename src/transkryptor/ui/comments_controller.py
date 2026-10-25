@@ -1,7 +1,7 @@
 """Komentarze recenzji w edytorze (faza 14, REQ-27, ACC-64).
 
 ``CommentsController`` śledzi fragment każdego komentarza kursorem edytora,
-który przesuwa się razem z edycją — jak kotwice czasowe i pozycje przeglądu
+który przesuwa się razem z edycją - jak kotwice czasowe i pozycje przeglądu
 reguł. Komentarz, którego fragment usunięto, zostaje (punkt w miejscu
 fragmentu, z cytatem z chwili zapisu). Kontroler obsługuje:
 
@@ -101,7 +101,7 @@ class CommentsController(QObject):
         return answer
 
     def add_from_selection(self) -> bool:
-        """Komentarz do zaznaczonego fragmentu; False — brak zaznaczenia albo rezygnacja."""
+        """Komentarz do zaznaczonego fragmentu; False - brak zaznaczenia albo rezygnacja."""
         selection = self.editor.textCursor()
         if not selection.hasSelection():
             QMessageBox.information(

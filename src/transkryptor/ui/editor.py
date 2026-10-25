@@ -7,7 +7,7 @@ jest synchronizowaną projekcją używaną przez walidator i metadane.
 Publiczne API edytora przyjmuje i zwraca pozycje Pythona (punkty kodowe);
 przeliczenie na pozycje Qt (UTF-16) odbywa się tutaj (``ui/positions.py``).
 
-UI nie zawiera reguł lingwistycznych — jedynie wstawia markery i formatowanie
+UI nie zawiera reguł lingwistycznych - jedynie wstawia markery i formatowanie
 zdefiniowane w ``ui/markers.py`` oraz prezentuje wyniki ``notation``.
 """
 
@@ -59,7 +59,7 @@ REVIEW_HIGHLIGHT = QColor(255, 200, 0, 90)
 # re-eksportowane dla zgodności importów.
 __all__ = ["REVIEW_LAYER", "SEARCH_LAYER", "TranscriptionEditor", "highlight"]
 
-# Tekst transkrypcji czyta się godzinami — większy niż reszta interfejsu.
+# Tekst transkrypcji czyta się godzinami - większy niż reszta interfejsu.
 EDITOR_FONT_SCALE = 1.25
 
 # ``toRawText`` zachowuje znaki specjalne Qt; separatory akapitów, wierszy
@@ -72,7 +72,7 @@ _RAW_SEPARATORS = str.maketrans(
 class TranscriptionEditor(QTextEdit):
     """QTextEdit z akcjami notacji transkrypcji."""
 
-    # Ctrl+klik lewym przyciskiem: pozycja tekstu (punkty kodowe) — odtworzenie
+    # Ctrl+klik lewym przyciskiem: pozycja tekstu (punkty kodowe) - odtworzenie
     # nagrania od kotwicy czasowej (faza 11).
     ctrl_clicked = Signal(int)
     # Klik w etykietę mówcy: pozycja początku akapitu (punkty kodowe) i punkt
@@ -89,7 +89,7 @@ class TranscriptionEditor(QTextEdit):
         self.setPlaceholderText(tr("editor.placeholder"))
         self._base_font = QFont(self.font())
         self._layers = HighlightLayers()
-        # Podpowiedzi i menu kontekstowe dla pozycji tekstu (punkty kodowe) —
+        # Podpowiedzi i menu kontekstowe dla pozycji tekstu (punkty kodowe) -
         # dopisują kontrolery (opis ostrzeżenia, „Ignoruj tutaj”, znaczniki
         # czasu). Podpowiedzi pierwszego dostawcy, który coś zwrócił.
         self.tooltip_providers: list[Callable[[int], str | None]] = []
@@ -222,7 +222,7 @@ class TranscriptionEditor(QTextEdit):
         """Zakres tekstu (pozycje Pythona) widoczny w oknie edytora."""
         if positions is None:
             positions = self.position_map()
-        # Punkty w marginesie dokumentu dają przypadkowe pozycje — próbkujemy
+        # Punkty w marginesie dokumentu dają przypadkowe pozycje - próbkujemy
         # wewnątrz obszaru tekstu.
         inset = int(self.document().documentMargin()) + 1
         area = self.viewport().rect().adjusted(inset, inset, -inset, -inset)
@@ -294,7 +294,7 @@ class TranscriptionEditor(QTextEdit):
     ) -> None:
         """Wstawia tekst z indeksem górnym jednym krokiem cofania (wstawki).
 
-        Zastępuje zaznaczenie albo — gdy ``replace_before`` > 0 — tyle
+        Zastępuje zaznaczenie albo - gdy ``replace_before`` > 0 - tyle
         punktów kodowych przed kursorem (dopełnienie autouzupełniania).
         """
         cursor = self.textCursor()
@@ -359,7 +359,7 @@ class TranscriptionEditor(QTextEdit):
     ) -> None:
         """Wczytuje tekst z indeksem górnym i mówcami (projekt, import DOCX).
 
-        Wczytanie zaczyna nową historię cofania — stan sprzed otwarcia
+        Wczytanie zaczyna nową historię cofania - stan sprzed otwarcia
         należy do innego dokumentu.
         """
         self.setPlainText(text)
@@ -566,7 +566,7 @@ class TranscriptionEditor(QTextEdit):
     ) -> None:
         """Zastępuje zaznaczenie kursora i zaznacza nim wstawiony tekst."""
         start = cursor.selectionStart()
-        # Zamiennik nie dziedziczy indeksu górnego po sąsiednim znaku — format
+        # Zamiennik nie dziedziczy indeksu górnego po sąsiednim znaku - format
         # nadają wyłącznie ``superscript_ranges``.
         plain_format = cursor.charFormat()
         plain_format.setVerticalAlignment(QTextCharFormat.VerticalAlignment.AlignNormal)

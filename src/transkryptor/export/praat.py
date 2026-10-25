@@ -1,7 +1,7 @@
 """Eksport do Praat (``.TextGrid``, format długi, UTF-8) z czasami z kotwic.
 
 Warstwa przedziałów (``IntervalTier``) na mówcę. Praat wymaga, by przedziały
-warstwy pokrywały cały czas bez luk i nakładania — luki są wypełniane
+warstwy pokrywały cały czas bez luk i nakładania - luki są wypełniane
 pustymi przedziałami, a jednostka nachodząca na poprzednią w tej samej
 warstwie zaczyna się w chwili jej końca.
 """

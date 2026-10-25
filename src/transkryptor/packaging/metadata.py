@@ -6,7 +6,7 @@ Dzięki temu wersja, nazwa pliku i wymagania nie rozjeżdżają się między
 artefaktem a tekstem, który go opisuje.
 
 Granica modułu: kod budowania nie jest częścią procesu uruchomieniowego
-aplikacji — importuje go wyłącznie narzędzie wydania.
+aplikacji - importuje go wyłącznie narzędzie wydania.
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ SUMMARY = "Lokalna aplikacja do ręcznej transkrypcji fonetycznej języka polski
 PUBLISHER = "Projekt Transkryptor"
 LICENSE_ID = "GPL-3.0-or-later"
 
-# Stały identyfikator instalacji dla Inno Setup (sam GUID, bez klamer —
+# Stały identyfikator instalacji dla Inno Setup (sam GUID, bez klamer -
 # składnię ``AppId={{GUID}`` tworzy szablon instalatora). Nie wolno go zmieniać
 # między wydaniami: po zmianie Windows potraktuje aktualizację jako drugi
 # program i pozostawi dwie instalacje obok siebie.
@@ -57,7 +57,7 @@ class Requirement:
 
 
 # Liczby pochodzą z pomiarów fazy 04 (docs/benchmarks-asr.md). Wiersz CPU jest
-# rekomendacją, a nie pomiarem na maszynie czterordzeniowej — tak jest
+# rekomendacją, a nie pomiarem na maszynie czterordzeniowej - tak jest
 # opisany również w dokumentacji i notach wydania.
 HARDWARE_REQUIREMENTS: tuple[Requirement, ...] = (
     Requirement(
@@ -69,7 +69,7 @@ HARDWARE_REQUIREMENTS: tuple[Requirement, ...] = (
     Requirement(
         resource="Dysk",
         minimum="3 GB wolnego miejsca",
-        recommended="—",
+        recommended="-",
         basis="model 1.53 GB, aplikacja ok. 0.5 GB oraz pliki tymczasowe",
     ),
     Requirement(
@@ -81,7 +81,7 @@ HARDWARE_REQUIREMENTS: tuple[Requirement, ...] = (
     Requirement(
         resource="Sieć",
         minimum="jednorazowe pobranie modelu (1.53 GB)",
-        recommended="—",
+        recommended="-",
         basis="po pobraniu praca bez dostępu do Internetu",
     ),
 )

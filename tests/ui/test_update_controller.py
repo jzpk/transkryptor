@@ -117,7 +117,7 @@ def test_automatic_check_is_silent(qtbot, window, no_blocking_dialogs, status) -
 
 
 def test_no_manual_update_button(window) -> None:
-    """Sprawdzanie jest tylko przy starcie — bez przycisku na pasku."""
+    """Sprawdzanie jest tylko przy starcie - bez przycisku na pasku."""
     assert "update" not in COLLAPSE_ORDER
     assert not hasattr(window.updates, "check_action")
     texts = [action.text() for action in window.findChildren(QAction)]
@@ -178,7 +178,7 @@ def test_startup_screen_shows_stages_and_closes_when_done(qtbot) -> None:
     assert screen.progress.value() * 2 == screen.progress.maximum()
     assert "50%" in screen.detail_label.text()
     screen.set_progress(1 << 20, None)
-    assert screen.progress.maximum() == 0  # bez całości — pasek nieokreślony
+    assert screen.progress.maximum() == 0  # bez całości - pasek nieokreślony
     screen.finish()
     screen.wait()  # zakończony ekran nie blokuje
     assert screen.is_done

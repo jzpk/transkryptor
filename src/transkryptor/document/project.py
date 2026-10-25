@@ -3,18 +3,18 @@
 Projekt to jeden plik JSON (UTF-8) z polem ``schema_version``. Zawiera
 tekst z zakresami indeksu górnego, autora, datę i metryczkę, odwołanie do
 nagrania (ścieżka względna do pliku projektu, bezwzględna jako podpowiedź
-i suma SHA-256 — bez osadzania audio), pozycję odtwarzania, pętlę A–B,
+i suma SHA-256 - bez osadzania audio), pozycję odtwarzania, pętlę A–B,
 ostatni wynik ASR (tekst i segmenty z czasami i pewnością) oraz pozycje
 przeglądu reguł (zakres w tekście, kod reguły i treść propozycji), a od
 schematu 2 także kontekst nagrania i słownik projektu dla ASR, od
-schematu 3 — ostrzeżenia walidatora zignorowane w konkretnych miejscach,
-od schematu 4 — kotwice czasowe tekstu (``document/anchors.py``), od
-schematu 5 — mówcy nagrania, ich przypisanie do akapitów
+schematu 3 - ostrzeżenia walidatora zignorowane w konkretnych miejscach,
+od schematu 4 - kotwice czasowe tekstu (``document/anchors.py``), od
+schematu 5 - mówcy nagrania, ich przypisanie do akapitów
 (``document/speakers.py``) i mówcy segmentów ASR z podziału na mówców, a od
-schematu 6 — komentarze recenzji z odpowiedziami (``document/comments.py``).
+schematu 6 - komentarze recenzji z odpowiedziami (``document/comments.py``).
 
 Zapis jest atomowy: plik tymczasowy w katalogu docelowym, ``fsync``
-i ``os.replace`` — przerwany zapis nie psuje poprzedniej wersji. Odczyt
+i ``os.replace`` - przerwany zapis nie psuje poprzedniej wersji. Odczyt
 przechodzi przez :func:`migrate`, który podnosi starsze schematy do
 bieżącego; nowa wersja schematu to nowy wpis w ``_MIGRATIONS``.
 """
@@ -95,7 +95,7 @@ class AsrSegment:
 
 @dataclass(frozen=True)
 class AsrDraft:
-    """Ostatni wynik ASR — pozwala wstawić szkic ponownie bez transkrypcji."""
+    """Ostatni wynik ASR - pozwala wstawić szkic ponownie bez transkrypcji."""
 
     text: str
     language: str = "pl"
@@ -141,7 +141,7 @@ class ReviewEntry:
 class IgnoredWarning:
     """Ostrzeżenie walidatora zignorowane w jednym miejscu („Ignoruj tutaj”).
 
-    ``start``/``end`` to zakres w tekście dokumentu, ``text`` — treść
+    ``start``/``end`` to zakres w tekście dokumentu, ``text`` - treść
     fragmentu w chwili zapisu (kontrola przy odtwarzaniu).
     """
 
@@ -385,7 +385,7 @@ _MIGRATIONS: dict[int, Callable[[dict[str, Any]], dict[str, Any]]] = {
 def migrate(data: Any) -> dict[str, Any]:
     """Podnosi projekt do bieżącej wersji schematu.
 
-    Projekt z nowszej wersji aplikacji jest odrzucany zrozumiałym błędem —
+    Projekt z nowszej wersji aplikacji jest odrzucany zrozumiałym błędem -
     odczyt mógłby po cichu zgubić nieznane dane.
     """
     if not isinstance(data, dict):
@@ -441,7 +441,7 @@ def write_atomic(target: Path, payload: bytes, mode: int | None = None) -> None:
 
     ``tempfile`` tworzy plik z prawami ``0600``, a ``os.replace`` przenosi je
     na plik docelowy. Dlatego przed podmianą plik dostaje prawa ``mode``,
-    a bez niego — prawa istniejącego pliku albo domyślne dla nowego
+    a bez niego - prawa istniejącego pliku albo domyślne dla nowego
     (``0666`` z maską umask). Projekt na wspólnym udziale zostaje czytelny
     dla zespołu; autozapis podaje ``0o600``.
     """

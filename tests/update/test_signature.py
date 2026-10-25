@@ -52,7 +52,7 @@ def test_unknown_key_is_rejected(foreign_key) -> None:
 def test_key_id_of_a_trusted_key_with_foreign_signature_is_rejected(
     release_key, foreign_key
 ) -> None:
-    """Identyfikator klucza nie wystarczy — liczy się sam podpis."""
+    """Identyfikator klucza nie wystarczy - liczy się sam podpis."""
     lines = foreign_key.sign(SUMS, COMMENT).splitlines()
     raw = bytearray(base64.b64decode(lines[1]))
     raw[2:10] = release_key.key_id

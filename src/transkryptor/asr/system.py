@@ -51,12 +51,12 @@ def _windows_total_memory() -> int | None:
 def cuda_device_count() -> int:
     """Liczba kart CUDA widocznych dla CTranslate2 (0 przy braku lub błędzie).
 
-    Biblioteki CUDA nie są dołączane do aplikacji — GPU działa tylko, gdy
+    Biblioteki CUDA nie są dołączane do aplikacji - GPU działa tylko, gdy
     użytkownik zainstalował je sam (``docs/installation.md``).
     """
     try:
         import ctranslate2
 
         return int(ctranslate2.get_cuda_device_count())
-    except Exception:  # noqa: BLE001 — brak GPU to normalny stan
+    except Exception:  # noqa: BLE001 - brak GPU to normalny stan
         return 0

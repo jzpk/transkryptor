@@ -1,7 +1,7 @@
 """Silnik transkrypcji ASR: lokalne wykonanie, anulowanie, wynik z pewnością.
 
 Granica modułu: brak zależności od GUI ani Qt. Wykonanie jest synchroniczne
-i kooperacyjnie anulowane między segmentami — wątek tła dostarcza warstwa UI.
+i kooperacyjnie anulowane między segmentami - wątek tła dostarcza warstwa UI.
 
 Model jest ładowany wyłącznie z lokalnego katalogu (``local_files_only``),
 więc po pobraniu transkrypcja nie generuje ruchu sieciowego (ACC-11).
@@ -12,7 +12,7 @@ Urządzenie ``auto`` używa karty CUDA, gdy CTranslate2 ją widzi; błąd
 cuBLAS/cuDNN) powoduje ponowienie na CPU z informacją w wyniku (ACC-37).
 
 faster-whisper liczy cechy (spektrogram) dla całego podanego nagrania naraz,
-więc zużycie pamięci rośnie liniowo z jego długością — godzinne nagranie
+więc zużycie pamięci rośnie liniowo z jego długością - godzinne nagranie
 potrafi zająć kilka GB. Opcja ``DecodingOptions.chunked`` włącza
 :class:`ChunkedWhisperBackend`, który dekoduje plik raz i podaje modelowi
 kolejne kilkuminutowe fragmenty cięte w ciszy, dzięki czemu szczyt pamięci
@@ -20,7 +20,7 @@ nie zależy od długości nagrania.
 
 ``DecodingOptions.diarize`` dzieli wynik na mówców (``asr/diarization.py``)
 po zakończeniu transkrypcji całego nagrania; błąd diaryzacji nie przekreśla
-transkrypcji — wynik jest wtedy bez mówców, z przyczyną w
+transkrypcji - wynik jest wtedy bez mówców, z przyczyną w
 ``TranscriptionResult.diarization_note``.
 
 ``DecodingOptions.clip`` ogranicza transkrypcję do fragmentu nagrania (pętla
@@ -77,7 +77,7 @@ DEVICES = ("auto", "cpu")
 # 224 tokeny, a długi prompt sprzyja halucynacjom (powtarzaniu promptu).
 PROMPT_MAX_CHARS = 200
 _DEVICE_NOTE_MAX_CHARS = 200
-# Najdłuższy wers szkicu (w sekundach nagrania) — wers zaczyna się
+# Najdłuższy wers szkicu (w sekundach nagrania) - wers zaczyna się
 # znacznikiem czasu, by tekst i eksport nie były jednym blokiem.
 DRAFT_LINE_SECONDS = 30.0
 # Część paska postępu przypadająca na transkrypcję, gdy po niej działa
@@ -110,8 +110,8 @@ class WordResult:
 class SegmentResult:
     """Fragment hipotezy z czasem i przybliżoną pewnością (0.0–1.0).
 
-    ``words`` — słowa z czasami, gdy transkrypcja liczyła je
-    (``DecodingOptions.word_timestamps``). ``speaker`` — numer mówcy
+    ``words`` - słowa z czasami, gdy transkrypcja liczyła je
+    (``DecodingOptions.word_timestamps``). ``speaker`` - numer mówcy
     z diaryzacji (od 0, w kolejności pojawiania się); None bez diaryzacji.
     """
 
@@ -151,7 +151,7 @@ def draft_text(
     Wynik z mówcami (diaryzacja) ma wers na każdą wypowiedź: nowy wers
     zaczyna się przy zmianie mówcy. Bez mówców segmenty są łączone w wersy
     obejmujące najwyżej ``line_seconds`` nagrania (dłuższy pojedynczy
-    segment tworzy własny wers), więc tekst — także w eksporcie DOCX — ma
+    segment tworzy własny wers), więc tekst - także w eksporcie DOCX - ma
     podział co najwyżej co tyle sekund. Wynik bez segmentów (np. ze
     starszego projektu) zwraca samą hipotezę.
     """
@@ -195,7 +195,7 @@ def _draft_lines(
 
 
 def format_timestamp(seconds: float) -> str:
-    """Czas jako ``mm:ss``, a od godziny nagrania — ``h:mm:ss``."""
+    """Czas jako ``mm:ss``, a od godziny nagrania - ``h:mm:ss``."""
     minutes, secs = divmod(max(0, int(seconds)), 60)
     hours, minutes = divmod(minutes, 60)
     if hours:
@@ -208,12 +208,12 @@ class DecodingOptions:
     """Parametry transkrypcji wybrane przez użytkownika (REQ-10, REQ-21).
 
     ``initial_prompt`` i ``hotwords`` trafiają do Whispera tylko, gdy nie są
-    puste — bez nich zachowanie jest takie jak przed fazą 09. ``chunked``
+    puste - bez nich zachowanie jest takie jak przed fazą 09. ``chunked``
     włącza transkrypcję fragmentami (mniej pamięci przy długich nagraniach).
     ``word_timestamps`` dodaje do segmentów słowa z czasami i pewnością,
     a ``clip`` (sekundy od–do) ogranicza transkrypcję do fragmentu (faza 11).
     ``diarize`` dzieli wynik na mówców modelem z ``diarization_dir``; wymaga
-    słów z czasami (włącza je) i nie dotyczy fragmentu (``clip``) — numery
+    słów z czasami (włącza je) i nie dotyczy fragmentu (``clip``) - numery
     mówców fragmentu nie zgadzałyby się z całym nagraniem. ``speakers`` to
     znana liczba mówców (None: wyznaczana automatycznie).
     """
@@ -283,7 +283,7 @@ def transcribe(
     ``on_progress`` dostaje po każdym segmencie ułamek przetworzonego
     nagrania (koniec segmentu względem długości audio); nie jest wołane,
     gdy backend nie zna długości nagrania. Przy diaryzacji transkrypcja
-    zajmuje ``DIARIZED_ASR_SHARE`` postępu, a podział na mówców — resztę.
+    zajmuje ``DIARIZED_ASR_SHARE`` postępu, a podział na mówców - resztę.
     ``embedder_factory`` i ``decode`` podstawiają testy.
     """
     cancel = should_cancel or (lambda: False)
@@ -319,7 +319,7 @@ def transcribe(
             )
         except (ModelDownloadError, TranscriptionCancelled):
             raise
-        except Exception as error:  # noqa: BLE001 — GPU zawiodło → CPU
+        except Exception as error:  # noqa: BLE001 - GPU zawiodło → CPU
             if device == "cpu":
                 raise
             device, device_note = "cpu", _short(error)
@@ -328,7 +328,7 @@ def transcribe(
             )
     except (ModelDownloadError, TranscriptionCancelled):
         raise
-    except Exception as error:  # noqa: BLE001 — normalizacja do AppError
+    except Exception as error:  # noqa: BLE001 - normalizacja do AppError
         raise transcription_error(error) from error
     duration = float(getattr(info, "duration", 0) or 0)
     origin = 0.0
@@ -376,7 +376,7 @@ def transcribe(
             )
         except DiarizationCancelled:
             raise TranscriptionCancelled() from None
-        except Exception as error:  # noqa: BLE001 — szkic bez mówców
+        except Exception as error:  # noqa: BLE001 - szkic bez mówców
             logger.warning("Speaker diarization failed", exc_info=error)
             diarization_note = _short(error)
         else:
@@ -394,7 +394,7 @@ def transcribe(
 
 
 def _speech(segments: Iterable[SegmentResult]) -> list[tuple[float, float]]:
-    """Fragmenty mowy dla diaryzacji: słowa, a bez słów — cały segment."""
+    """Fragmenty mowy dla diaryzacji: słowa, a bez słów - cały segment."""
     spans: list[tuple[float, float]] = []
     for segment in segments:
         if segment.words:
@@ -446,7 +446,7 @@ def _guarded(raw_segments: Iterable[Any]) -> Iterator[Any]:
             raw = next(iterator)
         except StopIteration:
             return
-        except Exception as error:  # noqa: BLE001 — normalizacja do AppError
+        except Exception as error:  # noqa: BLE001 - normalizacja do AppError
             raise transcription_error(error) from error
         yield raw
 
@@ -483,7 +483,7 @@ def build_hotwords(*vocabularies: Iterable[str]) -> str | None:
     """Słownik dla Whispera: suma list bez powtórzeń, w kolejności podania.
 
     Hasła są przycinane z białych znaków, a całość ograniczona do
-    ``PROMPT_MAX_CHARS`` — hasła, które się nie mieszczą, są pomijane.
+    ``PROMPT_MAX_CHARS`` - hasła, które się nie mieszczą, są pomijane.
     """
     seen: set[str] = set()
     words: list[str] = []

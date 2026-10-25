@@ -2,11 +2,11 @@
 
 Zmiany widoczne dla użytkownika dopisuje się w ``CHANGELOG.md`` w sekcji
 „Nieopublikowane”, razem z kodem. Workflow wydania zamienia ją na sekcję
-wersji (``## X.Y.Z — RRRR-MM-DD``), a noty wydania przenoszą treść tej sekcji
+wersji (``## X.Y.Z - RRRR-MM-DD``), a noty wydania przenoszą treść tej sekcji
 bez zmian. Pusta sekcja blokuje wydanie: noty bez nowości byłyby kopią
 poprzednich.
 
-Moduł korzysta wyłącznie z biblioteki standardowej — workflow uruchamia go
+Moduł korzysta wyłącznie z biblioteki standardowej - workflow uruchamia go
 przed instalacją zależności:
 
     PYTHONPATH=src python3 -m transkryptor.packaging.changelog release 0.2.4
@@ -26,7 +26,7 @@ CHANGELOG_FILE = REPO_ROOT / "CHANGELOG.md"
 UNRELEASED = "Nieopublikowane"
 
 _HEADING = re.compile(r"^## (?P<title>.+?)\s*$")
-_DATE_SUFFIX = re.compile(r"\s+—\s+.*$")
+_DATE_SUFFIX = re.compile(r"\s+-\s+.*$")
 
 
 class ChangelogError(Exception):
@@ -34,7 +34,7 @@ class ChangelogError(Exception):
 
 
 def _heading_key(title: str) -> str:
-    """Nagłówek bez daty: ``0.2.3 — 2026-10-09`` → ``0.2.3``."""
+    """Nagłówek bez daty: ``0.2.3 - 2026-10-09`` → ``0.2.3``."""
     return _DATE_SUFFIX.sub("", title.strip())
 
 
@@ -111,14 +111,14 @@ def release(
     start, end = found
     if not "\n".join(lines[start + 1 : end]).strip():
         raise ChangelogError(
-            f"Sekcja „{UNRELEASED}” w {path} jest pusta — opisz zmiany "
+            f"Sekcja „{UNRELEASED}” w {path} jest pusta - opisz zmiany "
             "przed wydaniem."
         )
     when = release_date or date_type.today()
     lines[start : start + 1] = [
         f"## {UNRELEASED}",
         "",
-        f"## {version} — {when.isoformat()}",
+        f"## {version} - {when.isoformat()}",
     ]
     Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8")
 

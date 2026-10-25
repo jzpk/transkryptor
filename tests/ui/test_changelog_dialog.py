@@ -11,7 +11,7 @@ Wstęp.
 
 ## Nieopublikowane
 
-## 0.3.0 — 2026-10-10
+## 0.3.0 - 2026-10-10
 
 - Nowa funkcja **pogrubiona**.
 """
@@ -49,7 +49,7 @@ def test_dialog_renders_markdown_without_intro(qtbot) -> None:
     dialog = ChangelogDialog(text=SAMPLE)
     qtbot.addWidget(dialog)
     text = dialog.browser.toPlainText()
-    assert "0.3.0 — 2026-10-10" in text
+    assert "0.3.0 - 2026-10-10" in text
     assert "Nowa funkcja pogrubiona." in text
     assert "**" not in text
     assert "Wstęp" not in text

@@ -532,7 +532,7 @@ class TestAudioDecodingContract:
     Silnik przekazuje backendowi ścieżkę pliku, a faster-whisper dekoduje go
     przez PyAV. Ten test pilnuje tej granicy wersji: faster-whisper woła
     ``av.open(..., metadata_errors=...)``, a PyAV usunął ten argument
-    w 19.0.0 — bez ograniczenia zależności każda transkrypcja pliku
+    w 19.0.0 - bez ograniczenia zależności każda transkrypcja pliku
     kończyłaby się ``TypeError`` dopiero u użytkownika.
     """
 

@@ -173,7 +173,7 @@ class TestErrorsAndLock:
 
 class TestManyMatchesAndPositions:
     def test_only_visible_matches_are_highlighted(self, qtbot, window) -> None:
-        """PERF-06: 10 tys. trafień — pełny licznik, podświetlenia na ekranie."""
+        """PERF-06: 10 tys. trafień - pełny licznik, podświetlenia na ekranie."""
         show(qtbot, window)
         window.editor.setPlainText("\n".join(["e"] * 10_000))
         search_for(window, "e")

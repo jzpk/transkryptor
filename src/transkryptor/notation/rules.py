@@ -1,7 +1,7 @@
 """Reguły kandydatów zapisu fonetycznego jako dane (TOML, bez Qt).
 
 Reguły wbudowane są zasobem pakietu (``notation/data/builtin_rules.toml``),
-reguły użytkownika — plikiem w katalogu danych (kody z prefiksem ``USR-``).
+reguły użytkownika - plikiem w katalogu danych (kody z prefiksem ``USR-``).
 Każda reguła to wyrażenie regularne na jednym słowie albo na parze
 sąsiednich słów oraz zamiennik w składni ``^x`` (znak ``x`` w indeksie
 górnym), ``\\^`` (dosłowny ``^``), ``\\\\`` (dosłowny ``\\``) i ``\\1``…``\\9``
@@ -9,7 +9,7 @@ górnym), ``\\^`` (dosłowny ``^``), ``\\\\`` (dosłowny ``\\``) i ``\\1``…``\
 
 Ładowanie nigdy nie rzuca wyjątku: błędna reguła trafia do listy błędów
 z nazwą pliku, numerem i kodem reguły oraz polem, a pozostałe działają.
-Wzorce kompiluje pakiet ``regex`` (składnia zgodna z ``re``) — pozwala to
+Wzorce kompiluje pakiet ``regex`` (składnia zgodna z ``re``) - pozwala to
 przerwać dopasowanie z katastrofalnym nawracaniem limitem czasu
 (``notation.suggestions``).
 """
@@ -34,7 +34,7 @@ SCOPES = (SCOPE_WORD, SCOPE_PAIR)
 USER_PREFIX = "USR-"
 MAX_PATTERN_LENGTH = 200
 BUILTIN_SOURCE = "builtin_rules.toml"
-# Tekst bez języka (reguły użytkownika) — pokazywany w każdym języku.
+# Tekst bez języka (reguły użytkownika) - pokazywany w każdym języku.
 ANY_LANGUAGE = "*"
 
 _CODE_RE = re.compile(r"^[A-Z0-9][A-Z0-9-]*$")
@@ -127,7 +127,7 @@ class Template:
 
 
 class TemplateError(ValueError):
-    """Błędny zamiennik — komunikat dla użytkownika."""
+    """Błędny zamiennik - komunikat dla użytkownika."""
 
 
 def localized(texts: Mapping[str, str]) -> str:
@@ -366,7 +366,7 @@ def _text_value(texts: Mapping[str, str]) -> str | dict[str, str]:
 
 
 def dumps_rules(rules: Iterable[PhoneticRule]) -> str:
-    """Zestaw reguł jako TOML (prosty generator — ``tomllib`` tylko czyta)."""
+    """Zestaw reguł jako TOML (prosty generator - ``tomllib`` tylko czyta)."""
     lines = [f"# {tr('rules.file_header')}", ""]
     for rule in rules:
         lines.append("[[rule]]")

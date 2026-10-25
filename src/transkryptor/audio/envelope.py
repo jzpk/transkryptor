@@ -3,7 +3,7 @@
 Obwiednia to wartość szczytowa amplitudy co ``STEP_MS`` milisekund,
 zapisana jako bajty 0–255 (godzina nagrania ≈ 360 KB). Nagranie dekoduje
 PyAV (ta sama zależność co ASR) strumieniowo, po resamplingu do mono
-``ENVELOPE_RATE`` Hz — pamięć nie rośnie z długością nagrania.
+``ENVELOPE_RATE`` Hz - pamięć nie rośnie z długością nagrania.
 
 Wynik jest zapisywany w katalogu pamięci podręcznej użytkownika pod sumą
 SHA-256 nagrania; ponowne otwarcie tego samego nagrania nie dekoduje go
@@ -56,7 +56,7 @@ def compute_envelope(
     """Dekoduje nagranie i zwraca obwiednię.
 
     ``should_cancel`` przerywa dekodowanie (``InterruptedError``); błąd
-    odczytu pliku — ``OSError`` albo wyjątek PyAV (``av.FFmpegError``).
+    odczytu pliku - ``OSError`` albo wyjątek PyAV (``av.FFmpegError``).
     """
     import av
     import numpy as np

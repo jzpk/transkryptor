@@ -44,7 +44,7 @@ def user_rule(**overrides) -> str:
 
 
 def _old_rules(word: str) -> list[tuple[str, int, int, str, tuple]]:
-    """Reguły z wersji 0.4.0 (kod Pythona) — wzorzec dla testu równoważności."""
+    """Reguły z wersji 0.4.0 (kod Pythona) - wzorzec dla testu równoważności."""
     edits = []
     if len(word) > 1 and word.endswith("ą"):
         edits.append(("SUG-NAS-A-FINAL", len(word) - 1, len(word), "om", ((1, 2),)))
@@ -205,7 +205,7 @@ class TestTemplate:
 
 class TestCatastrophicBacktracking:
     def test_slow_pattern_is_interrupted_and_reported(self) -> None:
-        """ACC-42: wolny wzorzec nie blokuje — reguła przerwana, reszta działa."""
+        """ACC-42: wolny wzorzec nie blokuje - reguła przerwana, reszta działa."""
         slow = parse_rules(
             user_rule(code='"USR-SLOW"', pattern="'(a|aa)+$'", replacement="'x'"),
             "u.toml",

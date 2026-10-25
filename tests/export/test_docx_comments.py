@@ -56,7 +56,7 @@ def test_comment_with_reply_covers_its_fragment(tmp_path) -> None:
     assert comment.initials == "EK"
     assert [p.text for p in comment.paragraphs] == [
         "Raczej „buło”?",
-        "Odpowiedź — Jan (2026-10-24 15:00): Poprawione.",
+        "Odpowiedź - Jan (2026-10-24 15:00): Poprawione.",
     ]
     assert commented_text(read, comment.comment_id) == "było"
     assert comment._comment_elm.get(_w("date")) == "2026-10-24T14:05:00"

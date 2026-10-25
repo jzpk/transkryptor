@@ -58,7 +58,7 @@ def test_narrow_window_moves_buttons_to_more_menu(qtbot, window) -> None:
     collapsed = toolbar.collapsed_actions()
     assert collapsed
     assert toolbar.more_button.isVisible() or toolbar.notation_more_button.isVisible()
-    # Własne dopasowanie zastępuje rozszerzenie Qt — nic nie wystaje poza pasek.
+    # Własne dopasowanie zastępuje rozszerzenie Qt - nic nie wystaje poza pasek.
     assert not qt_extension_visible(window)
     assert toolbar.toolbar.sizeHint().width() <= toolbar.toolbar.width()
     for action in collapsed:
@@ -95,9 +95,9 @@ def test_widening_restores_buttons(qtbot, window) -> None:
 
 
 def test_each_group_collapses_into_menu_next_to_it(qtbot, window) -> None:
-    """Znaczniki — do ☰ przed „Szkic ASR”; narzędzia i sesja — do ☰ na końcu."""
+    """Znaczniki - do ☰ przed „Szkic ASR”; narzędzia i sesja - do ☰ na końcu."""
     # Narzędzia mieszczą się w najwęższym oknie (karta edytora), więc
-    # zwężamy sam pasek — na stałe, żeby układ okna go nie rozszerzył.
+    # zwężamy sam pasek - na stałe, żeby układ okna go nie rozszerzył.
     window.toolbar.setMaximumWidth(400)
     qtbot.waitUntil(lambda: window.toolbar.width() <= 400)
     qtbot.wait(20)
@@ -115,7 +115,7 @@ def test_each_group_collapses_into_menu_next_to_it(qtbot, window) -> None:
         a.text() for a in hidden_tools
     ]
     # ☰ notacji stoi za ostatnim widocznym znacznikiem, a przed przyciskami
-    # z prawej strony paska; ☰ narzędzi — na samym końcu.
+    # z prawej strony paska; ☰ narzędzi - na samym końcu.
     visible_right = [
         toolbar.button_for(a)
         for a in (window.asr_panel_action, window.export_action)

@@ -2,7 +2,7 @@
 
 Ikony są liniowe (siatka 24×24, obrys 2 px) i barwione w czasie działania
 kolorem motywu, więc pasują do trybu jasnego i ciemnego bez osobnych plików.
-Definicje są autorskie — projekt nie dołącza zewnętrznych zestawów ikon.
+Definicje są autorskie - projekt nie dołącza zewnętrznych zestawów ikon.
 
 Ikony widżetów ustawia się przez ``set_icon``/``set_pixmap`` z nazwami
 tokenów motywu (np. ``"text"``), a nie z gotowymi kolorami: po zmianie

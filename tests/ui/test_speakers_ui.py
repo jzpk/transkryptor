@@ -94,7 +94,7 @@ def test_project_round_trip_and_docx_labels(add_window, tmp_path) -> None:
     assert reopened.session.open_project(path)
     assert reopened.document.paragraph_speakers == {0: "B", 1: "I", 2: "I2"}
     assert reopened.editor.paragraph_speakers() == {0: "B", 1: "I", 2: "I2"}
-    assert "I2 — AK" in reopened.metadata_form.speakers_label.text()
+    assert "I2 - AK" in reopened.metadata_form.speakers_label.text()
 
     target = tmp_path / "wywiad.docx"
     export_docx(reopened.document, target)
@@ -170,7 +170,7 @@ def test_context_menu_lists_speakers(add_window) -> None:
     submenu = menu.actions()[-1].menu()
     assert isinstance(submenu, QMenu)
     texts = [action.text() for action in submenu.actions() if action.text()]
-    assert texts[0].startswith("B — Badacz")
+    assert texts[0].startswith("B - Badacz")
     submenu.actions()[1].trigger()
     assert window.document.paragraph_speakers == {0: "I"}
 
@@ -220,7 +220,7 @@ def test_diarized_draft_gets_speaker_paragraphs(add_window, tmp_path) -> None:
     assert window.document.text == (
         "[00:00] Gdzie pani mieszka?\n[00:02] Tu, we wsi.\n[00:05] A brat?"
     )
-    # Pierwszy głos to pierwszy mówca z listy (B), drugi — I.
+    # Pierwszy głos to pierwszy mówca z listy (B), drugi - I.
     assert window.document.paragraph_speakers == {0: "B", 1: "I", 2: "B"}
     assert window.editor.speaker_gutter.isVisibleTo(window)
 

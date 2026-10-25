@@ -37,7 +37,7 @@ DOCX_SUFFIX = ".docx"
 class ExportController(QObject):
     """Wybór pliku i formatu, zapis i oznaczenie dokumentu jako wyeksportowanego.
 
-    Oznaczenie dotyczy tylko pełnego eksportu DOCX (nie anonimizowanego) —
+    Oznaczenie dotyczy tylko pełnego eksportu DOCX (nie anonimizowanego) -
     DOCX pozostaje głównym formatem pracy.
     """
 

@@ -103,7 +103,7 @@ def test_icon_matches_platform() -> None:
 
 
 def test_native_libraries_are_never_stripped() -> None:
-    """strip uszkadza OpenBLAS z numpy w AppImage — ASR przestaje działać."""
+    """strip uszkadza OpenBLAS z numpy w AppImage - ASR przestaje działać."""
     assert bundle.analysis_options("linux")["strip"] is False
     assert bundle.analysis_options("win32")["strip"] is False
 

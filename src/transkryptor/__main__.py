@@ -2,7 +2,7 @@
 
 Poza oknem punkt wejścia obsługuje dwa przełączniki potrzebne przy odbiorze
 wydania (faza 05): ``--version`` oraz ``--self-test``, który sprawdza
-kompletność artefaktu bez otwierania interfejsu — także na maszynie bez
+kompletność artefaktu bez otwierania interfejsu - także na maszynie bez
 serwera okien.
 """
 
@@ -64,7 +64,7 @@ def self_test(stream=None) -> int:
     # Strumień rozstrzygany przy wywołaniu, a nie przy definicji: inaczej
     # funkcja pisałaby do wyjścia sprzed podmiany (także w testach).
     stream = stream if stream is not None else sys.stdout
-    # Raport bywa po polsku, a wyjście — w kodowaniu bez polskich znaków
+    # Raport bywa po polsku, a wyjście - w kodowaniu bez polskich znaków
     # (Windows: przekierowanie do pliku lub potoku w cp1252). Znak spoza
     # kodowania nie może przerwać diagnostyki.
     reconfigure = getattr(stream, "reconfigure", None)
@@ -92,7 +92,7 @@ def self_test(stream=None) -> int:
     for name in REQUIRED_MODULES:
         try:
             import_module(name)
-        except Exception as error:  # noqa: BLE001 — raport, nie przerwanie
+        except Exception as error:  # noqa: BLE001 - raport, nie przerwanie
             problems.append(tr("selftest.missing_module", name=name, reason=error))
             print(f"  [{tr('selftest.error_tag')}] {name}", file=stream)
         else:
@@ -149,7 +149,7 @@ def _check_asr_worker() -> str | None:
     try:
         if not worker.ping():
             return "timeout"
-    except Exception as error:  # noqa: BLE001 — raport, nie przerwanie
+    except Exception as error:  # noqa: BLE001 - raport, nie przerwanie
         return str(error) or type(error).__name__
     finally:
         worker.shutdown()
@@ -176,8 +176,8 @@ def install_qt_translations(app, language: str | None = None) -> bool:
     Język pochodzi z ustawień aplikacji (``configure_language``), a nie
     z systemu, żeby standardowe przyciski mówiły tym samym językiem co reszta
     interfejsu. Pliki ``qtbase_*.qm`` dostarcza PySide6 (także w artefakcie
-    wydania). Angielski to język źródłowy Qt — nie wymaga pliku. Zwraca
-    False, gdy tłumaczenia nie znaleziono — wtedy przyciski są angielskie.
+    wydania). Angielski to język źródłowy Qt - nie wymaga pliku. Zwraca
+    False, gdy tłumaczenia nie znaleziono - wtedy przyciski są angielskie.
     """
     from PySide6.QtCore import QLibraryInfo, QLocale, QTranslator
 
@@ -198,7 +198,7 @@ def install_qt_translations(app, language: str | None = None) -> bool:
 
 def main(argv: list[str] | None = None) -> int:
     # Proces roboczy ASR (``asr/worker.py``) w wydaniu PyInstaller startuje
-    # z tego samego pliku wykonywalnego — freeze_support go obsługuje i kończy.
+    # z tego samego pliku wykonywalnego - freeze_support go obsługuje i kończy.
     multiprocessing.freeze_support()
     configure_language()
     parser = argparse.ArgumentParser(
@@ -232,7 +232,7 @@ def main(argv: list[str] | None = None) -> int:
     apply_theme(app)
     log_qt_environment(app)
     window = open_main_window(app)
-    # ACC-30: propozycja odzyskania pracy po awarii — gdy okno już widać.
+    # ACC-30: propozycja odzyskania pracy po awarii - gdy okno już widać.
     QTimer.singleShot(0, window.session.offer_recovery)
     QTimer.singleShot(0, window.report_rule_errors)
     code = app.exec()
@@ -245,7 +245,7 @@ def open_main_window(app):
 
     Okno powstaje, gdy ekran sprawdza aktualizacje (i ewentualnie pobiera
     nową wersję). Po zakończeniu albo „Pomiń” przebieg przejmuje kontroler
-    aktualizacji okna — pominięte pobieranie kończy się w tle.
+    aktualizacji okna - pominięte pobieranie kończy się w tle.
     """
     from transkryptor.ui.main_window import MainWindow
     from transkryptor.ui.startup_screen import StartupScreen
@@ -281,7 +281,7 @@ def start_diagnostics() -> None:
 
 
 def log_qt_environment(app) -> None:
-    """Qt, wtyczka platformy i ekrany — częste źródło błędów wyświetlania."""
+    """Qt, wtyczka platformy i ekrany - częste źródło błędów wyświetlania."""
     from PySide6.QtCore import QLocale, qVersion
 
     screens = ", ".join(

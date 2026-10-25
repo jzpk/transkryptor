@@ -84,11 +84,11 @@ class NativeLibraryNote:
 # PyAV: koło ``av`` dołącza własny zestaw bibliotek FFmpeg w katalogu
 # ``av.libs``. Obecność ``libx264`` i ``libx265`` dowodzi, że ten FFmpeg jest
 # zbudowany z ``--enable-gpl``, więc całość rozprowadzamy jako
-# GPL-2.0-or-later — zgodnie z licencją aplikacji (GPL-3.0-or-later).
+# GPL-2.0-or-later - zgodnie z licencją aplikacji (GPL-3.0-or-later).
 # Wymusza to dołączenie tekstów licencji oraz wskazania źródeł tych bibliotek.
 #
 # Qt: PyInstaller pakuje Qt jako osobne biblioteki dynamiczne (tryb onedir),
-# więc użytkownik może je podmienić — to warunek zgodności z LGPL-3.0.
+# więc użytkownik może je podmienić - to warunek zgodności z LGPL-3.0.
 NATIVE_LIBRARY_NOTES: tuple[NativeLibraryNote, ...] = (
     NativeLibraryNote(
         component="Qt 6 (biblioteki dynamiczne wraz z PySide6)",
@@ -275,8 +275,8 @@ def _looks_like_license(entry: PurePath) -> bool:
 def _license_files(dist: importlib_metadata.Distribution) -> list[Path]:
     """Pliki z tekstem licencji dołączone do koła pakietu.
 
-    Szuka w katalogu metadanych (``*.dist-info``) oraz — bo część kół trzyma
-    licencję przy kodzie, np. ``onnxruntime/LICENSE`` — na pierwszych dwóch
+    Szuka w katalogu metadanych (``*.dist-info``) oraz - bo część kół trzyma
+    licencję przy kodzie, np. ``onnxruntime/LICENSE`` - na pierwszych dwóch
     poziomach samego pakietu.
     """
     found: list[Path] = []
@@ -375,10 +375,10 @@ def render_notices(distributions: tuple[DistributionLicense, ...]) -> str:
         files = (
             "<br>".join(f"`{path}`" for path in dist.files)
             if dist.files
-            else "**brak tekstu — do uzupełnienia przed wydaniem**"
+            else "**brak tekstu - do uzupełnienia przed wydaniem**"
         )
         if not dist.files:
-            origin = "—"
+            origin = "-"
         elif dist.from_wheel:
             origin = "koło PyPI"
         else:
@@ -404,7 +404,7 @@ def render_notices(distributions: tuple[DistributionLicense, ...]) -> str:
         )
     lines += ["", "### Uwagi", ""]
     for note in NATIVE_LIBRARY_NOTES:
-        lines.append(f"- **{note.component}** — {note.note}")
+        lines.append(f"- **{note.component}** - {note.note}")
     font, author, font_license, font_url = FONT_NOTICE
     lines += [
         "",
@@ -426,7 +426,7 @@ def render_notices(distributions: tuple[DistributionLicense, ...]) -> str:
         "Odpowiadający im kod źródłowy jest dostępny pod adresami wskazanymi",
         "w kolumnie „Źródło”, w wersjach wymienionych w tabelach powyżej.",
         f"Kod źródłowy samej aplikacji dostarcza {PUBLISHER} na tych samych",
-        "warunkach co artefakt — patrz noty wydania.",
+        "warunkach co artefakt - patrz noty wydania.",
         "",
     ]
     return "\n".join(lines)

@@ -3,12 +3,12 @@
 # Format opisuje specs/transcription-rules.md („Reguły fonetyczne jako dane”).
 # Wzorzec to wyrażenie regularne na jednym słowie (scope = "word") albo na
 # parze sąsiednich słów rozdzielonych odstępem (scope = "pair"). W zamienniku
-# ^x oznacza znak x w indeksie górnym, \^ — dosłowny ^, \1…\9 — grupę wzorca.
+# ^x oznacza znak x w indeksie górnym, \^ - dosłowny ^, \1…\9 - grupę wzorca.
 # auto_apply = true zaznacza regułę w panelu ASR (stosowana od razu po
 # wstawieniu szkicu); pozostałe dają tylko propozycje.
 #
 # Pierwsze pięć reguł odpowiada regułom z wersji 0.4.0. Pewności kolejnych
-# są orientacyjne — kalibracja na korpusie w fazie 15.
+# są orientacyjne - kalibracja na korpusie w fazie 15.
 
 [[rule]]
 code = "SUG-NAS-A-FINAL"

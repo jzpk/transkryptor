@@ -2,14 +2,14 @@
 
 ``SessionController`` jest właścicielem modelu ``Document`` bieżącej sesji
 i pliku projektu (``.transkr``). Pilnuje, by praca nie zginęła bez
-potwierdzenia (REQ-09, ACC-10, ACC-31) — przy nowym dokumencie, otwarciu
+potwierdzenia (REQ-09, ACC-10, ACC-31) - przy nowym dokumencie, otwarciu
 projektu, imporcie DOCX i zamknięciu: dokument z plikiem projektu pyta
-o niezapisane zmiany, dokument bez pliku — o niewyeksportowane. Okno pytania
+o niezapisane zmiany, dokument bez pliku - o niewyeksportowane. Okno pytania
 ma opcję „Zapisz”. Zmiana nagrania nie porzuca tekstu, więc ma osobne
 pytanie: tylko gdy zastępuje inne nagranie albo usuwa wynik ASR.
 
 Sumę SHA-256 nagrania liczy wątek w tle (``ui/audio_hash.py``); zapis
-projektu czeka na nią, autozapis — nie (pusta suma = brak weryfikacji).
+projektu czeka na nią, autozapis - nie (pusta suma = brak weryfikacji).
 
 Kontroler zapisuje i otwiera projekty (ACC-28, ACC-29), importuje DOCX
 (ACC-33) i odzyskuje pracę z autozapisu (ACC-30, ``ui/autosave.py``).
@@ -118,7 +118,7 @@ class SessionController(QObject):
         self._on_reset = on_reset
         self._on_state_changed = on_state_changed
         # Wołane przed zastąpieniem treści edytora (nowy dokument, projekt,
-        # import DOCX, odzyskanie) — np. koniec porównania wersji.
+        # import DOCX, odzyskanie) - np. koniec porównania wersji.
         self.before_replace: Callable[[], None] = lambda: None
         # Liczenie sumy nagrania w tle; testy podstawiają wolną imitację.
         self.hash_impl: HashFunction = file_sha256
@@ -133,7 +133,7 @@ class SessionController(QObject):
         """Dokument sesji zsynchronizowany z edytorem.
 
         Edycja tylko zaznacza zmianę (:meth:`mark_editor_changed`); pełna
-        synchronizacja odbywa się tu, przy pierwszym odczycie — zapis,
+        synchronizacja odbywa się tu, przy pierwszym odczycie - zapis,
         eksport, autozapis i walidacja zawsze widzą bieżący tekst.
         """
         self.flush_editor()
@@ -158,7 +158,7 @@ class SessionController(QObject):
 
     @property
     def audio_sha256(self) -> str | None:
-        """Suma SHA-256 bieżącego nagrania (None — brak albo jeszcze liczona)."""
+        """Suma SHA-256 bieżącego nagrania (None - brak albo jeszcze liczona)."""
         return self._audio.sha256 if self._audio is not None else None
 
     @property
@@ -215,7 +215,7 @@ class SessionController(QObject):
         self._asr_panel.set_context_default(asr_context_hint(values))
 
     def asr_context_changed(self) -> None:
-        """Kontekst lub słownik ASR to dane projektu — nie tekst eksportu."""
+        """Kontekst lub słownik ASR to dane projektu - nie tekst eksportu."""
         self.project_data_changed()
 
     def project_data_changed(self) -> None:
@@ -231,7 +231,7 @@ class SessionController(QObject):
         self._on_state_changed()
 
     def comments_changed(self) -> None:
-        """Komentarze trafiają do eksportu DOCX — zmiana jak zmiana tekstu."""
+        """Komentarze trafiają do eksportu DOCX - zmiana jak zmiana tekstu."""
         self.document.touch()
         self._on_state_changed()
 
@@ -261,7 +261,7 @@ class SessionController(QObject):
     def import_audio(self, path: str) -> None:
         """Zmienia nagranie; tekst i metryczka zostają (REQ-09).
 
-        Wynik ASR poprzedniego nagrania jest usuwany — jego segmenty nie
+        Wynik ASR poprzedniego nagrania jest usuwany - jego segmenty nie
         mogą przewijać nowego pliku ani trafić do projektu (ACC-20).
         """
         if not self._confirm_audio_change(path):
@@ -281,7 +281,7 @@ class SessionController(QObject):
         if self.project_path is not None:
             self.document.touch()  # projekt wskazuje teraz inne nagranie
         if not self._metadata_form.value(SIGNATURE).strip():
-            # Sama podpowiedź w pustej pracy nie jest pracą do ochrony —
+            # Sama podpowiedź w pustej pracy nie jest pracą do ochrony -
             # zmiana nagrania lub zamknięcie nie pytają o nią (REQ-09).
             pristine = not self.has_unsaved_work and not self.document.text.strip()
             self._metadata_form.set_value(SIGNATURE, signature_from_audio(path))
@@ -427,7 +427,7 @@ class SessionController(QObject):
     # --- zapis projektu --------------------------------------------------------
 
     def save_project(self) -> bool:
-        """Zapisuje projekt (bez pliku — pyta o nazwę); False = nie zapisano."""
+        """Zapisuje projekt (bez pliku - pyta o nazwę); False = nie zapisano."""
         if self.project_path is None:
             return self.save_project_as()
         return self._write_project(self.project_path)

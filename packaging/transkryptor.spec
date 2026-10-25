@@ -3,7 +3,7 @@
 
 Plik jest celowo cienki: wszystkie decyzje o zawartości artefaktu żyją
 w ``transkryptor.packaging.bundle`` i są objęte testami. Tryb onedir jest
-wymagany — biblioteki Qt muszą zostać osobnymi plikami dynamicznymi, żeby
+wymagany - biblioteki Qt muszą zostać osobnymi plikami dynamicznymi, żeby
 użytkownik mógł je podmienić (LGPL-3.0).
 
 Uruchomienie bezpośrednie (zwykle wywoływane przez

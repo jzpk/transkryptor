@@ -154,7 +154,7 @@ class TestSaveAndOpen:
         window.save_action.trigger()
         assert path.is_file()
         assert not window.document.is_unsaved
-        assert window.windowTitle() == "Transkryptor — AdK.transkr"
+        assert window.windowTitle() == "Transkryptor - AdK.transkr"
         assert window.settings_store.recent_projects()[0] == str(path)
 
         reopened = add_window(MainWindow())
@@ -248,7 +248,7 @@ class TestSaveAndOpen:
 
 
 class TestMovedOrChangedAudio:
-    """ACC-29: przeniesione nagranie — prośba o plik; podmienione — ostrzeżenie."""
+    """ACC-29: przeniesione nagranie - prośba o plik; podmienione - ostrzeżenie."""
 
     def _project(self, qtbot, window, audio, tmp_path, monkeypatch) -> Path:
         load_audio(qtbot, window, audio)
@@ -590,7 +590,7 @@ class TestMetadataForm:
         window.export_anonymized_action.trigger()
         read = DocxDocument(str(target))
         assert [row.cells[0].text for row in read.tables[0].rows] == ["Sygnatura"]
-        # Pełna wersja nie powstała — ostrzeżenie ACC-10 zostaje.
+        # Pełna wersja nie powstała - ostrzeżenie ACC-10 zostaje.
         assert window.document.is_dirty
         assert window.session.has_unsaved_work
 

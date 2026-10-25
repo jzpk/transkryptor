@@ -28,7 +28,7 @@ def fake_home(monkeypatch):
 
 @pytest.fixture
 def log_dir(tmp_path):
-    """Dziennik włączony w katalogu tymczasowym; po teście — wyłączony."""
+    """Dziennik włączony w katalogu tymczasowym; po teście - wyłączony."""
     directory = tmp_path / "logs"
     path = diagnostics.configure_logging(directory)
     assert path == directory / diagnostics.LOG_FILE_NAME

@@ -12,7 +12,7 @@ import pytest
 from transkryptor.packaging import metadata
 from transkryptor.packaging.metadata import REPO_ROOT
 
-# Dokumenty wydania leżą w specs/docs, poza repozytorium (.gitignore) — w CI
+# Dokumenty wydania leżą w specs/docs, poza repozytorium (.gitignore) - w CI
 # ich nie ma, więc testy treści są wtedy pomijane, a testy workflow zostają.
 DOCS = REPO_ROOT / "specs" / "docs"
 INSTALLATION = DOCS / "installation.md"
@@ -21,7 +21,7 @@ RELEASE_PROCESS = DOCS / "release-process.md"
 LICENSES = DOCS / "licenses.md"
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "release.yml"
 
-# Lista kontrolna wydania z specs/delivery.md — każda pozycja musi zostać
+# Lista kontrolna wydania z specs/delivery.md - każda pozycja musi zostać
 # przeniesiona do instrukcji, z której korzysta wydawca.
 DELIVERY_CHECKLIST = (
     "Instalator nie wymaga interpretera Python.",
@@ -118,7 +118,7 @@ def test_workflow_builds_both_platforms_natively() -> None:
 
 
 def test_workflows_pin_actions_to_commit_shas() -> None:
-    """Tag akcji można przesunąć; SHA commitu — nie (SEC-04)."""
+    """Tag akcji można przesunąć; SHA commitu - nie (SEC-04)."""
     for workflow in WORKFLOW.parent.glob("*.yml"):
         for line in workflow.read_text(encoding="utf-8").splitlines():
             if "uses:" in line:
@@ -168,7 +168,7 @@ def test_windows_self_test_does_not_wait_for_the_whole_process_tree() -> None:
     """Start-Process -Wait czeka też na program uruchomiony przez instalator.
 
     Cicha instalacja startuje okno aplikacji (WizardSilent), które samo się
-    nie zamyka — z -Wait krok wydania 0.3.0 wisiał do anulowania.
+    nie zamyka - z -Wait krok wydania 0.3.0 wisiał do anulowania.
     """
     text = WORKFLOW.read_text(encoding="utf-8")
     step = text.split("- name: Instalacja i --self-test", 1)[1].split("- uses:", 1)[0]

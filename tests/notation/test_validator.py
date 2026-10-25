@@ -20,11 +20,11 @@ class TestPauseRule:
     """VAL-01 i VAL-04 z acceptance.md i transcription-rules.md."""
 
     def test_acc04_cut_off_words_are_not_reported(self) -> None:
-        """ACC-04: `jeż... kam... kamionka` — brak błędu pauzy."""
+        """ACC-04: `jeż... kam... kamionka` - brak błędu pauzy."""
         assert validate("jeż... kam... kamionka") == []
 
     def test_acc05_missing_space_after_pause(self) -> None:
-        """ACC-05: `rzeczy ...bo` — ostrzeżenie VAL-01."""
+        """ACC-05: `rzeczy ...bo` - ostrzeżenie VAL-01."""
         warnings = validate("rzeczy ...bo")
         assert [warning.code for warning in warnings] == ["VAL-01"]
         warning = warnings[0]
@@ -89,7 +89,7 @@ class TestAsideRule:
     """VAL-02: niedomknięty dopisek."""
 
     def test_acc06_unclosed_aside(self) -> None:
-        """ACC-06: `trzea [świnię` — ostrzeżenie VAL-02."""
+        """ACC-06: `trzea [świnię` - ostrzeżenie VAL-02."""
         warnings = validate("trzea [świnię")
         assert [warning.code for warning in warnings] == ["VAL-02"]
         assert warnings[0].start == 6
@@ -99,7 +99,7 @@ class TestAsideRule:
         assert validate("trzea [świnię] rościońdź") == []
 
     def test_ascii_ellipsis_aside_is_only_val02(self) -> None:
-        """`[...` to dopisek z kropkami ASCII — bez VAL-03."""
+        """`[...` to dopisek z kropkami ASCII - bez VAL-03."""
         assert codes("tekst [...") == ["VAL-02"]
 
 
@@ -107,7 +107,7 @@ class TestOmittedRule:
     """VAL-03: marker pominiętego tekstu inny niż `[…?]`."""
 
     def test_acc07_wrong_omitted_marker(self) -> None:
-        """ACC-07: `odstraszy […] inne ptaki` — ostrzeżenie VAL-03."""
+        """ACC-07: `odstraszy […] inne ptaki` - ostrzeżenie VAL-03."""
         warnings = validate("odstraszy […] inne ptaki")
         assert [warning.code for warning in warnings] == ["VAL-03"]
         warning = warnings[0]

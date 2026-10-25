@@ -3,7 +3,7 @@
 Podświetlenia należą do widoku, nie do dokumentu: nie są formatem znaków,
 nie trafiają do ``Document``, pliku projektu ani eksportu DOCX. Każdy
 kontroler zarządza własną warstwą, a edytor składa je w kolejności
-``LAYER_ORDER`` — późniejsza warstwa jest rysowana na wierzchu.
+``LAYER_ORDER`` - późniejsza warstwa jest rysowana na wierzchu.
 """
 
 from __future__ import annotations
@@ -83,7 +83,7 @@ def solid_underline(cursor: QTextCursor, color: QColor) -> QTextEdit.ExtraSelect
 
 
 def dotted_underline(cursor: QTextCursor, color: QColor) -> QTextEdit.ExtraSelection:
-    """Kropkowane podkreślenie zakresu (niepewne słowa — inaczej niż ostrzeżenia)."""
+    """Kropkowane podkreślenie zakresu (niepewne słowa - inaczej niż ostrzeżenia)."""
     selection = QTextEdit.ExtraSelection()
     selection.cursor = cursor
     selection.format.setUnderlineStyle(QTextCharFormat.UnderlineStyle.DotLine)

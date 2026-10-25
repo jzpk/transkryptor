@@ -2,7 +2,7 @@
 
 Co interwał z ustawień (sekcja „Projekt”) ``AutosaveController`` zapisuje
 stan pracy w formacie projektu do ``autosave_dir() / <id sesji>.transkr``
-— tylko, gdy dokument zmienił się od ostatniego autozapisu i ma niezapisane
+- tylko, gdy dokument zmienił się od ostatniego autozapisu i ma niezapisane
 zmiany. Autozapis nie zmienia ``saved_revision`` i nigdy nie pisze do pliku
 projektu użytkownika. Na czas ASR jest wstrzymany; zaległy zapis wykonuje
 się po zakończeniu transkrypcji.
@@ -117,7 +117,7 @@ class AutosaveController(QObject):
         try:
             self.directory.mkdir(mode=0o700, parents=True, exist_ok=True)
             self._ensure_lock()
-            # Kopia zawiera dane osobowe metryczki — tylko dla właściciela.
+            # Kopia zawiera dane osobowe metryczki - tylko dla właściciela.
             write_atomic(
                 self.path, dumps(self._capture()).encode("utf-8"), mode=PRIVATE_MODE
             )
@@ -181,7 +181,7 @@ class RecoveryCandidate:
             return tr("recovery.unreadable", when=when)
         audio = self.state.audio.name if self.state.audio else tr("recovery.no_audio")
         words = self.state.word_count
-        return f"{when} — {audio} — {words} {words_label(words)}"
+        return f"{when} - {audio} - {words} {words_label(words)}"
 
     def remove(self) -> None:
         self.path.unlink(missing_ok=True)
@@ -198,7 +198,7 @@ def find_orphans(
 ) -> list[RecoveryCandidate]:
     """Pliki autozapisu sesji, które się nie zakończyły (najnowsze pierwsze).
 
-    Zwrócone kandydaty trzymają blokadę swoich plików — inna instancja nie
+    Zwrócone kandydaty trzymają blokadę swoich plików - inna instancja nie
     zaproponuje ich równocześnie. Należy wywołać ``release`` albo ``remove``.
     Kopie starsze niż ``max_age`` są usuwane i nie trafiają do wyniku.
     """
@@ -242,7 +242,7 @@ def _lock_file(path: Path) -> QLockFile:
 
 
 class RecoveryDialog(QDialog):
-    """„Odzyskać pracę?” — lista osieroconych autozapisów.
+    """„Odzyskać pracę?” - lista osieroconych autozapisów.
 
     „Odzyskaj” zamyka okno z wybraną pozycją w ``chosen``; „Odrzuć” usuwa
     plik wybranej pozycji; „Później” zostawia pliki na następny start.

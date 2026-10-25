@@ -2,13 +2,13 @@
 
 Szablon to zwykły plik ``.docx`` (czcionki, marginesy, nagłówek, stopka,
 logo). Placeholdery ``{{nazwa}}`` w akapitach treści, tabelach, polach
-tekstowych, nagłówkach i stopkach są wypełniane metryczką nagrania —
+tekstowych, nagłówkach i stopkach są wypełniane metryczką nagrania -
 także gdy Word rozbił placeholder na kilka runów (zostaje format pierwszego).
 Nazwy są porównywane bez wielkości liter i polskich znaków
 (``{{Miejscowość}}`` = ``{{miejscowosc}}``).
 
-Placeholdery specjalne: ``{{transkrypcja}}`` — miejsce akapitów tekstu
-(bez niego tekst trafia na koniec dokumentu), ``{{metryczka}}`` — tabela
+Placeholdery specjalne: ``{{transkrypcja}}`` - miejsce akapitów tekstu
+(bez niego tekst trafia na koniec dokumentu), ``{{metryczka}}`` - tabela
 metryczki, ``{{autor}}``, ``{{data}}`` (transkrypcji) i ``{{mowcy}}``
 (legenda mówców). Szablon bez placeholderów pól i bez ``{{metryczka}}``
 dostaje dotychczasowy układ: tabelę metryczki i akapit „Autor/Data” przed
@@ -182,7 +182,7 @@ def replace_placeholders(
 ) -> list[str]:
     """Zastępuje placeholdery akapitu; zwraca nazwy, których ``resolve`` nie zna.
 
-    Placeholder może przechodzić przez kilka runów — wynik trafia do runu,
+    Placeholder może przechodzić przez kilka runów - wynik trafia do runu,
     w którym się zaczyna (z jego formatem), a jego reszta znika z kolejnych.
     """
     runs = paragraph.runs

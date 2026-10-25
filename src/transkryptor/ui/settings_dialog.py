@@ -108,7 +108,7 @@ def theme_labels() -> dict[str, str]:
 
 
 def language_labels() -> dict[str, str]:
-    """Nazwy języków w nich samych — rozpoznawalne niezależnie od bieżącego."""
+    """Nazwy języków w nich samych - rozpoznawalne niezależnie od bieżącego."""
     return {LANGUAGE_SYSTEM: tr("settings.language.system"), **LANGUAGES}
 
 
@@ -138,7 +138,7 @@ class SettingsDialog(QDialog):
         document_text: str = "",
         model_manager: ModelManager | None = None,
     ) -> None:
-        """``model_manager`` — menedżer modeli ASR (model mówców leży w tym
+        """``model_manager`` - menedżer modeli ASR (model mówców leży w tym
         samym katalogu); None oznacza katalog z ``settings``."""
         super().__init__(parent)
         self.setWindowTitle(tr("settings.title"))
@@ -416,7 +416,7 @@ class SettingsDialog(QDialog):
         )
 
         # Zakładek jest za dużo na jeden wiersz, a przewijany pasek ukrywa
-        # dalsze — sekcje są więc listą po lewej, zawsze widoczną w całości.
+        # dalsze - sekcje są więc listą po lewej, zawsze widoczną w całości.
         self.tabs.tabBar().hide()
         self.sections = QListWidget()
         self.sections.setObjectName("settings_sections")
@@ -459,7 +459,7 @@ class SettingsDialog(QDialog):
         self.auto_rewind_spin.setEnabled(player.auto_rewind_enabled)
         self.preroll_spin.setValue(player.segment_preroll_ms / 1000)
         self.follow_playback_check.setChecked(player.follow_playback)
-        # Zwinięcie fali ustawia się nad falą — okno tylko je przenosi dalej.
+        # Zwinięcie fali ustawia się nad falą - okno tylko je przenosi dalej.
         self._waveform_visible = player.waveform_visible
 
         editor = settings.editor
@@ -493,7 +493,7 @@ class SettingsDialog(QDialog):
 
         self.set_metadata_fields(settings.metadata.fields)
 
-        # Model wybiera się w panelu ASR — okno tylko go przenosi dalej.
+        # Model wybiera się w panelu ASR - okno tylko go przenosi dalej.
         self._asr_model_key = settings.asr.model_key
         # Ostatni format okna „Eksportuj jako…” nie jest polem tego okna.
         self._export = settings.export
@@ -639,7 +639,7 @@ class SettingsDialog(QDialog):
             self.check_template()
 
     def check_template(self) -> TemplateCheck | None:
-        """ACC-56: walidacja szablonu przy wyborze — ostrzeżenie, nie blokada."""
+        """ACC-56: walidacja szablonu przy wyborze - ostrzeżenie, nie blokada."""
         fields = self.metadata_fields()
         self.placeholders_hint.setText(
             tr(

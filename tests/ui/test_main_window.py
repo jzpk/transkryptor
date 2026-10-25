@@ -27,7 +27,7 @@ def type_text(qtbot, window: MainWindow, text: str) -> None:
     """Wpisuje tekst do edytora, używając keyClicks dla ASCII i wklejania dla polskich znaków.
 
     Offscreen Qt nie mapuje klawiszy Unicode, dlatego znaki spoza ASCII są
-    wstawiane bezpośrednio — test nadal sprawdza, że edytor je zachowuje.
+    wstawiane bezpośrednio - test nadal sprawdza, że edytor je zachowuje.
     """
     window.editor.setFocus()
     ascii_part = ""
@@ -75,7 +75,7 @@ class TestAcc02SuperscriptShortcut:
 
 class TestAcc03MarkersViaShortcutsAndButtons:
     def test_pause_action_inserts_exact_marker(self, qtbot, window) -> None:
-        """ACC-03: pauza w stylu z ustawień — domyślnie ` … `, potem ` ... `."""
+        """ACC-03: pauza w stylu z ustawień - domyślnie ` … `, potem ` ... `."""
         type_text(qtbot, window, "rzeczy")
         window.marker_actions["pause"].trigger()
         assert window.editor.toPlainText() == "rzeczy … "
@@ -110,7 +110,7 @@ class TestWarningsPanel:
     """ACC-04..07: panel ostrzeżeń pokazuje wyniki walidatora.
 
     Scenariusze ACC-04/05 zapisują wielokropek trzema kropkami, więc testy
-    wybierają ten styl — inaczej doszłyby wskazówki VAL-05.
+    wybierają ten styl - inaczej doszłyby wskazówki VAL-05.
     """
 
     @pytest.fixture(autouse=True)

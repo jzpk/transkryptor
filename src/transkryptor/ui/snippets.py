@@ -145,7 +145,7 @@ class SnippetController(QObject):
         self.refresh_completions()
 
     def insert(self, parsed: ParsedReplacement) -> None:
-        """ACC-44: wstawka w miejscu kursora — jeden krok cofania."""
+        """ACC-44: wstawka w miejscu kursora - jeden krok cofania."""
         if self._locked:
             return
         self.editor.insert_formatted(parsed.text, parsed.superscript_ranges)

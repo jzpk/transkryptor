@@ -3,7 +3,7 @@
 # Ubuntu 22.04 wyznacza najstarszą obsługiwaną glibc (2.35, patrz
 # LINUX_GLIBC_BASELINE w src/transkryptor/packaging/metadata.py). Budowanie
 # na nowszym systemie deweloperskim dałoby AppImage, który nie uruchomi się
-# na starszych dystrybucjach — dlatego zawsze budujemy w tym obrazie.
+# na starszych dystrybucjach - dlatego zawsze budujemy w tym obrazie.
 #
 # Kontekst budowania: pyproject.toml, uv.lock i README.md (przygotowuje je
 # scripts/build-installers.sh). Kod źródłowy jest montowany przy uruchomieniu.

@@ -3,7 +3,7 @@
 Oba formaty powstają z jednego ``QTextDocument`` o układzie jak DOCX:
 tabela metryczki, akapit „Autor: … Data: …” i akapity tekstu z pogrubioną
 etykietą mówcy oraz indeksem górnym. ODT zapisuje ``QTextDocumentWriter``
-(format ODF, indeks górny jako ``style:text-position``), PDF — ``QPdfWriter``
+(format ODF, indeks górny jako ``style:text-position``), PDF - ``QPdfWriter``
 (A4, czcionka osadzona). Wymaga działającej ``QGuiApplication``.
 """
 

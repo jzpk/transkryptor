@@ -1,11 +1,11 @@
 """Zarządzanie lokalnym modelem ASR: stan, pobieranie, anulowanie.
 
 Moduł nie zależy od elementów GUI. Pobieranie jest wykonywane przez
-wstrzykiwany ``downloader`` — domyślnie strumieniowy odczyt z Hugging Face
+wstrzykiwany ``downloader`` - domyślnie strumieniowy odczyt z Hugging Face
 z postępem bajtowym i kooperacyjnym anulowaniem; testy podstawiają imitacje.
 
 Kompletność modelu potwierdza plik znacznika ``.complete`` zapisywany
-dopiero po udanym pobraniu wszystkich wymaganych plików — przerwane
+dopiero po udanym pobraniu wszystkich wymaganych plików - przerwane
 pobieranie nigdy nie jest uznawane za gotowy model.
 
 Domyślny downloader pobiera wyłącznie pliki z ``AsrModelInfo.files``
@@ -103,7 +103,7 @@ class ModelManager:
         """Pobiera model do katalogu użytkownika.
 
         Przy powodzeniu zwraca katalog modelu. Anulowanie zgłasza
-        :class:`DownloadCancelled`, a błąd sieci lub weryfikacji —
+        :class:`DownloadCancelled`, a błąd sieci lub weryfikacji -
         :class:`ModelDownloadError` ze wskazówką ponowienia (NFR-03).
         Katalog częściowy jest usuwany, aby ponowienie zaczynało czysto.
         """
@@ -119,7 +119,7 @@ class ModelManager:
         except ModelDownloadError:
             self._cleanup_partial(dest)
             raise
-        except Exception as error:  # noqa: BLE001 — normalizacja do AppError
+        except Exception as error:  # noqa: BLE001 - normalizacja do AppError
             self._cleanup_partial(dest)
             raise ModelDownloadError(
                 user_message=tr(
@@ -156,7 +156,7 @@ class ModelManager:
         """Usuwa pobrany model i zwraca liczbę odzyskanych bajtów.
 
         Usuwany jest wyłącznie katalog modelu leżący wewnątrz katalogu
-        modeli — klucz modelu nie może wyprowadzić poza niego (SEC-05).
+        modeli - klucz modelu nie może wyprowadzić poza niego (SEC-05).
         """
         root = self._models_root.resolve()
         target = self.model_dir.resolve()

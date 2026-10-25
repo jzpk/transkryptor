@@ -31,7 +31,7 @@ from transkryptor.export.timeline import build_units
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 if sys.platform == "win32":
     # Na Windows platforma offscreen czyta czcionki z <Qt>/lib/fonts, których
-    # PySide6 nie dostarcza — bez czcionek PDF nie ma tekstu ani /FontFile.
+    # PySide6 nie dostarcza - bez czcionek PDF nie ma tekstu ani /FontFile.
     os.environ.setdefault(
         "QT_QPA_FONTDIR", os.path.join(os.environ.get("WINDIR", r"C:\Windows"), "Fonts")
     )
@@ -84,7 +84,7 @@ class TestText:
         lines = text.splitlines()
         assert lines[0] == "Sygnatura: AdK_1954"
         assert "Informator (kod): KA" in lines
-        assert "Mówcy: B — Badacz; I — Informator" in lines
+        assert "Mówcy: B - Badacz; I - Informator" in lines
         assert "Autor: Jan Kowalski    Data: 2026-10-18" in lines
         assert lines[-3] == "B: Rok urodzenia?"
         assert lines[-2] == "I: Tysioⁿc dziewiń^ćset dwadzieścia"

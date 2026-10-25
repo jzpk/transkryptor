@@ -1,7 +1,7 @@
 """Mówcy akapitów: skróty, menu i lista mówców nagrania (propozycja 15).
 
 Przypisanie mówcy to format bloku edytora (jeden krok cofania), a lista
-mówców — dane dokumentu (``Document.speakers``) edytowane w oknie
+mówców - dane dokumentu (``Document.speakers``) edytowane w oknie
 ``ui/speakers_dialog.py``. Skrót ``Alt+Shift+N`` przypisuje bieżącemu
 akapitowi (albo akapitom zaznaczenia) N-tego mówcę z listy; ponowne użycie
 zdejmuje przypisanie, ``Alt+Shift+0`` usuwa mówcę.
@@ -98,7 +98,7 @@ class SpeakerController(QObject):
 
     def _speaker_menu(self, menu: QMenu, current: str | None) -> None:
         for number, speaker in enumerate(self._document().speakers, start=1):
-            text = f"{speaker.key} — {speaker.description}"
+            text = f"{speaker.key} - {speaker.description}"
             shortcut = self.actions.get(speaker_id(number))
             if shortcut is not None and not shortcut.shortcut().isEmpty():
                 native = shortcut.shortcut().toString(

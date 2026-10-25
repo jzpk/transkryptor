@@ -1,7 +1,7 @@
 """Skróty klawiaturowe: wartości domyślne, nadpisania i wykrywanie konfliktów.
 
 Jedno źródło prawdy dla ``MainWindow`` (akcje), ``PlayerBar`` (podpowiedzi
-przycisków), instrukcji i testów — wzorem ``ui/markers.py``. Rejestr
+przycisków), instrukcji i testów - wzorem ``ui/markers.py``. Rejestr
 ``SHORTCUT_ACTIONS`` obejmuje markery i indeks górny, odtwarzacz,
 wyszukiwanie oraz akcje projektu; użytkownik nadpisuje skróty w ustawieniach
 (``ShortcutSettings``), a :func:`effective_shortcuts` składa domyślne
@@ -42,7 +42,7 @@ SAVE_PROJECT_AS_SHORTCUT = "Ctrl+Shift+S"
 EXPORT_SHORTCUT = "Ctrl+E"
 CLOSE_SHORTCUT = "Ctrl+W"
 
-# Wyszukiwanie i zamiana (faza 07). Esc zamyka pasek — tylko z fokusem w pasku.
+# Wyszukiwanie i zamiana (faza 07). Esc zamyka pasek - tylko z fokusem w pasku.
 FIND_SHORTCUT = "Ctrl+F"
 REPLACE_SHORTCUT = "Ctrl+H"
 FIND_NEXT_SHORTCUT = "F3"
@@ -115,7 +115,7 @@ GROUP_REVIEW = "review"
 
 SUPERSCRIPT_ID = "superscript"
 SNIPPET_PREFIX = "snippet."
-# Podpowiedź akcji bez skrótów — po zmianie skrótu podpowiedź jest składana
+# Podpowiedź akcji bez skrótów - po zmianie skrótu podpowiedź jest składana
 # od nowa z tego tekstu (dynamiczna właściwość ``QAction``).
 BASE_TOOLTIP = "base_tooltip"
 
@@ -128,7 +128,7 @@ class ShortcutDef:
     label_key: str
     defaults: tuple[str, ...]
     group: str
-    # Numer w etykiecie („Mówca 2”) — akcje numerowane jak przypisanie mówcy.
+    # Numer w etykiecie („Mówca 2”) - akcje numerowane jak przypisanie mówcy.
     number: int | None = None
 
     @property

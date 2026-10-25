@@ -51,12 +51,12 @@ def render_iss(
 ) -> str:
     """Treść skryptu Inno Setup dla podanego katalogu z programem.
 
-    ``OutputBaseFilename`` jest podawany bez rozszerzenia — Inno Setup dokłada
+    ``OutputBaseFilename`` jest podawany bez rozszerzenia - Inno Setup dokłada
     ``.exe`` samodzielnie.
     """
     base_name = artifact_name[:-4] if artifact_name.endswith(".exe") else artifact_name
     lines = [
-        f"; Instalator {APP_NAME} {version} — plik generowany przez",
+        f"; Instalator {APP_NAME} {version} - plik generowany przez",
         "; transkryptor.packaging.windows. Nie edytuj ręcznie.",
         "",
         "[Setup]",

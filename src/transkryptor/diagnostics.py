@@ -6,15 +6,15 @@ Dlatego wpisy mają być po angielsku i nie mogą zawierać danych osobowych ani
 treści pracy:
 
 - moduły aplikacji nie logują tekstu transkrypcji, metryczki, kontekstu ASR
-  ani nazw plików — tylko rozszerzenia, rozmiary i czasy;
+  ani nazw plików - tylko rozszerzenia, rozmiary i czasy;
 - formatter dodatkowo maskuje ścieżki spoza instalacji programu (``<path>.wav``),
-  zastępuje katalog domowy znakiem ``~`` i usuwa adresy e-mail — także
+  zastępuje katalog domowy znakiem ``~`` i usuwa adresy e-mail - także
   w komunikatach wyjątków z bibliotek;
-- komunikat ``AppError`` (zlokalizowany, często z nazwą pliku) jest pomijany —
+- komunikat ``AppError`` (zlokalizowany, często z nazwą pliku) jest pomijany -
   zostaje klasa błędu i łańcuch przyczyn ze śladem stosu.
 
 Poza wpisami modułów dziennik zbiera nieobsłużone wyjątki (wątek główny,
-sloty Qt, wątki) i — przez ``faulthandler`` — awarie natywne (np. biblioteki
+sloty Qt, wątki) i - przez ``faulthandler`` - awarie natywne (np. biblioteki
 ASR), także procesu roboczego ASR; zapis awarii trafia do dziennika przy
 następnym starcie.
 
@@ -45,7 +45,7 @@ from transkryptor.errors import AppError
 
 LOG_FILE_NAME = "transkryptor.log"
 CRASH_FILE_NAME = "crash.log"
-# Dziennik z kopiami zajmuje najwyżej ~4 MB — wystarczy na wiele sesji,
+# Dziennik z kopiami zajmuje najwyżej ~4 MB - wystarczy na wiele sesji,
 # a plik da się jeszcze dołączyć do zgłoszenia na GitHubie.
 MAX_LOG_BYTES = 1_000_000
 BACKUP_COUNT = 3
@@ -168,7 +168,7 @@ def _url_path(url: str) -> str:
 def format_exception(error: BaseException) -> str:
     """Ślad stosu z łańcuchem przyczyn; bez zlokalizowanych komunikatów ``AppError``.
 
-    Tekst nie jest jeszcze zamaskowany — robi to formatter dziennika (albo
+    Tekst nie jest jeszcze zamaskowany - robi to formatter dziennika (albo
     proces nadrzędny, gdy ślad przychodzi z procesu roboczego ASR).
     """
     chain = list(_exception_chain(error))
@@ -199,7 +199,7 @@ def describe_exception(error: BaseException) -> str:
         return f"{name}: <user-facing message omitted>"
     try:
         message = str(error)
-    except Exception:  # noqa: BLE001 — dziennik nie może zawieść przez __str__
+    except Exception:  # noqa: BLE001 - dziennik nie może zawieść przez __str__
         message = "<unprintable message>"
     if len(message) > MAX_MESSAGE_CHARS:
         message = message[: MAX_MESSAGE_CHARS - 1] + "…"
@@ -223,7 +223,7 @@ def _exception_chain(error: BaseException) -> Iterator[BaseException]:
 class RedactingFormatter(logging.Formatter):
     """Format dziennika z maskowaniem danych w całym wpisie (także w śladzie)."""
 
-    def formatException(self, ei: Any) -> str:  # noqa: N802 — API logging
+    def formatException(self, ei: Any) -> str:  # noqa: N802 - API logging
         error = ei[1]
         if isinstance(error, BaseException):
             return format_exception(error)
@@ -231,7 +231,7 @@ class RedactingFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         # Inny handler mógł już zapisać w rekordzie ślad w zwykłym formacie
-        # (z komunikatem ``AppError``) — ten formatter składa własny.
+        # (z komunikatem ``AppError``) - ten formatter składa własny.
         cached = record.exc_text
         record.exc_text = None
         try:
@@ -267,7 +267,7 @@ def configure_logging(directory: Path | None = None) -> Path | None:
     root = logging.getLogger()
     root.addHandler(handler)
     # Biblioteki tylko od ostrzeżeń (httpx loguje każde żądanie na INFO),
-    # moduły aplikacji — także zdarzenia, które pomagają odtworzyć kroki.
+    # moduły aplikacji - także zdarzenia, które pomagają odtworzyć kroki.
     root.setLevel(logging.WARNING)
     logging.getLogger("transkryptor").setLevel(logging.INFO)
     logging.captureWarnings(True)
@@ -308,7 +308,7 @@ def enable_crash_log(directory: Path | None = None) -> bool:
     path = crash_log_path(directory)
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        crash_file = open(path, "a", encoding="utf-8")  # noqa: SIM115 — do końca
+        crash_file = open(path, "a", encoding="utf-8")  # noqa: SIM115 - do końca
     except OSError:
         return False
     faulthandler.enable(file=crash_file, all_threads=True)
@@ -412,7 +412,7 @@ REPORTED_PACKAGES = (
 def environment_report() -> list[tuple[str, str]]:
     """Wersje i parametry środowiska bez danych identyfikujących komputer.
 
-    Bez nazwy komputera i użytkownika — tylko system, architektura, Python,
+    Bez nazwy komputera i użytkownika - tylko system, architektura, Python,
     pakiety, liczba procesorów i ilość pamięci.
     """
     from transkryptor.asr.system import total_memory_bytes

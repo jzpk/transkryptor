@@ -36,7 +36,7 @@ Formatowanie i kontrole jakości kodu:
 
 ## Licencja
 
-`GPL-3.0-or-later` — zobacz [LICENSE](LICENSE).
+`GPL-3.0-or-later` - zobacz [LICENSE](LICENSE).
 
 ## User guide
 

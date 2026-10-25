@@ -60,7 +60,7 @@ class SearchBar(QWidget):
         self.whole_words_check = QCheckBox(tr("search.whole_words"))
         self.regex_check = QCheckBox(".*")
         self.regex_check.setToolTip(tr("search.regex.tooltip"))
-        # Filtr wypowiedzi informatorów — widoczny, gdy dokument ma mówców.
+        # Filtr wypowiedzi informatorów - widoczny, gdy dokument ma mówców.
         self.informant_check = QCheckBox(tr("search.informant_only"))
         self.informant_check.setToolTip(tr("search.informant_only.tooltip"))
         self.informant_check.hide()

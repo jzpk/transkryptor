@@ -1,7 +1,7 @@
 """Najnowsze wydanie z GitHub Releases API i porównanie wersji.
 
 Zapytanie zawiera wyłącznie standardowe nagłówki HTTP (``User-Agent`` z wersją
-aplikacji wymaga GitHub) — bez identyfikatora instalacji i bez telemetrii.
+aplikacji wymaga GitHub) - bez identyfikatora instalacji i bez telemetrii.
 Endpoint ``/releases/latest`` sam pomija wydania wstępne i szkice.
 
 Dane wydania (z API albo z pliku stanu) są walidowane, zanim trafią do
@@ -133,7 +133,7 @@ class ReleaseInfo:
     signature: Asset | None = None
 
     def __post_init__(self) -> None:
-        # Wersja trafia do ścieżki katalogu pobrań — tylko postać X.Y.Z.
+        # Wersja trafia do ścieżki katalogu pobrań - tylko postać X.Y.Z.
         parsed = parse_version(self.version)
         if parsed is None or ".".join(map(str, parsed)) != self.version:
             raise ValueError(f"niepoprawna wersja wydania: {self.version!r}")
@@ -207,7 +207,7 @@ def fetch_latest(client: httpx.Client, platform: str | None) -> ReleaseInfo | No
     """Jedno zapytanie o najnowsze wydanie.
 
     Zwraca None, gdy repozytorium nie ma jeszcze żadnego wydania (404).
-    Błędy połączenia (``httpx.TransportError``) przechodzą bez zmian — wołający
+    Błędy połączenia (``httpx.TransportError``) przechodzą bez zmian - wołający
     odróżnia brak sieci od błędnej odpowiedzi serwera (``UpdateError``).
     """
     response = client.get(

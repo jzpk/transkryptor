@@ -1,6 +1,6 @@
 # Czcionka tekstu transkrypcji
 
-Charis SIL 6.200 (SIL International) — domyślna czcionka edytora i eksportu
+Charis SIL 6.200 (SIL International) - domyślna czcionka edytora i eksportu
 (PDF ją osadza, DOCX i ODT zapisują jej nazwę). Dobrze obsługuje znaki
 fonetyczne i litery modyfikujące (`ᵐ ⁿ ᵘ`).
 

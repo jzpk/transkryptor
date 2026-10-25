@@ -124,7 +124,7 @@ def test_eta_waits_for_stable_rate_then_extrapolates(qtbot) -> None:
     clock = FakeClock()
     _host, overlay = make_overlay(qtbot, clock=clock)
     overlay.start()
-    # Pierwsza próbka po ładowaniu modelu — tempo jeszcze nieznane.
+    # Pierwsza próbka po ładowaniu modelu - tempo jeszcze nieznane.
     clock.now += 60
     overlay.set_progress(0.1)
     assert overlay.eta_label.text() == tr("loading.eta_pending")

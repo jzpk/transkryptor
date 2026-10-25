@@ -1,6 +1,6 @@
 # Teksty licencji dołączane przez wydawcę
 
-Część kół PyPI nie zawiera pliku z tekstem swojej licencji — ma tylko
+Część kół PyPI nie zawiera pliku z tekstem swojej licencji - ma tylko
 identyfikator w metadanych. Artefakt wydania musi jednak zawierać pełne
 teksty, dlatego te brakujące pochodzą z tego katalogu.
 

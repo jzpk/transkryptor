@@ -5,7 +5,7 @@ Kolejność:
 1. Wynik zapytania z tej doby wskazuje nowszą wersję → bez nowego zapytania
    (ponowienie pobrania nie zużywa limitu API).
 2. W przeciwnym razie rezerwacja zapytania w dziennym limicie i jedno
-   zapytanie do API. Brak sieci zwraca rezerwację — limit liczy tylko
+   zapytanie do API. Brak sieci zwraca rezerwację - limit liczy tylko
    zapytania, które dotarły do serwera.
 3. Nowsza wersja w artefakcie wydania → pobranie i weryfikacja; w środowisku
    deweloperskim → tylko informacja z linkiem do strony wydania.

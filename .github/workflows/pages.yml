@@ -2,7 +2,7 @@
 #
 # Workflow „Wydanie” wywołuje go po publikacji wydania (z tagiem wydania
 # w `ref`), bo wydanie i commit z [skip ci] nie uruchamiają innych
-# workflow. Push nie wdraża strony — zmianę samej strony (pages/, generator)
+# workflow. Push nie wdraża strony - zmianę samej strony (pages/, generator)
 # wdraża się ręcznie: Actions → „Strona” → Run workflow.
 #
 # Strona pokazuje najnowsze wydanie i jego historię zmian, a nie stan main

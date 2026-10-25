@@ -4,9 +4,9 @@ Wyszukiwanie i parsowanie zamiennika to czyste funkcje z
 ``document/search.py``; kontroler łączy je z edytorem. Podświetlenia są
 warstwą ``ExtraSelections`` (widok), więc nie trafiają do dokumentu ani do
 DOCX. Podświetlane są tylko trafienia w widocznej części edytora (PERF-06)
-— przewinięcie i zmiana rozmiaru odświeżają je bez ponownego wyszukiwania;
+- przewinięcie i zmiana rozmiaru odświeżają je bez ponownego wyszukiwania;
 licznik pokazuje wszystkie trafienia. Zamiana idzie przez
-``apply_tracked_replacements`` — „zamień wszystkie” to jeden krok cofania
+``apply_tracked_replacements`` - „zamień wszystkie” to jeden krok cofania
 (NFR-04). Trafienia i pozycje kursora są w punktach kodowych Pythona
 (przeliczane przez ``PositionMap``).
 """

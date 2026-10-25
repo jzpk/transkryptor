@@ -97,7 +97,7 @@ def test_stale_hash_does_not_overwrite_new_recording(
 
     def fake_hash(path, should_cancel=None) -> str:
         if Path(path).name == audio.name:
-            release_first.wait(10)  # ignoruje przerwanie — wynik i tak spóźniony
+            release_first.wait(10)  # ignoruje przerwanie - wynik i tak spóźniony
             return "stara"
         return "nowa"
 

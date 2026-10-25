@@ -1,13 +1,13 @@
 """Eksport dokumentu transkrypcji do DOCX, także na szablonie instytucji.
 
 Kontrakt ``document -> export``: wejściem jest model wyjścia
-``ExportDocument`` (``export/model.py``) — tekst z akapitami, mówcami
+``ExportDocument`` (``export/model.py``) - tekst z akapitami, mówcami
 i indeksem górnym, autor, data i metryczka. Moduł nie zapisuje stanu
-roboczego aplikacji — jedynym artefaktem jest plik DOCX.
+roboczego aplikacji - jedynym artefaktem jest plik DOCX.
 
 Układ dokumentu (czytany z powrotem przez ``export/docx_import.py``):
 tabela metryczki (dwie kolumny: etykieta, wartość; tylko niepuste pola,
-na końcu legenda mówców), akapit „Autor: … Data: …” i akapity tekstu —
+na końcu legenda mówców), akapit „Autor: … Data: …” i akapity tekstu -
 akapit z mówcą zaczyna się pogrubioną etykietą ``B:`` i tabulatorem.
 Szablon (``export/docx_template.py``) może przenieść metryczkę i tekst
 w wybrane miejsca oraz wypełnić placeholdery w nagłówku i stopce.
@@ -72,7 +72,7 @@ def export_docx(
     Autor i data trafiają zarówno do właściwości dokumentu, jak i do
     akapitu nagłówkowego. Metryczka (pola ``fields`` w ich kolejności) trafia
     do tabeli na początku; ``core_properties.title`` to sygnatura,
-    a ``keywords`` — miejscowość. ``anonymize`` pomija pola osobowe
+    a ``keywords`` - miejscowość. ``anonymize`` pomija pola osobowe
     (także we właściwościach). Błędy zapisu są zgłaszane jako ``ExportError``.
     """
     report = ExportReport()
@@ -198,7 +198,7 @@ def _pieces(start: int, end: int, boundaries: list[int]) -> list[tuple[int, int]
 def _add_comment(
     docx: Any, comment: Comment, placed: list[tuple[int, int, Run]]
 ) -> None:
-    """Komentarz Worda na runach fragmentu (punktowy — na sąsiednim runie)."""
+    """Komentarz Worda na runach fragmentu (punktowy - na sąsiednim runie)."""
     runs = [
         run for start, end, run in placed if start < comment.end and end > comment.start
     ]
@@ -250,7 +250,7 @@ def _metadata_table(
     try:
         table.style = METADATA_TABLE_STYLE
     except (KeyError, ValueError):
-        pass  # szablon bez stylu tabeli z siatką — zostaje styl domyślny
+        pass  # szablon bez stylu tabeli z siatką - zostaje styl domyślny
     for label, value in rows:
         label_cell, value_cell = table.add_row().cells
         label_cell.text = label

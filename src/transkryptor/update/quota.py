@@ -2,13 +2,13 @@
 
 Nieuwierzytelnione API ma limit na adres IP, a wiele instalacji może dzielić
 jeden adres (sieć instytucji). Dlatego aplikacja wykonuje najwyżej
-``DAILY_LIMIT`` zapytań na dobę — jedno przy każdym uruchomieniu.
+``DAILY_LIMIT`` zapytań na dobę - jedno przy każdym uruchomieniu.
 
 Stan leży w pliku JSON w katalogu danych użytkownika::
 
     {"date": "2026-10-08", "requests": 1, "latest": {...} | null}
 
-Stan z innego dnia jest odrzucany przy odczycie i nadpisywany przy zapisie —
+Stan z innego dnia jest odrzucany przy odczycie i nadpisywany przy zapisie -
 stare dane nie zalegają. ``latest`` to wynik ostatniego zapytania z tego dnia:
 ponowienie nieudanego pobrania pliku nie wymaga kolejnego zapytania do API.
 Uszkodzony lub nieczytelny plik oznacza stan pusty i nie blokuje startu.

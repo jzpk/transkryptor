@@ -2,13 +2,13 @@
 
 Realizuje „Reguły ASR” z ``specs/transcription-rules.md``: silnik generuje
 kandydatów dla znanych zjawisk z informacją o źródle i pewności. Kandydaci
-są wyłącznie propozycjami — funkcja jest czysta, nie mutuje dokumentu.
+są wyłącznie propozycjami - funkcja jest czysta, nie mutuje dokumentu.
 Zastosowanie wykonuje UI: automatycznie tylko dla reguł wybranych przez
 użytkownika (REQ-15), pozostałe na jego żądanie (ACC-12).
 
 Reguły są danymi (``notation.rules``): wbudowane w pakiet i własne reguły
 użytkownika. Wzorzec może pochodzić od użytkownika, więc każde dopasowanie
-ma limit czasu — reguła, która go przekroczy (katastrofalne nawracanie),
+ma limit czasu - reguła, która go przekroczy (katastrofalne nawracanie),
 jest pomijana do końca przebiegu i zgłaszana w ``Proposal.failed``. Brak
 korpusu referencyjnego oznacza, że pewność jest orientacyjna, a ekspert
 zawsze decyduje o zastosowaniu.
@@ -34,7 +34,7 @@ from transkryptor.notation.rules import (
 _WORD_RE = re.compile(r"[A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż]+")
 
 # Limit jednego dopasowania (słowo lub para słów) i łączny limit reguły
-# w jednym przebiegu — zwykły wzorzec mieści się w nich wielokrotnie.
+# w jednym przebiegu - zwykły wzorzec mieści się w nich wielokrotnie.
 MATCH_TIMEOUT_S = 0.05
 RULE_BUDGET_S = 2.0
 
@@ -46,7 +46,7 @@ class Suggestion:
     ``superscript_ranges`` to półotwarte zakresy względem ``replacement``,
     które po zastosowaniu powinny otrzymać format indeksu górnego
     (nosowość ``m``/``n``, labializacja ``u``). ``word`` i ``word_start``
-    opisują słowo źródłowe (dla reguł par — oba słowa) — kontekst do
+    opisują słowo źródłowe (dla reguł par - oba słowa) - kontekst do
     prezentacji propozycji.
     """
 
@@ -89,7 +89,7 @@ def rule_infos(rules: Iterable[PhoneticRule]) -> tuple[RuleInfo, ...]:
 
 
 def default_rules() -> tuple[PhoneticRule, ...]:
-    """Reguły wbudowane — zestaw używany, gdy wywołujący nie poda własnego."""
+    """Reguły wbudowane - zestaw używany, gdy wywołujący nie poda własnego."""
     return builtin_rules().rules
 
 
@@ -191,13 +191,13 @@ def without_overlaps(
     Automatyczne stosowanie kilku zamian na tym samym fragmencie
     zniszczyłoby tekst, więc z każdej grupy kolizji zostaje jedna
     propozycja: najpierw z reguł ``preferred`` (wybranych do automatycznego
-    stosowania), potem wyższa pewność, przy remisie — wcześniejsza pozycja.
+    stosowania), potem wyższa pewność, przy remisie - wcześniejsza pozycja.
     Wynik jest posortowany po pozycji.
     """
     # Zachowane zakresy nie nachodzą na siebie, więc posortowane po
     # (początek, koniec) mają też niemalejące końce: kolizję wystarczy
     # sprawdzić z ostatnim zakresem zaczynającym się przed końcem kandydata.
-    # Wyszukiwanie binarne zamiast porównania z każdym zachowanym — szkic
+    # Wyszukiwanie binarne zamiast porównania z każdym zachowanym - szkic
     # 60-minutowego nagrania to tysiące propozycji.
     spans: list[tuple[int, int]] = []
     kept: list[Suggestion] = []

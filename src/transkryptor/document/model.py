@@ -4,7 +4,7 @@ Dokument to ciągły tekst z zakresami indeksu górnego, metadanymi (autor,
 data i metryczka nagrania), mówcami akapitów oraz stanem zmian. Stan zmian jest licznikiem
 rewizji: każda mutacja zwiększa ``revision``. Dwa znaczniki zapamiętują
 rewizję ostatniego eksportu DOCX (:meth:`Document.mark_exported`) i ostatniego
-zapisu pliku projektu (:meth:`Document.mark_saved`) — dokument może być
+zapisu pliku projektu (:meth:`Document.mark_saved`) - dokument może być
 zapisany, ale niewyeksportowany, i odwrotnie.
 
 Moduł nie odczytuje audio ani nie eksportuje plików.
@@ -29,10 +29,10 @@ class Document:
 
     ``superscript_ranges`` to lista półotwartych zakresów znaków
     ``(start, end)`` sformatowanych indeksem górnym, posortowana i bez
-    nakładających się elementów — niezmiennik pilnują konstruktor
+    nakładających się elementów - niezmiennik pilnują konstruktor
     i :meth:`replace_all`. ``metadata`` to metryczka nagrania (klucze
     z ``document/metadata.py``) bez pustych wartości. ``speakers`` to lista
-    mówców nagrania, a ``paragraph_speakers`` — indeks akapitu (kolejny
+    mówców nagrania, a ``paragraph_speakers`` - indeks akapitu (kolejny
     fragment między znakami nowej linii) → klucz mówcy z tej listy.
     """
 
