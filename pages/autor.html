@@ -2,98 +2,153 @@
 <!--
   Podstrona „O autorze” (GitHub Pages). Pola $${nazwa} wypełnia
   src/transkryptor/packaging/site.py; dosłowny znak dolara zapisuje się jako $$.
-  Pasek górny i stopka są takie jak w index.html — zmieniaj je w obu plikach.
+  Pasek górny i stopka są takie jak w index.html - zmieniaj je w obu plikach.
 -->
 <html lang="pl">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>O autorze — ${app_name}</title>
-  <meta name="description" content="${author_name} — autor programu ${app_name} do transkrypcji fonetycznej gwar polskich.">
-  <meta name="color-scheme" content="light dark">
-  <link rel="icon" type="image/png" href="icon.png">
-  <link rel="stylesheet" href="style.css">
-</head>
-<body>
-  <header class="topbar">
-    <div class="wrap topbar-inner">
-      <a class="brand" href="index.html"><img src="icon.png" alt="" width="28" height="28">${app_name}</a>
-      <nav class="nav" aria-label="Sekcje strony">
-        <a href="index.html#mozliwosci">Możliwości</a>
-        <a href="index.html#pobierz">Pobierz</a>
-        <a href="index.html#zmiany">Historia zmian</a>
-        <a href="autor.html" aria-current="page">O autorze</a>
-      </nav>
-      <div class="social">
-        <a class="icon-button" href="${repo_url}" title="Kod źródłowy na GitHubie" aria-label="Kod źródłowy na GitHubie">
-          <svg aria-hidden="true"><use href="img/ikony.svg#github"/></svg></a>
-        <a class="icon-button" href="${linkedin_url}" title="${author_name} na LinkedIn" aria-label="${author_name} na LinkedIn">
-          <svg aria-hidden="true"><use href="img/ikony.svg#linkedin"/></svg></a>
-      </div>
-    </div>
-  </header>
-
-  <main>
-    <section class="wrap author">
-      <img class="author-photo" src="img/autor.jpg" width="460" height="460"
-           alt="${author_name}">
-      <div class="author-text">
-        <p class="author-kicker">O autorze</p>
-        <h1>${author_name}</h1>
-        <p class="lead">Programista fullstack, autor Transkryptora.</p>
-        <p>Zawodowo prowadzę zespół, który tworzy system obsługi roszczeń
-          w ubezpieczeniach na życie i zdrowotnych. Projektuję i rozwijam
-          go razem z architektami, analitykami biznesowymi i projektantami
-          UX/UI, dbając o to, żeby rozwiązanie było wykonalne technicznie,
-          miało czystą architekturę i odpowiadało na potrzeby użytkowników.
-          Robię też code review, podejmuję decyzje techniczne i wspieram
-          zespół na każdym etapie pracy.</p>
-        <p>Na co dzień pracuję z Javą (Java EE i Spring), Angularem z RxJS,
-          AngularJS, MongoDB i Elasticsearch — zarówno po stronie serwera,
-          jak i interfejsu. Najbardziej interesuje mnie architektura systemu,
-          modelowanie danych i wydajność.</p>
-        <p>${app_name} tworzę z myślą o osobach, które ręcznie
-          transkrybują nagrania gwarowe. Chcę, żeby droga od nagrania do
-          poprawnie zapisanego tekstu była krótsza, a decyzja o zapisie
-          zawsze należała do transkrybenta — bez wysyłania nagrań poza
-          komputer.</p>
-        <p>Uwagi, pomysły i zgłoszenia błędów najlepiej zostawiać
-          w <a href="${issues_url}">zgłoszeniach na GitHubie</a> — tam widać,
-          co jest w toku.</p>
-        <div class="actions">
-          <a class="button primary with-icon" href="${linkedin_url}">
-            <svg aria-hidden="true"><use href="img/ikony.svg#linkedin"/></svg>Profil na LinkedIn</a>
-          <a class="button with-icon" href="${profile_url}">
-            <svg aria-hidden="true"><use href="img/ikony.svg#github"/></svg>Profil na GitHubie</a>
-        </div>
-      </div>
-    </section>
-  </main>
-
-  <footer class="footer">
-    <div class="wrap footer-inner">
-      <div class="footer-about">
-        <a class="brand" href="index.html"><img src="icon.png" alt="" width="24" height="24">${app_name}</a>
-        <p>Wolne oprogramowanie na licencji GPL-3.0-or-later.</p>
-      </div>
-      <nav class="footer-links" aria-label="Odnośniki">
-        <a href="${repo_url}">Kod źródłowy</a>
-        <a href="${issues_url}">Zgłoś problem</a>
-        <a href="${guide_url}">Instrukcja użytkownika</a>
-      </nav>
-      <div class="footer-author">
-        <a class="author-chip" href="autor.html">
-          <img src="img/autor.jpg" alt="" width="40" height="40" loading="lazy">
-          <span><span class="author-chip-label">Autor</span>${author_name}</span>
-        </a>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>O autorze - ${app_name}</title>
+    <meta
+      name="description"
+      content="${author_name} - autor programu ${app_name} do transkrypcji fonetycznej gwar polskich."
+    />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" type="image/png" href="icon.png" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="wrap topbar-inner">
+        <a class="brand" href="index.html"
+          ><img src="icon.png" alt="" width="28" height="28" />${app_name}</a
+        >
+        <nav class="nav" aria-label="Sekcje strony">
+          <a href="index.html#mozliwosci">Możliwości</a>
+          <a href="index.html#pobierz">Pobierz</a>
+          <a href="index.html#zmiany">Historia zmian</a>
+          <a href="autor.html" aria-current="page">O autorze</a>
+        </nav>
         <div class="social">
-          <a class="icon-button" href="${repo_url}" title="Kod źródłowy na GitHubie" aria-label="Kod źródłowy na GitHubie">
-            <svg aria-hidden="true"><use href="img/ikony.svg#github"/></svg></a>
-          <a class="icon-button" href="${linkedin_url}" title="${author_name} na LinkedIn" aria-label="${author_name} na LinkedIn">
-            <svg aria-hidden="true"><use href="img/ikony.svg#linkedin"/></svg></a>
+          <a
+            class="icon-button"
+            href="${repo_url}"
+            title="Kod źródłowy"
+            aria-label="Kod źródłowy"
+          >
+            <svg aria-hidden="true"><use href="img/ikony.svg#github" /></svg
+          ></a>
+          <a
+            class="icon-button"
+            href="${linkedin_url}"
+            title="${author_name} na LinkedIn"
+            aria-label="${author_name} na LinkedIn"
+          >
+            <svg aria-hidden="true"><use href="img/ikony.svg#linkedin" /></svg
+          ></a>
         </div>
       </div>
-    </div>
-  </footer>
-</body>
+    </header>
+
+    <main>
+      <section class="wrap author">
+        <img
+          class="author-photo"
+          src="img/autor.jpg"
+          width="460"
+          height="460"
+          alt="${author_name}"
+        />
+        <div class="author-text">
+          <p class="author-kicker">O autorze</p>
+          <h1>${author_name}</h1>
+          <p class="lead">Programista fullstack, autor Transkryptora.</p>
+          <p>
+            Zawodowo jestem lead developerem i prowadzę zespół, który tworzy
+            system obsługi roszczeń w ubezpieczeniach na życie i zdrowotnych.
+            Projektuję i rozwijam go razem z architektami, analitykami
+            biznesowymi i projektantami UX/UI, dbając o to, żeby rozwiązanie
+            było wykonalne technicznie, miało czystą architekturę i odpowiadało
+            na potrzeby użytkowników. Robię też code review, podejmuję decyzje
+            techniczne i wspieram zespół na każdym etapie pracy.
+          </p>
+          <p>
+            Na co dzień pracuję z Javą (Java EE i Spring), Angularem z RxJS,
+            AngularJS, MongoDB i Elasticsearch - zarówno po stronie serwera, jak
+            i interfejsu. Najbardziej interesuje mnie architektura systemu,
+            modelowanie danych i wydajność.
+          </p>
+          <p>
+            ${app_name} tworzę z myślą o osobach, które ręcznie transkrybują
+            nagrania gwarowe. Chcę, żeby droga od nagrania do poprawnie
+            zapisanego tekstu była krótsza, a decyzja o zapisie zawsze należała
+            do transkrybenta - bez wysyłania nagrań poza komputer.
+          </p>
+          <p>
+            Uwagi, pomysły i zgłoszenia błędów najlepiej zostawiać w
+            <a href="${issues_url}">zgłoszeniach na GitHubie</a> - tam też można
+            sprawdzić co aktualnie jest rozwijane i dodawane
+          </p>
+          <div class="actions">
+            <a class="button primary with-icon" href="${linkedin_url}">
+              <svg aria-hidden="true"><use href="img/ikony.svg#linkedin" /></svg
+              >Profil na LinkedIn</a
+            >
+            <a class="button with-icon" href="${profile_url}">
+              <svg aria-hidden="true"><use href="img/ikony.svg#github" /></svg
+              >Profil na GitHubie</a
+            >
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="wrap footer-inner">
+        <div class="footer-about">
+          <a class="brand" href="index.html"
+            ><img src="icon.png" alt="" width="24" height="24" />${app_name}</a
+          >
+          <p>Wolne oprogramowanie na licencji GPL-3.0-or-later.</p>
+        </div>
+        <nav class="footer-links" aria-label="Odnośniki">
+          <a href="${repo_url}">Kod źródłowy</a>
+          <a href="${issues_url}">Zgłoś problem</a>
+          <a href="${guide_url}">Instrukcja użytkownika</a>
+        </nav>
+        <div class="footer-author">
+          <a class="author-chip" href="autor.html">
+            <img
+              src="img/autor.jpg"
+              alt=""
+              width="40"
+              height="40"
+              loading="lazy"
+            />
+            <span
+              ><span class="author-chip-label">Autor</span>${author_name}</span
+            >
+          </a>
+          <div class="social">
+            <a
+              class="icon-button"
+              href="${repo_url}"
+              title="Kod źródłowy"
+              aria-label="Kod źródłowy"
+            >
+              <svg aria-hidden="true"><use href="img/ikony.svg#github" /></svg
+            ></a>
+            <a
+              class="icon-button"
+              href="${linkedin_url}"
+              title="${author_name} na LinkedIn"
+              aria-label="${author_name} na LinkedIn"
+            >
+              <svg aria-hidden="true"><use href="img/ikony.svg#linkedin" /></svg
+            ></a>
+          </div>
+        </div>
+      </div>
+    </footer>
+  </body>
 </html>
