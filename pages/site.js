@@ -8,6 +8,8 @@
 //   chyba że system prosi o ograniczenie ruchu. Ustawia data-animation.
 // - Karty <details>: adres z #kotwicą rozwija wskazaną kartę, a przycisk
 //   [data-toggle-all] rozwija albo zwija wszystkie karty w swojej sekcji.
+// - Pobieranie: karta dla systemu odwiedzającego jest wyróżniona, a główny
+//   przycisk pobierania prowadzi wprost do jej pliku.
 (function () {
   "use strict";
 
@@ -90,6 +92,11 @@
         button.title = label;
         button.setAttribute("aria-label", label);
       });
+      // Zrzuty ekranu: <source data-theme-source> ma w HTML media według
+      // przeglądarki (działa bez skryptu); tu idzie za wybranym motywem.
+      each("source[data-theme-source]", function (source) {
+        source.media = value === "dark" ? "all" : "not all";
+      });
     }
   );
 
@@ -120,6 +127,46 @@
   }
 
   window.addEventListener("hashchange", openFromHash);
+
+  // System odwiedzającego: "windows", "linux" albo null (macOS, telefony
+  // i inne — dla nich nie ma wydania, więc strona niczego nie wyróżnia).
+  function visitorOs() {
+    var agent = navigator.userAgent || "";
+    var platform =
+      (navigator.userAgentData && navigator.userAgentData.platform) ||
+      navigator.platform ||
+      "";
+    if (/android|iphone|ipad|ipod|cros/i.test(agent)) {
+      return null;
+    }
+    if (/win/i.test(platform) || /windows/i.test(agent)) {
+      return "windows";
+    }
+    if (/linux/i.test(platform) || /linux|x11/i.test(agent)) {
+      return "linux";
+    }
+    return null;
+  }
+
+  // Wyróżnia kartę pobierania dla systemu odwiedzającego, a przycisk
+  // [data-download-for-os] prowadzi od razu do jej pliku.
+  function highlightDownload() {
+    var os = visitorOs();
+    var card = os && document.querySelector('.download[data-os="' + os + '"]');
+    if (!card) {
+      return;
+    }
+    card.classList.add("recommended");
+    each("[data-download-for-os]", function (button) {
+      button.href = card.href;
+      button.textContent =
+        "Pobierz dla " +
+        card.getAttribute("data-for") +
+        " (" +
+        button.getAttribute("data-version") +
+        ")";
+    });
+  }
 
   document.addEventListener("DOMContentLoaded", function () {
     each(".theme-toggle", function (button) {
@@ -167,6 +214,7 @@
       update();
     });
 
+    highlightDownload();
     openFromHash();
   });
 })();

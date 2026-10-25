@@ -1,0 +1,157 @@
+<!doctype html>
+<!--
+  Strona błędu 404 (GitHub Pages pokazuje ją pod każdym nieistniejącym
+  adresem). Pola $${nazwa} wypełnia src/transkryptor/packaging/site.py;
+  dosłowny znak dolara zapisuje się jako $$.
+  Strona może się wyświetlić pod zagnieżdżonym adresem (np. /a/b/c), więc
+  wszystkie odnośniki i zasoby mają ścieżki bezwzględne od /. Pasek górny
+  i stopka odpowiadają tym z pozostałych stron.
+-->
+<html lang="pl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Nie ma takiej strony — ${app_name}</title>
+    <meta name="robots" content="noindex" />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" type="image/png" href="/icon.png" />
+    <link rel="stylesheet" href="/style.css" />
+    <style>
+      ${letters_css}
+    </style>
+    <script src="/site.js"></script>
+  </head>
+  <body>
+    ${letters}
+    <header class="topbar">
+      <div class="wrap topbar-inner">
+        <a class="brand" href="/"
+          ><img src="/img/ikona-56.png" alt="" width="28" height="28" />${app_name}</a
+        >
+        <nav class="nav" aria-label="Sekcje strony">
+          <a href="/#mozliwosci">Możliwości</a>
+          <a href="/#pobierz">Pobierz</a>
+          <a href="/#zmiany"><span class="nav-full">Historia zmian</span
+            ><span class="nav-short">Zmiany</span></a
+          >
+          <a href="/faq.html">FAQ</a>
+          <a href="/autor.html">O autorze</a>
+        </nav>
+        <div class="prefs">
+          <button
+            class="motion-switch"
+            type="button"
+            role="switch"
+            aria-checked="true"
+            aria-label="Animacja liter w tle"
+            title="Animacja liter w tle"
+            hidden
+          >
+            <span class="motion-switch-track" aria-hidden="true"></span>
+            <span class="motion-switch-label" aria-hidden="true"
+              >animati<b class="motion-on">ON</b><b class="motion-off">OFF</b></span
+            >
+          </button>
+          <button
+            class="icon-button theme-toggle"
+            type="button"
+            title="Zmień motyw"
+            aria-label="Zmień motyw"
+            hidden
+          >
+            <svg class="icon-moon" aria-hidden="true">
+              <use href="/img/ikony.svg#ksiezyc" />
+            </svg>
+            <svg class="icon-sun" aria-hidden="true">
+              <use href="/img/ikony.svg#slonce" />
+            </svg>
+          </button>
+        </div>
+        <div class="social">
+          <a
+            class="icon-button"
+            href="${repo_url}"
+            title="Kod źródłowy"
+            aria-label="Kod źródłowy"
+          >
+            <svg aria-hidden="true"><use href="/img/ikony.svg#github" /></svg
+          ></a>
+          <a
+            class="icon-button"
+            href="${linkedin_url}"
+            title="${author_name} na LinkedIn"
+            aria-label="${author_name} na LinkedIn"
+          >
+            <svg aria-hidden="true"><use href="/img/ikony.svg#linkedin" /></svg
+          ></a>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section class="wrap not-found">
+        <p class="not-found-code" aria-hidden="true">4<span>0</span>4</p>
+        <h1>Tego fragmentu nie ma w nagraniu</h1>
+        <p class="lead">
+          Strona, której szukasz, nie istnieje albo została przeniesiona. W
+          transkrypcji zapisalibyśmy ją jako <code>[…?]</code> — fragment
+          pominięty, bo nie dało się go zrozumieć.
+        </p>
+        <div class="actions">
+          <a class="button primary" href="/">Strona główna</a>
+          <a class="button" href="/#pobierz">Pobierz program</a>
+          <a class="button" href="/faq.html">Często zadawane pytania</a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="wrap footer-inner">
+        <div class="footer-about">
+          <a class="brand" href="/"
+            ><img src="/img/ikona-56.png" alt="" width="24" height="24" />${app_name}</a
+          >
+          <p>Wolne oprogramowanie na licencji GPL-3.0-or-later.</p>
+        </div>
+        <nav class="footer-links" aria-label="Odnośniki">
+          <a href="${repo_url}">Kod źródłowy</a>
+          <a href="${issues_url}">Zgłoś problem</a>
+          <a href="${guide_url}">Instrukcja użytkownika</a>
+          <a href="/faq.html">FAQ</a>
+        </nav>
+        <div class="footer-author">
+          <a class="author-chip" href="/autor.html">
+            <img
+              src="/img/autor-80.webp"
+              alt=""
+              width="40"
+              height="40"
+              loading="lazy"
+            />
+            <span
+              ><span class="author-chip-label">Autor</span>${author_name}</span
+            >
+          </a>
+          <div class="social">
+            <a
+              class="icon-button"
+              href="${repo_url}"
+              title="Kod źródłowy"
+              aria-label="Kod źródłowy"
+            >
+              <svg aria-hidden="true"><use href="/img/ikony.svg#github" /></svg
+            ></a>
+            <a
+              class="icon-button"
+              href="${linkedin_url}"
+              title="${author_name} na LinkedIn"
+              aria-label="${author_name} na LinkedIn"
+            >
+              <svg aria-hidden="true"><use href="/img/ikony.svg#linkedin" /></svg
+            ></a>
+          </div>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

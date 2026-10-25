@@ -4,8 +4,8 @@ Strona jest statyczna i powstaje przy każdym wydaniu (workflow „Strona”
 wywoływany z „Wydania”), więc przyciski pobierania wskazują pliki najnowszego
 wydania, a historia zmian obejmuje tylko wydane wersje — sekcja
 „Nieopublikowane” nie trafia na stronę. Opis i wygląd są w katalogu
-``pages/`` (szablony ``index.html``, ``faq.html`` i ``autor.html`` z polami
-``${...}``, arkusz stylów, skrypt strony, zrzuty ekranu, zdjęcie autora
+``pages/`` (szablony ``index.html``, ``faq.html``, ``autor.html`` i ``404.html``
+z polami ``${...}``, arkusz stylów, skrypt strony, zrzuty ekranu, zdjęcie autora
 i ikony); wymagania i nazwy plików pochodzą z ``packaging.metadata``,
 tak jak w notach wydania.
 
@@ -53,7 +53,7 @@ SITE_URL = "https://transkryptorapp.pl"
 PAGES_DIR = REPO_ROOT / "pages"
 TEMPLATE_FILE = "index.html"
 # Strony z polami ${...}; pierwsza to strona główna.
-TEMPLATE_FILES = (TEMPLATE_FILE, "faq.html", "autor.html")
+TEMPLATE_FILES = (TEMPLATE_FILE, "faq.html", "autor.html", "404.html")
 # Pliki z pages/ kopiowane bez zmian (poza szablonami).
 STATIC_FILES = ("style.css", "site.js")
 STATIC_DIRS = ("img",)
@@ -241,9 +241,11 @@ def background_letters(
             f"to{{transform:translate({cx + dx:.1f}vw,{cy + dy:.1f}vh)"
             f" rotate({r1}deg)}}}}"
         )
+        # Bez skrótu ``animation``: ustawiłby też animation-play-state
+        # w stylu inline, którego przełącznik animacji z arkusza nie nadpisze.
         style = (
-            f"font-size:{size:.2f}rem;"
-            f"animation:{name} {duration:.0f}s linear -{delay:.0f}s infinite"
+            f"font-size:{size:.2f}rem;animation-name:{name};"
+            f"animation-duration:{duration:.0f}s;animation-delay:-{delay:.0f}s"
         )
         spans.append(f'<span style="{style}">{letter}</span>')
     layer = f'<div class="letters" aria-hidden="true">{"".join(spans)}</div>'
