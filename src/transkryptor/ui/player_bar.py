@@ -65,12 +65,12 @@ def format_ms(milliseconds: int) -> str:
 
 
 def format_loop(start_ms: int | None, end_ms: int | None) -> str:
-    """Etykieta zakresu pętli, np. „A 01:12 – B 01:18”; pusta bez znaczników."""
+    """Etykieta zakresu pętli, np. „A 01:12 - B 01:18”; pusta bez znaczników."""
     if start_ms is None:
         return ""
     label = f"A {format_ms(start_ms)}"
     if end_ms is not None:
-        label += f" – B {format_ms(end_ms)}"
+        label += f" - B {format_ms(end_ms)}"
     return label
 
 
@@ -79,7 +79,7 @@ class PlayerBar(QFrame):
 
     import_requested = Signal(str)  # ścieżka wybranego nagrania
     media_available_changed = Signal(bool)
-    loop_points_changed = Signal()  # punkty A–B albo stan pętli
+    loop_points_changed = Signal()  # punkty A-B albo stan pętli
 
     def __init__(
         self,
@@ -205,7 +205,7 @@ class PlayerBar(QFrame):
         return self._has_media
 
     def state(self) -> PlayerState:
-        """Pozycja i pętla A–B do zapisu w projekcie."""
+        """Pozycja i pętla A-B do zapisu w projekcie."""
         if self._pending_state is not None:
             return self._pending_state
         return PlayerState(
@@ -222,7 +222,7 @@ class PlayerBar(QFrame):
             layout.addWidget(widget)
 
     def set_loop_points(self, start_ms: int, end_ms: int) -> None:
-        """Ustawia punkty A–B i włącza pętlę (przeciągnięcie na fali)."""
+        """Ustawia punkty A-B i włącza pętlę (przeciągnięcie na fali)."""
         if not self._has_media or end_ms <= start_ms:
             return
         duration = self._player.duration_ms
@@ -232,7 +232,7 @@ class PlayerBar(QFrame):
         self._update_loop_controls()
 
     def loop_points(self) -> tuple[int, int] | None:
-        """Punkty A–B (ms), gdy oba są ustawione - zakres fragmentu dla ASR."""
+        """Punkty A-B (ms), gdy oba są ustawione - zakres fragmentu dla ASR."""
         if not self._has_media or self._loop_a is None or self._loop_b is None:
             return None
         return self._loop_a, self._loop_b
@@ -340,7 +340,7 @@ class PlayerBar(QFrame):
         self._sync_active_loop()
 
     def toggle_loop(self) -> None:
-        """Włącza pętlę A–B albo ją wyłącza i czyści znaczniki."""
+        """Włącza pętlę A-B albo ją wyłącza i czyści znaczniki."""
         if not self._has_media:
             self._update_loop_controls()
             return
@@ -363,7 +363,7 @@ class PlayerBar(QFrame):
         self._update_loop_controls()
 
     def _on_loop_changed(self, _loop: tuple[int, int] | None) -> None:
-        # Znaczniki A–B przy zmianie nagrania czyści ``reset()``.
+        # Znaczniki A-B przy zmianie nagrania czyści ``reset()``.
         self._update_loop_controls()
 
     def _update_loop_controls(self) -> None:

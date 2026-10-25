@@ -1,4 +1,4 @@
-"""Testy panelu ASR: pobieranie, anulowanie, szkic w edytorze, ACC-12, ACC-14–16."""
+"""Testy panelu ASR: pobieranie, anulowanie, szkic w edytorze, ACC-12, ACC-14-16."""
 
 import time
 from pathlib import Path

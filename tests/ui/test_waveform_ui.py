@@ -50,7 +50,7 @@ def test_acc50_waveform_is_computed_cached_and_interactive(
     other = open_window(qtbot, add_window, audio)
     assert other.waveform.view.envelope == view.envelope
 
-    # Klik przewija, przeciągnięcie ustawia pętlę A–B.
+    # Klik przewija, przeciągnięcie ustawia pętlę A-B.
     seeks: list[int] = []
     monkeypatch.setattr(window.player, "set_position", seeks.append)
     x = view.width() // 4

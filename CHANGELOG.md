@@ -128,7 +128,7 @@ Pusta sekcja blokuje wydanie.
   W **Ustawieniach…** (zakładka **ASR**) można wyłączyć podkreślenia,
   zmienić próg pewności (domyślnie 40%, wartość orientacyjna) albo wyłączyć
   rozpoznawanie słów, które wydłuża transkrypcję.
-- Rozpoznanie fragmentu: przycisk **Rozpoznaj fragment A–B** w panelu
+- Rozpoznanie fragmentu: przycisk **Rozpoznaj fragment A-B** w panelu
   **Szkic ASR** rozpoznaje tylko fragment nagrania między punktami A i B
   pętli. Wynik trafia w miejsce kursora (albo zastępuje zaznaczony tekst)
   z regułami fonetycznymi i powiązaniem z czasem nagrania; jedno cofnięcie
@@ -136,7 +136,7 @@ Pusta sekcja blokuje wydanie.
   zmieniają.
 - Fala dźwiękowa pod suwakiem odtwarzacza: widać ciszę, pauzy i głośne
   fragmenty. Klik na fali przewija nagranie, przeciągnięcie ustawia pętlę
-  A–B, **Ctrl** + kółko myszy powiększa. Na fali są też segmenty szkicu ASR
+  A-B, **Ctrl** + kółko myszy powiększa. Na fali są też segmenty szkicu ASR
   (zielone - pewne, pomarańczowe - niepewne) i ręczne znaczniki czasu. Fala
   powstaje w tle bez blokowania okna (godzina nagrania - kilkanaście
   sekund) i jest zapamiętywana w pamięci podręcznej, więc przy kolejnym
@@ -198,11 +198,11 @@ Pusta sekcja blokuje wydanie.
   (zakładka **ASR**, domyślnie włączona) i wymaga jednorazowego pobrania
   modelu podziału na mówców (ok. 28 MB, za zgodą użytkownika) - bez niego
   pole jest zablokowane, a szkic dzieli się jak dotąd. Model działa w pełni
-  lokalnie. Rozpoznanie fragmentu A–B nie dzieli tekstu na mówców.
+  lokalnie. Rozpoznanie fragmentu A-B nie dzieli tekstu na mówców.
   Podział wychwytuje także szybkie wymiany pytań i jednowyrazowych
   odpowiedzi w wywiadzie („Zajęcie?” - „Rolnik.”), a zmianę mówcy stawia
   na końcu zdania. Pod opcją można podać **Liczbę mówców** w nagraniu
-  (domyślnie 2 - badacz i informator, do wyboru 2–8 albo
+  (domyślnie 2 - badacz i informator, do wyboru 2-8 albo
   **Automatycznie**). Podana liczba daje pewniejszy podział niż tryb
   automatyczny, który sam ocenia liczbę głosów.
 - Aktualizacje są sprawdzane przy każdym uruchomieniu, na ekranie
@@ -349,7 +349,7 @@ Pusta sekcja blokuje wydanie.
   cofnięcie przed segmentem ASR, czcionka edytora i styl wielokropka.
 - Sterowanie odtwarzaczem z klawiatury przy fokusie w edytorze:
   odtwórz/pauza `Ctrl+Spacja` lub `F4`, skok `Alt+←/→`, tempo
-  `Ctrl+Shift+,`/`.`; pętla A–B `Ctrl+Shift+A/B/L` i auto-cofanie
+  `Ctrl+Shift+,`/`.`; pętla A-B `Ctrl+Shift+A/B/L` i auto-cofanie
   przy wznowieniu po pauzie.
 - Kliknięcie segmentu szkicu ASR odtwarza nagranie od jego początku.
 - Wyszukiwanie i zamiana (`Ctrl+F`, `Ctrl+H`, `F3`/`Shift+F3`) z opcjami

@@ -1,7 +1,7 @@
 """Kotwice czasowe: powiązanie fragmentów tekstu z czasem nagrania (bez Qt).
 
 Kotwica to zakres tekstu ``[start, end)`` (pozycje Pythona) z czasem
-``start_ms``–``end_ms`` w nagraniu. Źródła:
+``start_ms``-``end_ms`` w nagraniu. Źródła:
 
 - ``segment`` - segment szkicu ASR;
 - ``word`` - słowo szkicu ASR z prawdopodobieństwem (``probability``);

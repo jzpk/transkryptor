@@ -24,7 +24,7 @@ transkrypcji - wynik jest wtedy bez mówców, z przyczyną w
 ``TranscriptionResult.diarization_note``.
 
 ``DecodingOptions.clip`` ogranicza transkrypcję do fragmentu nagrania (pętla
-A–B). Fragment jest wycinany z próbek tym samym backendem co transkrypcja
+A-B). Fragment jest wycinany z próbek tym samym backendem co transkrypcja
 fragmentami, a czasy segmentów i słów pozostają bezwzględne. Nie używamy
 ``clip_timestamps`` faster-whispera: wyłącza on VAD i liczy cechy dla całego
 nagrania.
@@ -95,7 +95,7 @@ class TranscriptionError(AppError):
 
 @dataclass(frozen=True)
 class WordResult:
-    """Słowo hipotezy z czasem i prawdopodobieństwem Whispera (0.0–1.0).
+    """Słowo hipotezy z czasem i prawdopodobieństwem Whispera (0.0-1.0).
 
     ``text`` zawiera spację wiodącą jak w Whisperze (``" kota"``).
     """
@@ -108,7 +108,7 @@ class WordResult:
 
 @dataclass(frozen=True)
 class SegmentResult:
-    """Fragment hipotezy z czasem i przybliżoną pewnością (0.0–1.0).
+    """Fragment hipotezy z czasem i przybliżoną pewnością (0.0-1.0).
 
     ``words`` - słowa z czasami, gdy transkrypcja liczyła je
     (``DecodingOptions.word_timestamps``). ``speaker`` - numer mówcy
@@ -211,7 +211,7 @@ class DecodingOptions:
     puste - bez nich zachowanie jest takie jak przed fazą 09. ``chunked``
     włącza transkrypcję fragmentami (mniej pamięci przy długich nagraniach).
     ``word_timestamps`` dodaje do segmentów słowa z czasami i pewnością,
-    a ``clip`` (sekundy od–do) ogranicza transkrypcję do fragmentu (faza 11).
+    a ``clip`` (sekundy od-do) ogranicza transkrypcję do fragmentu (faza 11).
     ``diarize`` dzieli wynik na mówców modelem z ``diarization_dir``; wymaga
     słów z czasami (włącza je) i nie dotyczy fragmentu (``clip``) - numery
     mówców fragmentu nie zgadzałyby się z całym nagraniem. ``speakers`` to
@@ -236,7 +236,7 @@ class DecodingOptions:
 
 CancelCheck = Callable[[], bool]
 SegmentCallback = Callable[[SegmentResult], None]
-ProgressCallback = Callable[[float], None]  # ułamek nagrania 0.0–1.0
+ProgressCallback = Callable[[float], None]  # ułamek nagrania 0.0-1.0
 
 
 class Backend(Protocol):
@@ -578,7 +578,7 @@ class ChunkedWhisperBackend:
 
     Nagranie jest dekodowane raz (ok. 0,25 GB na godzinę), a model dostaje
     kolejne fragmenty jako tablice próbek; czasy segmentów są przesuwane
-    o początek fragmentu. ``clip`` (sekundy od–do) ogranicza pracę do
+    o początek fragmentu. ``clip`` (sekundy od-do) ogranicza pracę do
     jednego zakresu nagrania.
     """
 

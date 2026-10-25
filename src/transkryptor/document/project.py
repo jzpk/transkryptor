@@ -3,7 +3,7 @@
 Projekt to jeden plik JSON (UTF-8) z polem ``schema_version``. Zawiera
 tekst z zakresami indeksu górnego, autora, datę i metryczkę, odwołanie do
 nagrania (ścieżka względna do pliku projektu, bezwzględna jako podpowiedź
-i suma SHA-256 - bez osadzania audio), pozycję odtwarzania, pętlę A–B,
+i suma SHA-256 - bez osadzania audio), pozycję odtwarzania, pętlę A-B,
 ostatni wynik ASR (tekst i segmenty z czasami i pewnością) oraz pozycje
 przeglądu reguł (zakres w tekście, kod reguły i treść propozycji), a od
 schematu 2 także kontekst nagrania i słownik projektu dla ASR, od

@@ -27,7 +27,7 @@ from PySide6.QtWidgets import (
 from transkryptor.document.metadata import MetadataField, enabled_fields
 from transkryptor.i18n import tr
 
-# Pary etykieta–pole w dwóch kolumnach: rozwinięta metryczka nie zabiera
+# Pary etykieta-pole w dwóch kolumnach: rozwinięta metryczka nie zabiera
 # edytorowi połowy wysokości karty.
 COLUMNS = 2
 

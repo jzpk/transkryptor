@@ -54,7 +54,7 @@ def role_label(role: str) -> str:
 
 
 def is_valid_key(key: str) -> bool:
-    """Klucz: 1–8 liter lub cyfr (bez spacji i dwukropka)."""
+    """Klucz: 1-8 liter lub cyfr (bez spacji i dwukropka)."""
     return bool(_KEY_RE.match(key))
 
 
