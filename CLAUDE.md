@@ -1,5 +1,20 @@
 # Instrukcje dla Claude
 
+## Styl tekstu: zawsze „-” zamiast pauzy i półpauzy
+
+W każdym tekście, który piszesz - kodzie, komentarzach, docstringach,
+tłumaczeniach (`i18n/locales/*.json`), `CHANGELOG.md`, stronie (`pages/`),
+dokumentacji, opisach commitów i PR - używaj zwykłego łącznika `-`
+(U+002D). Nigdy nie wstawiaj pauzy (U+2014) ani półpauzy (U+2013),
+także w zakresach (`A-B`, `0.0-1.0`).
+
+Wyjątek: kod, który musi **rozpoznawać** te znaki w danych wejściowych
+(np. import DOCX z wersji do 0.6.0 albo poprawionych przez Worda). Tam
+zapisuj je kodami `\u2013` / `\u2014` i nie zamieniaj ich na `-` - np.
+`_LEGEND_ITEM_RE` w `document/speakers.py`. Przy masowej zamianie pauz
+na łączniki sprawdzaj najpierw regexy i parsery, żeby nie zepsuć importu
+starszych plików.
+
 ## Na koniec każdego zadania zmieniającego kod
 
 Wykonaj kolejno, zanim zgłosisz, że praca jest skończona:
