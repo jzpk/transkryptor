@@ -1,5 +1,7 @@
 """Testy strony projektu: historia zmian, linki pobierania i składanie strony."""
 
+import re
+
 import pytest
 
 from transkryptor import __version__
@@ -125,3 +127,22 @@ def test_build_adds_the_theme_toggle_to_every_page(changelog_file, tmp_path) -> 
         page = (out / name).read_text(encoding="utf-8")
         assert '<script src="theme.js"></script>' in page
         assert 'class="icon-button theme-toggle"' in page
+
+
+def test_background_letters_are_polish_and_reproducible() -> None:
+    layer = site.letters_html()
+
+    letters = re.findall(r'<span style="[^"]*">(.)</span>', layer)
+    assert len(letters) == site.LETTER_COUNT
+    assert set(letters) <= set(site.LETTERS)
+    assert layer == site.letters_html()
+    assert layer.startswith('<div class="letters" aria-hidden="true">')
+
+
+def test_build_adds_background_letters_to_every_page(changelog_file, tmp_path) -> None:
+    out = tmp_path / "site"
+    site.build(out, changelog_file, repo="owner/repo", expected_version="0.2.4")
+
+    for name in site.TEMPLATE_FILES:
+        page = (out / name).read_text(encoding="utf-8")
+        assert '<div class="letters" aria-hidden="true">' in page

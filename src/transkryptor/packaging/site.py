@@ -15,6 +15,8 @@ from __future__ import annotations
 
 import argparse
 import html
+import math
+import random
 import re
 import shutil
 import sys
@@ -51,6 +53,12 @@ TEMPLATE_FILES = (TEMPLATE_FILE, "autor.html")
 # Pliki z pages/ kopiowane bez zmian (poza szablonami).
 STATIC_FILES = ("style.css", "theme.js")
 STATIC_DIRS = ("img",)
+
+# Litery przelatujące w tle strony (efekt w style.css, klatki „fruwanie”).
+# Losowane przy budowaniu ze stałym ziarnem, więc strona jest powtarzalna.
+LETTERS = "aąbcćdeęfghijklłmnńoóprsśtuwyzźżĄĆĘŁŃÓŚŹŻ"
+LETTER_COUNT = 44
+_LETTERS_SEED = 2026
 
 _VERSION_DATE = re.compile(r"^\d+\.\d+\.\d+\s+—\s+(?P<date>\d{4}-\d{2}-\d{2})$")
 _CODE = re.compile(r"`([^`]+)`")
@@ -196,6 +204,34 @@ def _systems_html(version: str) -> str:
     )
 
 
+def letters_html(count: int = LETTER_COUNT, seed: int = _LETTERS_SEED) -> str:
+    """Warstwa liter tła: każda leci po prostej przez cały ekran.
+
+    Tor przechodzi przez losowy punkt ekranu w losowym kierunku; dłuższa
+    składowa przesunięcia ma 120 jednostek (vw albo vh), więc oba końce toru
+    leżą poza ekranem i powrót animacji na początek jest niewidoczny.
+    """
+    rng = random.Random(seed)
+    spans = []
+    for _ in range(count):
+        letter = rng.choice(LETTERS)
+        angle = rng.uniform(0, 2 * math.pi)
+        dx, dy = math.cos(angle), math.sin(angle)
+        scale = 120 / max(abs(dx), abs(dy))
+        dx, dy = dx * scale, dy * scale
+        cx, cy = rng.uniform(0, 100), rng.uniform(0, 100)
+        duration = rng.uniform(35, 110)
+        style = (
+            f"--x0:{cx - dx:.1f};--y0:{cy - dy:.1f};"
+            f"--x1:{cx + dx:.1f};--y1:{cy + dy:.1f};"
+            f"--r0:{rng.randint(-180, 180)}deg;--r1:{rng.randint(-180, 180)}deg;"
+            f"--s:{rng.uniform(1.5, 5):.2f}rem;"
+            f"--t:{duration:.0f}s;--d:-{rng.uniform(0, duration):.0f}s"
+        )
+        spans.append(f'<span style="{style}">{letter}</span>')
+    return f'<div class="letters" aria-hidden="true">{"".join(spans)}</div>'
+
+
 def page_fields(releases: list[Release], repo: str) -> dict[str, str]:
     """Wartości pól szablonu dla najnowszego wydania."""
     if not releases:
@@ -227,6 +263,7 @@ def page_fields(releases: list[Release], repo: str) -> dict[str, str]:
         "systems": _systems_html(version),
         "requirements": _requirements_html(),
         "changelog": _changelog_html(releases),
+        "letters": letters_html(),
     }
 
 
@@ -296,6 +333,8 @@ def main(argv: list[str] | None = None) -> int:
 
 __all__ = [
     "AUTHOR_NAME",
+    "LETTERS",
+    "LETTER_COUNT",
     "LINKEDIN_URL",
     "PAGES_DIR",
     "Release",
@@ -303,6 +342,7 @@ __all__ = [
     "build",
     "format_date",
     "page_fields",
+    "letters_html",
     "released_sections",
     "render_markdown",
 ]

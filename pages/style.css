@@ -15,6 +15,7 @@
   --accent-soft: #eceefc;
   --code-bg: #f0f1f7;
   --shadow: 0 1px 2px rgb(20 22 40 / 6%), 0 8px 24px rgb(20 22 40 / 8%);
+  --letters-opacity: 0.1;
   --radius: 10px;
   --font: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", Ubuntu,
     sans-serif;
@@ -38,6 +39,7 @@
     --accent-soft: #262a45;
     --code-bg: #262836;
     --shadow: 0 1px 2px rgb(0 0 0 / 30%), 0 8px 24px rgb(0 0 0 / 35%);
+    --letters-opacity: 0.14;
   }
 }
 
@@ -53,6 +55,7 @@
   --accent-soft: #262a45;
   --code-bg: #262836;
   --shadow: 0 1px 2px rgb(0 0 0 / 30%), 0 8px 24px rgb(0 0 0 / 35%);
+  --letters-opacity: 0.14;
 }
 
 *,
@@ -139,6 +142,54 @@ main > section {
 .small {
   color: var(--muted);
   font-size: 0.92rem;
+}
+
+/* Litery w tle: przelatują po prostej przez ekran (tory i czasy losuje
+   site.py). Animowany jest tylko transform, więc ruch nie przelicza układu. */
+
+.letters {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.letters span {
+  position: absolute;
+  top: 0;
+  left: 0;
+  color: var(--accent);
+  font-size: var(--s);
+  font-weight: 700;
+  line-height: 1;
+  opacity: var(--letters-opacity);
+  will-change: transform;
+  animation: fruwanie var(--t) linear var(--d) infinite;
+}
+
+@keyframes fruwanie {
+  from {
+    transform: translate(calc(var(--x0) * 1vw), calc(var(--y0) * 1vh))
+      rotate(var(--r0));
+  }
+
+  to {
+    transform: translate(calc(var(--x1) * 1vw), calc(var(--y1) * 1vh))
+      rotate(var(--r1));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .letters {
+    display: none;
+  }
+}
+
+main,
+.footer {
+  position: relative;
+  z-index: 1;
 }
 
 /* Pasek górny */
