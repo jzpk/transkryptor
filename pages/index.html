@@ -6,167 +6,381 @@
   a nie razem z kodem (zmiany w toku są w CHANGELOG.md).
 -->
 <html lang="pl">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>${app_name} — transkrypcja fonetyczna gwar polskich</title>
-  <meta name="description" content="${summary}. Szkic z nagrania tworzony lokalnie przez model ASR, notacja fonetyczna, eksport DOCX. Windows i Linux, bezpłatnie, GPL-3.0.">
-  <meta name="color-scheme" content="light dark">
-  <link rel="icon" type="image/png" href="icon.png">
-  <link rel="stylesheet" href="style.css">
-</head>
-<body>
-  <header class="topbar">
-    <div class="wrap topbar-inner">
-      <a class="brand" href="#"><img src="icon.png" alt="" width="28" height="28">${app_name}</a>
-      <nav aria-label="Sekcje strony">
-        <a href="#mozliwosci">Możliwości</a>
-        <a href="#pobierz">Pobierz</a>
-        <a href="#zmiany">Historia zmian</a>
-        <a href="${repo_url}">GitHub</a>
-      </nav>
-    </div>
-  </header>
-
-  <main>
-    <section class="hero">
-      <div class="wrap hero-inner">
-        <div class="hero-text">
-          <h1>Transkrypcja fonetyczna nagrań gwarowych — na Twoim komputerze</h1>
-          <p class="lead">${summary}. Program odtwarza nagranie, podpowiada szkic
-            tekstu z rozpoznawania mowy i pilnuje notacji, a gotową
-            transkrypcję zapisuje w DOCX. Nagrania i tekst nie opuszczają
-            komputera.</p>
-          <div class="actions">
-            <a class="button primary" href="#pobierz">Pobierz wersję ${version}</a>
-            <a class="button" href="${guide_url}">Instrukcja (PDF)</a>
-          </div>
-          <p class="meta">Windows 10/11 i Linux · bezpłatny, otwarty kod (GPL-3.0) · wydanie ${version}, ${release_date}</p>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${app_name} — transkrypcja fonetyczna gwar polskich</title>
+    <meta
+      name="description"
+      content="${summary}. Szkic z nagrania tworzony lokalnie przez model ASR, notacja fonetyczna, eksport DOCX. Windows i Linux, bezpłatnie, GPL-3.0."
+    />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="canonical" href="${site_url}/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="${app_name}" />
+    <meta property="og:locale" content="pl_PL" />
+    <meta property="og:url" content="${site_url}/" />
+    <meta
+      property="og:title"
+      content="${app_name} — transkrypcja fonetyczna gwar polskich"
+    />
+    <meta
+      property="og:description"
+      content="${summary}. Szkic z nagrania tworzony lokalnie przez model ASR, notacja fonetyczna, eksport DOCX. Bezpłatnie, Windows i Linux."
+    />
+    <meta property="og:image" content="${site_url}/img/podglad.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="Okno programu ${app_name}: odtwarzacz nagrania, transkrypcja z indeksem górnym i panel szkicu ASR"
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" type="image/png" href="icon.png" />
+    <link rel="stylesheet" href="style.css" />
+    <style>
+      ${letters_css}
+    </style>
+    <script src="site.js"></script>
+  </head>
+  <body>
+    ${letters}
+    <header class="topbar">
+      <div class="wrap topbar-inner">
+        <a class="brand" href="#"
+          ><img src="img/ikona-56.png" alt="" width="28" height="28" />${app_name}</a
+        >
+        <nav class="nav" aria-label="Sekcje strony">
+          <a href="#mozliwosci">Możliwości</a>
+          <a href="#pobierz">Pobierz</a>
+          <a href="#zmiany"><span class="nav-full">Historia zmian</span
+            ><span class="nav-short">Zmiany</span></a
+          >
+          <a href="faq.html">FAQ</a>
+          <a href="autor.html">O autorze</a>
+        </nav>
+        <div class="prefs">
+          <button
+            class="motion-switch"
+            type="button"
+            role="switch"
+            aria-checked="true"
+            aria-label="Animacja liter w tle"
+            title="Animacja liter w tle"
+            hidden
+          >
+            <span class="motion-switch-track" aria-hidden="true"></span>
+            <span class="motion-switch-label" aria-hidden="true"
+              >animati<b class="motion-on">ON</b><b class="motion-off">OFF</b></span
+            >
+          </button>
+          <button
+            class="icon-button theme-toggle"
+            type="button"
+            title="Zmień motyw"
+            aria-label="Zmień motyw"
+            hidden
+          >
+            <svg class="icon-moon" aria-hidden="true">
+              <use href="img/ikony.svg#ksiezyc" />
+            </svg>
+            <svg class="icon-sun" aria-hidden="true">
+              <use href="img/ikony.svg#slonce" />
+            </svg>
+          </button>
         </div>
-        <figure class="shot hero-shot">
-          <img src="img/okno-szkic-asr.png" width="1362" height="876"
-               alt="Okno programu: odtwarzacz nagrania, tekst transkrypcji z podświetlonymi propozycjami zapisu fonetycznego i panel szkicu ASR">
+        <div class="social">
+          <a
+            class="icon-button"
+            href="${repo_url}"
+            title="Kod źródłowy na GitHubie"
+            aria-label="Kod źródłowy na GitHubie"
+          >
+            <svg aria-hidden="true"><use href="img/ikony.svg#github" /></svg
+          ></a>
+          <a
+            class="icon-button"
+            href="${linkedin_url}"
+            title="${author_name} na LinkedIn"
+            aria-label="${author_name} na LinkedIn"
+          >
+            <svg aria-hidden="true"><use href="img/ikony.svg#linkedin" /></svg
+          ></a>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="wrap hero-inner">
+          <div class="hero-text">
+            <h1>
+              Transkrypcja fonetyczna nagrań gwarowych — na Twoim komputerze
+            </h1>
+            <p class="lead">
+              ${summary}. Program odtwarza nagranie, podpowiada szkic tekstu z
+              rozpoznawania mowy i pilnuje notacji, a gotową transkrypcję
+              zapisuje w DOCX. Nagrania i tekst nie opuszczają komputera.
+            </p>
+            <div class="actions">
+              <a
+                class="button primary"
+                href="#pobierz"
+                data-download-for-os
+                data-version="${version}"
+                >Pobierz wersję ${version}</a
+              >
+              <a class="button" href="${guide_url}">Instrukcja (PDF)</a>
+            </div>
+            <p class="meta">
+              Windows 10/11 i Linux · bezpłatny, otwarty kod (GPL-3.0) · wydanie
+              ${version}, ${release_date}
+            </p>
+          </div>
+          <figure class="shot hero-shot">
+            <picture>
+              <source
+                media="(prefers-color-scheme: dark)"
+                data-theme-source
+                srcset="
+                  img/okno-szkic-asr-ciemne-700.webp   700w,
+                  img/okno-szkic-asr-ciemne.webp      1362w
+                "
+                sizes="(max-width: 820px) calc(100vw - 32px), 612px"
+              />
+              <img
+                src="img/okno-szkic-asr.webp"
+                srcset="
+                  img/okno-szkic-asr-700.webp   700w,
+                  img/okno-szkic-asr.webp      1362w
+                "
+                sizes="(max-width: 820px) calc(100vw - 32px), 612px"
+                width="1362"
+                height="876"
+                fetchpriority="high"
+                alt="Okno programu: odtwarzacz nagrania, tekst transkrypcji z podświetlonymi propozycjami zapisu fonetycznego i panel szkicu ASR"
+              />
+            </picture>
+          </figure>
+        </div>
+      </section>
+
+      <section id="mozliwosci" class="wrap">
+        <h2>Możliwości</h2>
+        <div class="features">
+          <article>
+            <h3>Notacja pod ręką</h3>
+            <p>
+              Indeks górny (<span class="ipa">beⁿdzie, soᵐ, ᵘojciec</span>),
+              pauzy, osobliwości <code>(!)</code>, wątpliwości
+              <code>(?)</code> i pominięte fragmenty <code>[…?]</code> wstawia
+              się przyciskiem albo skrótem klawiszowym.
+            </p>
+          </article>
+          <article>
+            <h3>Szkic z nagrania (ASR)</h3>
+            <p>
+              Model Whisper działa lokalnie, bez Internetu: do wyboru small,
+              medium albo large-v3, na procesorze lub karcie NVIDIA. Kontekst
+              nagrania i słownik pomagają zapisać nazwy miejscowości i nazwiska.
+            </p>
+          </article>
+          <article>
+            <h3>Propozycje zapisu fonetycznego</h3>
+            <p>
+              Reguły podpowiadają m.in. nosowość i labializację w szkicu. Każdą
+              zmianę widać w tekście i można ją przyjąć albo odrzucić — decyzja
+              zawsze należy do transkrybenta.
+            </p>
+          </article>
+          <article>
+            <h3>Odtwarzacz dla transkrybenta</h3>
+            <p>
+              Pętla A–B, zmiana tempa, skoki i auto-cofanie po pauzie — wszystko
+              z klawiatury, bez odrywania rąk od tekstu. Kliknięcie segmentu
+              szkicu odtwarza jego fragment.
+            </p>
+          </article>
+          <article>
+            <h3>Kontrola zapisu</h3>
+            <p>
+              Walidator wskazuje usterki notacji (brak odstępu po pauzie, błędny
+              marker pominięcia, niejednolite wielokropki), a lista ostrzeżeń
+              prowadzi prosto do miejsca w tekście.
+            </p>
+          </article>
+          <article>
+            <h3>Metryczka i eksport DOCX</h3>
+            <p>
+              Sygnatura, miejscowość, informator, data nagrania i badacz
+              trafiają do dokumentu razem z tekstem. Eksport z anonimizacją
+              pomija dane osobowe; import DOCX pozwala wrócić do starszej pracy.
+            </p>
+          </article>
+          <article>
+            <h3>Projekt i autozapis</h3>
+            <p>
+              Plik projektu zapamiętuje tekst, metryczkę, szkic ASR i stan
+              przeglądu. Po awarii program proponuje odzyskanie pracy.
+            </p>
+          </article>
+          <article>
+            <h3>Prywatność</h3>
+            <p>
+              Bez konta, telemetrii i chmury. Jedyne połączenia to jednorazowe
+              pobranie modelu (za zgodą) oraz automatyczne sprawdzenie
+              aktualizacji.
+            </p>
+          </article>
+        </div>
+
+        <figure class="shot">
+          <picture>
+            <source
+              media="(prefers-color-scheme: dark)"
+              data-theme-source
+              srcset="
+                img/metryczka-ciemna-450.webp 451w,
+                img/metryczka-ciemna.webp     902w
+              "
+              sizes="(max-width: 934px) calc(100vw - 32px), 902px"
+            />
+            <img
+              src="img/metryczka.webp"
+              srcset="img/metryczka-450.webp 451w, img/metryczka.webp 902w"
+              sizes="(max-width: 934px) calc(100vw - 32px), 902px"
+              width="902"
+              height="358"
+              loading="lazy"
+              decoding="async"
+              alt="Metryczka nagrania: sygnatura, miejscowość, gmina, informator, rok urodzenia, data nagrania i badacz"
+            />
+          </picture>
+          <figcaption>
+            Metryczka nagrania trafia do eksportu DOCX razem z transkrypcją.
+          </figcaption>
         </figure>
-      </div>
-    </section>
+      </section>
 
-    <section id="mozliwosci" class="wrap">
-      <h2>Możliwości</h2>
-      <div class="features">
-        <article>
-          <h3>Notacja pod ręką</h3>
-          <p>Indeks górny (<span class="ipa">beⁿdzie, soᵐ, ᵘojciec</span>),
-            pauzy, osobliwości <code>(!)</code>, wątpliwości <code>(?)</code>
-            i pominięte fragmenty <code>[…?]</code> wstawia się przyciskiem
-            albo skrótem klawiszowym.</p>
-        </article>
-        <article>
-          <h3>Szkic z nagrania (ASR)</h3>
-          <p>Model Whisper działa lokalnie, bez Internetu: do wyboru small,
-            medium albo large-v3, na procesorze lub karcie NVIDIA. Kontekst
-            nagrania i słownik pomagają zapisać nazwy miejscowości
-            i nazwiska.</p>
-        </article>
-        <article>
-          <h3>Propozycje zapisu fonetycznego</h3>
-          <p>Reguły podpowiadają m.in. nosowość i labializację w szkicu.
-            Każdą zmianę widać w tekście i można ją przyjąć albo odrzucić —
-            decyzja zawsze należy do transkrybenta.</p>
-        </article>
-        <article>
-          <h3>Odtwarzacz dla transkrybenta</h3>
-          <p>Pętla A–B, zmiana tempa, skoki i auto-cofanie po pauzie —
-            wszystko z klawiatury, bez odrywania rąk od tekstu. Kliknięcie
-            segmentu szkicu odtwarza jego fragment.</p>
-        </article>
-        <article>
-          <h3>Kontrola zapisu</h3>
-          <p>Walidator wskazuje usterki notacji (brak odstępu po pauzie,
-            błędny marker pominięcia, niejednolite wielokropki), a lista
-            ostrzeżeń prowadzi prosto do miejsca w tekście.</p>
-        </article>
-        <article>
-          <h3>Metryczka i eksport DOCX</h3>
-          <p>Sygnatura, miejscowość, informator, data nagrania i badacz trafiają
-            do dokumentu razem z tekstem. Eksport z anonimizacją pomija dane
-            osobowe; import DOCX pozwala wrócić do starszej pracy.</p>
-        </article>
-        <article>
-          <h3>Projekt i autozapis</h3>
-          <p>Plik projektu zapamiętuje tekst, metryczkę, szkic ASR i stan
-            przeglądu. Po awarii program proponuje odzyskanie pracy.</p>
-        </article>
-        <article>
-          <h3>Prywatność</h3>
-          <p>Bez konta, telemetrii i chmury. Jedyne połączenia to jednorazowe
-            pobranie modelu (za zgodą) i sprawdzenie aktualizacji, które
-            instalują się tylko z podpisem autorów.</p>
-        </article>
-      </div>
-
-      <figure class="shot">
-        <img src="img/metryczka.png" width="902" height="358" loading="lazy"
-             alt="Metryczka nagrania: sygnatura, miejscowość, gmina, informator, rok urodzenia, data nagrania i badacz">
-        <figcaption>Metryczka nagrania trafia do eksportu DOCX razem z transkrypcją.</figcaption>
-      </figure>
-    </section>
-
-    <section id="pobierz" class="band">
-      <div class="wrap">
-        <h2>Pobierz</h2>
-        <p>Najnowsze wydanie: <strong>${app_name} ${version}</strong>
-          (${release_date}) — <a href="${release_url}">noty wydania</a>.
-          Program sam powiadamia o kolejnych wersjach.</p>
-        <div class="downloads">
-          <a class="download" href="${windows_url}">
-            <span class="download-os">Windows</span>
-            <span class="download-file">${windows_file}</span>
-            <span class="download-hint">Instalator; nie wymaga uprawnień administratora</span>
-          </a>
-          <a class="download" href="${linux_url}">
-            <span class="download-os">Linux</span>
-            <span class="download-file">${linux_file}</span>
-            <span class="download-hint">AppImage: nadaj prawo wykonania i uruchom</span>
-          </a>
-        </div>
-        <p class="small">Starsze wersje są na stronie
-          <a href="${releases_url}">wszystkich wydań</a>. Python nie musi być
-          zainstalowany — instalator i AppImage zawierają komplet środowiska.</p>
-
-        <div class="columns">
-          <div>
-            <h3>Systemy</h3>
-            <ul>${systems}</ul>
-            <p class="small">Model ASR (ok. 1,5 GB dla domyślnego medium)
-              pobiera się z programu przy pierwszym użyciu szkicu. Pisanie,
-              odtwarzanie i eksport działają bez modelu i na skromniejszym
-              sprzęcie.</p>
+      <section id="pobierz" class="band">
+        <div class="wrap">
+          <h2>Pobierz</h2>
+          <p>
+            Najnowsze wydanie:
+            <strong>${app_name} ${version}</strong> (${release_date}) —
+            <a href="${release_url}">noty wydania</a>. Program sam powiadamia o
+            kolejnych wersjach.
+          </p>
+          <div class="downloads">
+            <a class="download" href="${windows_url}" data-os="windows" data-for="Windows">
+              <span class="download-os"
+                >Windows<span class="download-badge">Twój system</span></span
+              >
+              <span class="download-file">${windows_file}</span>
+              <span class="download-hint"
+                >Instalator; nie wymaga uprawnień administratora</span
+              >
+            </a>
+            <a class="download" href="${linux_url}" data-os="linux" data-for="Linuksa">
+              <span class="download-os"
+                >Linux<span class="download-badge">Twój system</span></span
+              >
+              <span class="download-file">${linux_file}</span>
+              <span class="download-hint"
+                >AppImage: nadaj prawo wykonania i uruchom</span
+              >
+            </a>
           </div>
-          <div>
-            <h3>Wymagania dla szkicu ASR</h3>
-            ${requirements}
+          <p class="small">
+            Starsze wersje są na stronie
+            <a href="${releases_url}">wszystkich wydań</a>. Python nie musi być
+            zainstalowany — instalator i AppImage zawierają komplet środowiska.
+          </p>
+
+          <div class="columns">
+            <div>
+              <h3>Systemy</h3>
+              <ul>
+                ${systems}
+              </ul>
+              <p class="small">
+                Model ASR (ok. 1,5 GB dla domyślnego medium) pobiera się z
+                programu przy pierwszym użyciu szkicu. Pisanie, odtwarzanie i
+                eksport działają bez modelu i na skromniejszym sprzęcie.
+              </p>
+            </div>
+            <div>
+              <h3>Wymagania dla szkicu ASR</h3>
+              ${requirements}
+            </div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <section id="zmiany" class="wrap">
-      <h2>Historia zmian</h2>
-      <p>Co zmieniło się w kolejnych wydaniach. Tę samą listę pokazuje w programie
-        przycisk <strong>Co nowego</strong>.</p>
-      <div class="changelog">
-${changelog}
-      </div>
-    </section>
-  </main>
+      <section id="zmiany" class="wrap">
+        <div class="section-head">
+          <h2>Historia zmian</h2>
+          <button
+            class="button compact"
+            type="button"
+            data-toggle-all="#zmiany .changelog"
+            hidden
+          >
+            Rozwiń wszystkie
+          </button>
+        </div>
+        <p>Co zmieniło się w kolejnych wydaniach.</p>
+        <div class="changelog">${changelog}</div>
+      </section>
+    </main>
 
-  <footer class="footer">
-    <div class="wrap footer-inner">
-      <p>${app_name} — wolne oprogramowanie na licencji GPL-3.0-or-later.</p>
-      <p><a href="${repo_url}">Kod źródłowy</a> ·
-        <a href="${issues_url}">Zgłoś problem</a> ·
-        <a href="${guide_url}">Instrukcja użytkownika</a></p>
-    </div>
-  </footer>
-</body>
+    <footer class="footer">
+      <div class="wrap footer-inner">
+        <div class="footer-about">
+          <a class="brand" href="#"
+            ><img src="img/ikona-56.png" alt="" width="24" height="24" />${app_name}</a
+          >
+          <p>Wolne oprogramowanie na licencji GPL-3.0-or-later.</p>
+        </div>
+        <nav class="footer-links" aria-label="Odnośniki">
+          <a href="${repo_url}">Kod źródłowy</a>
+          <a href="${issues_url}">Zgłoś problem</a>
+          <a href="${guide_url}">Instrukcja użytkownika</a>
+          <a href="faq.html">FAQ</a>
+        </nav>
+        <div class="footer-author">
+          <a class="author-chip" href="autor.html">
+            <img
+              src="img/autor-80.webp"
+              alt=""
+              width="40"
+              height="40"
+              loading="lazy"
+            />
+            <span
+              ><span class="author-chip-label">Autor</span>${author_name}</span
+            >
+          </a>
+          <div class="social">
+            <a
+              class="icon-button"
+              href="${repo_url}"
+              title="Kod źródłowy na GitHubie"
+              aria-label="Kod źródłowy na GitHubie"
+            >
+              <svg aria-hidden="true"><use href="img/ikony.svg#github" /></svg
+            ></a>
+            <a
+              class="icon-button"
+              href="${linkedin_url}"
+              title="${author_name} na LinkedIn"
+              aria-label="${author_name} na LinkedIn"
+            >
+              <svg aria-hidden="true"><use href="img/ikony.svg#linkedin" /></svg
+            ></a>
+          </div>
+        </div>
+      </div>
+    </footer>
+  </body>
 </html>

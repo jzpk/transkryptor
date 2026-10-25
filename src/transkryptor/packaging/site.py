@@ -1,11 +1,12 @@
-"""Strona projektu na GitHub Pages: opis, pobieranie i historia zmian.
+"""Strona projektu na GitHub Pages: opis, pobieranie, historia zmian i FAQ.
 
 Strona jest statyczna i powstaje przy każdym wydaniu (workflow „Strona”
 wywoływany z „Wydania”), więc przyciski pobierania wskazują pliki najnowszego
 wydania, a historia zmian obejmuje tylko wydane wersje — sekcja
 „Nieopublikowane” nie trafia na stronę. Opis i wygląd są w katalogu
-``pages/`` (szablon ``index.html`` z polami ``${...}``, arkusz stylów,
-zrzuty ekranu); wymagania i nazwy plików pochodzą z ``packaging.metadata``,
+``pages/`` (szablony ``index.html``, ``faq.html``, ``autor.html`` i ``404.html``
+z polami ``${...}``, arkusz stylów, skrypt strony, zrzuty ekranu, zdjęcie autora
+i ikony); wymagania i nazwy plików pochodzą z ``packaging.metadata``,
 tak jak w notach wydania.
 
     uv run python -m transkryptor.packaging.site --out _site
@@ -15,6 +16,8 @@ from __future__ import annotations
 
 import argparse
 import html
+import math
+import random
 import re
 import shutil
 import sys
@@ -41,11 +44,25 @@ from transkryptor.packaging.metadata import (
 )
 from transkryptor.update.releases import GITHUB_REPO
 
+AUTHOR_NAME = "Jeremiasz Pauszek"
+LINKEDIN_URL = "https://www.linkedin.com/in/jeremiasz-pauszek-55a744213"
+# Adres strony bez końcowego ukośnika: adresy kanoniczne i podglądy linków
+# (Open Graph) muszą być bezwzględne.
+SITE_URL = "https://transkryptorapp.pl"
+
 PAGES_DIR = REPO_ROOT / "pages"
 TEMPLATE_FILE = "index.html"
-# Pliki z pages/ kopiowane bez zmian (poza szablonem).
-STATIC_FILES = ("style.css",)
+# Strony z polami ${...}; pierwsza to strona główna.
+TEMPLATE_FILES = (TEMPLATE_FILE, "faq.html", "autor.html", "404.html")
+# Pliki z pages/ kopiowane bez zmian (poza szablonami).
+STATIC_FILES = ("style.css", "site.js")
 STATIC_DIRS = ("img",)
+
+# Litery przelatujące w tle strony (efekt w style.css, klatki „fruwanie”).
+# Losowane przy budowaniu ze stałym ziarnem, więc strona jest powtarzalna.
+LETTERS = "aąbcćdeęfghijklłmnńoóprsśtuwyzźżĄĆĘŁŃÓŚŹŻ"
+LETTER_COUNT = 44
+_LETTERS_SEED = 2026
 
 _VERSION_DATE = re.compile(r"^\d+\.\d+\.\d+\s+—\s+(?P<date>\d{4}-\d{2}-\d{2})$")
 _CODE = re.compile(r"`([^`]+)`")
@@ -155,15 +172,14 @@ def render_markdown(text: str) -> str:
 
 def _changelog_html(releases: list[Release]) -> str:
     entries = []
-    for index, release in enumerate(releases):
+    for release in releases:
         when = (
             f' <time datetime="{release.date}">{format_date(release.date)}</time>'
             if release.date
             else ""
         )
         entries.append(
-            f'<details class="release" id="v{release.version}"'
-            f'{" open" if index == 0 else ""}>'
+            f'<details class="release" id="v{release.version}">'
             f'<summary><span class="release-version">{release.version}</span>'
             f"{when}</summary>\n{render_markdown(release.body)}\n</details>"
         )
@@ -191,6 +207,51 @@ def _systems_html(version: str) -> str:
     )
 
 
+def background_letters(
+    count: int = LETTER_COUNT, seed: int = _LETTERS_SEED
+) -> tuple[str, str]:
+    """Warstwa liter tła (HTML) i klatki ich animacji (CSS).
+
+    Każda litera leci po prostej przez cały ekran. Tor przechodzi przez losowy
+    punkt ekranu w losowym kierunku; dłuższa składowa przesunięcia ma 120
+    jednostek (vw albo vh), więc oba końce toru leżą poza ekranem i powrót
+    animacji na początek jest niewidoczny. Każda litera ma własne klatki
+    ze stałymi wartościami — klatki ze zmiennymi CSS przeglądarka może
+    liczyć w wątku głównym zamiast na GPU, co daje przycięcia ruchu.
+    """
+    rng = random.Random(seed)
+    spans = []
+    keyframes = []
+    for index in range(count):
+        letter = rng.choice(LETTERS)
+        angle = rng.uniform(0, 2 * math.pi)
+        dx, dy = math.cos(angle), math.sin(angle)
+        scale = 120 / max(abs(dx), abs(dy))
+        dx, dy = dx * scale, dy * scale
+        cx, cy = rng.uniform(0, 100), rng.uniform(0, 100)
+        r0, r1 = rng.randint(-180, 180), rng.randint(-180, 180)
+        size = rng.uniform(1.5, 5)
+        duration = rng.uniform(35, 110)
+        delay = rng.uniform(0, duration)
+        name = f"litera-{index}"
+        keyframes.append(
+            f"@keyframes {name}{{"
+            f"from{{transform:translate({cx - dx:.1f}vw,{cy - dy:.1f}vh)"
+            f" rotate({r0}deg)}}"
+            f"to{{transform:translate({cx + dx:.1f}vw,{cy + dy:.1f}vh)"
+            f" rotate({r1}deg)}}}}"
+        )
+        # Bez skrótu ``animation``: ustawiłby też animation-play-state
+        # w stylu inline, którego przełącznik animacji z arkusza nie nadpisze.
+        style = (
+            f"font-size:{size:.2f}rem;animation-name:{name};"
+            f"animation-duration:{duration:.0f}s;animation-delay:-{delay:.0f}s"
+        )
+        spans.append(f'<span style="{style}">{letter}</span>')
+    layer = f'<div class="letters" aria-hidden="true">{"".join(spans)}</div>'
+    return layer, "\n".join(keyframes)
+
+
 def page_fields(releases: list[Release], repo: str) -> dict[str, str]:
     """Wartości pól szablonu dla najnowszego wydania."""
     if not releases:
@@ -200,11 +261,16 @@ def page_fields(releases: list[Release], repo: str) -> dict[str, str]:
     repo_url = f"https://github.com/{repo}"
     download = f"{repo_url}/releases/download/v{version}"
     artifacts = targets(version)
+    letters, letters_css = background_letters()
     return {
         "app_name": APP_NAME,
         "summary": html.escape(SUMMARY),
         "version": version,
         "release_date": format_date(latest.date) if latest.date else "",
+        "author_name": AUTHOR_NAME,
+        "linkedin_url": LINKEDIN_URL,
+        "site_url": SITE_URL,
+        "profile_url": f"https://github.com/{repo.split('/')[0]}",
         "repo_url": repo_url,
         "releases_url": f"{repo_url}/releases",
         "release_url": f"{repo_url}/releases/tag/v{version}",
@@ -219,6 +285,8 @@ def page_fields(releases: list[Release], repo: str) -> dict[str, str]:
         "systems": _systems_html(version),
         "requirements": _requirements_html(),
         "changelog": _changelog_html(releases),
+        "letters": letters,
+        "letters_css": letters_css,
     }
 
 
@@ -245,23 +313,25 @@ def build(
             f"Najnowsza wersja w {Path(changelog_file).name} ({fields['version']}) "
             f"różni się od wersji programu ({expected_version})."
         )
-    template = Template((source / TEMPLATE_FILE).read_text(encoding="utf-8"))
-    try:
-        page = template.substitute(fields)
-    except KeyError as error:
-        raise SiteError(f"Szablon strony używa nieznanego pola {error}.") from None
-    except ValueError as error:
-        raise SiteError(f"Błędne pole w szablonie strony: {error}.") from None
+    pages = {}
+    for name in TEMPLATE_FILES:
+        template = Template((source / name).read_text(encoding="utf-8"))
+        try:
+            pages[name] = template.substitute(fields)
+        except KeyError as error:
+            raise SiteError(f"Szablon {name} używa nieznanego pola {error}.") from None
+        except ValueError as error:
+            raise SiteError(f"Błędne pole w szablonie {name}: {error}.") from None
 
     out.mkdir(parents=True, exist_ok=True)
-    index = out / TEMPLATE_FILE
-    index.write_text(page, encoding="utf-8")
+    for name, page in pages.items():
+        (out / name).write_text(page, encoding="utf-8")
     for name in STATIC_FILES:
         shutil.copy2(source / name, out / name)
     for name in STATIC_DIRS:
         shutil.copytree(source / name, out / name, dirs_exist_ok=True)
     shutil.copy2(ICON_PNG, out / "icon.png")
-    return index
+    return out / TEMPLATE_FILE
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -285,12 +355,18 @@ def main(argv: list[str] | None = None) -> int:
 
 
 __all__ = [
+    "AUTHOR_NAME",
+    "LETTERS",
+    "LETTER_COUNT",
+    "LINKEDIN_URL",
     "PAGES_DIR",
+    "SITE_URL",
     "Release",
     "SiteError",
     "build",
     "format_date",
     "page_fields",
+    "background_letters",
     "released_sections",
     "render_markdown",
 ]
