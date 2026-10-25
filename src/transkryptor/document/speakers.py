@@ -178,7 +178,10 @@ def legend(speakers: Iterable[Speaker], anonymize: bool = False) -> str:
     return "; ".join(parts)
 
 
-_LEGEND_ITEM_RE = re.compile(r"^\s*(\w{1,8})\s*[-–-]\s*(.*?)\s*$")
+# Separator klucza i opisu: łącznik (eksport po 0.6.0), półpauza U+2013
+# (Word sam poprawia „ - ”) albo pauza U+2014 (eksport do 0.6.0). Znaki
+# zapisane kodami, żeby zamiana pauz na łączniki w tekście ich nie usunęła.
+_LEGEND_ITEM_RE = re.compile(r"^\s*(\w{1,8})\s*[-\u2013\u2014]\s*(.*?)\s*$")
 
 
 def parse_legend(value: str) -> list[Speaker]:
