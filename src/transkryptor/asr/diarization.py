@@ -1,17 +1,17 @@
-"""Podział szkicu ASR na mówców (diaryzacja) — lokalnie, przez sherpa-onnx.
+"""Podział szkicu ASR na mówców (diaryzacja) - lokalnie, przez sherpa-onnx.
 
 Granica modułu: brak zależności od GUI ani Qt. Diaryzacja działa na
 próbkach całego nagrania (16 kHz, mono) po transkrypcji Whispera:
 
 1. :func:`diarize` liczy model głosu (3D-Speaker CAM++) dla krótkich okien
    przesuwanych po fragmentach mowy wskazanych przez słowa Whispera
-   i grupuje okna po głosie (grupowanie spektralne) — wynikiem są
+   i grupuje okna po głosie (grupowanie spektralne) - wynikiem są
    wypowiedzi (:class:`Turn`) z numerem mówcy;
 2. :func:`assign_speakers` przypisuje mówcę każdemu słowu Whispera
    (największe nakładanie czasu) i dzieli segment w miejscu zmiany mówcy.
 
 Krótkie okna wychwytują szybkie wymiany pytań i odpowiedzi w wywiadach
-(„Zajęcie?” — „Rolnik.”), które gubi segmentacja pyannote działająca na
+(„Zajęcie?” - „Rolnik.”), które gubi segmentacja pyannote działająca na
 oknach 10-sekundowych. Liczba mówców jest podana przez użytkownika albo
 wyznaczana automatycznie (największa przerwa w widmie grafu podobieństwa).
 Numery mówców w wyniku idą w kolejności pojawiania się w tekście, od 0.
@@ -125,8 +125,8 @@ def diarize(
 ) -> tuple[Turn, ...]:
     """Wypowiedzi mówców w nagraniu, posortowane po czasie początku.
 
-    ``speech`` — fragmenty mowy (np. słowa Whispera); tylko one są dzielone
-    na mówców. ``speakers`` — znana liczba mówców (None: wyznaczana
+    ``speech`` - fragmenty mowy (np. słowa Whispera); tylko one są dzielone
+    na mówców. ``speakers`` - znana liczba mówców (None: wyznaczana
     automatycznie). Podnosi :class:`DiarizationCancelled` przy anulowaniu;
     pozostałe błędy (brak pliku modelu, błąd biblioteki) przechodzą bez zmian.
     """
@@ -278,7 +278,7 @@ class _TurnIndex:
     def speaker(self, start_s: float, end_s: float) -> int | None:
         """Mówca o największym nakładaniu z ``[start_s, end_s]``.
 
-        Bez nakładania — mówca najbliższej wypowiedzi; None, gdy nie ma
+        Bez nakładania - mówca najbliższej wypowiedzi; None, gdy nie ma
         żadnej wypowiedzi.
         """
         if not self._turns:
@@ -318,7 +318,7 @@ def assign_speakers(
 ) -> tuple[SegmentResult, ...]:
     """Segmenty z mówcami; segment ze zmianą mówcy jest dzielony na słowach.
 
-    Słowo dostaje mówcę o największym nakładaniu czasu, a segment bez słów —
+    Słowo dostaje mówcę o największym nakładaniu czasu, a segment bez słów -
     mówcę całego segmentu. Zmiana mówcy o jedno słowo od końca zdania jest
     przesuwana na koniec zdania (:func:`_snapped`). Numery mówców są
     nadawane od nowa w kolejności pojawiania się.

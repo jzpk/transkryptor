@@ -1,10 +1,10 @@
 /*
- * Zastępcza icuuc.dll — TYLKO dla obrazu budowania pod Wine.
+ * Zastępcza icuuc.dll - TYLKO dla obrazu budowania pod Wine.
  *
  * Qt6Core.dll z PySide6 6.7+ linkuje się z systemowym ICU Windows
  * (C:\Windows\System32\icuuc.dll, obecne od Windows 10 1903). Wine tej
- * biblioteki nie dostarcza, więc import QtCore — którego PyInstaller
- * potrzebuje, by odczytać ścieżki wtyczek Qt — kończył się błędem i
+ * biblioteki nie dostarcza, więc import QtCore - którego PyInstaller
+ * potrzebuje, by odczytać ścieżki wtyczek Qt - kończył się błędem i
  * instalator powstawał bez wtyczek Qt.
  *
  * Qt importuje z icuuc.dll wyłącznie konwertery ucnv_* (obsługa starszych
@@ -41,7 +41,7 @@ EXPORT const char *ucnv_getStandardName(const char *name, const char *standard, 
 }
 
 /* Poniższe działają wyłącznie na konwerterze, którego ucnv_open nigdy nie
- * zwraca — nie mogą zostać wywołane z poprawnym argumentem. */
+ * zwraca - nie mogą zostać wywołane z poprawnym argumentem. */
 EXPORT void ucnv_close(void *cnv) { (void)cnv; }
 EXPORT void ucnv_reset(void *cnv) { (void)cnv; }
 EXPORT int8_t ucnv_getMaxCharSize(const void *cnv) { (void)cnv; return 1; }

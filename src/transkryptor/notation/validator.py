@@ -6,7 +6,7 @@ Realizuje reguły VAL-01 do VAL-12 z ``specs/transcription-rules.md``:
 - VAL-02: dopisek otwarty przez ``[`` bez zamykającego ``]``.
 - VAL-03: sekwencja zaczynająca się od ``[…`` inna niż dokładnie ``[…?]``.
 - VAL-04: wielokropek przylegający do poprzedniego słowa nigdy nie jest
-  zgłaszany — to może być zamierzone urwane słowo.
+  zgłaszany - to może być zamierzone urwane słowo.
 - VAL-05 (wskazówka): wielokropek w zapisie innym niż wybrany styl; tylko
   gdy wywołujący poda styl.
 - VAL-06: ``(!)``/``(?)`` przylegające do następnego słowa.
@@ -309,7 +309,7 @@ def _check_space_before_close(text: str) -> list[Warning]:
 def _check_nested(text: str) -> list[Warning]:
     """VAL-09: ``[`` otwarty, gdy poprzedni dopisek jest jeszcze otwarty.
 
-    Marker ``[…?]`` jest gotowym znacznikiem, nie dopiskiem — może stać
+    Marker ``[…?]`` jest gotowym znacznikiem, nie dopiskiem - może stać
     wewnątrz dopisku. Zakres ostrzeżenia obejmuje wewnętrzny dopisek.
     """
     warnings: list[Warning] = []
@@ -372,7 +372,7 @@ def _check_superscript_letters(
 def _check_missing_speaker(text: str, speakers: Mapping[int, str]) -> list[Warning]:
     """VAL-12: niepusty akapit bez mówcy, gdy dokument używa mówców.
 
-    Sama lista mówców (domyślnie B i I) nie wystarcza — wskazówka pojawia
+    Sama lista mówców (domyślnie B i I) nie wystarcza - wskazówka pojawia
     się dopiero po przypisaniu mówcy pierwszemu akapitowi. Zakres to
     pierwsze słowo akapitu.
     """
@@ -411,7 +411,7 @@ def _check_missing_superscript(
 
     ``m``/``n`` po samogłosce przed spółgłoską lub na końcu słowa
     (``som``, ``bendzie``) oraz ``u`` przed ``o``/``ó`` na początku słowa
-    (``uod``). Tylko wskazówka — nie ocenia poprawności fonetycznej.
+    (``uod``). Tylko wskazówka - nie ocenia poprawności fonetycznej.
     """
     superscript = [False] * len(text)
     for start, end in ranges:

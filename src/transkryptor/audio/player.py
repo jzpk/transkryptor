@@ -70,7 +70,7 @@ class AudioPlayer(QObject):
         self._player.errorOccurred.connect(self._on_error)
         self._player.mediaStatusChanged.connect(self._on_media_status)
         # Przewinięcie zlecone, zanim nagranie się załadowało (np. pozycja
-        # z projektu) — Qt by je zignorował, więc czeka na ``LoadedMedia``.
+        # z projektu) - Qt by je zignorował, więc czeka na ``LoadedMedia``.
         self._pending_position: int | None = None
         self._source_path: Path | None = None
         self._last_error: ImportAudioError | None = None
@@ -124,7 +124,7 @@ class AudioPlayer(QObject):
         """Czy wznowienie jest powrotem po pauzie w tym samym miejscu.
 
         Pierwszy start (stan zatrzymany) i przewinięcie w trakcie pauzy
-        (suwak, skok, segment ASR) nie są wznowieniem — wtedy odtwarzanie
+        (suwak, skok, segment ASR) nie są wznowieniem - wtedy odtwarzanie
         rusza dokładnie od bieżącej pozycji.
         """
         return (

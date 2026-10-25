@@ -1,7 +1,7 @@
 """Artefakt Linuxa: AppDir z katalogu PyInstallera i obraz AppImage.
 
 AppImage uruchamia się na współczesnych dystrybucjach bez instalacji
-i bez globalnego Pythona — dokładnie tego wymaga bramka fazy 05.
+i bez globalnego Pythona - dokładnie tego wymaga bramka fazy 05.
 
 Budowa przebiega w dwóch krokach, żeby dała się sprawdzić bez narzędzi
 zewnętrznych: najpierw powstaje katalog ``AppDir`` (czysta praca na plikach,
@@ -111,7 +111,7 @@ def build_appimage(
 ) -> Path:
     """Zamienia AppDir w plik AppImage.
 
-    Zgłasza ``FileNotFoundError``, gdy ``appimagetool`` nie jest dostępny —
+    Zgłasza ``FileNotFoundError``, gdy ``appimagetool`` nie jest dostępny -
     budowanie artefaktu nie może po cichu wyprodukować niepełnego wydania.
     """
     executable = find_appimagetool(tool)

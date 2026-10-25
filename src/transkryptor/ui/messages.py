@@ -15,7 +15,7 @@ def log_user_error(error: AppError, stacklevel: int = 1) -> None:
     """Wpis w dzienniku o błędzie pokazanym użytkownikowi (bez jego treści).
 
     Miejsce wywołania (moduł, funkcja, wiersz) wskazuje operację, a łańcuch
-    przyczyn — źródło błędu.
+    przyczyn - źródło błędu.
     """
     logger.warning(
         "Error shown to the user: %s",

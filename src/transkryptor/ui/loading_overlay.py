@@ -1,6 +1,6 @@
 """Nakładka ładowania blokująca okno na czas transkrypcji ASR.
 
-Praca nadal odbywa się w wątku w tle — pętla zdarzeń Qt pozostaje
+Praca nadal odbywa się w wątku w tle - pętla zdarzeń Qt pozostaje
 responsywna (spinner się kręci, anulowanie działa), ale nakładka
 przechwytuje mysz nad całym oknem, a główne okno na ten czas wyłącza
 edycję i skróty. Jedynym aktywnym elementem jest przycisk anulowania.
@@ -37,7 +37,7 @@ MESSAGE_INTERVAL_MS = 12_000
 SPINNER_INTERVAL_MS = 33
 SPINNER_STEP_DEG = 12  # 360°/s jak przy 60 klatkach i kroku 6°
 ETA_TICK_MS = 1_000
-# Szacunek pokazujemy dopiero po tylu sekundach od pierwszego postępu —
+# Szacunek pokazujemy dopiero po tylu sekundach od pierwszego postępu -
 # wcześniej tempo jest zbyt chwiejne, by cokolwiek obiecywać.
 ETA_MIN_SAMPLE_S = 10.0
 LOADING_MESSAGE_COUNT = 50

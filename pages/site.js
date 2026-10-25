@@ -44,7 +44,7 @@
   }
 
   // Preferencja wyświetlania z domyślną wartością według przeglądarki.
-  // Wybór zgodny z domyślną nie jest zapamiętywany — wtedy strona znów
+  // Wybór zgodny z domyślną nie jest zapamiętywany - wtedy strona znów
   // podąża za ustawieniem systemu.
   function preference(key, attribute, values, query, onSystem, render) {
     var system = window.matchMedia(query);
@@ -129,7 +129,7 @@
   window.addEventListener("hashchange", openFromHash);
 
   // System odwiedzającego: "windows", "linux" albo null (macOS, telefony
-  // i inne — dla nich nie ma wydania, więc strona niczego nie wyróżnia).
+  // i inne - dla nich nie ma wydania, więc strona niczego nie wyróżnia).
   function visitorOs() {
     var agent = navigator.userAgent || "";
     var platform =

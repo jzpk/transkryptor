@@ -6,7 +6,7 @@ się od ``RW``). Aktualizacja jest instalowana tylko wtedy, gdy podpis
 rotację: nowy klucz dopisuje się w wydaniu podpisanym jeszcze starym, a stary
 usuwa dopiero w kolejnym.
 
-Pusta krotka oznacza, że aplikacja nie zaufa żadnej aktualizacji — workflow
+Pusta krotka oznacza, że aplikacja nie zaufa żadnej aktualizacji - workflow
 wydania przerywa publikację, dopóki klucz nie zostanie tu wpisany
 (``python -m transkryptor.update.keys``). Moduł nie ma zależności, więc
 sprawdza go także gołe ``python3`` w CI.

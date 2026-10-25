@@ -96,14 +96,14 @@ class EnvelopeThread(QThread):
             )
         except InterruptedError:
             return
-        except Exception:  # noqa: BLE001 — fala jest pomocnicza; brak fali to nie błąd
+        except Exception:  # noqa: BLE001 - fala jest pomocnicza; brak fali to nie błąd
             logger.warning("Waveform could not be computed", exc_info=True)
             return
         save_cached(digest, envelope, self._cache_dir)
         self.envelope = envelope
 
     def _report(self, fraction: float) -> None:
-        """Postęp tylko przy zmianie pełnego procenta — nie zalewa wątku UI."""
+        """Postęp tylko przy zmianie pełnego procenta - nie zalewa wątku UI."""
         percent = int(fraction * 100)
         if percent != self._percent:
             self._percent = percent
@@ -335,7 +335,7 @@ class WaveformView(QWidget):
             return
         event.accept()
 
-    def resizeEvent(self, event) -> None:  # noqa: ANN001 — API Qt
+    def resizeEvent(self, event) -> None:  # noqa: ANN001 - API Qt
         super().resizeEvent(event)
         self._clamp_view()
         self.view_changed.emit()

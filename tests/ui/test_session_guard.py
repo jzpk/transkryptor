@@ -72,7 +72,7 @@ class TestCloseGuard:
     ) -> None:
         calls = answer_dialog(monkeypatch, QMessageBox.StandardButton.Cancel)
         assert window.maybe_discard_changes()
-        assert calls == []  # czysty dokument — brak pytania
+        assert calls == []  # czysty dokument - brak pytania
 
     def test_close_after_export_does_not_ask(self, qtbot, window, monkeypatch) -> None:
         make_dirty(window)
@@ -128,7 +128,7 @@ class TestAudioChangeGuard:
         assert len(texts) == 1
         assert "sample.aac" in texts[0]
         assert "zostaną zachowane" in texts[0]
-        assert "ASR" not in texts[0]  # brak wyniku ASR — brak zdania o nim
+        assert "ASR" not in texts[0]  # brak wyniku ASR - brak zdania o nim
 
     def test_change_confirmed_keeps_text(self, qtbot, window, monkeypatch) -> None:
         window._on_import_audio(SAMPLE_MP3)

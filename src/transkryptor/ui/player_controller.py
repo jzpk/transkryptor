@@ -2,7 +2,7 @@
 
 Akcje z ``ui/shortcuts.py`` są rejestrowane w oknie z kontekstem całej
 aplikacji, więc działają z fokusem w edytorze. Skrót obsłużony przez akcję
-nie trafia do edytora — nie wstawia znaku ani nie tworzy kroku cofania.
+nie trafia do edytora - nie wstawia znaku ani nie tworzy kroku cofania.
 """
 
 from __future__ import annotations

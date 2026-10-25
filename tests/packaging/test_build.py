@@ -167,7 +167,7 @@ def test_second_platform_build_extends_the_same_release(
 def test_relative_directories_reach_the_installer_as_absolute_paths(
     tmp_path, monkeypatch
 ) -> None:
-    """ISCC czyta ścieżki względne od katalogu .iss — muszą być bezwzględne."""
+    """ISCC czyta ścieżki względne od katalogu .iss - muszą być bezwzględne."""
     monkeypatch.chdir(tmp_path)
     dist = tmp_path / "build" / "windows" / "pyinstaller-dist" / BUNDLE_NAME
     dist.mkdir(parents=True)
@@ -234,7 +234,7 @@ def test_finalize_without_artifacts_fails(tmp_path, capsys) -> None:
 
 
 def test_finalize_without_changelog_entry_fails(tmp_path, capsys) -> None:
-    """Noty bez nowości byłyby kopią poprzednich — wydanie się zatrzymuje."""
+    """Noty bez nowości byłyby kopią poprzednich - wydanie się zatrzymuje."""
     output = tmp_path / "dist"
     output.mkdir()
     for target in targets().values():

@@ -2,8 +2,8 @@
 
 Trzy poziomy dowodu, od najtańszego do najmocniejszego:
 
-1. kontrakt backendu — model jest ładowany z ``local_files_only=True``,
-2. izolacja warstwy Pythona — transkrypcja i sprawdzanie stanu modelu działają
+1. kontrakt backendu - model jest ładowany z ``local_files_only=True``,
+2. izolacja warstwy Pythona - transkrypcja i sprawdzanie stanu modelu działają
    przy odciętym module ``socket``,
 3. przebieg na prawdziwym modelu i prawdziwym nagraniu z odciętą siecią
    (pomijany, gdy model nie został pobrany na tej maszynie).

@@ -135,7 +135,7 @@ class TestAssignSpeakers:
 
 
 class FakeEmbedder:
-    """Głos rozpoznawany po znaku próbek: dodatnie — mówca A, ujemne — B."""
+    """Głos rozpoznawany po znaku próbek: dodatnie - mówca A, ujemne - B."""
 
     def __init__(self) -> None:
         self.calls = 0

@@ -2,7 +2,7 @@
 
 Czyste funkcje bez Qt (propozycja 20): kompilacja zapytania z opcjami,
 lista trafień oraz parsowanie zamiennika, w którym ``^x`` oznacza znak ``x``
-w indeksie górnym (np. ``be^ndzie``), a ``\\^`` — dosłowny ``^``.
+w indeksie górnym (np. ``be^ndzie``), a ``\\^`` - dosłowny ``^``.
 
 Zamiennik jest zawsze dosłowny, także w trybie wyrażeń regularnych (bez
 odwołań do grup ``\\1``).
@@ -10,7 +10,7 @@ odwołań do grup ``\\1``).
 Wyszukiwanie działa w wątku UI, a krótki wzorzec z katastrofalnym nawrotem
 (np. ``(a|aa)+$``) potrafi liczyć się w nieskończoność (SEC-03). Dlatego
 wzorce kompiluje pakiet ``regex`` (składnia zgodna z ``re``), a
-:func:`find_all` ma łączny limit czasu ``SEARCH_TIMEOUT_S`` — po nim
+:func:`find_all` ma łączny limit czasu ``SEARCH_TIMEOUT_S`` - po nim
 zgłasza ``SearchError`` z prośbą o prostszy wzorzec. Limity długości wzorca
 i liczby trafień ograniczają koszt reszty interfejsu.
 """
@@ -30,7 +30,7 @@ SEARCH_TIMEOUT_S = 0.3
 
 
 class SearchError(ValueError):
-    """Błędne zapytanie lub zamiennik — komunikat dla użytkownika."""
+    """Błędne zapytanie lub zamiennik - komunikat dla użytkownika."""
 
 
 @dataclass(frozen=True)
@@ -69,7 +69,7 @@ def find_all(
 ) -> list[tuple[int, int]]:
     """Niepuste trafienia jako zakresy ``(start, end)``, najwyżej ``MAX_MATCHES``.
 
-    Całe wyszukiwanie mieści się w ``timeout_s``; po przekroczeniu —
+    Całe wyszukiwanie mieści się w ``timeout_s``; po przekroczeniu -
     ``SearchError`` („wzorzec zbyt kosztowny”). ``timeout`` pakietu
     ``regex`` dotyczy jednego dopasowania, więc kolejne wyszukiwania
     dostają resztę wspólnego terminu.

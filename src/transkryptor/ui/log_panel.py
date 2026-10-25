@@ -2,7 +2,7 @@
 
 Pokazuje folder dziennika błędów (``diagnostics``) z odnośnikiem, który go
 otwiera, oraz formularz zgłoszenia problemu na GitHubie w przeglądarce.
-Zakładka nie ma ustawień — niczego nie zapisuje.
+Zakładka nie ma ustawień - niczego nie zapisuje.
 """
 
 from __future__ import annotations

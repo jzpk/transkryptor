@@ -3,10 +3,10 @@
 Tekst bez formatowania nie ma indeksu górnego, więc trzeba go zapisać
 znakami. Dwa tryby:
 
-- ``unicode`` (domyślny) — litery modyfikujące Unicode (``ᵐ ⁿ ᵘ``…),
+- ``unicode`` (domyślny) - litery modyfikujące Unicode (``ᵐ ⁿ ᵘ``…),
   czytelne w ELAN i Praat; znak bez odpowiednika zapisuje się jak w trybie
   ``caret`` i trafia do raportu eksportu;
-- ``caret`` — ``^m`` dla jednego znaku, ``^{mn}`` dla dłuższego zakresu;
+- ``caret`` - ``^m`` dla jednego znaku, ``^{mn}`` dla dłuższego zakresu;
   tekst bazowy zostaje bez zmian dla narzędzi wyszukujących.
 """
 

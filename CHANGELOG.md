@@ -1,7 +1,7 @@
 # Historia zmian
 
 Zmiany widoczne dla użytkownika. Nowe wpisy dopisuj w sekcji
-„Nieopublikowane” razem z kodem — workflow „Wydanie” nada jej numer wersji
+„Nieopublikowane” razem z kodem - workflow „Wydanie” nada jej numer wersji
 i datę, a jej treść trafi do sekcji „Nowości w tej wersji” not wydania.
 Pusta sekcja blokuje wydanie.
 
@@ -10,19 +10,19 @@ Pusta sekcja blokuje wydanie.
 - Komentarze recenzji: do zaznaczonego fragmentu można dodać komentarz
   (menu kontekstowe **Dodaj komentarz…**, skrót `Ctrl+Alt+M` albo panel
   **Komentarze** na pasku narzędzi) z podpisem autora i datą, a na
-  komentarz — odpowiedzieć. Komentowane fragmenty mają w tekście tło, po
+  komentarz - odpowiedzieć. Komentowane fragmenty mają w tekście tło, po
   najechaniu widać treść; z panelu można przejść do fragmentu i odsłuchać
   go z nagrania. Komentarz przesuwa się razem z tekstem przy edycji,
   a gdy fragment zostanie usunięty, komentarz zostaje z cytatem. Komentarze
-  są zapisywane w pliku projektu — projektu z komentarzami nie otworzy już
+  są zapisywane w pliku projektu - projektu z komentarzami nie otworzy już
   starsza wersja programu.
 - Eksport DOCX zawiera komentarze recenzji jako komentarze Worda przy
   komentowanym fragmencie, z odpowiedziami w treści komentarza. Eksport
   anonimizowany i pozostałe formaty komentarzy nie zawierają.
 - **Porównaj z…** (menu przycisku **Otwórz**): bieżący projekt można
   porównać z innym plikiem projektu tego samego nagrania, np. wersją
-  poprawioną przez weryfikatora. Obie wersje są widoczne obok siebie —
-  po lewej bieżący dokument, po prawej porównywana (tylko do odczytu) —
+  poprawioną przez weryfikatora. Obie wersje są widoczne obok siebie -
+  po lewej bieżący dokument, po prawej porównywana (tylko do odczytu) -
   a panel **Porównanie** wymienia zmiany: wstawienia, usunięcia, zmiany
   tekstu, indeksu górnego i mówcy akapitu. Kliknięcie zmiany zaznacza ją
   w obu wersjach, **Odsłuchaj** odtwarza fragment z nagrania. Zmiany
@@ -31,23 +31,23 @@ Pusta sekcja blokuje wydanie.
   tylko do odczytu; **Zakończ porównanie** zostawia dokument z przyjętymi
   zmianami.
 
-## 0.6.0 — 2026-10-24
+## 0.6.0 - 2026-10-24
 
 - Import DOCX dużego dokumentu jest kilkukrotnie szybszy (np. 3000
-  akapitów — ok. 0,3 s zamiast 2 s).
+  akapitów - ok. 0,3 s zamiast 2 s).
 - **Ustawienia…**: sekcje (Wygląd, Odtwarzacz, … ASR, Dziennik logów) są
-  listą po lewej stronie okna, zawsze widoczną w całości — wcześniej
+  listą po lewej stronie okna, zawsze widoczną w całości - wcześniej
   ostatnie zakładki chowały się za krawędzią okna. Długie sekcje (np. ASR)
   przewijają się, zamiast ściskać pola.
 - **Liczba mówców** jest też w panelu **Szkic ASR** (krok 3, nad
-  przyciskiem transkrypcji), gdy podział na mówców jest włączony — można ją
+  przyciskiem transkrypcji), gdy podział na mówców jest włączony - można ją
   szybko zmienić przed rozpoznaniem każdego nagrania. Wybór jest pamiętany
   i ten sam co w **Ustawieniach…**.
 - Więcej żartobliwych komunikatów w trakcie transkrypcji: pula wzrosła
   z 30 do 50, więc teksty rzadziej się powtarzają.
 - Dziennik błędów: program zapisuje lokalnie plik `transkryptor.log`
   z informacjami technicznymi o błędach i awariach (także procesu ASR),
-  które pomagają znaleźć przyczynę problemu. Nic nie jest wysyłane —
+  które pomagają znaleźć przyczynę problemu. Nic nie jest wysyłane -
   plik można samemu dołączyć do zgłoszenia na GitHubie. Dziennik jest po
   angielsku i nie zawiera tekstu transkrypcji, metryczki, kontekstu ASR ani
   nazw i ścieżek plików użytkownika. Dostęp do niego daje nowa zakładka
@@ -55,13 +55,13 @@ Pusta sekcja blokuje wydanie.
   odnośnik do folderu dziennika i przycisk **Zgłoś problem…** (formularz
   zgłoszenia w przeglądarce).
 - Ostrzeżenia w tekście: problemy z notacją są podkreślone falistą linią
-  bezpośrednio w edytorze (pomarańczową — ostrzeżenia, szarą — wskazówki),
+  bezpośrednio w edytorze (pomarańczową - ostrzeżenia, szarą - wskazówki),
   a po najechaniu myszą widać opis. Podkreślenia nie trafiają do DOCX.
 - Nowe reguły walidatora: `(!)` / `(?)` przylegające do następnego słowa
   (VAL-06), kilka spacji z rzędu (VAL-07), spacja przed `]` (VAL-08),
   zagnieżdżone dopiski `[ [ ] ]` (VAL-09) i indeks górny na znaku innym niż
   `m`, `n`, `u` (VAL-10). Wskazówkę o `m`/`n`/`u` bez indeksu górnego
-  (VAL-11) można włączyć w ustawieniach — domyślnie jest wyłączona.
+  (VAL-11) można włączyć w ustawieniach - domyślnie jest wyłączona.
 - W **Ustawieniach…** nowa zakładka **Walidator**: każdą regułę można
   włączyć albo wyłączyć.
 - **Ignoruj tutaj** w menu kontekstowym edytora i listy ostrzeżeń pomija
@@ -81,7 +81,7 @@ Pusta sekcja blokuje wydanie.
   kiedyź jak, jak nowy → jag nowy), wygłosowe „ch” → „h” (tych → tyh),
   końcowe „ą” → „óᵐ” (są → sóᵐ) i labializacja w środku słowa
   (kosa → kᵘosa). Mają orientacyjną pewność i domyślnie nie są stosowane
-  automatycznie — ich dopasowania pojawiają się jako propozycje.
+  automatycznie - ich dopasowania pojawiają się jako propozycje.
 - Gdy propozycje dwóch reguł dotyczą tego samego fragmentu, pierwszeństwo
   ma reguła zaznaczona do automatycznego stosowania.
 - Błędna reguła w pliku reguł nie blokuje programu: przy starcie pojawia się
@@ -96,7 +96,7 @@ Pusta sekcja blokuje wydanie.
   Nowe skróty działają od razu, a podpowiedzi przycisków pokazują bieżące
   skróty. **Przywróć wszystkie domyślne** wraca do skrótów fabrycznych.
 - Wstawki: w zakładce **Wstawki** można zapisać często używane formy, np.
-  `so^m` (`^m` — „m” w indeksie górnym), i przypisać im skróty — kolejne
+  `so^m` (`^m` - „m” w indeksie górnym), i przypisać im skróty - kolejne
   wstawki dostają podpowiedź `Alt+1`…`Alt+9`. Wstawkę wstawia się skrótem
   albo z menu **Wstawki** na pasku narzędzi; jedno cofnięcie usuwa ją
   w całości.
@@ -108,7 +108,7 @@ Pusta sekcja blokuje wydanie.
   **Ctrl+Shift+Spacja** („Odtwórz od miejsca w tekście”) odtwarza nagranie od
   początku segmentu (z wyprzedzeniem z ustawień). Podczas odtwarzania
   podświetlany jest segment odpowiadający bieżącemu miejscu, a edytor
-  przewija się za nim — przewijanie można wyłączyć w **Ustawieniach…**
+  przewija się za nim - przewijanie można wyłączyć w **Ustawieniach…**
   (zakładka **Odtwarzacz**). Powiązania przesuwają się razem z edycją
   tekstu i są zapisywane w pliku projektu.
 - Ręczne znaczniki czasu: skrót **Ctrl+Shift+T** wstawia w miejscu kursora
@@ -133,8 +133,8 @@ Pusta sekcja blokuje wydanie.
 - Fala dźwiękowa pod suwakiem odtwarzacza: widać ciszę, pauzy i głośne
   fragmenty. Klik na fali przewija nagranie, przeciągnięcie ustawia pętlę
   A–B, **Ctrl** + kółko myszy powiększa. Na fali są też segmenty szkicu ASR
-  (zielone — pewne, pomarańczowe — niepewne) i ręczne znaczniki czasu. Fala
-  powstaje w tle bez blokowania okna (godzina nagrania — kilkanaście
+  (zielone - pewne, pomarańczowe - niepewne) i ręczne znaczniki czasu. Fala
+  powstaje w tle bez blokowania okna (godzina nagrania - kilkanaście
   sekund) i jest zapamiętywana w pamięci podręcznej, więc przy kolejnym
   otwarciu pojawia się od razu. Falę można zwinąć; wybór jest pamiętany.
 - Szybsze wstawianie długiego szkicu ASR: przy godzinnym nagraniu
@@ -163,7 +163,7 @@ Pusta sekcja blokuje wydanie.
   (`ᵐ ⁿ ᵘ`, domyślnie) albo oznaczeniem `^m`. ELAN, Praat i napisy
   korzystają z powiązania tekstu z nagraniem (szkic ASR, znaczniki czasu):
   każdy mówca ma osobną warstwę, a fragmenty bez czasu dostają czas
-  wyznaczony z sąsiednich kotwic albo są pomijane — raport po eksporcie
+  wyznaczony z sąsiednich kotwic albo są pomijane - raport po eksporcie
   wymienia takie fragmenty. Znaczniki `[mm:ss]` wierszy szkicu ASR nie
   trafiają do adnotacji. Plik ELAN wskazuje nagranie. Wybrany format
   i opcje są pamiętane; DOCX pozostaje głównym formatem.
@@ -172,7 +172,7 @@ Pusta sekcja blokuje wydanie.
   stopka, logo). Placeholdery `{{sygnatura}}`, `{{badacz}}`,
   `{{miejscowosc}}` itd. w tekście, tabelach, nagłówku i stopce są
   wypełniane metryczką (w eksporcie z anonimizacją pola osobowe są puste),
-  `{{transkrypcja}}` wskazuje miejsce tekstu, a `{{metryczka}}` — tabelę
+  `{{transkrypcja}}` wskazuje miejsce tekstu, a `{{metryczka}}` - tabelę
   metryczki. Szablon jest sprawdzany przy wyborze (nieznane placeholdery,
   uszkodzony plik); gdy nie da się go otworzyć, eksport powstaje na
   szablonie wbudowanym z ostrzeżeniem. W tej samej zakładce są domyślne
@@ -185,31 +185,31 @@ Pusta sekcja blokuje wydanie.
   w **Ustawieniach…** (zakładka **Wygląd**).
 - Podział szkicu ASR na mówców: po transkrypcji program rozpoznaje, kto
   mówi, i każda wypowiedź staje się osobnym akapitem ze znacznikiem czasu
-  `[mm:ss]` i mówcą — w edytorze i w eksporcie DOCX (pogrubiona etykieta
+  `[mm:ss]` i mówcą - w edytorze i w eksporcie DOCX (pogrubiona etykieta
   `B:` / `I:`). Ten podział zastępuje dzielenie szkicu na wersy co 30 sekund.
   Mówcy są przypisywani w kolejności pojawiania się w nagraniu: pierwszy
-  głos to pierwszy mówca z listy (domyślnie `B`), drugi — `I`, a kolejne
+  głos to pierwszy mówca z listy (domyślnie `B`), drugi - `I`, a kolejne
   głosy dostają nowych informatorów `I2`, `I3`… Przypisanie można poprawić
   jak dotąd (**Alt+Shift+1…9**, **Mówcy…**). Opcja jest w **Ustawieniach…**
   (zakładka **ASR**, domyślnie włączona) i wymaga jednorazowego pobrania
-  modelu podziału na mówców (ok. 28 MB, za zgodą użytkownika) — bez niego
+  modelu podziału na mówców (ok. 28 MB, za zgodą użytkownika) - bez niego
   pole jest zablokowane, a szkic dzieli się jak dotąd. Model działa w pełni
   lokalnie. Rozpoznanie fragmentu A–B nie dzieli tekstu na mówców.
   Podział wychwytuje także szybkie wymiany pytań i jednowyrazowych
-  odpowiedzi w wywiadzie („Zajęcie?” — „Rolnik.”), a zmianę mówcy stawia
+  odpowiedzi w wywiadzie („Zajęcie?” - „Rolnik.”), a zmianę mówcy stawia
   na końcu zdania. Pod opcją można podać **Liczbę mówców** w nagraniu
-  (domyślnie 2 — badacz i informator, do wyboru 2–8 albo
+  (domyślnie 2 - badacz i informator, do wyboru 2–8 albo
   **Automatycznie**). Podana liczba daje pewniejszy podział niż tryb
   automatyczny, który sam ocenia liczbę głosów.
 - Aktualizacje są sprawdzane przy każdym uruchomieniu, na ekranie
   startowym: najpierw „Sprawdzanie dostępnych aktualizacji…”, a gdy jest
-  nowa wersja — postęp jej pobierania. **Pomiń** otwiera program od razu,
+  nowa wersja - postęp jej pobierania. **Pomiń** otwiera program od razu,
   a pobieranie kończy się w tle. Gotowa wersja jak dotąd czeka w pasku stanu
   z przyciskiem **Uruchom ponownie i zaktualizuj**. Limit zapytań do serwera
   wydań wzrósł z 2 do 5 na dobę. Przycisk **Sprawdź aktualizacje** i odnośnik
   „pobierz” w pasku stanu zostały usunięte.
 
-## 0.5.0 — 2026-10-18
+## 0.5.0 - 2026-10-18
 
 - Szkic ASR jest dzielony na wersy obejmujące najwyżej 30 sekund nagrania,
   a każdy wers zaczyna się znacznikiem czasu, np. `[01:30]` (od godziny
@@ -217,7 +217,7 @@ Pusta sekcja blokuje wydanie.
   zamiast jednego bloku tekstu. W starszych projektach wystarczy użyć
   **Wstaw szkic ponownie**.
 
-## 0.4.0 — 2026-10-11
+## 0.4.0 - 2026-10-11
 
 - Wybór modelu ASR: w panelu **Szkic ASR** można wybrać **small**
   (ok. 0,5 GB, szybki, dla słabszych komputerów), **medium** (domyślny)
@@ -225,7 +225,7 @@ Pusta sekcja blokuje wydanie.
   Każdy model pobiera się osobno, za zgodą; wybór jest pamiętany. Gdy model
   potrzebuje więcej pamięci, niż ma komputer, program ostrzega przed
   transkrypcją.
-- Pobrany model można usunąć przyciskiem **Usuń model…** — panel pokazuje,
+- Pobrany model można usunąć przyciskiem **Usuń model…** - panel pokazuje,
   ile miejsca odzyskano; pozostałe modele działają dalej.
 - Karta graficzna NVIDIA: jeśli zainstalowano biblioteki CUDA 12 i cuDNN 9,
   szkic powstaje na GPU, wielokrotnie szybciej. Bez nich program sam
@@ -234,7 +234,7 @@ Pusta sekcja blokuje wydanie.
   procesorze i wskazać inny katalog modeli (np. dysk zewnętrzny).
 - Kontekst nagrania i słownik: przed transkrypcją można podać krótki opis
   nagrania (do 200 znaków, wypełniany z miejscowości i gminy w metryczce)
-  oraz słownik projektu — nazwy miejscowości, nazwiska, wyrazy gwarowe.
+  oraz słownik projektu - nazwy miejscowości, nazwiska, wyrazy gwarowe.
   Pomagają modelowi poprawnie zapisać nazwy własne. Słownik wspólny dla
   wszystkich nagrań ustawia się w **Ustawieniach…** (zakładka **ASR**).
 - Plik projektu zapisuje kontekst nagrania, słownik projektu i model użyty
@@ -250,17 +250,17 @@ Pusta sekcja blokuje wydanie.
 - Transkrypcja fragmentami: w **Ustawieniach…** (zakładka **ASR**) można
   włączyć rozpoznawanie długiego nagrania kilkuminutowymi fragmentami
   ciętymi w ciszy. Zużycie pamięci RAM nie rośnie wtedy z długością
-  nagrania — pomaga, gdy szkic z nagrania ponad godzinnego kończy się
+  nagrania - pomaga, gdy szkic z nagrania ponad godzinnego kończy się
   błędem `mkl_malloc: failed to allocate memory`. Domyślnie wyłączone.
 - Gdy transkrypcji zabraknie pamięci, program mówi o tym wprost i radzi
   włączyć transkrypcję fragmentami albo zamknąć inne programy, zamiast
   proponować ponowne pobranie modelu.
 
-## 0.3.0 — 2026-10-10
+## 0.3.0 - 2026-10-10
 
 - Interfejs po angielsku: w **Ustawieniach…** (zakładka **Wygląd**) można
   wybrać język **Polski**, **English** albo **Zgodny z systemem**
-  (domyślnie — polski w polskim systemie, w pozostałych angielski). Zmiana
+  (domyślnie - polski w polskim systemie, w pozostałych angielski). Zmiana
   działa po ponownym uruchomieniu programu.
 - Eksport DOCX używa języka interfejsu (etykiety metryczki, akapit
   „Autor/Data”, tytuł domyślny); import DOCX rozpoznaje dokumenty
@@ -273,7 +273,7 @@ Pusta sekcja blokuje wydanie.
   dotyczą ustawienia: **Wygląd**, **Odtwarzacz**, **Notacja**, **Projekt**
   i **Metryczka**.
 - W wąskim oknie pasek narzędzi nie ucina już przycisków: te, które się nie
-  mieszczą, trafiają do menu **Więcej poleceń** (☰) na końcu paska — najpierw
+  mieszczą, trafiają do menu **Więcej poleceń** (☰) na końcu paska - najpierw
   rzadziej używane, a **Eksportuj DOCX** zostaje zawsze widoczny. Skróty
   klawiszowe działają także dla schowanych przycisków.
 - Długa nazwa pliku nagrania nie poszerza już okna (pełna ścieżka jest
@@ -314,7 +314,7 @@ Pusta sekcja blokuje wydanie.
   awarią: program pyta, czy przerwać pobieranie, i usuwa częściowo
   pobrane pliki.
 - Model ASR jest pobierany z ustalonej wersji repozytorium i każdy plik
-  jest sprawdzany sumą kontrolną — model o innej zawartości nie zostanie
+  jest sprawdzany sumą kontrolną - model o innej zawartości nie zostanie
   zainstalowany. Pobierane są tylko pliki potrzebne do działania modelu.
 - Kolejna transkrypcja ASR w tej samej sesji startuje od razu: model zostaje
   w pamięci (zwalnianej po 10 minutach bezczynności).
@@ -339,7 +339,7 @@ Pusta sekcja blokuje wydanie.
   pobierze się od nowa przy kolejnym starcie.
 - Link „pobierz” w pasku stanu prowadzi wyłącznie do strony wydań na GitHub.
 
-## 0.2.3 — 2026-10-09
+## 0.2.3 - 2026-10-09
 
 - Okno **Ustawienia…** (`Ctrl+,`): skok i auto-cofanie odtwarzacza,
   cofnięcie przed segmentem ASR, czcionka edytora i styl wielokropka.
@@ -355,5 +355,5 @@ Pusta sekcja blokuje wydanie.
 - Domyślny zapis pauzy i urwanego słowa to teraz `…` (jeden znak);
   `...` można wybrać w ustawieniach. Walidator rozumie oba zapisy.
   **Dokumenty pisane w starszych wersjach** (z `...`) zostaną oznaczone
-  wskazówką VAL-05 — przycisk „Ujednolić wielokropki” nad listą
+  wskazówką VAL-05 - przycisk „Ujednolić wielokropki” nad listą
   ostrzeżeń zamienia je wszystkie jednym krokiem cofania.

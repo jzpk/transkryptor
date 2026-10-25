@@ -1,9 +1,9 @@
 """Podział na mówców w zakładce ASR ustawień: opcja i model do pobrania.
 
 Opcja działa tylko z pobranym modelem diaryzacji (``asr.models.DIARIZATION_MODEL``).
-Liczba mówców (albo „automatycznie”) ogranicza grupowanie głosów — bez niej
+Liczba mówców (albo „automatycznie”) ogranicza grupowanie głosów - bez niej
 model w nagraniach terenowych często widzi więcej mówców, niż jest.
-Pobranie wymaga jawnej zgody — bez modelu pole wyboru jest wyłączone, a
+Pobranie wymaga jawnej zgody - bez modelu pole wyboru jest wyłączone, a
 zapamiętany wybór użytkownika zostaje bez zmian. Po pobraniu opcja jest
 włączona (domyślnie). Pobieranie biegnie w tle (``DownloadThread``).
 """
@@ -104,7 +104,7 @@ class DiarizationBox(QWidget):
         self.refresh()
 
     def speakers(self) -> int:
-        """Wybrana liczba mówców; 0 — automatycznie."""
+        """Wybrana liczba mówców; 0 - automatycznie."""
         return int(self.speakers_combo.currentData())
 
     def set_speakers(self, count: int) -> None:
@@ -112,7 +112,7 @@ class DiarizationBox(QWidget):
         self.speakers_combo.setCurrentIndex(max(index, 0))
 
     def set_models_root(self, models_root: Path | None) -> None:
-        """Katalog modeli zmieniony w ustawieniach — stan modelu od nowa."""
+        """Katalog modeli zmieniony w ustawieniach - stan modelu od nowa."""
         if self._thread is not None:
             return
         self._manager = self._manager.with_models_root(models_root)
@@ -188,7 +188,7 @@ class DiarizationBox(QWidget):
         if total:
             self.progress.setRange(0, int(total))
             self.progress.setValue(int(done))
-        percent = f" — {done / total:.0%}" if total else ""
+        percent = f" - {done / total:.0%}" if total else ""
         self.status_label.setText(
             tr("asr.download.file", name=name, done=format_size(done), percent=percent)
         )
@@ -196,7 +196,7 @@ class DiarizationBox(QWidget):
     def _on_succeeded(self) -> None:
         logger.info("Model download finished: %s", self._manager.model.key)
         self._finish()
-        # Opcja jest domyślnie włączona — działa od razu po pobraniu.
+        # Opcja jest domyślnie włączona - działa od razu po pobraniu.
         self._wanted = True
         self.refresh()
 

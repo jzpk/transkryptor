@@ -12,7 +12,7 @@ def test_plain_words() -> None:
 
 
 def test_pause_with_spaces() -> None:
-    """`takich rzeczy ... bo` — pauza z odstępem po obu stronach."""
+    """`takich rzeczy ... bo` - pauza z odstępem po obu stronach."""
     assert kinds("takich rzeczy ... bo") == [
         TokenKind.WORD,
         TokenKind.WORD,
@@ -22,7 +22,7 @@ def test_pause_with_spaces() -> None:
 
 
 def test_cut_off_word() -> None:
-    """`jeż... kam... kamionka` — urwane słowa, nie pauzy."""
+    """`jeż... kam... kamionka` - urwane słowa, nie pauzy."""
     assert kinds("jeż... kam... kamionka") == [
         TokenKind.WORD,
         TokenKind.CUT_OFF,
@@ -77,7 +77,7 @@ def test_single_ellipsis_character_is_pause() -> None:
 
 
 def test_single_ellipsis_character_after_word_is_cut_off() -> None:
-    """ACC-23: `jeż… kam… kamionka` — urwane słowa zapisane znakiem `…`."""
+    """ACC-23: `jeż… kam… kamionka` - urwane słowa zapisane znakiem `…`."""
     assert kinds("jeż… kam… kamionka") == [
         TokenKind.WORD,
         TokenKind.CUT_OFF,

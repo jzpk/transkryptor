@@ -3,7 +3,7 @@
 Eksporter to opis formatu (klucz, nazwa, rozszerzenie, czy wymaga czasów,
 które opcje go dotyczą) i funkcja ``write(dokument, ścieżka, opcje, raport)``
 zapisująca model wyjścia ``ExportDocument``. Nowy format to nowa funkcja
-zapisu i wpis w ``EXPORTERS`` — okno „Eksportuj jako…” bierze listę stąd.
+zapisu i wpis w ``EXPORTERS`` - okno „Eksportuj jako…” bierze listę stąd.
 :func:`run_export` zamienia błędy zapisu na ``ExportError`` z komunikatem
 dla użytkownika.
 """

@@ -232,7 +232,7 @@ class PlayerBar(QFrame):
         self._update_loop_controls()
 
     def loop_points(self) -> tuple[int, int] | None:
-        """Punkty A–B (ms), gdy oba są ustawione — zakres fragmentu dla ASR."""
+        """Punkty A–B (ms), gdy oba są ustawione - zakres fragmentu dla ASR."""
         if not self._has_media or self._loop_a is None or self._loop_b is None:
             return None
         return self._loop_a, self._loop_b
@@ -240,7 +240,7 @@ class PlayerBar(QFrame):
     def restore_state(self, state: PlayerState) -> None:
         """Przywraca pozycję i pętlę z projektu.
 
-        Qt Multimedia ładuje nagranie asynchronicznie — gdy czas trwania nie
+        Qt Multimedia ładuje nagranie asynchronicznie - gdy czas trwania nie
         jest jeszcze znany, stan czeka na ``duration_changed``.
         """
         if not self._has_media:

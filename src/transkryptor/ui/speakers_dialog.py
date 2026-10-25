@@ -2,7 +2,7 @@
 
 Zwraca nową listę oraz zmiany kluczy (stary → nowy), żeby akapity
 przypisane mówcy po zmianie klucza zostały przy nim. Usunięcie mówcy, który
-ma akapity, wymaga potwierdzenia — te akapity tracą przypisanie.
+ma akapity, wymaga potwierdzenia - te akapity tracą przypisanie.
 """
 
 from __future__ import annotations

@@ -1,7 +1,7 @@
 """Eksport do zwykłego tekstu (TXT, UTF-8, bez czasów).
 
 Na początku metryczka („Etykieta: wartość”, z legendą mówców) i akapit
-„Autor: … Data: …”, po pustym wierszu — akapity tekstu, każdy w osobnym
+„Autor: … Data: …”, po pustym wierszu - akapity tekstu, każdy w osobnym
 wierszu, z prefiksem mówcy ``B: ``. Indeks górny zapisuje
 ``export/superscript.py``.
 """

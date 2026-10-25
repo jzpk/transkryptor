@@ -5,7 +5,7 @@ Akapity DOCX stają się akapitami dokumentu (rozdzielonymi znakiem nowej
 linii). Pogrubiony prefiks ``B:`` na początku akapitu (eksport aplikacji)
 przypisuje akapit mówcy, a wiersz „Mówcy” metryczki daje opisy mówców.
 Metadane pochodzą z tabeli metryczki (rozpoznawanej po etykietach pól),
-akapitu „Autor: … Data: …” z eksportu aplikacji oraz — gdy tych brak —
+akapitu „Autor: … Data: …” z eksportu aplikacji oraz - gdy tych brak -
 z ``core_properties``.
 
 Wszystko, czego dokument aplikacji nie wyraża (formatowanie inne niż indeks
@@ -277,7 +277,7 @@ def _speaker_prefix(
     """Klucz mówcy z pogrubionego prefiksu i liczba znaków do pominięcia.
 
     Prefiks musi być w całości pogrubiony, a po dwukropku stać tabulator
-    (tak zapisuje go eksport) — albo klucz musi być w legendzie mówców.
+    (tak zapisuje go eksport) - albo klucz musi być w legendzie mówców.
     Pogrubione „Uwaga:” ze spacją nie jest mówcą.
     """
     bold = ""
@@ -304,7 +304,7 @@ def _run_style(run: Run, styles: _StyleCache) -> CharacterStyle | None:
     """Styl znakowy runu, zapamiętany dla identyfikatora stylu.
 
     ``Run.style`` przy każdym wywołaniu szuka stylu domyślnego wśród
-    wszystkich stylów dokumentu — przy tysiącach runów to większość czasu
+    wszystkich stylów dokumentu - przy tysiącach runów to większość czasu
     importu (PERF-05).
     """
     style_id = run._r.style

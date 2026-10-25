@@ -36,7 +36,7 @@ def test_apprun_is_executable_and_starts_the_bundled_program(
     assert apprun.stat().st_mode & 0o111
     script = apprun.read_text(encoding="utf-8")
     assert f"usr/lib/{BUNDLE_NAME}/{BUNDLE_NAME}" in script
-    # AppImage montuje się pod zmienną ścieżką — bez readlink skrypt zgubi katalog.
+    # AppImage montuje się pod zmienną ścieżką - bez readlink skrypt zgubi katalog.
     assert "readlink -f" in script
 
 

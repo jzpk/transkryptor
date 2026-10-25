@@ -1,6 +1,6 @@
 """Dane wejściowe PyInstallera: skrypt startowy, ukryte importy i zasoby.
 
-Plik specyfikacji ``packaging/transkryptor.spec`` jest celowo cienki — cała
+Plik specyfikacji ``packaging/transkryptor.spec`` jest celowo cienki - cała
 wiedza o tym, co musi trafić do artefaktu, jest tutaj, żeby dała się
 przetestować bez uruchamiania budowania.
 
@@ -22,7 +22,7 @@ from transkryptor.packaging.metadata import (
     REPO_ROOT,
 )
 
-#: Skrypt uruchamiany przez artefakt — ten sam punkt wejścia co ``uv run``.
+#: Skrypt uruchamiany przez artefakt - ten sam punkt wejścia co ``uv run``.
 ENTRY_SCRIPT = REPO_ROOT / "src" / "transkryptor" / "__main__.py"
 
 #: Katalog z kodem aplikacji dodawany do ścieżki analizy PyInstallera.
@@ -79,8 +79,8 @@ EXCLUDED_MODULES = (
 #
 # ``transkryptor/i18n/locales`` to katalogi tłumaczeń interfejsu (JSON)
 # wczytywane przez ``importlib.resources`` przy starcie,
-# ``transkryptor/notation/data`` — wbudowane reguły fonetyczne (TOML),
-# a ``transkryptor/fonts`` — czcionka tekstu Charis SIL z licencją OFL.
+# ``transkryptor/notation/data`` - wbudowane reguły fonetyczne (TOML),
+# a ``transkryptor/fonts`` - czcionka tekstu Charis SIL z licencją OFL.
 PACKAGE_DATA = (
     ("faster_whisper", "assets"),
     ("transkryptor", "i18n/locales"),
@@ -92,7 +92,7 @@ PACKAGE_DATA = (
 # ``sherpa_onnx/lib`` zawiera własną kopię ``onnxruntime`` (z koła
 # sherpa-onnx-core), ładowaną przez moduł ``_sherpa_onnx`` ze swojego
 # katalogu. Pakiet ``onnxruntime`` (VAD faster-whispera) ma bibliotekę o tej
-# samej nazwie na Windows — bez stałego katalogu docelowego PyInstaller
+# samej nazwie na Windows - bez stałego katalogu docelowego PyInstaller
 # mógłby jedną z nich nadpisać drugą.
 PACKAGE_BINARIES = (("sherpa_onnx", "lib"),)
 _NATIVE_SUFFIXES = (".so", ".dll", ".dylib")
@@ -108,7 +108,7 @@ def package_directory(package: str) -> Path:
     locations = list(spec.submodule_search_locations or ()) if spec else []
     if not locations:
         raise FileNotFoundError(
-            f"Pakiet „{package}” nie jest zainstalowany w tym środowisku — "
+            f"Pakiet „{package}” nie jest zainstalowany w tym środowisku - "
             "uruchom budowanie przez „uv run --group packaging”."
         )
     return Path(locations[0])
@@ -176,7 +176,7 @@ def analysis_options(platform: str) -> dict[str, object]:
         "upx": False,
         # Bez strip: binutils z Ubuntu 22.04 (bazowy system AppImage) psuje
         # biblioteki przepakowane patchelf-em, np. OpenBLAS z kół numpy
-        # („ELF load command address/offset not page-aligned”) — a bez numpy
+        # („ELF load command address/offset not page-aligned”) - a bez numpy
         # nie działa ASR. Zysk z obcięcia symboli to kilka MB.
         "strip": False,
     }

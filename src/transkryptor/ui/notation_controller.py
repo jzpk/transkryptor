@@ -5,7 +5,7 @@ w stylu z ustawień, uruchamia walidator z debounce i prezentuje ostrzeżenia
 w ``WarningsPanel`` z nawigacją do fragmentu tekstu oraz jako faliste
 podkreślenia w edytorze (warstwa ``WARNINGS_LAYER``) z opisem po najechaniu.
 „Ignoruj tutaj” zapamiętuje kod reguły i śledzony zakres tekstu
-(``IgnoredWarnings``) — zapisywane w pliku projektu, nie w tekście.
+(``IgnoredWarnings``) - zapisywane w pliku projektu, nie w tekście.
 """
 
 from __future__ import annotations
@@ -227,7 +227,7 @@ class NotationController(QObject):
         found = self.warnings_at(position)
         if not found:
             return None
-        return "\n".join(f"{w.code} — {w.message}" for w in found)
+        return "\n".join(f"{w.code} - {w.message}" for w in found)
 
     def extend_context_menu(self, menu: QMenu, position: int) -> None:
         """Dopisuje „Ignoruj tutaj” dla ostrzeżeń pod kursorem myszy."""

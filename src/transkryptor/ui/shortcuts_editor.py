@@ -3,7 +3,7 @@
 Skróty edytuje się w ``QKeySequenceEdit`` (skrót główny i zapasowy dla
 każdej akcji z ``SHORTCUT_ACTIONS``); wstawki to tabela tekstu w składni
 ``^x`` i opcjonalnego skrótu. Wykrywanie konfliktów obejmuje obie zakładki
-— robi to okno ustawień przed zapisem.
+- robi to okno ustawień przed zapisem.
 """
 
 from __future__ import annotations
@@ -192,7 +192,7 @@ class SnippetsEditor(QWidget):
         self._taken: set[str] = set()
 
     def set_taken_shortcuts(self, taken: Iterable[str]) -> None:
-        """Skróty akcji — nowa wstawka nie dostaje zajętego skrótu."""
+        """Skróty akcji - nowa wstawka nie dostaje zajętego skrótu."""
         self._taken = {normalized(s) for s in taken}
 
     def set_snippets(self, snippets: Iterable[Snippet]) -> None:

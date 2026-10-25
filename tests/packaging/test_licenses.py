@@ -48,7 +48,7 @@ def test_application_license_is_included(bundle) -> None:
 
 
 def test_qt_license_text_is_supplied_even_though_the_wheel_omits_it(bundle) -> None:
-    """Koła PySide6 nie zawierają tekstu LGPL — wydawca musi go dołożyć."""
+    """Koła PySide6 nie zawierają tekstu LGPL - wydawca musi go dołożyć."""
     pyside = next(dist for dist in bundle.distributions if dist.name == "PySide6")
     assert pyside.has_text
     assert pyside.from_wheel is False

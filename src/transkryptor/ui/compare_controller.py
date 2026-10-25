@@ -6,13 +6,13 @@ bieżący dokument (wynik porównania), po prawej wersję porównywaną tylko do
 odczytu. Zmiany są podświetlone w obu kolumnach (warstwa ``COMPARE_LAYER``)
 i wymienione w panelu (``ui/compare_panel.py``).
 
-Na czas porównania lewy edytor jest tylko do odczytu — tekst zmieniają
+Na czas porównania lewy edytor jest tylko do odczytu - tekst zmieniają
 wyłącznie „Przyjmij” i cofanie, więc zakresy zmian się nie rozjeżdżają.
 Przyjęcie i odrzucenie to polecenia własnego ``QUndoStack`` (ACC-63):
 przyjęcie wstawia fragment wersji B w miejsce fragmentu A (z indeksem
 górnym i mówcami akapitów), a cofnięcie wstawia z powrotem fragment A;
 odrzucenie zmienia tylko stan pozycji. Porównanie nie jest zapisywane
-w projekcie — po zakończeniu zostaje bieżący dokument.
+w projekcie - po zakończeniu zostaje bieżący dokument.
 """
 
 from __future__ import annotations
@@ -78,8 +78,8 @@ CHANGE_ALPHA = 70
 class CompareItem:
     """Zmiana z kursorami w obu kolumnach i fragmentami do przyjęcia i cofnięcia.
 
-    Kursor lewej kolumny obejmuje bieżący tekst zmiany: fragment A albo — po
-    przyjęciu — wstawiony fragment B.
+    Kursor lewej kolumny obejmuje bieżący tekst zmiany: fragment A albo - po
+    przyjęciu - wstawiony fragment B.
     """
 
     change: Change
@@ -186,7 +186,7 @@ class CompareController(QObject):
         return bool(path) and self.compare_with(path)
 
     def compare_with(self, path: str | Path) -> bool:
-        """Porównuje bieżący dokument z projektem ``path``; False — bez porównania."""
+        """Porównuje bieżący dokument z projektem ``path``; False - bez porównania."""
         source = Path(path)
         try:
             other = load_project(source)
@@ -301,7 +301,7 @@ class CompareController(QObject):
         """Czy fragment w lewej kolumnie jest nadal taki jak przy porównaniu.
 
         Zmiany się nie nakładają poza zmianą mówcy (cały akapit), ale
-        przyjęcie zmiany obok może zmienić granice — wtedy pozycja czeka.
+        przyjęcie zmiany obok może zmienić granice - wtedy pozycja czeka.
         """
         if item.change.kind == SPEAKER:
             return True
@@ -369,7 +369,7 @@ class CompareController(QObject):
         self.editor.setFocus()
 
     def play(self, index: int) -> None:
-        """Odsłuch zmiany: kotwica bieżącego tekstu albo — gdy jej brak — wersji B."""
+        """Odsłuch zmiany: kotwica bieżącego tekstu albo - gdy jej brak - wersji B."""
         item = self.items[index]
         start, _end = self.editor.selection_range(item.cursor)
         anchor: Anchor | None = self._sync.anchor_at(start)
@@ -400,7 +400,7 @@ class CompareController(QObject):
                 continue
             kind = item.change.kind
             if kind == SPEAKER:
-                # Tło całego akapitu zasłoniłoby inne zmiany — mówcę widać
+                # Tło całego akapitu zasłoniłoby inne zmiany - mówcę widać
                 # w etykietach obok akapitów, a przejście zaznacza akapit.
                 continue
             if kind == FORMAT:

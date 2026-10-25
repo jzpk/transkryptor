@@ -31,7 +31,7 @@ class MarkerAction:
 SUPERSCRIPT_SHORTCUT = "Ctrl+Shift+Up"
 
 # Pauza w zapisie trzech kropek; tekst wstawiany przez narzędzie zależy od
-# ustawienia stylu wielokropka — zob. ``marker_text``.
+# ustawienia stylu wielokropka - zob. ``marker_text``.
 PAUSE_TEXT = pause_text(EllipsisStyle.ASCII)
 ODDITY_TEXT = "(!)"
 DOUBT_TEXT = "(?)"

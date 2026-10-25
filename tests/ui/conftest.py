@@ -4,7 +4,7 @@ import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-import pytest  # noqa: E402 — import po ustawieniu platformy Qt
+import pytest  # noqa: E402 - import po ustawieniu platformy Qt
 from PySide6.QtWidgets import QMessageBox  # noqa: E402
 
 
@@ -16,7 +16,7 @@ def add_window(qtbot):
     wykonuje się przed finalizatorami fikstur. Gdy dokument ma wtedy
     niewyeksportowane zmiany, ``MainWindow.closeEvent`` otwiera modalny dialog
     ochrony sesji (ACC-10), a w trybie offscreen nie ma kto na niego
-    odpowiedzieć — test wisi w nieskończoność. ``before_close_func`` oznacza
+    odpowiedzieć - test wisi w nieskończoność. ``before_close_func`` oznacza
     rewizję jako wyeksportowaną i zapisaną bezpośrednio przed zamknięciem, więc dialog nie
     jest potrzebny; samo ostrzeżenie jest testowane jawnie w
     ``test_session_guard.py``.
@@ -37,7 +37,7 @@ def add_window(qtbot):
 def no_blocking_dialogs(monkeypatch):
     """Żaden modalny dialog nie może zatrzymać testu w trybie offscreen.
 
-    Qt offscreen nie ma kto obsłużyć ``QMessageBox`` — niezaplanowany dialog
+    Qt offscreen nie ma kto obsłużyć ``QMessageBox`` - niezaplanowany dialog
     zawiesiłby przebieg testów na zawsze. Domyślne odpowiedzi są zachowawcze
     (pytanie: „nie”), a testy sprawdzające konkretny dialog nadpisują te
     atrapy własnym ``monkeypatch`` i zachowują pełną kontrolę.

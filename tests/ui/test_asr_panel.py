@@ -54,14 +54,14 @@ def manager(tmp_path) -> ModelManager:
 def stop_threads(panel: AsrPanel) -> None:
     """Anuluje wątki panelu i czeka na ich zakończenie przed zamknięciem.
 
-    Wołane przez ``before_close_func`` qtbot, czyli przed usunięciem widżetu —
+    Wołane przez ``before_close_func`` qtbot, czyli przed usunięciem widżetu -
     inaczej działający ``QThread`` emitowałby sygnały do zniszczonego obiektu.
     """
     for thread in (panel._download_thread, panel._transcribe_thread):
         if thread is not None:
             thread.cancel()
             thread.wait(5000)
-    # Sygnały zakończenia są w kolejce — bez ich obsługi panel wciąż
+    # Sygnały zakończenia są w kolejce - bez ich obsługi panel wciąż
     # raportuje trwającą transkrypcję, a okno odmawia zamknięcia.
     QCoreApplication.processEvents()
 
@@ -122,7 +122,7 @@ class TestDownloadFlow:
         self, qtbot, panel, monkeypatch
     ) -> None:
         accept_consent(monkeypatch)
-        # Bezpośrednie wywołanie bez wątku — testujemy logikę panelu
+        # Bezpośrednie wywołanie bez wątku - testujemy logikę panelu
         panel._start_download()
         assert panel._download_thread is not None
         wait_until(
@@ -250,7 +250,7 @@ class TestTranscriptionFlow:
         """Na czas transkrypcji okno jest zablokowane nakładką ładowania.
 
         Praca nadal idzie w wątku w tle (pętla zdarzeń żyje), ale edycja,
-        akcje i skróty są wyłączone — aktywne zostaje tylko anulowanie.
+        akcje i skróty są wyłączone - aktywne zostaje tylko anulowanie.
         """
         window = window_with_asr
         panel = window.asr_panel
@@ -650,7 +650,7 @@ class TestWorkerWiring:
         )
         qtbot.addWidget(panel)
         assert panel._worker is None
-        panel.shutdown()  # bez procesu — nic do zrobienia
+        panel.shutdown()  # bez procesu - nic do zrobienia
 
 
 class TestModelChoice:
@@ -874,7 +874,7 @@ class TestDiarizationOption:
         assert not box.check.isEnabled()
         assert not box.check.isChecked()
         assert box.download_button.isVisibleTo(box)
-        # Wybór użytkownika zostaje — zadziała po pobraniu modelu.
+        # Wybór użytkownika zostaje - zadziała po pobraniu modelu.
         assert box.value() is True
 
     def test_download_needs_consent(self, qtbot, manager, monkeypatch) -> None:

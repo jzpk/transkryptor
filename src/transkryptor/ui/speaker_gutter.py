@@ -1,7 +1,7 @@
 """Kolumna etykiet mówców po lewej stronie edytora.
 
 Mówca akapitu jest właściwością bloku ``QTextDocument`` (``SPEAKER_PROPERTY``),
-nie tekstem — etykieta ``B:`` jest rysowana obok akapitu i nie da się jej
+nie tekstem - etykieta ``B:`` jest rysowana obok akapitu i nie da się jej
 edytować ani przypadkiem skasować. Kolumna jest widżetem w marginesie widoku
 edytora (``setViewportMargins``), wzorem numerów wierszy w edytorach kodu.
 """
@@ -122,7 +122,7 @@ class SpeakerGutter(QWidget):
         painter.end()
 
     def block_at(self, y: int) -> QTextBlock | None:
-        """Akapit na wysokości ``y`` (nad pierwszym — pierwszy widoczny)."""
+        """Akapit na wysokości ``y`` (nad pierwszym - pierwszy widoczny)."""
         blocks = self._visible_blocks()
         candidate: QTextBlock | None = blocks[0][0] if blocks else None
         for block, top in blocks:

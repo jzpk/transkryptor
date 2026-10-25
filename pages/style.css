@@ -24,7 +24,7 @@
 }
 
 /* Kolory ciemne są w dwóch blokach: według przeglądarki (gdy nie wybrano
-   jasnego) i z wyboru przyciskiem — zmieniaj je w obu. */
+   jasnego) i z wyboru przyciskiem - zmieniaj je w obu. */
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -129,7 +129,7 @@ h3 {
 .wrap {
   max-width: 1120px;
   margin: 0 auto;
-  /* Tylko poziomo — sekcje z klasą .wrap biorą odstępy z main > section. */
+  /* Tylko poziomo - sekcje z klasą .wrap biorą odstępy z main > section. */
   padding-left: 16px;
   padding-right: 16px;
 }
@@ -570,7 +570,7 @@ main,
   color: var(--accent);
 }
 
-/* Karta dla systemu odwiedzającego (site.js) — na początku listy. */
+/* Karta dla systemu odwiedzającego (site.js) - na początku listy. */
 .download.recommended {
   order: -1;
   border-color: var(--accent);
@@ -781,7 +781,7 @@ thead th {
   letter-spacing: -0.04em;
 }
 
-/* Środkowe „0” jak litera z tła — lekko obrócone. */
+/* Środkowe „0” jak litera z tła - lekko obrócone. */
 .not-found-code span {
   display: inline-block;
   transform: rotate(-14deg);

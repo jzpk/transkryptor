@@ -7,7 +7,7 @@
 #
 # Wymagane jest Wine 10+: numpy 2.x woła ucrtbase.crealf, którego Wine 9
 # nie implementuje (proces PyInstallera kończył się wtedy awarią).
-# Bazowy obraz dostarcza Wine 11; jego własny Python (3.14) jest nieużywany —
+# Bazowy obraz dostarcza Wine 11; jego własny Python (3.14) jest nieużywany -
 # aplikacja wymaga 3.12, więc instalujemy go obok z oficjalnej paczki NuGet
 # python.org (zwykłe archiwum, bez instalatora).
 #
@@ -15,7 +15,7 @@
 # i katalog icu-stub/ (przygotowuje je scripts/build-installers.sh). Kod jest
 # montowany przy uruchomieniu.
 
-# Zastępcza icuuc.dll dla importu QtCore pod Wine — opis w icuuc_stub.c.
+# Zastępcza icuuc.dll dla importu QtCore pod Wine - opis w icuuc_stub.c.
 FROM debian:bookworm-slim AS icu-stub
 RUN apt-get update \
     && apt-get install --no-install-recommends -y gcc-mingw-w64-x86-64 \

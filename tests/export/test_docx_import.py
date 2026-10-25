@@ -133,7 +133,7 @@ def test_reads_external_transcription_layout(tmp_path) -> None:
 
     Nagłówek pogrubiony i podkreślony, akapity kwestionariusza, kursywa
     i indeks górny ustawiony stylem znakowym. Sam plik ``AdK_1954.docx`` jest
-    lokalnym nagraniem badawczym (poza repozytorium) — sprawdzany ręcznie.
+    lokalnym nagraniem badawczym (poza repozytorium) - sprawdzany ręcznie.
     """
     from docx.enum.style import WD_STYLE_TYPE
 
@@ -198,7 +198,7 @@ def test_round_trip_of_speakers(tmp_path) -> None:
     assert first.text == "B:\tRok urodzenia?"
     assert first.runs[0].bold and first.runs[0].text == "B:"
     assert (
-        read.tables[0].rows[-1].cells[1].text == "B — Badacz; I — Informator; I2 — AK"
+        read.tables[0].rows[-1].cells[1].text == "B - Badacz; I - Informator; I2 - AK"
     )
 
     imported = import_docx(path)
@@ -240,4 +240,4 @@ def test_anonymized_export_hides_informant_descriptions(tmp_path) -> None:
     export_docx(doc, path, anonymize=True)
 
     legend = DocxDocument(str(path)).tables[0].rows[-1].cells[1].text
-    assert legend == "B — J. Nowak; I — Informator"
+    assert legend == "B - J. Nowak; I - Informator"

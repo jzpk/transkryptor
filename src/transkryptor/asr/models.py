@@ -41,7 +41,7 @@ class AsrModelInfo:
     """Opis modelu ASR prezentowany użytkownikowi przed pobraniem (zgoda).
 
     ``hf_revision`` to SHA commita repozytorium, z którego pobierane są
-    ``files`` — jedyne pliki zapisywane w katalogu modelu.
+    ``files`` - jedyne pliki zapisywane w katalogu modelu.
     """
 
     key: str
@@ -81,7 +81,7 @@ _WHISPER_MEDIUM_FILES = (
     ),
 )
 
-# Minimum RAM wyprowadzone z pomiaru szczytowego zużycia pamięci — patrz
+# Minimum RAM wyprowadzone z pomiaru szczytowego zużycia pamięci - patrz
 # docs/benchmarks-asr.md oraz uzasadnienie wyboru w docs/asr-model-decision.md.
 WHISPER_MEDIUM = AsrModelInfo(
     key="medium",
@@ -103,7 +103,7 @@ WHISPER_MEDIUM = AsrModelInfo(
 
 # Rewizje, rozmiary i sumy odczytane z repozytoriów modeli (2026-10-11;
 # commity z 2023-11-23). Minimum RAM dla small i large-v3 to oszacowanie
-# proporcjonalne do pomiaru medium — pomiar w fazie 15.
+# proporcjonalne do pomiaru medium - pomiar w fazie 15.
 _WHISPER_SMALL_FILES = (
     ModelFile(
         "config.json",

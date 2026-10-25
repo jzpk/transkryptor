@@ -1,6 +1,6 @@
 """Motyw wizualny aplikacji: paleta kolorów, arkusz stylów i czcionka.
 
-Jedno źródło prawdy dla wyglądu. Widżety nie ustawiają kolorów same —
+Jedno źródło prawdy dla wyglądu. Widżety nie ustawiają kolorów same -
 oznaczają się właściwościami (``card``, ``role``, ``variant``, ``tone``),
 a arkusz QSS nadaje im wygląd. Dzięki temu motyw jasny i ciemny różnią się
 wyłącznie tokenami w ``LIGHT``/``DARK``.
@@ -144,7 +144,7 @@ def apply_theme(app: QApplication, theme: Tokens | None = None) -> Tokens:
 
 
 def build_palette(t: Tokens) -> QPalette:
-    """Paleta Qt zgodna z tokenami — dla elementów rysowanych przez styl."""
+    """Paleta Qt zgodna z tokenami - dla elementów rysowanych przez styl."""
     palette = QPalette()
     roles = {
         QPalette.ColorRole.Window: t.bg,
@@ -400,7 +400,7 @@ QToolButton[variant="primary"]:disabled {{
     color: {t.text_muted};
 }}
 
-/* Menu „Więcej poleceń”: ikona ☰ sama mówi, że to lista — bez strzałki. */
+/* Menu „Więcej poleceń”: ikona ☰ sama mówi, że to lista - bez strzałki. */
 QToolButton#more_button::menu-indicator {{
     image: none;
     width: 0;

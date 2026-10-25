@@ -181,7 +181,7 @@ class RulesEditor(QWidget):
         layout.addWidget(hint)
         layout.addWidget(self.rule_list, stretch=1)
         layout.addLayout(buttons)
-        # Podgląd nad formularzem — widoczny bez przewijania.
+        # Podgląd nad formularzem - widoczny bez przewijania.
         layout.addWidget(self.preview_label)
         layout.addWidget(self.matches_label)
         layout.addWidget(self.error_label)
@@ -274,7 +274,7 @@ class RulesEditor(QWidget):
         self.rule_list.blockSignals(True)
         self.rule_list.clear()
         for rule in self._all_rules():
-            text = f"{rule.code} — {rule.label_text}"
+            text = f"{rule.code} - {rule.label_text}"
             if rule.builtin:
                 text = tr("settings.rules.builtin_item", rule=text)
             item = QListWidgetItem(text)
@@ -329,7 +329,7 @@ class RulesEditor(QWidget):
         item = self.rule_list.item(self.rule_list.currentRow())
         if item is not None:
             rule = self._user[index]
-            item.setText(f"{rule.code} — {rule.label_text}")
+            item.setText(f"{rule.code} - {rule.label_text}")
         self._update_preview()
 
     def _update_preview(self) -> None:

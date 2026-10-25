@@ -1,7 +1,7 @@
 """Panel komentarzy recenzji (faza 14, REQ-27).
 
 Drzewo o jednym poziomie: komentarz (fragment, autor, data, treść) i jego
-odpowiedzi. Panel tylko prezentuje i zgłasza żądania — decyzje podejmuje
+odpowiedzi. Panel tylko prezentuje i zgłasza żądania - decyzje podejmuje
 ``ui/comments_controller.py``. Pozycję wskazuje para (komentarz, odpowiedź),
 gdzie odpowiedź None oznacza sam komentarz.
 """

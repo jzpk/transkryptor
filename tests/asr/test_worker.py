@@ -1,4 +1,4 @@
-"""PERF-04: podproces roboczy ASR — bufor modelu, natychmiastowe anulowanie.
+"""PERF-04: podproces roboczy ASR - bufor modelu, natychmiastowe anulowanie.
 
 Fabryki backendu są funkcjami najwyższego poziomu: proces roboczy dostaje je
 przez pickle. Ślad wywołań trafia do pliku wskazanego zmienną środowiskową

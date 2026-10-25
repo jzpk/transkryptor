@@ -1,12 +1,12 @@
 """Tekst powiązany z nagraniem: kotwice czasowe w edytorze (faza 11, REQ-22).
 
 ``SyncController`` śledzi kotwice (``document/anchors.py``) kursorami
-edytora, które przesuwają się razem z edycją — jak pozycje przeglądu reguł.
+edytora, które przesuwają się razem z edycją - jak pozycje przeglądu reguł.
 Obsługuje:
 
 - ``Ctrl+klik`` i skrót „odtwórz od kursora”: odtwarzanie od kotwicy
-  (segment — z wyprzedzeniem z ustawień, znacznik ręczny — dokładnie od
-  zapisanego czasu, słowo — w tymczasowej pętli);
+  (segment - z wyprzedzeniem z ustawień, znacznik ręczny - dokładnie od
+  zapisanego czasu, słowo - w tymczasowej pętli);
 - podświetlenie segmentu odpowiadającego pozycji odtwarzania (warstwa
   ``ACTIVE_LAYER``, najwyżej co ``HIGHLIGHT_INTERVAL_MS``) i opcjonalne
   przewijanie edytora za odtwarzaniem;
@@ -52,7 +52,7 @@ from transkryptor.ui.theme import tokens
 
 # Podświetlenie aktywnego segmentu: najwyżej raz na tyle ms (PERF).
 HIGHLIGHT_INTERVAL_MS = 150
-# Margines tymczasowej pętli słowa — Whisper ucina granice słów.
+# Margines tymczasowej pętli słowa - Whisper ucina granice słów.
 WORD_MARGIN_MS = 150
 ACTIVE_ALPHA = 45
 # Podkreślenia niepewnych słów po edycji lub przewinięciu (debounce).
@@ -61,7 +61,7 @@ UNCERTAIN_DEBOUNCE_MS = 200
 
 @dataclass
 class TrackedAnchor:
-    """Kotwica z kursorem edytora; ``baseline`` — tekst słowa po wstawieniu."""
+    """Kotwica z kursorem edytora; ``baseline`` - tekst słowa po wstawieniu."""
 
     anchor: Anchor
     cursor: QTextCursor
@@ -140,7 +140,7 @@ class SyncController(QObject):
     def add_anchors(self, offset: int, anchors: Iterable[Anchor]) -> None:
         """Dodaje kotwice szkicu (pozycje względem ``offset`` w edytorze).
 
-        Tekst słów zapamiętuje :meth:`settle` — po zastosowaniu reguł.
+        Tekst słów zapamiętuje :meth:`settle` - po zastosowaniu reguł.
         """
         positions = self._editor.position_map()
         for anchor in anchors:
@@ -151,7 +151,7 @@ class SyncController(QObject):
     def settle(self) -> None:
         """Kończy wstawianie szkicu (po regułach).
 
-        Zapamiętuje bieżący tekst nowych słów — późniejsza zmiana to poprawka —
+        Zapamiętuje bieżący tekst nowych słów - późniejsza zmiana to poprawka -
         i przestaje rozszerzać segmenty o tekst wpisany tuż za nimi.
         """
         for item in self._items:
@@ -194,9 +194,9 @@ class SyncController(QObject):
         cursor = self._editor.track_range(anchor.start, anchor.end, positions)
         # Tekst wpisany tuż za kotwicą nie rozszerza jej zakresu, a tekst
         # wpisany w miejscu znacznika punktowego trafia za znacznik (koniec
-        # kursora zostaje, przesuwa się tylko jego drugi brzeg — znacznik to
+        # kursora zostaje, przesuwa się tylko jego drugi brzeg - znacznik to
         # zawsze ``selectionStart``). Segment dostaje tę właściwość dopiero
-        # w :meth:`settle` — zamiana reguły na jego końcu ma zostać w środku.
+        # w :meth:`settle` - zamiana reguły na jego końcu ma zostać w środku.
         cursor.setKeepPositionOnInsert(anchor.source != SEGMENT)
         return TrackedAnchor(anchor, cursor)
 
@@ -307,7 +307,7 @@ class SyncController(QObject):
         self.play_at(position, word_level=False)
 
     def play_at(self, position: int, word_level: bool = True) -> bool:
-        """Odtwarza nagranie od kotwicy dla pozycji tekstu; False — brak kotwicy."""
+        """Odtwarza nagranie od kotwicy dla pozycji tekstu; False - brak kotwicy."""
         if self._player.source_path is None or not self._bar.has_media:
             self._show_status(tr("sync.no_media"))
             return False
@@ -318,7 +318,7 @@ class SyncController(QObject):
         return self.play_anchor(anchor)
 
     def anchor_at(self, position: int, word_level: bool = True) -> Anchor | None:
-        """Kotwica bieżącego tekstu dla pozycji (None — brak)."""
+        """Kotwica bieżącego tekstu dla pozycji (None - brak)."""
         return anchor_at(self._current(), position, word_level)
 
     def play_anchor(self, anchor: Anchor) -> bool:

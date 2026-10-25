@@ -1,6 +1,6 @@
 """Panel ostrzeżeń walidatora notacji.
 
-Lista prezentuje wyniki ``notation.validate`` (kod, komunikat, pozycja) —
+Lista prezentuje wyniki ``notation.validate`` (kod, komunikat, pozycja) -
 UI nie interpretuje reguł, jedynie wyświetla je i nawiguje do zakresu
 w tekście po wybraniu pozycji. Menu kontekstowe pozycji ma „Ignoruj tutaj”.
 """

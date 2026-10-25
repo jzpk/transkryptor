@@ -2,7 +2,7 @@
 
 Czcionka jest rejestrowana w Qt przy tworzeniu okna (bez instalacji
 w systemie) i jest domyślna dla edytora oraz eksportu ODT/PDF; DOCX zapisuje
-jej nazwę — na komputerze bez Charis SIL Word podstawi inną czcionkę.
+jej nazwę - na komputerze bez Charis SIL Word podstawi inną czcionkę.
 """
 
 from __future__ import annotations

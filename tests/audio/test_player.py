@@ -22,7 +22,7 @@ def player(qapp):
     player = AudioPlayer()
     yield player
     # Zniszczenie QMediaPlayer w trakcie odtwarzania wywraca wątek dekodera
-    # FFmpeg (segfault w CI) — najpierw zatrzymanie i zwolnienie źródła.
+    # FFmpeg (segfault w CI) - najpierw zatrzymanie i zwolnienie źródła.
     player.stop_and_unload()
 
 
@@ -102,7 +102,7 @@ def _load(player: AudioPlayer, qtbot, path: str = SAMPLE_MP3) -> None:
 
 
 def _paused_at(player: AudioPlayer, qtbot, position_ms: int) -> None:
-    """Odtwarza, pauzuje i ustawia pozycję — jak pauza w danym miejscu."""
+    """Odtwarza, pauzuje i ustawia pozycję - jak pauza w danym miejscu."""
     player.play()
     qtbot.waitUntil(lambda: player.is_playing, timeout=5000)
     player.set_position(position_ms)

@@ -4,7 +4,7 @@
 ``SHA256SUMS.txt`` kluczem wbudowanym w aplikację, a sumy potwierdzają
 artefakt. Bez poprawnego podpisu nic nie jest pobierane. Plik jest
 zapisywany jako ``.part`` i dopiero po zgodnej sumie zmienia nazwę na
-docelową — przerwane albo uszkodzone pobranie nigdy nie zostaje uznane za
+docelową - przerwane albo uszkodzone pobranie nigdy nie zostaje uznane za
 gotową aktualizację. Pobrania leżą w pamięci podręcznej użytkownika
 (``<cache>/updates/<wersja>/``) razem z podpisanymi sumami, żeby tuż przed
 instalacją dało się sprawdzić plik ponownie (``verify_downloaded``);
@@ -165,7 +165,7 @@ def download_release(
 def verify_downloaded(artifact: Path, trusted_keys: Iterable[str] | None = None) -> str:
     """Ponownie sprawdza pobrany artefakt tuż przed instalacją.
 
-    Podpis sum i suma pliku są liczone od nowa z plików na dysku — plik mógł
+    Podpis sum i suma pliku są liczone od nowa z plików na dysku - plik mógł
     się zmienić od pobrania (godziny wcześniej). Zwraca oczekiwaną sumę
     SHA-256; każdy problem → ``UpdateError``.
     """
@@ -180,7 +180,7 @@ def verify_downloaded(artifact: Path, trusted_keys: Iterable[str] | None = None)
         if expected is None or sha256_of(artifact) != expected:
             raise SignatureError("suma pliku nie zgadza się z podpisanymi sumami")
     except (OSError, ValueError) as error:
-        # Zmieniony albo uszkodzony plik nie zostaje — następny start pobierze
+        # Zmieniony albo uszkodzony plik nie zostaje - następny start pobierze
         # wydanie od nowa. Usuwany jest tylko katalog wersji z pobrań.
         if parse_version(version) is not None:
             shutil.rmtree(artifact.parent, ignore_errors=True)

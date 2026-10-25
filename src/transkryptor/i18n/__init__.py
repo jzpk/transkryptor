@@ -5,7 +5,7 @@ klucz → tekst z polami ``str.format`` (``{name}``). Język jest wybierany raz,
 przy starcie (``set_language``); zmiana w ustawieniach działa po ponownym
 uruchomieniu. Dodanie języka to nowy plik JSON i wpis w ``LANGUAGES``.
 
-Teksty pobiera się wywołaniem ``tr(klucz)`` w chwili użycia — nigdy w stałej
+Teksty pobiera się wywołaniem ``tr(klucz)`` w chwili użycia - nigdy w stałej
 modułowej, bo ta zamroziłaby język z chwili importu.
 """
 
@@ -17,7 +17,7 @@ from importlib import resources
 
 POLISH = "pl"
 ENGLISH = "en"
-# Nazwy języków w nich samych — tak pokazuje je lista wyboru w ustawieniach.
+# Nazwy języków w nich samych - tak pokazuje je lista wyboru w ustawieniach.
 LANGUAGES = {POLISH: "Polski", ENGLISH: "English"}
 # Katalog zapasowy dla kluczy brakujących w bieżącym języku.
 FALLBACK_LANGUAGE = POLISH

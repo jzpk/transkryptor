@@ -18,7 +18,7 @@ Wstęp.
 - Nowa funkcja,
   opisana w dwóch liniach.
 
-## 0.2.3 — 2026-10-09
+## 0.2.3 - 2026-10-09
 
 - Poprzednia zmiana.
 """
@@ -65,7 +65,7 @@ def test_release_turns_unreleased_into_a_dated_version_section(path) -> None:
     assert changelog.section(text, "0.2.4") == (
         "- Nowa funkcja,\n  opisana w dwóch liniach."
     )
-    assert "## 0.2.4 — 2026-10-10" in text
+    assert "## 0.2.4 - 2026-10-10" in text
     assert text.index("## Nieopublikowane") < text.index("## 0.2.4")
     assert changelog.section(text, "0.2.3") == "- Poprzednia zmiana."
 

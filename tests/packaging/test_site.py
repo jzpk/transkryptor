@@ -19,13 +19,13 @@ Wstęp.
 
 - Funkcja w toku.
 
-## 0.2.4 — 2026-10-11
+## 0.2.4 - 2026-10-11
 
 - Nowa funkcja,
   opisana w **dwóch** liniach.
 - Skrót `Ctrl+<` działa.
 
-## 0.2.3 — 2026-10-09
+## 0.2.3 - 2026-10-09
 
 - Poprzednia zmiana.
 """
@@ -175,7 +175,7 @@ def test_background_letters_are_polish_and_reproducible() -> None:
     assert set(letters) <= set(site.LETTERS)
     assert (layer, css) == site.background_letters()
     assert layer.startswith('<div class="letters" aria-hidden="true">')
-    # Klatki ze stałymi wartościami, bez var() — animacja zostaje na GPU.
+    # Klatki ze stałymi wartościami, bez var() - animacja zostaje na GPU.
     assert css.count("@keyframes litera-") == site.LETTER_COUNT
     assert "var(" not in css
     # Skrót „animation:” w stylu inline nadpisałby wstrzymanie animacji.

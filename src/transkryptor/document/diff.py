@@ -1,17 +1,17 @@
 """Porównanie dwóch wersji transkrypcji na poziomie słów (bez Qt).
 
 Wersja to tekst z zakresami indeksu górnego i mówcami akapitów
-(:class:`Version`). :func:`diff_versions` porównuje tokeny — słowa,
+(:class:`Version`). :func:`diff_versions` porównuje tokeny - słowa,
 interpunkcję, odstępy i znaki nowej linii osobno, więc granice akapitów są
-zachowane —
+zachowane -
 ``difflib.SequenceMatcher`` i zwraca listę zmian (:class:`Change`):
 wstawienie, usunięcie, zmianę tekstu, zmianę indeksu górnego w słowie
 o tym samym tekście i zmianę mówcy akapitu. Wersja A to dokument bieżący
-(wynik porównania), wersja B — porównywana; zakresy zmian są w obu
+(wynik porównania), wersja B - porównywana; zakresy zmian są w obu
 wersjach.
 
 :func:`fragment` daje tekst zmiany z formatowaniem i mówcami akapitów,
-które fragment zaczyna — tyle trzeba, by przyjąć zmianę z B albo ją
+które fragment zaczyna - tyle trzeba, by przyjąć zmianę z B albo ją
 cofnąć. :func:`apply_change` to referencyjne przyjęcie zmiany w modelu
 (testy i sprawdzenie wyniku edytora).
 """
@@ -34,7 +34,7 @@ SPEAKER = "speaker"
 KINDS = (INSERT, DELETE, REPLACE, FORMAT, SPEAKER)
 
 # Nowa linia, odstęp bez nowej linii, słowo albo ciąg znaków interpunkcji
-# i notacji — przecinek przy słowie nie wchodzi do zmiany słowa.
+# i notacji - przecinek przy słowie nie wchodzi do zmiany słowa.
 _TOKEN_RE = re.compile(r"\n|[^\S\n]+|\w+|[^\w\s]+")
 
 
@@ -61,7 +61,7 @@ class Fragment:
     i mówcy akapitów, które fragment zaczyna (po każdym ``\\n``).
 
     ``lead`` to mówca akapitu, w którym fragment się zaczyna, a
-    ``at_paragraph_start`` — czy zaczyna się na początku akapitu.
+    ``at_paragraph_start`` - czy zaczyna się na początku akapitu.
     """
 
     text: str
@@ -75,9 +75,9 @@ class Fragment:
 class Change:
     """Zmiana ``a.text[a_start:a_end]`` → ``b.text[b_start:b_end]``.
 
-    Wstawienie ma pusty zakres w A, usunięcie — w B. Dla zmiany mówcy
+    Wstawienie ma pusty zakres w A, usunięcie - w B. Dla zmiany mówcy
     zakresy obejmują akapit, a ``a_speaker``/``b_speaker`` to klucze
-    mówców (None — akapit bez mówcy).
+    mówców (None - akapit bez mówcy).
     """
 
     kind: str
@@ -118,7 +118,7 @@ def diff_versions(a: Version, b: Version) -> list[Change]:
     )
     changes: list[Change] = []
     # Pary akapitów (A, B), które zaczynają się tym samym niezmienionym
-    # tokenem — tylko dla nich porównujemy mówców.
+    # tokenem - tylko dla nich porównujemy mówców.
     paragraphs: list[tuple[int, int]] = []
 
     def char_span(
@@ -249,7 +249,7 @@ def replaced_speakers(
     Kolejno: akapit zawierający ``start`` i akapity zaczęte przez fragment.
     Zmiana bez znaków nowej linii nie rusza mówców. Gdy zmiana dzieli albo
     scala akapity od początku akapitu, pierwszy akapit wyniku zaczyna się
-    tekstem fragmentu (i dostaje jego mówcę), a przy samym usunięciu —
+    tekstem fragmentu (i dostaje jego mówcę), a przy samym usunięciu -
     tekstem ostatniego scalonego akapitu (który zachowuje swojego mówcę).
     """
     removed = version.text[start:end]

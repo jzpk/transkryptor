@@ -71,7 +71,7 @@ def test_version_flag_reports_the_application_version(capsys) -> None:
 
 
 def test_report_survives_output_without_polish_characters() -> None:
-    """Windows: wyjście w cp1252 nie zna „ę” — self-test nie może przez to paść."""
+    """Windows: wyjście w cp1252 nie zna „ę” - self-test nie może przez to paść."""
     raw = io.BytesIO()
     stream = io.TextIOWrapper(raw, encoding="cp1252")
     assert entrypoint.self_test(stream) == 0

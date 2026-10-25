@@ -7,7 +7,7 @@ kluczem, którego część publiczna jest wbudowana w aplikację
 
 Obsługiwany jest format minisign z prehashem (algorytm ``ED``, domyślny od
 minisign 0.11): podpis Ed25519 obejmuje BLAKE2b-512 treści, a podpis globalny
-— podpis i zaufany komentarz. Zaufany komentarz ma postać
+- podpis i zaufany komentarz. Zaufany komentarz ma postać
 ``transkryptor <wersja> SHA256SUMS.txt``; wersja musi zgadzać się z wydaniem,
 inaczej podpisane sumy starszego wydania dałoby się podstawić pod nowy tag.
 

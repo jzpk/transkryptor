@@ -35,7 +35,7 @@ def test_cancel_interrupts_decoding() -> None:
 
 
 def test_missing_file_raises() -> None:
-    with pytest.raises(Exception):  # noqa: B017 — OSError albo błąd PyAV
+    with pytest.raises(Exception):  # noqa: B017 - OSError albo błąd PyAV
         compute_envelope("brak.mp3")
 
 

@@ -3,7 +3,7 @@
 Pola i ich kolejność pochodzą z ustawień („Metryczka”); formularz tylko
 pokazuje wartości i zgłasza zmiany sygnałem ``changed``. Zapis do
 ``Document.metadata`` wykonuje ``SessionController``. Pod polami jest wiersz
-listy mówców nagrania (faza 12) — edycję otwiera ``SpeakerController``
+listy mówców nagrania (faza 12) - edycję otwiera ``SpeakerController``
 po sygnale ``speakers_edit_requested``. Blokadę na czas ASR
 zapewnia wyłączenie karty transkrypcji (REQ-13).
 """
@@ -141,7 +141,7 @@ class MetadataForm(QWidget):
         return self.values().get(key, "")
 
     def set_speakers_summary(self, text: str) -> None:
-        """Legenda mówców nagrania (``B — Badacz; I — Informator``)."""
+        """Legenda mówców nagrania (``B - Badacz; I - Informator``)."""
         self.speakers_label.setText(text or tr("metadata_form.speakers.none"))
 
     def _on_edited(self) -> None:

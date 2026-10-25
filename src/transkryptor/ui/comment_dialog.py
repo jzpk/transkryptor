@@ -69,7 +69,7 @@ class CommentDialog(QDialog):
 def ask_comment(
     parent: QWidget | None, title: str, author: str, text: str = "", context: str = ""
 ) -> tuple[str, str] | None:
-    """Pyta o autora i treść; None — anulowano."""
+    """Pyta o autora i treść; None - anulowano."""
     dialog = CommentDialog(parent, title, author, text, context)
     if dialog.exec() != QDialog.DialogCode.Accepted:
         return None

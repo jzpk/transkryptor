@@ -3,10 +3,10 @@
 Kotwica to zakres tekstu ``[start, end)`` (pozycje Pythona) z czasem
 ``start_ms``–``end_ms`` w nagraniu. Źródła:
 
-- ``segment`` — segment szkicu ASR;
-- ``word`` — słowo szkicu ASR z prawdopodobieństwem (``probability``);
+- ``segment`` - segment szkicu ASR;
+- ``word`` - słowo szkicu ASR z prawdopodobieństwem (``probability``);
   ``edited`` oznacza, że użytkownik poprawił słowo (przestaje być niepewne);
-- ``manual`` — ręczny znacznik czasu, punktowy (``start == end``).
+- ``manual`` - ręczny znacznik czasu, punktowy (``start == end``).
 
 Moduł buduje kotwice szkicu (:func:`build_draft`), wyszukuje kotwicę dla
 pozycji w tekście (:func:`anchor_at`) i aktywny segment dla pozycji
@@ -88,7 +88,7 @@ def build_draft(
 ) -> tuple[str, list[Anchor]]:
     """Tekst szkicu i kotwice segmentów oraz słów (pozycje względem szkicu).
 
-    Szkic to ``normalize(text)`` — tak jak bez kotwic. Segmenty i słowa są
+    Szkic to ``normalize(text)`` - tak jak bez kotwic. Segmenty i słowa są
     odszukiwane w nim kolejno, każdy za poprzednim; fragment, którego nie da
     się odnaleźć (np. normalizacja zmieniła granicę), zostaje bez kotwicy.
     """
@@ -137,7 +137,7 @@ def anchor_at(
     """Kotwica dla pozycji w tekście.
 
     Najpierw słowo obejmujące pozycję (``word_level``), a dalej segment albo
-    znacznik ręczny o największym początku nie większym niż pozycja — czyli
+    znacznik ręczny o największym początku nie większym niż pozycja - czyli
     zawierający ją albo poprzedzający (znacznik w środku segmentu wygrywa
     z jego początkiem).
     """

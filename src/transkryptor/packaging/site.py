@@ -2,7 +2,7 @@
 
 Strona jest statyczna i powstaje przy każdym wydaniu (workflow „Strona”
 wywoływany z „Wydania”), więc przyciski pobierania wskazują pliki najnowszego
-wydania, a historia zmian obejmuje tylko wydane wersje — sekcja
+wydania, a historia zmian obejmuje tylko wydane wersje - sekcja
 „Nieopublikowane” nie trafia na stronę. Opis i wygląd są w katalogu
 ``pages/`` (szablony ``index.html``, ``faq.html``, ``autor.html`` i ``404.html``
 z polami ``${...}``, arkusz stylów, skrypt strony, zrzuty ekranu, zdjęcie autora
@@ -71,7 +71,7 @@ LETTERS = "aąbcćdeęfghijklłmnńoóprsśtuwyzźżĄĆĘŁŃÓŚŹŻ"
 LETTER_COUNT = 44
 _LETTERS_SEED = 2026
 
-_VERSION_DATE = re.compile(r"^\d+\.\d+\.\d+\s+—\s+(?P<date>\d{4}-\d{2}-\d{2})$")
+_VERSION_DATE = re.compile(r"^\d+\.\d+\.\d+\s+-\s+(?P<date>\d{4}-\d{2}-\d{2})$")
 _CODE = re.compile(r"`([^`]+)`")
 _BOLD = re.compile(r"\*\*(.+?)\*\*")
 # Pytanie z faq.html: <summary> to pytanie, <div class="faq-answer"> odpowiedź.
@@ -216,7 +216,7 @@ def _requirements_html() -> str:
 
 def _systems_html(version: str) -> str:
     return "".join(
-        f"<li><strong>{html.escape(target.display_name)}</strong> — "
+        f"<li><strong>{html.escape(target.display_name)}</strong> - "
         f"{html.escape(target.baseline)}</li>"
         for target in targets(version).values()
     )
@@ -231,7 +231,7 @@ def background_letters(
     punkt ekranu w losowym kierunku; dłuższa składowa przesunięcia ma 120
     jednostek (vw albo vh), więc oba końce toru leżą poza ekranem i powrót
     animacji na początek jest niewidoczny. Każda litera ma własne klatki
-    ze stałymi wartościami — klatki ze zmiennymi CSS przeglądarka może
+    ze stałymi wartościami - klatki ze zmiennymi CSS przeglądarka może
     liczyć w wątku głównym zamiast na GPU, co daje przycięcia ruchu.
     """
     rng = random.Random(seed)
@@ -295,7 +295,7 @@ def page_fields(releases: list[Release], repo: str) -> dict[str, str]:
         "windows_file": artifacts["windows"].artifact_name,
         "linux_url": f"{download}/{artifacts['linux'].artifact_name}",
         "linux_file": artifacts["linux"].artifact_name,
-        # Instrukcja z taga wydania — ta w main może opisywać nowości,
+        # Instrukcja z taga wydania - ta w main może opisywać nowości,
         # których pobrana wersja jeszcze nie ma.
         "guide_url": f"{repo_url}/raw/v{version}/docs/user_guide_pl.pdf",
         "systems": _systems_html(version),

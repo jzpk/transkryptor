@@ -7,7 +7,7 @@ Odczyt nigdy nie rzuca wyjątku: każde brakujące, uszkodzone lub spoza zakresu
 pole dostaje wartość domyślną, a pozostałe pola są zachowane (ACC-18).
 
 Kolejne funkcje dodają własne pola i sekcje: nowe pole w dataclassie
-i wpis w ``_FIELDS`` — bez zmian w mechanizmie zapisu.
+i wpis w ``_FIELDS`` - bez zmian w mechanizmie zapisu.
 """
 
 from __future__ import annotations
@@ -97,7 +97,7 @@ class NotationSettings:
 class ValidatorSettings:
     """Włączone reguły walidatora: JSON ``{kod: true/false}`` z nadpisaniami.
 
-    Pusty napis oznacza zestaw domyślny; brak kodu w słowniku — wartość
+    Pusty napis oznacza zestaw domyślny; brak kodu w słowniku - wartość
     domyślną tej reguły (nowe reguły dostają ją automatycznie).
     """
 
@@ -137,7 +137,7 @@ def encode_bool_map(values: Mapping[str, bool]) -> str:
 class ShortcutSettings:
     """Skróty różne od domyślnych: JSON ``{id akcji: [skróty]}``.
 
-    Pusta lista oznacza akcję bez skrótu; brak akcji — skróty domyślne.
+    Pusta lista oznacza akcję bez skrótu; brak akcji - skróty domyślne.
     Zapis skrótów jak w ``QKeySequence`` (np. ``Ctrl+Shift+A``).
     """
 
@@ -279,11 +279,11 @@ class AsrSettings:
     # Transkrypcja fragmentami: mniej pamięci RAM przy długich nagraniach.
     chunked: bool = False
     # Słowa z czasami i pewnością (faza 11): podkreślenie niepewnych słów
-    # o pewności poniżej progu (w procentach; orientacyjny — faza 15).
+    # o pewności poniżej progu (w procentach; orientacyjny - faza 15).
     word_timestamps: bool = True
-    # Podział szkicu na mówców (diaryzacja) — działa po pobraniu modelu.
+    # Podział szkicu na mówców (diaryzacja) - działa po pobraniu modelu.
     diarize: bool = True
-    # Liczba mówców w nagraniu; 0 — wyznaczana automatycznie. Domyślnie
+    # Liczba mówców w nagraniu; 0 - wyznaczana automatycznie. Domyślnie
     # wywiad: badacz i informator.
     diarize_speakers: int = 2
     show_uncertain_words: bool = True
@@ -411,7 +411,7 @@ def to_mapping(settings: Settings) -> dict[str, object]:
 def from_mapping(mapping: Mapping[str, Any]) -> Settings:
     """Odtwarza ustawienia ze słownika, zastępując błędne pola domyślnymi.
 
-    Akceptuje też wartości tekstowe (``"3000"``, ``"true"``) — tak zwraca je
+    Akceptuje też wartości tekstowe (``"3000"``, ``"true"``) - tak zwraca je
     ``QSettings`` w formacie INI. Nieznane klucze są ignorowane.
     """
     sections: dict[str, dict[str, object]] = {

@@ -19,7 +19,7 @@ def player_bar(qtbot):
     qtbot.addWidget(bar)
     yield bar, player
     # Zniszczenie QMediaPlayer w trakcie odtwarzania wywraca wątek dekodera
-    # FFmpeg (segfault w CI) — najpierw zatrzymanie i zwolnienie źródła.
+    # FFmpeg (segfault w CI) - najpierw zatrzymanie i zwolnienie źródła.
     player.stop_and_unload()
 
 

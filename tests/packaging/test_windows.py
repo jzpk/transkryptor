@@ -25,7 +25,7 @@ def test_app_id_uses_inno_setup_brace_escaping() -> None:
 
 
 def test_output_base_filename_has_no_extension() -> None:
-    """Inno Setup sam dokłada „.exe” — inaczej powstałby plik z podwójnym."""
+    """Inno Setup sam dokłada „.exe” - inaczej powstałby plik z podwójnym."""
     script = render()
     assert "OutputBaseFilename=Transkryptor-0.1.0-windows-x64-setup\n" in script
     assert ".exe.exe" not in script

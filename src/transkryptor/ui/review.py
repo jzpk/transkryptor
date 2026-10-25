@@ -78,9 +78,9 @@ class ReviewController(QObject):
         """REQ-14/15: wstawia szkic ASR i stosuje reguły wybrane przez autora.
 
         Wstawienie i reguły to dwa osobne kroki cofania: pierwsze Ctrl+Z
-        przywraca surowy szkic, drugie — stan sprzed wstawienia (ACC-15).
+        przywraca surowy szkic, drugie - stan sprzed wstawienia (ACC-15).
         ``segments`` (z czasami) dają kotwice czasowe szkicu (REQ-22),
-        a ``line_speakers`` — mówców kolejnych wersów. Zwraca False, gdy
+        a ``line_speakers`` - mówców kolejnych wersów. Zwraca False, gdy
         szkic nie został wstawiony (pusty albo rezygnacja użytkownika).
         """
         if not text.strip():
@@ -225,7 +225,7 @@ class ReviewController(QObject):
         """ACC-12: stosuje propozycję tylko do jej fragmentu (jeden krok cofania).
 
         Gdy fragment zmienił się od transkrypcji, propozycja nie jest
-        stosowana — dokument nie zmienia się bez wiedzy użytkownika (REQ-12).
+        stosowana - dokument nie zmienia się bez wiedzy użytkownika (REQ-12).
         """
         item = self.items[index]
         if item.applied:

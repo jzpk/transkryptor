@@ -1,14 +1,14 @@
 """Podproces roboczy ASR: model w pamięci i natychmiastowe anulowanie (PERF-04).
 
 Wczytanie modelu Whisper (~1,5 GB wag) trwa długo, a faster-whisper przed
-pierwszym segmentem dekoduje całe nagranie i wykrywa mowę — w tym czasie
+pierwszym segmentem dekoduje całe nagranie i wykrywa mowę - w tym czasie
 kooperacyjne anulowanie z ``engine.transcribe`` nie ma kiedy zadziałać.
 Dlatego transkrypcja biegnie w osobnym procesie (``multiprocessing``,
-kontekst ``spawn`` — ten sam na Linuksie i Windows):
+kontekst ``spawn`` - ten sam na Linuksie i Windows):
 
 - proces trzyma wczytany backend między transkrypcjami (bufor po katalogu
   modelu i urządzeniu), więc kolejna transkrypcja nie wczytuje modelu od nowa;
-- „Anuluj” kończy proces od razu (``terminate``) — następna transkrypcja
+- „Anuluj” kończy proces od razu (``terminate``) - następna transkrypcja
   uruchomi nowy proces i wczyta model ponownie;
 - po ``IDLE_TIMEOUT_S`` bez pracy proces sam się kończy i zwalnia pamięć.
 
@@ -113,7 +113,7 @@ class AsrWorker:
                 return self._run(request, cancel, on_segment, on_progress)
             except _WorkerExited:
                 # Proces mógł zakończyć się po bezczynności tuż przed
-                # zleceniem — jedna ponowna próba w nowym procesie.
+                # zleceniem - jedna ponowna próba w nowym procesie.
                 try:
                     return self._run(request, cancel, on_segment, on_progress)
                 except _WorkerExited as exited:
@@ -239,7 +239,7 @@ class _WorkerExited(Exception):
 
 
 def _crash_log_dir() -> str | None:
-    """Katalog zapisu awarii dla procesu roboczego — tylko gdy dziennik działa."""
+    """Katalog zapisu awarii dla procesu roboczego - tylko gdy dziennik działa."""
     directory = diagnostics.active_log_dir()
     return None if directory is None else str(directory)
 
@@ -275,7 +275,7 @@ def _serve(
     """Pętla procesu roboczego: zlecenia z potoku, bufor backendu."""
     set_language(language)
     if crash_log_dir is not None:
-        # Awaria natywna (np. CTranslate2) kończy proces bez odpowiedzi —
+        # Awaria natywna (np. CTranslate2) kończy proces bez odpowiedzi -
         # ślad stosu zostaje w ``crash.log`` dla dziennika procesu głównego.
         diagnostics.enable_crash_log(Path(crash_log_dir))
     cached: dict[tuple[Path, str], Backend] = {}
@@ -285,7 +285,7 @@ def _serve(
         key = (model_dir, device)
         backend = cached.get(key)
         if backend is None:
-            cached.clear()  # jeden model naraz — zwalnia poprzedni
+            cached.clear()  # jeden model naraz - zwalnia poprzedni
             backend = factory(model_dir, device)
             cached[key] = backend
         return backend
@@ -343,7 +343,7 @@ def _transcribe_request(
             error.retry_hint,
             diagnostics.format_exception(error),
         )
-    except Exception as error:  # noqa: BLE001 — błąd zgłaszany rodzicowi
+    except Exception as error:  # noqa: BLE001 - błąd zgłaszany rodzicowi
         app_error = engine.transcription_error(error)
         return "error", (
             "TranscriptionError",

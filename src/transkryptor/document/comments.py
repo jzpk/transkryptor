@@ -2,7 +2,7 @@
 
 Komentarz to zakres tekstu ``[start, end)`` (pozycje Pythona) z autorem,
 datą i treścią oraz jednopoziomowym wątkiem odpowiedzi. ``quote`` to treść
-fragmentu w chwili zapisu — pokazuje, czego dotyczył komentarz, gdy
+fragmentu w chwili zapisu - pokazuje, czego dotyczył komentarz, gdy
 fragment zmieniono albo usunięto. Komentarz, którego fragment usunięto,
 zostaje jako punkt (``start == end``): komentarzy nie usuwa się po cichu.
 

@@ -35,7 +35,7 @@ KNOWN_LIMITATIONS = (
     "Szkic ASR jest hipotezą **ortograficzną**, a nie zapisem fonetycznym "
     "według notacji projektu. Każdy fragment wymaga korekty transkrybenta.",
     "Jakość rozpoznawania nie została zmierzona na zatwierdzonym korpusie "
-    "referencyjnym — projekt takiego korpusu nie posiada. Podane czasy "
+    "referencyjnym - projekt takiego korpusu nie posiada. Podane czasy "
     "dotyczą wydajności, nie trafności.",
     "Model nie rozpoznaje nosowości, labializacji, dyftongizacji ani "
     "redukcji „ł”; propozycje zapisu fonetycznego są regułowe i zawsze "
@@ -51,7 +51,7 @@ KNOWN_LIMITATIONS = (
 
 PRIVACY_POINTS = (
     "Aplikacja nie zbiera telemetrii i niczego nie raportuje.",
-    "Nagranie i tekst nie opuszczają komputera — nie ma ASR w chmurze "
+    "Nagranie i tekst nie opuszczają komputera - nie ma ASR w chmurze "
     "ani synchronizacji.",
     "Pobranie modelu ASR jest jednorazowe i uruchamiane wyłącznie po jawnej "
     "zgodzie użytkownika.",
@@ -80,7 +80,7 @@ def _artifact_table(checksums: Iterable[Checksum], version: str) -> list[str]:
         "| --- | --- | --- | --- |",
     ]
     for entry in checksums:
-        platform = platform_by_name.get(entry.name, "—")
+        platform = platform_by_name.get(entry.name, "-")
         size = f"{entry.size_bytes / 1_000_000:.0f} MB"
         lines.append(f"| `{entry.name}` | {platform} | {size} | `{entry.digest}` |")
     return lines
@@ -144,15 +144,15 @@ def render_release_notes(
         ),
         "## Instalacja",
         "",
-        f"- **Windows** — uruchom `{available['windows'].artifact_name}`.",
+        f"- **Windows** - uruchom `{available['windows'].artifact_name}`.",
         f"  Wymagany {available['windows'].baseline}. Instalator zawiera komplet",
         "  środowiska uruchomieniowego: **Python nie musi być zainstalowany**.",
-        "- **Linux** — nadaj prawo wykonywania plikowi",
+        "- **Linux** - nadaj prawo wykonywania plikowi",
         f"  `{available['linux'].artifact_name}` (`chmod +x`) i uruchom go.",
         f"  Zbudowano na: {available['linux'].baseline}.",
         "",
         "Po pierwszym uruchomieniu aplikacja jest w pełni sprawna do pracy",
-        "ręcznej — model ASR nie jest do tego potrzebny.",
+        "ręcznej - model ASR nie jest do tego potrzebny.",
         "",
         "## Prywatność",
         "",
@@ -174,14 +174,14 @@ def render_release_notes(
         "   docelowy. Pobieranie rusza dopiero po potwierdzeniu.",
         "3. Postęp widać w panelu; pobieranie można anulować, a po błędzie",
         "   ponowić. Przerwane pobranie nigdy nie jest uznawane za gotowy model.",
-        "4. Po pobraniu transkrypcja działa lokalnie — również z odłączoną siecią.",
+        "4. Po pobraniu transkrypcja działa lokalnie - również z odłączoną siecią.",
         "",
         "Katalog modelu:",
         "",
         "- Windows: `%APPDATA%\\Transkryptor\\models`",
         "- Linux: `~/.local/share/transkryptor/models`",
         "",
-        "Model można usunąć w dowolnej chwili — aplikacja wróci do pracy ręcznej.",
+        "Model można usunąć w dowolnej chwili - aplikacja wróci do pracy ręcznej.",
         "",
         "## Wymagania sprzętowe",
         "",
@@ -197,7 +197,7 @@ def render_release_notes(
         "",
         "Zmierzony stosunek czasu transkrypcji do długości nagrania:",
         f"**{REALTIME_FACTOR}** na maszynie referencyjnej ({BENCHMARK_MACHINE})",
-        "— godzinne nagranie to około pół godziny pracy procesora. Pełny raport",
+        "- godzinne nagranie to około pół godziny pracy procesora. Pełny raport",
         "pomiarów i opis maszyny: `docs/benchmarks-asr.md` w repozytorium projektu.",
         "",
         "## Znane ograniczenia",
@@ -208,7 +208,7 @@ def render_release_notes(
         "",
         "## Licencje",
         "",
-        f"Aplikacja: `{LICENSE_ID}` — pełny tekst w pliku `LICENSE` wewnątrz",
+        f"Aplikacja: `{LICENSE_ID}` - pełny tekst w pliku `LICENSE` wewnątrz",
         "artefaktu. Licencje wszystkich zależności i bibliotek natywnych:",
         "`licenses/THIRD-PARTY-NOTICES.md`. Nota o modelu ASR (nie jest",
         "redystrybuowany razem z aplikacją): `licenses/MODEL-LICENSE.md`.",

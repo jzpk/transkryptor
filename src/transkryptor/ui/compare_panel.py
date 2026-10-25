@@ -3,7 +3,7 @@
 Lista pokazuje zmiany z ``document/diff.py`` (typ, fragment przed i po,
 stan: oczekuje, przyjęta, odrzucona); wybranie pozycji zaznacza fragment
 w obu kolumnach. Przyciski przyjmują i odrzucają zmiany, cofają operacje
-i kończą porównanie — decyzje podejmuje ``ui/compare_controller.py``.
+i kończą porównanie - decyzje podejmuje ``ui/compare_controller.py``.
 """
 
 from __future__ import annotations
@@ -43,7 +43,7 @@ def short(text: str) -> str:
 
 
 def change_label(kind: str, before: str, after: str) -> str:
-    """Opis zmiany: typ i fragment przed/po (dla mówcy — klucze)."""
+    """Opis zmiany: typ i fragment przed/po (dla mówcy - klucze)."""
     if kind == INSERT:
         return tr("compare.item.insert", after=short(after))
     if kind == DELETE:

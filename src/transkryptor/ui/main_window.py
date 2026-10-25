@@ -7,8 +7,8 @@ ASR (``ui/review.py``), stan sesji, projekt i autozapis (``ui/session.py``,
 ``ui/autosave.py``), eksport
 (``ui/export_controller.py``), odtwarzacz (``ui/player_controller.py``)
 i wyszukiwanie (``ui/search_controller.py``). Okno uruchamia nieblokującą
-walidację ``notation.validate`` z debounce — reguły pozostają w module
-``notation``, UI je prezentuje — i stosuje ustawienia bez restartu.
+walidację ``notation.validate`` z debounce - reguły pozostają w module
+``notation``, UI je prezentuje - i stosuje ustawienia bez restartu.
 """
 
 from __future__ import annotations
@@ -523,7 +523,7 @@ class MainWindow(QMainWindow):
         )
 
     def accept_settings_dialog(self, dialog: SettingsDialog) -> None:
-        """Zapisuje ustawienia i — gdy się zmieniły — reguły użytkownika."""
+        """Zapisuje ustawienia i - gdy się zmieniły - reguły użytkownika."""
         user_rules = dialog.user_rules()
         if user_rules != self.rules_store.user_rules:
             try:
@@ -533,7 +533,7 @@ class MainWindow(QMainWindow):
         self.settings_store.save(dialog.settings())
 
     def report_rule_errors(self) -> None:
-        """ACC-42: błędne reguły z pliku użytkownika — komunikat przy starcie."""
+        """ACC-42: błędne reguły z pliku użytkownika - komunikat przy starcie."""
         errors = self.rules_store.errors
         if not errors:
             return
@@ -561,7 +561,7 @@ class MainWindow(QMainWindow):
         self.asr_panel.set_segment_preroll_ms(settings.player.segment_preroll_ms)
         self.asr_panel.set_asr_settings(settings.asr)
         self.sync.update_uncertain()
-        # ACC-25: tekst się nie zmienia — tylko kolejne wstawienia i walidacja.
+        # ACC-25: tekst się nie zmienia - tylko kolejne wstawienia i walidacja.
         pause_marker = marker_text("pause", settings.notation.ellipsis).strip()
         self.marker_actions["pause"].setProperty(
             BASE_TOOLTIP, tr("toolbar.insert", marker=pause_marker)
@@ -665,7 +665,7 @@ class MainWindow(QMainWindow):
         self.notation.schedule_validation()
 
     def _on_superscript(self) -> None:
-        # ``mergeCharFormat`` emituje ``contentsChanged`` — synchronizacja
+        # ``mergeCharFormat`` emituje ``contentsChanged`` - synchronizacja
         # idzie przez ``_on_editor_changed``.
         self.editor.toggle_superscript()
 
@@ -724,7 +724,7 @@ class MainWindow(QMainWindow):
         )
 
     def _show_compare_column(self, name: str | None) -> None:
-        """Kolumna i lista porównania z nazwą projektu (None — schowane)."""
+        """Kolumna i lista porównania z nazwą projektu (None - schowane)."""
         self.compare_card.setVisible(name is not None)
         if name is not None:
             # Obie wersje równej szerokości.
@@ -737,7 +737,7 @@ class MainWindow(QMainWindow):
             self.compare_dock.hide()
 
     def _on_compare_dock_visibility(self, visible: bool) -> None:
-        # Dok schowany za zakładką ASR też jest „niewidoczny” — porównanie
+        # Dok schowany za zakładką ASR też jest „niewidoczny” - porównanie
         # kończy dopiero zamknięcie doku.
         if not visible and self.compare_dock.isHidden() and self.compare.active:
             self.compare.finish()
@@ -754,7 +754,7 @@ class MainWindow(QMainWindow):
             self.review.insert_draft(draft_text(draft), draft.segments)
             return
         # Podział na mówców: głosy w kolejności pojawiania się dostają
-        # kolejnych mówców z listy (B, I, a brakujący — I2, I3…).
+        # kolejnych mówców z listy (B, I, a brakujący - I2, I3…).
         clusters = draft_line_speakers(draft)
         count = 1 + max(
             (number for number in clusters if number is not None), default=0
@@ -856,7 +856,7 @@ class MainWindow(QMainWindow):
         """Odświeża tytuł okna, licznik słów i stan eksportu w pasku stanu.
 
         Gwiazdka w tytule: niezapisane zmiany projektu, a bez pliku
-        projektu — niewyeksportowane zmiany.
+        projektu - niewyeksportowane zmiany.
         """
         self._sync_timer.stop()
         document = self.document
@@ -880,7 +880,7 @@ class MainWindow(QMainWindow):
         marker = "*" if unsaved else ""
         name = self.session.project_name
         self.setWindowTitle(
-            f"{WINDOW_TITLE} — {name}{marker}" if name else f"{WINDOW_TITLE}{marker}"
+            f"{WINDOW_TITLE} - {name}{marker}" if name else f"{WINDOW_TITLE}{marker}"
         )
         self.export_status_label.setText(
             tr("session.status_dirty") if dirty else tr("session.status_clean")

@@ -3,7 +3,7 @@
 Ekran pojawia się przed oknem głównym, które powstaje w tym czasie. Pokazuje
 etap przebiegu ``UpdateThread`` („Sprawdzanie dostępnych aktualizacji…”,
 potem „Pobieranie wersji X…” z paskiem postępu) i zamyka się, gdy przebieg
-się skończy. „Pomiń” zamyka ekran od razu — przebieg kończy się w tle,
+się skończy. „Pomiń” zamyka ekran od razu - przebieg kończy się w tle,
 a gotowa aktualizacja pojawi się w pasku stanu okna.
 """
 
@@ -97,7 +97,7 @@ class StartupScreen(QWidget):
 
     def set_progress(self, done: int, total: int | None) -> None:
         if total:
-            # QProgressBar ma zakres int — liczymy w kilobajtach.
+            # QProgressBar ma zakres int - liczymy w kilobajtach.
             self.progress.setRange(0, max(1, total // 1024))
             self.progress.setValue(min(done, total) // 1024)
             self.detail_label.setText(
@@ -117,7 +117,7 @@ class StartupScreen(QWidget):
         return self._done
 
     def finish(self) -> None:
-        """Przebieg zakończony albo pominięty — ekran znika."""
+        """Przebieg zakończony albo pominięty - ekran znika."""
         if self._done:
             return
         self._done = True

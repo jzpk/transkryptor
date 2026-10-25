@@ -5,11 +5,11 @@ Logika (limit zapytań, API, pobieranie, instalacja) jest w pakiecie
 
 - Sprawdzenie odbywa się przy starcie, na ekranie startowym
   (``ui/startup_screen.py``), który pokazuje etap i postęp pobierania.
-  Wątek ekranu przejmuje potem :meth:`UpdateController.adopt` — także gdy
+  Wątek ekranu przejmuje potem :meth:`UpdateController.adopt` - także gdy
   użytkownik pominął ekran, a pobieranie trwa dalej w tle.
 - Wynik jest cichy: brak sieci, błąd albo wyczerpany limit trafiają tylko do
   dziennika. Gotowa aktualizacja pokazuje baner z przyciskiem
-  „Uruchom ponownie i zaktualizuj”, a nowsza wersja bez samoaktualizacji —
+  „Uruchom ponownie i zaktualizuj”, a nowsza wersja bez samoaktualizacji -
   sam komunikat w pasku stanu.
 - Instalacja zamyka okno zwykłą drogą (``close``), więc obowiązuje ochrona
   przed utratą niewyeksportowanej pracy (ACC-10).
@@ -49,7 +49,7 @@ SHUTDOWN_WAIT_MS = 15_000
 class UpdateThread(QThread):
     """Jeden przebieg ``UpdateService.run`` w tle z kooperacyjnym anulowaniem.
 
-    ``outcome`` zostaje po zakończeniu — odbiorca podłączony później (okno
+    ``outcome`` zostaje po zakończeniu - odbiorca podłączony później (okno
     tworzone w trakcie sprawdzania) odczyta wynik bez sygnału.
     """
 
@@ -73,7 +73,7 @@ class UpdateThread(QThread):
                 on_progress=lambda done, total: self.progressed.emit(done, total),
                 on_stage=lambda stage, release: self.stage_changed.emit(stage, release),
             )
-        except Exception as error:  # noqa: BLE001 — wątek nie może przepaść
+        except Exception as error:  # noqa: BLE001 - wątek nie może przepaść
             logger.exception("Update check crashed")
             outcome = UpdateOutcome(
                 UpdateStatus.ERROR,
@@ -149,7 +149,7 @@ class UpdateController(QObject):
             self._on_thread_finished(thread.outcome)
 
     def _on_thread_finished(self, outcome: UpdateOutcome) -> None:
-        # Wynik bywa odczytany z wątku, zanim dotrze jego sygnał — raz.
+        # Wynik bywa odczytany z wątku, zanim dotrze jego sygnał - raz.
         if self._thread is None:
             return
         self._on_finished(outcome)

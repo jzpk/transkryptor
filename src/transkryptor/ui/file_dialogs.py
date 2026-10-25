@@ -16,7 +16,7 @@ def ask_save_path(
 
     Okno dialogowe pyta o nadpisanie tylko pliku o wpisanej nazwie. Gdy
     rozszerzenie dopisujemy sami (``AdK_1954`` → ``AdK_1954.transkr``),
-    a taki plik istnieje, pytamy o nadpisanie osobno — inaczej zapis
+    a taki plik istnieje, pytamy o nadpisanie osobno - inaczej zapis
     nadpisałby go bez ostrzeżenia.
     """
     path, _selected_filter = QFileDialog.getSaveFileName(

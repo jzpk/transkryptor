@@ -5,7 +5,7 @@ metryczka po anonimizacji i w kolejności konfiguracji, mówcy (etykiety
 informatorów puste przy anonimizacji), akapity z mówcą i runami indeksu
 górnego, kotwice czasowe i ścieżka nagrania dla formatów z czasami oraz
 komentarze recenzji (eksportuje je tylko DOCX; anonimizacja je pomija).
-Eksportery (``export/registry.py``) czytają tylko ten model — nie
+Eksportery (``export/registry.py``) czytają tylko ten model - nie
 ``Document`` ani ustawienia.
 """
 
@@ -111,7 +111,7 @@ def build_export_document(
 ) -> ExportDocument:
     """Model wyjścia z dokumentu; ``anonymize`` pomija dane osobowe.
 
-    Przy anonimizacji pomijane są też komentarze — ich autorzy i treść mogą
+    Przy anonimizacji pomijane są też komentarze - ich autorzy i treść mogą
     zawierać dane osobowe.
     """
     fields = tuple(fields)
@@ -152,7 +152,7 @@ def split_runs(
 ) -> list[tuple[int, int, bool]]:
     """Dzieli tekst na spójne runy (start, end, indeks_górny).
 
-    Jedno przejście po posortowanych, scalonych zakresach — koszt liniowy
+    Jedno przejście po posortowanych, scalonych zakresach - koszt liniowy
     także dla tysięcy krótkich zakresów indeksu górnego.
     """
     text_length = len(text)

@@ -2,13 +2,13 @@
 
 Warstwa UI łączy moduł ``asr`` (bez Qt) z wątkami ``QThread`` i widżetami.
 Zgodnie z kontraktem ``asr -> ui`` wątki przekazują wyłącznie stan zadania,
-hipotezę, przedziały pewności i błędy — nigdy obiekty GUI.
+hipotezę, przedziały pewności i błędy - nigdy obiekty GUI.
 
 Panel nie zmienia dokumentu sam: gotowy szkic emituje sygnałem
 ``draft_ready``, a wstawienie do edytora, automatyczne reguły wybrane
 checkboxami (REQ-15) i pojedyncze propozycje (ACC-12) wykonuje główne okno.
 Panel pokazuje listę zastosowanych zmian i propozycji do przeglądu (REQ-16).
-Kliknięcie segmentu emituje ``seek_requested`` — okno przewija nagranie.
+Kliknięcie segmentu emituje ``seek_requested`` - okno przewija nagranie.
 
 Krok „Model” pozwala wybrać model z rejestru (``asr.models.MODELS``), pobrać
 go za zgodą albo usunąć (REQ-10). Krok „Szkic” zbiera kontekst nagrania
@@ -87,7 +87,7 @@ APPLIED_MARK = "✓"
 PENDING_MARK = "○"
 # Segmenty poniżej tej pewności są wyróżnione jako warte uważnego odsłuchu.
 LOW_CONFIDENCE = 0.6
-# Czasy po VAD bywają przesunięte o ułamki sekundy — start nieco wcześniej.
+# Czasy po VAD bywają przesunięte o ułamki sekundy - start nieco wcześniej.
 DEFAULT_SEGMENT_PREROLL_MS = 500
 
 # Indeks górny w etykietach listy (lista nie obsługuje rich text).
@@ -187,7 +187,7 @@ class AsrPanel(QWidget):
     """Panel konfiguracji modelu, pobierania i propozycji transkrypcji."""
 
     # Szkic do wstawienia w edytor: ``TranscriptionResult`` (z segmentami
-    # i czasami — kotwice tekstu) albo sam tekst.
+    # i czasami - kotwice tekstu) albo sam tekst.
     draft_ready = Signal(object)
     review_item_activated = Signal(int)  # indeks pozycji listy przeglądu
     review_item_apply_requested = Signal(int)
@@ -201,7 +201,7 @@ class AsrPanel(QWidget):
     fragment_ready = Signal(object)
     result_changed = Signal()  # nowy albo odtworzony wynik ASR całego nagrania
     model_changed = Signal(str)  # klucz modelu wybranego przez użytkownika
-    speakers_changed = Signal(int)  # liczba mówców wybrana w panelu; 0 — auto
+    speakers_changed = Signal(int)  # liczba mówców wybrana w panelu; 0 - auto
     context_changed = Signal()  # kontekst nagrania lub słownik projektu
 
     def __init__(
@@ -215,7 +215,7 @@ class AsrPanel(QWidget):
         super().__init__(parent)
         self._manager = manager
         self._audio_path_provider = audio_path_provider
-        # Zakres fragmentu (ms) — punkty A–B paska odtwarzacza.
+        # Zakres fragmentu (ms) - punkty A–B paska odtwarzacza.
         self._clip_provider = clip_provider
         self._clip_mode = False
         # Domyślnie podproces roboczy (PERF-04): model zostaje w pamięci,
@@ -241,7 +241,7 @@ class AsrPanel(QWidget):
         self._diarize = True
         self._diarize_speakers = 0
         self._diarizing = False
-        # Katalog modeli z ostatnio zastosowanych ustawień (None — jeszcze
+        # Katalog modeli z ostatnio zastosowanych ustawień (None - jeszcze
         # nie stosowano; do tego czasu obowiązuje katalog menedżera).
         self._models_root_setting: str | None = None
         self._global_vocabulary: tuple[str, ...] = ()
@@ -286,7 +286,7 @@ class AsrPanel(QWidget):
         self.vocabulary_hint = QLabel()
         self.vocabulary_hint.setWordWrap(True)
         set_props(self.vocabulary_hint, role="muted")
-        # Liczba mówców — widoczna, gdy podział na mówców jest włączony
+        # Liczba mówców - widoczna, gdy podział na mówców jest włączony
         # i model pobrany; zmiana trafia do ustawień (jak wybór modelu).
         self.speakers_combo = QComboBox()
         self.speakers_combo.addItem(tr("settings.asr.diarize.speakers.auto"), 0)
@@ -686,7 +686,7 @@ class AsrPanel(QWidget):
         """Podpowiedź kontekstu z metryczki.
 
         Zastępuje pole tylko, gdy jest puste albo zawiera poprzednią
-        podpowiedź — tekst wpisany przez użytkownika zostaje.
+        podpowiedź - tekst wpisany przez użytkownika zostaje.
         """
         text = text[:PROMPT_MAX_CHARS]
         current = self.context_edit.text()
@@ -705,7 +705,7 @@ class AsrPanel(QWidget):
     def decoding_options(self) -> DecodingOptions:
         """Parametry dla Whispera: urządzenie, kontekst i suma słowników.
 
-        Podział na mówców — gdy włączony w ustawieniach i model jest pobrany.
+        Podział na mówców - gdy włączony w ustawieniach i model jest pobrany.
         """
         prompt, vocabulary = self.asr_context()
         diarization = self._manager.with_model(DIARIZATION_MODEL)
@@ -839,7 +839,7 @@ class AsrPanel(QWidget):
         if total:
             self.download_progress.setRange(0, int(total))
             self.download_progress.setValue(int(done))
-        percent = f" — {done / total:.0%}" if total else ""
+        percent = f" - {done / total:.0%}" if total else ""
         self._set_model_status(
             tr(
                 "asr.download.file",
@@ -890,7 +890,7 @@ class AsrPanel(QWidget):
     def cancel_download_and_wait(self, timeout_ms: int) -> bool:
         """Przerywa pobieranie i czeka na wątek (zamknięcie okna, BUG-01).
 
-        Zwraca True, gdy wątek się zakończył — można bezpiecznie zniszczyć
+        Zwraca True, gdy wątek się zakończył - można bezpiecznie zniszczyć
         panel. Katalog częściowy usuwa sam wątek przed zakończeniem.
         """
         thread = self._download_thread
@@ -934,7 +934,7 @@ class AsrPanel(QWidget):
             self.reinsert_draft_button.setEnabled(False)
         options = replace(self.decoding_options(), clip=clip)
         self._diarizing = options.diarizes
-        # Bez treści kontekstu i słownika — to dane z wywiadu.
+        # Bez treści kontekstu i słownika - to dane z wywiadu.
         logger.info(
             "Transcription started: model=%s, audio=%s, device=%s, chunked=%s, "
             "word_timestamps=%s, diarize=%s, speakers=%s, clip=%s, prompt=%s, "
@@ -1080,7 +1080,7 @@ class AsrPanel(QWidget):
 
     @property
     def last_model_key(self) -> str | None:
-        """Klucz modelu, którym obliczono ostatni wynik (None — nieznany)."""
+        """Klucz modelu, którym obliczono ostatni wynik (None - nieznany)."""
         return self._last_model_key if self._last_result is not None else None
 
     def restore_result(
@@ -1088,7 +1088,7 @@ class AsrPanel(QWidget):
     ) -> None:
         """Odtwarza wynik ASR z projektu: segmenty i „Wstaw szkic ponownie”.
 
-        Nie emituje ``draft_ready`` — tekst dokumentu pochodzi z projektu.
+        Nie emituje ``draft_ready`` - tekst dokumentu pochodzi z projektu.
         """
         self.segments_list.clear()
         self.device_label.setText("")
@@ -1209,19 +1209,19 @@ class AsrPanel(QWidget):
 
 
 class _AutoHideLabel(QLabel):
-    """Etykieta ukryta, gdy nie ma treści — pusta nie zostawia dziury."""
+    """Etykieta ukryta, gdy nie ma treści - pusta nie zostawia dziury."""
 
     def __init__(self, text: str = "", parent=None) -> None:
         super().__init__(text, parent)
         self.setVisible(bool(text))
 
-    def setText(self, text: str) -> None:  # noqa: N802 — API Qt
+    def setText(self, text: str) -> None:  # noqa: N802 - API Qt
         super().setText(text)
         self.setVisible(bool(text))
 
 
 def _rule_text(label: str, confidence: float) -> str:
-    """Dwie linie: reguła, potem przykład i pewność — mieszczą się w panelu."""
+    """Dwie linie: reguła, potem przykład i pewność - mieszczą się w panelu."""
     rule, has_example, example = label.partition(" (")
     detail = f"{example.removesuffix(')')} · " if has_example else ""
     return f"{rule}\n{detail}{tr('asr.confidence', confidence=f'{confidence:.0%}')}"
@@ -1266,7 +1266,7 @@ def _step(number: str, title: str, items: list) -> QWidget:
 
 
 def _review_label(suggestion: Suggestion, applied: bool) -> str:
-    """Np. „✓ robią → robioᵐ (Nosowość, 50%)” — słowo przed i po zmianie."""
+    """Np. „✓ robią → robioᵐ (Nosowość, 50%)” - słowo przed i po zmianie."""
     replacement = list(suggestion.replacement)
     for start, end in suggestion.superscript_ranges:
         for i in range(start, end):

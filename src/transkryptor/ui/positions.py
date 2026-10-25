@@ -1,7 +1,7 @@
 """Konwersja pozycji tekstu między Pythonem a Qt.
 
 ``QTextDocument`` liczy pozycje w jednostkach UTF-16, a Python (``Document``,
-``notation``, wyszukiwanie) — w punktach kodowych. Znak spoza BMP (emoji,
+``notation``, wyszukiwanie) - w punktach kodowych. Znak spoza BMP (emoji,
 znaki matematyczne) zajmuje w Qt dwie jednostki, więc każda pozycja za nim
 różni się o 1. Wszystkie miejsca styku z Qt przeliczają pozycje przez
 :class:`PositionMap`.

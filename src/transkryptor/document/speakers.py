@@ -1,10 +1,10 @@
 """Mówcy wypowiedzi i akapity dokumentu (bez Qt).
 
-Tekst dokumentu pozostaje ciągły — akapity rozdziela znak nowej linii.
+Tekst dokumentu pozostaje ciągły - akapity rozdziela znak nowej linii.
 Mówca jest własnością akapitu: ``Document.paragraph_speakers`` przypisuje
 indeksowi akapitu klucz mówcy z listy ``Document.speakers``. Klucz (``B``,
 ``I``, ``I2``…) to etykieta widoczna w edytorze i eksporcie (``B:``),
-a ``label`` — opis w metryczce (np. „Badacz”, kod informatora).
+a ``label`` - opis w metryczce (np. „Badacz”, kod informatora).
 
 Etykiety mówców o roli informatora są pomijane w eksporcie anonimizowanym
 (klucz zostaje).
@@ -72,7 +72,7 @@ def check_speakers(speakers: Iterable[Speaker]) -> None:
 
 
 def guess_role(key: str) -> str:
-    """Rola z klucza (import): ``B`` — badacz, ``I…`` — informator."""
+    """Rola z klucza (import): ``B`` - badacz, ``I…`` - informator."""
     upper = key.upper()
     if upper.startswith("B"):
         return RESEARCHER
@@ -87,7 +87,7 @@ def speakers_for_clusters(
     """Mówcy dla ``count`` głosów z podziału na mówców i klucz każdego głosu.
 
     Głosy (numerowane w kolejności pojawiania się) dostają kolejnych mówców
-    z listy dokumentu — domyślnie pierwszy ``B``, drugi ``I``. Gdy głosów
+    z listy dokumentu - domyślnie pierwszy ``B``, drugi ``I``. Gdy głosów
     jest więcej, lista jest uzupełniana informatorami ``I2``, ``I3``…
     Pusta lista oznacza mówców domyślnych.
     """
@@ -140,7 +140,7 @@ def shift_assignments(
     """Przypisania po zastąpieniu tekstu zaczynającego się w akapicie ``first``.
 
     Usunięte znaki nowej linii scalają akapity z pierwszym (zostaje jego
-    mówca), wstawione dzielą akapit — nowe akapity są bez mówcy.
+    mówca), wstawione dzielą akapit - nowe akapity są bez mówcy.
     """
     removed_lines = removed.count("\n")
     delta = inserted.count("\n") - removed_lines
@@ -166,7 +166,7 @@ def informant_spans(
 
 
 def legend(speakers: Iterable[Speaker], anonymize: bool = False) -> str:
-    """Legenda mówców do metryczki: ``B — Badacz; I — Informator``."""
+    """Legenda mówców do metryczki: ``B - Badacz; I - Informator``."""
     parts: list[str] = []
     for speaker in speakers:
         description = (
@@ -174,11 +174,11 @@ def legend(speakers: Iterable[Speaker], anonymize: bool = False) -> str:
             if anonymize and speaker.is_informant
             else speaker.description
         )
-        parts.append(f"{speaker.key} — {description}")
+        parts.append(f"{speaker.key} - {description}")
     return "; ".join(parts)
 
 
-_LEGEND_ITEM_RE = re.compile(r"^\s*(\w{1,8})\s*[—–-]\s*(.*?)\s*$")
+_LEGEND_ITEM_RE = re.compile(r"^\s*(\w{1,8})\s*[-–-]\s*(.*?)\s*$")
 
 
 def parse_legend(value: str) -> list[Speaker]:
