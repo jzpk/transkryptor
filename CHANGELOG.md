@@ -7,6 +7,10 @@ Pusta sekcja blokuje wydanie.
 
 ## Nieopublikowane
 
+- Bezpieczniejsza aktualizacja na Windows: pobrany instalator jest
+  blokowany przed zapisem i usunięciem od chwili sprawdzenia podpisu aż do
+  zamknięcia programu, więc między weryfikacją a uruchomieniem (także
+  z monitem UAC) inny program nie może go podmienić.
 - Komentarze recenzji: do zaznaczonego fragmentu można dodać komentarz
   (menu kontekstowe **Dodaj komentarz…**, skrót `Ctrl+Alt+M` albo panel
   **Komentarze** na pasku narzędzi) z podpisem autora i datą, a na
