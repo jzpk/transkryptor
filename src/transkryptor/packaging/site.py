@@ -1,11 +1,12 @@
-"""Strona projektu na GitHub Pages: opis, pobieranie i historia zmian.
+"""Strona projektu na GitHub Pages: opis, pobieranie, historia zmian i FAQ.
 
 Strona jest statyczna i powstaje przy każdym wydaniu (workflow „Strona”
 wywoływany z „Wydania”), więc przyciski pobierania wskazują pliki najnowszego
 wydania, a historia zmian obejmuje tylko wydane wersje — sekcja
 „Nieopublikowane” nie trafia na stronę. Opis i wygląd są w katalogu
-``pages/`` (szablony ``index.html`` i ``autor.html`` z polami ``${...}``,
-arkusz stylów, skrypt motywu, zrzuty ekranu, zdjęcie autora i ikony); wymagania i nazwy plików pochodzą z ``packaging.metadata``,
+``pages/`` (szablony ``index.html``, ``faq.html`` i ``autor.html`` z polami
+``${...}``, arkusz stylów, skrypt strony, zrzuty ekranu, zdjęcie autora
+i ikony); wymagania i nazwy plików pochodzą z ``packaging.metadata``,
 tak jak w notach wydania.
 
     uv run python -m transkryptor.packaging.site --out _site
@@ -45,13 +46,16 @@ from transkryptor.update.releases import GITHUB_REPO
 
 AUTHOR_NAME = "Jeremiasz Pauszek"
 LINKEDIN_URL = "https://www.linkedin.com/in/jeremiasz-pauszek-55a744213"
+# Adres strony bez końcowego ukośnika: adresy kanoniczne i podglądy linków
+# (Open Graph) muszą być bezwzględne.
+SITE_URL = "https://transkryptorapp.pl"
 
 PAGES_DIR = REPO_ROOT / "pages"
 TEMPLATE_FILE = "index.html"
 # Strony z polami ${...}; pierwsza to strona główna.
-TEMPLATE_FILES = (TEMPLATE_FILE, "autor.html")
+TEMPLATE_FILES = (TEMPLATE_FILE, "faq.html", "autor.html")
 # Pliki z pages/ kopiowane bez zmian (poza szablonami).
-STATIC_FILES = ("style.css", "theme.js")
+STATIC_FILES = ("style.css", "site.js")
 STATIC_DIRS = ("img",)
 
 # Litery przelatujące w tle strony (efekt w style.css, klatki „fruwanie”).
@@ -263,6 +267,7 @@ def page_fields(releases: list[Release], repo: str) -> dict[str, str]:
         "release_date": format_date(latest.date) if latest.date else "",
         "author_name": AUTHOR_NAME,
         "linkedin_url": LINKEDIN_URL,
+        "site_url": SITE_URL,
         "profile_url": f"https://github.com/{repo.split('/')[0]}",
         "repo_url": repo_url,
         "releases_url": f"{repo_url}/releases",
@@ -353,6 +358,7 @@ __all__ = [
     "LETTER_COUNT",
     "LINKEDIN_URL",
     "PAGES_DIR",
+    "SITE_URL",
     "Release",
     "SiteError",
     "build",

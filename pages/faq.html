@@ -1,0 +1,505 @@
+<!doctype html>
+<!--
+  Podstrona „FAQ” (GitHub Pages). Pola $${nazwa} wypełnia
+  src/transkryptor/packaging/site.py; dosłowny znak dolara zapisuje się jako $$.
+  Pasek górny i stopka są takie jak w index.html i autor.html — zmieniaj je
+  we wszystkich trzech plikach. Identyfikatory pytań (id) są kotwicami
+  linków (faq.html#smartscreen) — nie zmieniaj ich bez potrzeby.
+-->
+<html lang="pl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FAQ — ${app_name}</title>
+    <meta
+      name="description"
+      content="Najczęstsze pytania o ${app_name}: instalacja, ostrzeżenie SmartScreen, AppImage, szkic ASR, karta graficzna, prywatność, eksport i przenoszenie pracy."
+    />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="canonical" href="${site_url}/faq.html" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="${app_name}" />
+    <meta property="og:locale" content="pl_PL" />
+    <meta property="og:url" content="${site_url}/faq.html" />
+    <meta property="og:title" content="FAQ — ${app_name}" />
+    <meta
+      property="og:description"
+      content="Najczęstsze pytania o ${app_name}: instalacja, szkic ASR, prywatność, eksport i przenoszenie pracy."
+    />
+    <meta property="og:image" content="${site_url}/img/podglad.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="Okno programu ${app_name}: odtwarzacz nagrania, transkrypcja z indeksem górnym i panel szkicu ASR"
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" type="image/png" href="icon.png" />
+    <link rel="stylesheet" href="style.css" />
+    <style>
+      ${letters_css}
+    </style>
+    <script src="site.js"></script>
+  </head>
+  <body>
+    ${letters}
+    <header class="topbar">
+      <div class="wrap topbar-inner">
+        <a class="brand" href="index.html"
+          ><img src="icon.png" alt="" width="28" height="28" />${app_name}</a
+        >
+        <nav class="nav" aria-label="Sekcje strony">
+          <a href="index.html#mozliwosci">Możliwości</a>
+          <a href="index.html#pobierz">Pobierz</a>
+          <a href="index.html#zmiany"><span class="nav-full">Historia zmian</span
+            ><span class="nav-short">Zmiany</span></a
+          >
+          <a href="faq.html" aria-current="page">FAQ</a>
+          <a href="autor.html">O autorze</a>
+        </nav>
+        <div class="prefs">
+          <button
+            class="motion-switch"
+            type="button"
+            role="switch"
+            aria-checked="true"
+            aria-label="Animacja liter w tle"
+            title="Animacja liter w tle"
+            hidden
+          >
+            <span class="motion-switch-track" aria-hidden="true"></span>
+            <span class="motion-switch-label" aria-hidden="true"
+              >animati<b class="motion-on">ON</b><b class="motion-off">OFF</b></span
+            >
+          </button>
+          <button
+            class="icon-button theme-toggle"
+            type="button"
+            title="Zmień motyw"
+            aria-label="Zmień motyw"
+            hidden
+          >
+            <svg class="icon-moon" aria-hidden="true">
+              <use href="img/ikony.svg#ksiezyc" />
+            </svg>
+            <svg class="icon-sun" aria-hidden="true">
+              <use href="img/ikony.svg#slonce" />
+            </svg>
+          </button>
+        </div>
+        <div class="social">
+          <a
+            class="icon-button"
+            href="${repo_url}"
+            title="Kod źródłowy"
+            aria-label="Kod źródłowy"
+          >
+            <svg aria-hidden="true"><use href="img/ikony.svg#github" /></svg
+          ></a>
+          <a
+            class="icon-button"
+            href="${linkedin_url}"
+            title="${author_name} na LinkedIn"
+            aria-label="${author_name} na LinkedIn"
+          >
+            <svg aria-hidden="true"><use href="img/ikony.svg#linkedin" /></svg
+          ></a>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section class="wrap faq">
+        <div class="section-head">
+          <h1>Często zadawane pytania</h1>
+          <button
+            class="button compact"
+            type="button"
+            data-toggle-all=".faq"
+            hidden
+          >
+            Rozwiń wszystkie
+          </button>
+        </div>
+        <p class="lead">
+          Odpowiedzi na pytania o instalację, szkic ASR, prywatność i pracę z
+          programem. Więcej szczegółów jest w
+          <a href="${guide_url}">instrukcji użytkownika (PDF)</a>.
+        </p>
+
+        <h2>Ogólne</h2>
+        <div class="faq-list">
+          <details class="faq-item" id="cena">
+            <summary>Czy ${app_name} jest płatny?</summary>
+            <div class="faq-answer">
+              <p>
+                Nie. Program jest bezpłatny, także do pracy w instytucji. To
+                wolne oprogramowanie na licencji GPL-3.0-or-later, a
+                <a href="${repo_url}">kod źródłowy</a> jest publiczny.
+              </p>
+            </div>
+          </details>
+          <details class="faq-item" id="systemy">
+            <summary>Na jakich systemach działa program?</summary>
+            <div class="faq-answer">
+              <p>
+                Na Windows 10 i 11 (64-bitowych) oraz na Linuksie x86_64 jako
+                AppImage — wymaga glibc 2.35 lub nowszej, czyli np. Ubuntu
+                22.04 albo nowszego. Wersji na macOS nie ma.
+              </p>
+            </div>
+          </details>
+          <details class="faq-item" id="jezyk">
+            <summary>Czy interfejs jest dostępny po angielsku?</summary>
+            <div class="faq-answer">
+              <p>
+                Tak. Interfejs jest po polsku albo po angielsku — domyślnie
+                zgodnie z językiem systemu. Język zmienisz w ustawieniach;
+                zmiana działa po ponownym uruchomieniu programu. Eksport DOCX
+                używa języka interfejsu.
+              </p>
+            </div>
+          </details>
+        </div>
+
+        <h2>Instalacja i aktualizacje</h2>
+        <div class="faq-list">
+          <details class="faq-item" id="smartscreen">
+            <summary>
+              Windows pokazuje ostrzeżenie „System Windows ochronił ten
+              komputer”. Co zrobić?
+            </summary>
+            <div class="faq-answer">
+              <p>
+                Kliknij <strong>Więcej informacji</strong> →
+                <strong>Uruchom mimo to</strong>. Ostrzeżenie SmartScreen
+                pojawia się, bo instalator nie jest podpisany komercyjnym
+                certyfikatem — nie oznacza, że plik jest szkodliwy.
+              </p>
+              <p>
+                Jeśli chcesz się upewnić, że plik nie został uszkodzony ani
+                podmieniony, porównaj jego sumę kontrolną z plikiem
+                <code>SHA256SUMS.txt</code> z
+                <a href="${release_url}">noty wydania</a>.
+              </p>
+            </div>
+          </details>
+          <details class="faq-item" id="administrator">
+            <summary>Czy instalacja wymaga uprawnień administratora?</summary>
+            <div class="faq-answer">
+              <p>
+                Nie. Instalator Windows domyślnie instaluje program tylko dla
+                Twojego konta; w pierwszym oknie możesz zamiast tego wybrać
+                instalację dla wszystkich użytkowników. AppImage na Linuksie
+                w ogóle nie wymaga instalacji.
+              </p>
+            </div>
+          </details>
+          <details class="faq-item" id="appimage">
+            <summary>Jak uruchomić AppImage na Linuksie?</summary>
+            <div class="faq-answer">
+              <p>
+                Zapisz plik, np. w katalogu <code>~/Aplikacje</code>, nadaj mu
+                prawo wykonywania (w menedżerze plików: Właściwości →
+                Uprawnienia → Zezwól na wykonywanie) i uruchom:
+              </p>
+              <pre><code>chmod +x ${linux_file}
+./${linux_file}</code></pre>
+              <ul>
+                <li>
+                  Komunikat o FUSE: doinstaluj pakiet <code>libfuse2</code>
+                  (Ubuntu: <code>sudo apt install libfuse2</code>).
+                </li>
+                <li>
+                  Wpis w menu systemowym dodasz narzędziem typu Gear Lever albo
+                  AppImageLauncher.
+                </li>
+                <li>
+                  Do odsłuchu potrzebny jest dźwięk systemowy (PipeWire lub
+                  PulseAudio) — w typowych dystrybucjach działa domyślnie.
+                </li>
+              </ul>
+            </div>
+          </details>
+          <details class="faq-item" id="python">
+            <summary>Czy muszę instalować Pythona albo inne narzędzia?</summary>
+            <div class="faq-answer">
+              <p>
+                Nie. Instalator i AppImage zawierają komplet środowiska.
+                Wyjątkiem są opcjonalne biblioteki do liczenia szkicu na karcie
+                graficznej NVIDIA (zobacz
+                <a href="#karta-graficzna">pytanie o kartę graficzną</a>).
+              </p>
+            </div>
+          </details>
+          <details class="faq-item" id="aktualizacje">
+            <summary>Jak zaktualizować program?</summary>
+            <div class="faq-answer">
+              <p>
+                Program sam sprawdza przy starcie, czy jest nowsza wersja, i
+                pobiera ją w tle. Pobrany plik jest weryfikowany podpisem, a
+                gdy aktualizacja jest gotowa, w oknie pojawia się przycisk
+                <strong>Uruchom ponownie i zaktualizuj</strong>. Na Linuksie
+                nowy AppImage zastępuje stary w tym samym miejscu, więc skróty
+                dalej działają.
+              </p>
+              <p>
+                Zawsze możesz też pobrać najnowszą wersję ręcznie ze strony
+                <a href="${releases_url}">wydań</a>.
+              </p>
+            </div>
+          </details>
+          <details class="faq-item" id="odinstalowanie">
+            <summary>Jak odinstalować program?</summary>
+            <div class="faq-answer">
+              <ul>
+                <li>
+                  <strong>Windows:</strong> Ustawienia → Aplikacje →
+                  Zainstalowane aplikacje → ${app_name} → Odinstaluj. Model ASR
+                  i kopie autozapisu zostają w
+                  <code>%APPDATA%\Transkryptor</code> — ten folder możesz
+                  usunąć ręcznie.
+                </li>
+                <li>
+                  <strong>Linux:</strong> usuń plik AppImage oraz, jeśli
+                  chcesz, katalogi <code>~/.local/share/transkryptor</code>
+                  (model ASR, autozapis) i
+                  <code>~/.config/transkryptor</code> (ustawienia).
+                </li>
+              </ul>
+              <p>Twoje projekty i pliki DOCX nie są usuwane.</p>
+            </div>
+          </details>
+        </div>
+
+        <h2>Szkic z nagrania (ASR)</h2>
+        <div class="faq-list">
+          <details class="faq-item" id="szkic">
+            <summary>Czy szkic ASR zastępuje transkrybenta?</summary>
+            <div class="faq-answer">
+              <p>
+                Nie. Szkic to punkt wyjścia: model rozpoznaje mowę, a reguły
+                podpowiadają zapis fonetyczny (np. nosowość, labializację).
+                Każdą propozycję widać w tekście i można ją przyjąć albo
+                odrzucić — decyzja o zapisie zawsze należy do transkrybenta.
+                Program działa też w całości bez szkicu: pisanie, odsłuch i
+                eksport nie wymagają modelu.
+              </p>
+            </div>
+          </details>
+          <details class="faq-item" id="karta-graficzna">
+            <summary>Czy potrzebuję karty graficznej NVIDIA?</summary>
+            <div class="faq-answer">
+              <p>
+                Nie. Szkic liczy się na procesorze. Karta NVIDIA może go
+                przyspieszyć wielokrotnie, ale wymaga samodzielnie
+                zainstalowanych bibliotek CUDA 12 i cuDNN 9 (nie są dołączone do
+                programu). Gdy ich brak, program po prostu liczy na procesorze i
+                informuje o tym w panelu szkicu.
+              </p>
+            </div>
+          </details>
+          <details class="faq-item" id="czas">
+            <summary>Ile trwa przygotowanie szkicu?</summary>
+            <div class="faq-answer">
+              <p>
+                Zależy od procesora i modelu. Na komputerze testowym (16 wątków,
+                model medium) godzina nagrania była przetwarzana w około pół
+                godziny; na słabszym procesorze potrwa to dłużej. Transkrypcję
+                możesz w każdej chwili anulować.
+              </p>
+            </div>
+          </details>
+          <details class="faq-item" id="model">
+            <summary>Skąd program bierze model i ile zajmuje on miejsca?</summary>
+            <div class="faq-answer">
+              <p>
+                Model Whisper (do wyboru small, medium albo large-v3) pobiera
+                się z programu przy pierwszym użyciu szkicu — dopiero po Twoim
+                potwierdzeniu. Domyślny model medium zajmuje ok. 1,5 GB;
+                razem z programem potrzeba ok. 3 GB wolnego miejsca. Po
+                pobraniu szkic działa bez Internetu.
+              </p>
+              <p>
+                Niepotrzebny model usuniesz przyciskiem
+                <strong>Usuń model…</strong> w panelu szkicu, a katalog modeli
+                przeniesiesz w ustawieniach (zakładka ASR).
+              </p>
+            </div>
+          </details>
+        </div>
+
+        <h2>Prywatność i dane</h2>
+        <div class="faq-list">
+          <details class="faq-item" id="prywatnosc">
+            <summary>Czy nagrania albo tekst trafiają do Internetu?</summary>
+            <div class="faq-answer">
+              <p>
+                Nie. Nagrania i tekst nie opuszczają komputera: nie ma
+                rozpoznawania mowy w chmurze, synchronizacji ani telemetrii.
+                Program łączy się z Internetem tylko w dwóch celach:
+              </p>
+              <ul>
+                <li>pobranie modelu ASR — wyłącznie po Twoim potwierdzeniu,</li>
+                <li>
+                  sprawdzenie, czy jest nowsza wersja — bez wysyłania tekstu,
+                  nagrań ani ścieżek plików.
+                </li>
+              </ul>
+              <p>
+                Za zgodę osób nagranych i przestrzeganie przepisów o danych
+                osobowych odpowiada osoba lub instytucja prowadząca
+                transkrypcję. Pomaga w tym eksport DOCX z anonimizacją, który
+                pomija dane osobowe z metryczki.
+              </p>
+            </div>
+          </details>
+          <details class="faq-item" id="dane-na-dysku">
+            <summary>Co program zapisuje na dysku poza moimi plikami?</summary>
+            <div class="faq-answer">
+              <ul>
+                <li>
+                  <strong>Autozapis</strong> — kopię bieżącej pracy na wypadek
+                  awarii, w katalogu danych programu (Windows:
+                  <code>%APPDATA%\Transkryptor</code>, Linux:
+                  <code>~/.local/share/transkryptor</code>). Kopia znika po
+                  poprawnym zamknięciu i po zapisie projektu; autozapis można
+                  wyłączyć w ustawieniach.
+                </li>
+                <li>
+                  <strong>Ustawienia</strong> — bez tekstu i wartości
+                  metryczki.
+                </li>
+                <li>
+                  <strong>Falę dźwiękową</strong> w pamięci podręcznej — same
+                  poziomy głośności, z których nie da się odtworzyć mowy.
+                </li>
+              </ul>
+            </div>
+          </details>
+        </div>
+
+        <h2>Praca z programem</h2>
+        <div class="faq-list">
+          <details class="faq-item" id="formaty-nagran">
+            <summary>Jakie formaty nagrań obsługuje program?</summary>
+            <div class="faq-answer">
+              <p>
+                MP3, WAV, FLAC, M4A, AAC, OGG, OPUS i WMA. Nagranie w innym
+                formacie przekonwertuj np. w Audacity albo VLC.
+              </p>
+            </div>
+          </details>
+          <details class="faq-item" id="eksport">
+            <summary>Do jakich formatów mogę wyeksportować transkrypcję?</summary>
+            <div class="faq-answer">
+              <p>
+                Podstawowy jest <strong>DOCX</strong> z metryczką, mówcami i
+                indeksem górnym jako formatowaniem Worda — także według
+                szablonu instytucji (czcionki, marginesy, nagłówek, logo).
+                Przez <strong>Eksportuj jako…</strong> dostępne są też ODT,
+                PDF, TXT, ELAN (<code>.eaf</code>), Praat TextGrid oraz napisy
+                SRT i WebVTT.
+              </p>
+            </div>
+          </details>
+          <details class="faq-item" id="przeniesienie">
+            <summary>Jak przenieść pracę na inny komputer?</summary>
+            <div class="faq-answer">
+              <p>
+                Skopiuj folder z plikiem projektu (<code>.transkr</code>) i
+                nagraniem. Projekt pamięta położenie nagrania względem siebie,
+                więc odnajdzie je także na innym komputerze, również przy
+                przenosinach między Windows a Linuksem. Najlepiej trzymaj
+                projekt w tym samym folderze co nagranie.
+              </p>
+            </div>
+          </details>
+          <details class="faq-item" id="awaria">
+            <summary>Program się zawiesił. Czy praca przepadła?</summary>
+            <div class="faq-answer">
+              <p>
+                Najpewniej nie. Autozapis co minutę zapisuje kopię zmienionej
+                pracy. Po ponownym uruchomieniu zobaczysz okno z listą kopii —
+                wybierz <strong>Odzyskaj</strong> i od razu zapisz projekt
+                (<code>Ctrl+S</code>).
+              </p>
+            </div>
+          </details>
+          <details class="faq-item" id="import-docx">
+            <summary>
+              Mam transkrypcję w Wordzie. Czy mogę kontynuować ją w programie?
+            </summary>
+            <div class="faq-answer">
+              <p>
+                Tak — strzałka obok przycisku <strong>Otwórz projekt</strong>
+                → <strong>Importuj DOCX…</strong> tworzy z dokumentu nowy
+                projekt. Program zachowuje tekst i indeks górny; inne
+                formatowanie (np. pogrubienie) jest pomijane. Potem zaimportuj
+                nagranie i zapisz projekt.
+              </p>
+            </div>
+          </details>
+          <details class="faq-item" id="zgloszenia">
+            <summary>Mam pomysł albo widzę błąd. Gdzie to zgłosić?</summary>
+            <div class="faq-answer">
+              <p>
+                W <a href="${issues_url}">zgłoszeniach na GitHubie</a>. Tam
+                też widać, co jest aktualnie rozwijane.
+              </p>
+            </div>
+          </details>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="wrap footer-inner">
+        <div class="footer-about">
+          <a class="brand" href="index.html"
+            ><img src="icon.png" alt="" width="24" height="24" />${app_name}</a
+          >
+          <p>Wolne oprogramowanie na licencji GPL-3.0-or-later.</p>
+        </div>
+        <nav class="footer-links" aria-label="Odnośniki">
+          <a href="${repo_url}">Kod źródłowy</a>
+          <a href="${issues_url}">Zgłoś problem</a>
+          <a href="${guide_url}">Instrukcja użytkownika</a>
+          <a href="faq.html">FAQ</a>
+        </nav>
+        <div class="footer-author">
+          <a class="author-chip" href="autor.html">
+            <img
+              src="img/autor.jpg"
+              alt=""
+              width="40"
+              height="40"
+              loading="lazy"
+            />
+            <span
+              ><span class="author-chip-label">Autor</span>${author_name}</span
+            >
+          </a>
+          <div class="social">
+            <a
+              class="icon-button"
+              href="${repo_url}"
+              title="Kod źródłowy"
+              aria-label="Kod źródłowy"
+            >
+              <svg aria-hidden="true"><use href="img/ikony.svg#github" /></svg
+            ></a>
+            <a
+              class="icon-button"
+              href="${linkedin_url}"
+              title="${author_name} na LinkedIn"
+              aria-label="${author_name} na LinkedIn"
+            >
+              <svg aria-hidden="true"><use href="img/ikony.svg#linkedin" /></svg
+            ></a>
+          </div>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

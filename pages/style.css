@@ -167,9 +167,17 @@ main > section {
   will-change: transform;
 }
 
+/* Przełącznik „animatiON/animatiOFF” (site.js) ustawia data-animation na
+   <html>; zatrzymane litery zostają w tle jako ozdoba. Bez skryptu ruch
+   zatrzymuje systemowe ustawienie „ogranicz ruch”. */
+
+[data-animation="off"] .letters span {
+  animation-play-state: paused;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .letters {
-    display: none;
+  :root:not([data-animation="on"]) .letters span {
+    animation-play-state: paused;
   }
 }
 
@@ -241,8 +249,10 @@ main,
   color: var(--accent);
 }
 
-.social {
+.social,
+.prefs {
   display: flex;
+  align-items: center;
   gap: 8px;
 }
 
@@ -289,9 +299,103 @@ main,
   display: block;
 }
 
-:is(.nav a, .footer-links a, .icon-button, .button, .brand, .author-chip):focus-visible {
+/* Przełącznik animacji liter w tle: suwak i napis animatiON/animatiOFF. */
+
+.motion-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 12px 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font: 600 0.82rem/1 var(--font);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.motion-switch[hidden] {
+  display: none;
+}
+
+.motion-switch:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.motion-switch-track {
+  position: relative;
+  flex: none;
+  width: 34px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--border);
+  transition: background-color 0.2s;
+}
+
+.motion-switch-track::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 25%);
+  transition: transform 0.2s;
+}
+
+.motion-switch[aria-checked="true"] .motion-switch-track {
+  background: var(--accent);
+}
+
+.motion-switch[aria-checked="true"] .motion-switch-track::after {
+  transform: translateX(14px);
+}
+
+/* Końcówka napisu: wyróżnione ON albo OFF, szerokość stała dla obu. */
+.motion-switch-label {
+  min-width: 10ch;
+  text-align: left;
+}
+
+.motion-switch-label b {
+  color: var(--accent);
+}
+
+.motion-switch[aria-checked="true"] .motion-off,
+.motion-switch[aria-checked="false"] .motion-on {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motion-switch-track,
+  .motion-switch-track::after {
+    transition: none;
+  }
+}
+
+:is(
+    .nav a,
+    .footer-links a,
+    .icon-button,
+    .button,
+    .brand,
+    .author-chip,
+    .motion-switch,
+    .release summary,
+    .faq-item summary
+  ):focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+/* Krótsza nazwa pozycji menu na telefonie (zobacz koniec pliku). */
+.nav-short {
+  display: none;
 }
 
 /* Nagłówek strony */
@@ -495,22 +599,51 @@ thead th {
   font-weight: 600;
 }
 
-/* Historia zmian */
+/* Historia zmian i FAQ: zwijane karty <details> */
 
-.changelog {
+.section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+
+.section-head > :is(h1, h2) {
+  margin: 0;
+}
+
+.section-head + * {
+  margin-top: 16px;
+}
+
+.button.compact {
+  padding: 6px 14px;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.button[hidden] {
+  display: none;
+}
+
+.changelog,
+.faq-list {
   display: grid;
   gap: 12px;
   margin-top: 24px;
 }
 
-.release {
+.release,
+.faq-item {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 0 20px;
 }
 
-.release summary {
+.release summary,
+.faq-item summary {
   cursor: pointer;
   padding: 14px 0;
   display: flex;
@@ -519,16 +652,19 @@ thead th {
   list-style: none;
 }
 
-.release summary::-webkit-details-marker {
+.release summary::-webkit-details-marker,
+.faq-item summary::-webkit-details-marker {
   display: none;
 }
 
-.release summary::before {
+.release summary::before,
+.faq-item summary::before {
   content: "▸";
   color: var(--muted);
 }
 
-.release[open] summary::before {
+.release[open] summary::before,
+.faq-item[open] summary::before {
   content: "▾";
 }
 
@@ -549,6 +685,49 @@ thead th {
 
 .release li + li {
   margin-top: 8px;
+}
+
+/* FAQ */
+
+.faq {
+  max-width: 860px;
+}
+
+.faq h1 {
+  font-size: clamp(1.75rem, 3.4vw, 2.6rem);
+  margin: 0 0 12px;
+}
+
+.faq h2 {
+  font-size: 1.35rem;
+  margin: 48px 0 0;
+}
+
+.faq-item summary {
+  font-weight: 600;
+}
+
+.faq-item[open] summary {
+  color: var(--accent);
+}
+
+.faq-answer {
+  padding-bottom: 6px;
+  color: var(--muted);
+}
+
+.faq-answer p,
+.faq-answer ul {
+  margin: 0 0 12px;
+}
+
+.faq-answer ul {
+  padding-left: 20px;
+}
+
+.faq-answer strong,
+.faq-answer code {
+  color: var(--text);
 }
 
 /* O autorze */
@@ -691,8 +870,46 @@ thead th {
     font-size: 0.9rem;
   }
 
+  .prefs {
+    margin-left: auto;
+  }
+
   main > section {
     padding-top: 48px;
     padding-bottom: 48px;
+  }
+}
+
+/* Na telefonie odnośniki GitHub i LinkedIn zostają tylko w stopce, żeby
+   przełączniki zmieściły się w jednym wierszu z nazwą. */
+@media (max-width: 520px) {
+  .topbar .social {
+    display: none;
+  }
+
+  .topbar-inner {
+    gap: 8px;
+  }
+
+  .motion-switch {
+    gap: 6px;
+    padding: 0 10px 0 6px;
+  }
+
+  .nav {
+    justify-content: space-between;
+  }
+
+  .nav a {
+    padding: 6px 5px;
+    font-size: 0.85rem;
+  }
+
+  .nav-full {
+    display: none;
+  }
+
+  .nav-short {
+    display: inline;
   }
 }
