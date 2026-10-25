@@ -7,7 +7,8 @@ wydania, a historia zmian obejmuje tylko wydane wersje — sekcja
 ``pages/`` (szablony ``index.html``, ``faq.html``, ``autor.html`` i ``404.html``
 z polami ``${...}``, arkusz stylów, skrypt strony, zrzuty ekranu, zdjęcie autora
 i ikony); wymagania i nazwy plików pochodzą z ``packaging.metadata``,
-tak jak w notach wydania.
+tak jak w notach wydania. Dla wyszukiwarek generator dodaje ``sitemap.xml``,
+``robots.txt`` i dane strukturalne schema.org (JSON-LD) w nagłówkach stron.
 
     uv run python -m transkryptor.packaging.site --out _site
 """
@@ -16,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import html
+import json
 import math
 import random
 import re
@@ -37,6 +39,7 @@ from transkryptor.packaging.metadata import (
     APP_NAME,
     HARDWARE_REQUIREMENTS,
     ICON_PNG,
+    LICENSE_ID,
     REPO_ROOT,
     SUMMARY,
     VERSION,
@@ -54,6 +57,10 @@ PAGES_DIR = REPO_ROOT / "pages"
 TEMPLATE_FILE = "index.html"
 # Strony z polami ${...}; pierwsza to strona główna.
 TEMPLATE_FILES = (TEMPLATE_FILE, "faq.html", "autor.html", "404.html")
+# Strony w mapie strony; 404.html ma noindex.
+INDEXED_FILES = tuple(name for name in TEMPLATE_FILES if name != "404.html")
+SITEMAP_FILE = "sitemap.xml"
+ROBOTS_FILE = "robots.txt"
 # Pliki z pages/ kopiowane bez zmian (poza szablonami).
 STATIC_FILES = ("style.css", "site.js")
 STATIC_DIRS = ("img",)
@@ -67,6 +74,14 @@ _LETTERS_SEED = 2026
 _VERSION_DATE = re.compile(r"^\d+\.\d+\.\d+\s+—\s+(?P<date>\d{4}-\d{2}-\d{2})$")
 _CODE = re.compile(r"`([^`]+)`")
 _BOLD = re.compile(r"\*\*(.+?)\*\*")
+# Pytanie z faq.html: <summary> to pytanie, <div class="faq-answer"> odpowiedź.
+_FAQ_ITEM = re.compile(
+    r'<details class="faq-item" id="[^"]+">\s*<summary>(?P<question>.*?)</summary>'
+    r'\s*<div class="faq-answer">(?P<answer>.*?)</div>\s*</details>',
+    re.DOTALL,
+)
+_BLOCK_TAG = re.compile(r"</?(?:p|ul|ol|li|pre|br)\b[^>]*>")
+_TAG = re.compile(r"<[^>]+>")
 
 _MONTHS = (
     "stycznia",
@@ -267,6 +282,7 @@ def page_fields(releases: list[Release], repo: str) -> dict[str, str]:
         "summary": html.escape(SUMMARY),
         "version": version,
         "release_date": format_date(latest.date) if latest.date else "",
+        "release_date_iso": latest.date or "",
         "author_name": AUTHOR_NAME,
         "linkedin_url": LINKEDIN_URL,
         "site_url": SITE_URL,
@@ -288,6 +304,125 @@ def page_fields(releases: list[Release], repo: str) -> dict[str, str]:
         "letters": letters,
         "letters_css": letters_css,
     }
+
+
+def page_url(name: str) -> str:
+    """Adres kanoniczny strony: ``index.html`` → ``https://…/``."""
+    return f"{SITE_URL}/" if name == TEMPLATE_FILE else f"{SITE_URL}/{name}"
+
+
+def sitemap(lastmod: str | None) -> str:
+    """Mapa strony z adresami kanonicznymi; ``lastmod`` to data wydania."""
+    when = f"<lastmod>{lastmod}</lastmod>" if lastmod else ""
+    urls = "".join(
+        f"  <url><loc>{page_url(name)}</loc>{when}</url>\n" for name in INDEXED_FILES
+    )
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        f"{urls}</urlset>\n"
+    )
+
+
+def robots() -> str:
+    """``robots.txt``: wszystko do indeksowania, z adresem mapy strony."""
+    return f"User-agent: *\nAllow: /\n\nSitemap: {SITE_URL}/{SITEMAP_FILE}\n"
+
+
+def _plain(fragment: str) -> str:
+    """Tekst fragmentu HTML w jednym wierszu (bez znaczników i encji)."""
+    text = _TAG.sub("", _BLOCK_TAG.sub(" ", fragment))
+    return " ".join(html.unescape(text).split())
+
+
+def faq_questions(page: str) -> list[tuple[str, str]]:
+    """Pary (pytanie, odpowiedź) jako zwykły tekst ze złożonej strony FAQ."""
+    return [
+        (_plain(match["question"]), _plain(match["answer"]))
+        for match in _FAQ_ITEM.finditer(page)
+    ]
+
+
+def structured_data(name: str, page: str, fields: dict[str, str]) -> dict | None:
+    """Dane schema.org dla strony ``name`` albo ``None``, gdy ich nie ma.
+
+    FAQ powstaje z treści złożonej strony, więc pytania nie są powielane
+    w dwóch miejscach.
+    """
+    author = {
+        "@type": "Person",
+        "name": AUTHOR_NAME,
+        "url": page_url("autor.html"),
+    }
+    if name == TEMPLATE_FILE:
+        program: dict[str, object] = {
+            "@type": "SoftwareApplication",
+            "name": APP_NAME,
+            "description": f"{SUMMARY}.",
+            "url": page_url(name),
+            "applicationCategory": "UtilitiesApplication",
+            "operatingSystem": "Windows 10, Windows 11, Linux",
+            "softwareVersion": fields["version"],
+            "inLanguage": "pl",
+            "isAccessibleForFree": True,
+            "license": f"https://spdx.org/licenses/{LICENSE_ID}.html",
+            "offers": {"@type": "Offer", "price": "0", "priceCurrency": "PLN"},
+            "downloadUrl": [fields["windows_url"], fields["linux_url"]],
+            "screenshot": f"{SITE_URL}/img/okno-szkic-asr.webp",
+            "image": f"{SITE_URL}/img/podglad.jpg",
+            "softwareHelp": {"@type": "CreativeWork", "url": fields["guide_url"]},
+            "author": author,
+            "sameAs": [fields["repo_url"]],
+        }
+        if fields["release_date_iso"]:
+            program["datePublished"] = fields["release_date_iso"]
+        return {
+            "@context": "https://schema.org",
+            "@graph": [
+                {
+                    "@type": "WebSite",
+                    "name": APP_NAME,
+                    "url": page_url(name),
+                    "inLanguage": "pl",
+                },
+                program,
+            ],
+        }
+    if name == "faq.html":
+        return {
+            "@context": "https://schema.org",
+            "@type": "FAQPage",
+            "mainEntity": [
+                {
+                    "@type": "Question",
+                    "name": question,
+                    "acceptedAnswer": {"@type": "Answer", "text": answer},
+                }
+                for question, answer in faq_questions(page)
+            ],
+        }
+    if name == "autor.html":
+        return {
+            "@context": "https://schema.org",
+            "@type": "ProfilePage",
+            "url": page_url(name),
+            "mainEntity": author
+            | {
+                "image": f"{SITE_URL}/img/autor.jpg",
+                "sameAs": [fields["linkedin_url"], fields["profile_url"]],
+            },
+        }
+    return None
+
+
+def add_structured_data(page: str, data: dict) -> str:
+    """Wstawia blok JSON-LD na koniec ``<head>``.
+
+    ``</`` jest zamaskowane, żeby tekst z danymi nie zamknął znacznika skryptu.
+    """
+    text = json.dumps(data, ensure_ascii=False, indent=2).replace("</", "<\\/")
+    block = f'  <script type="application/ld+json">\n{text}\n    </script>\n'
+    return page.replace("  </head>", f"  {block}  </head>", 1)
 
 
 def build(
@@ -322,10 +457,17 @@ def build(
             raise SiteError(f"Szablon {name} używa nieznanego pola {error}.") from None
         except ValueError as error:
             raise SiteError(f"Błędne pole w szablonie {name}: {error}.") from None
+        data = structured_data(name, pages[name], fields)
+        if data is not None:
+            pages[name] = add_structured_data(pages[name], data)
 
     out.mkdir(parents=True, exist_ok=True)
     for name, page in pages.items():
         (out / name).write_text(page, encoding="utf-8")
+    (out / SITEMAP_FILE).write_text(
+        sitemap(fields["release_date_iso"] or None), encoding="utf-8"
+    )
+    (out / ROBOTS_FILE).write_text(robots(), encoding="utf-8")
     for name in STATIC_FILES:
         shutil.copy2(source / name, out / name)
     for name in STATIC_DIRS:
@@ -356,19 +498,28 @@ def main(argv: list[str] | None = None) -> int:
 
 __all__ = [
     "AUTHOR_NAME",
+    "INDEXED_FILES",
     "LETTERS",
     "LETTER_COUNT",
     "LINKEDIN_URL",
     "PAGES_DIR",
+    "ROBOTS_FILE",
+    "SITEMAP_FILE",
     "SITE_URL",
     "Release",
     "SiteError",
+    "add_structured_data",
     "build",
+    "faq_questions",
     "format_date",
     "page_fields",
+    "page_url",
     "background_letters",
     "released_sections",
     "render_markdown",
+    "robots",
+    "sitemap",
+    "structured_data",
 ]
 
 

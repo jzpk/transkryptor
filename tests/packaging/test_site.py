@@ -1,5 +1,6 @@
 """Testy strony projektu: historia zmian, linki pobierania i składanie strony."""
 
+import json
 import re
 
 import pytest
@@ -241,3 +242,99 @@ def test_download_cards_name_their_system(changelog_file, tmp_path) -> None:
         assert card is not None
         assert card[1].endswith(target.artifact_name)
     assert re.search(r'data-download-for-os\s+data-version="0.2.4"', page)
+
+
+def _json_ld(page: str) -> list[dict]:
+    blocks = re.findall(
+        r'<script type="application/ld\+json">(.*?)</script>', page, re.DOTALL
+    )
+    return [json.loads(block) for block in blocks]
+
+
+def test_sitemap_lists_canonical_urls_of_indexed_pages(
+    changelog_file, tmp_path
+) -> None:
+    out = tmp_path / "site"
+    site.build(out, changelog_file, repo="owner/repo", expected_version="0.2.4")
+
+    sitemap = (out / site.SITEMAP_FILE).read_text(encoding="utf-8")
+    locations = re.findall(r"<loc>([^<]+)</loc>", sitemap)
+    canonicals = []
+    for name in site.INDEXED_FILES:
+        page = (out / name).read_text(encoding="utf-8")
+        canonical = re.search(r'<link rel="canonical" href="([^"]+)"', page)
+        assert canonical is not None
+        canonicals.append(canonical[1])
+    assert locations == canonicals
+    assert sitemap.count("<lastmod>2026-10-11</lastmod>") == len(locations)
+    assert "404" not in sitemap
+
+
+def test_robots_allows_crawling_and_points_to_the_sitemap(
+    changelog_file, tmp_path
+) -> None:
+    out = tmp_path / "site"
+    site.build(out, changelog_file, repo="owner/repo", expected_version="0.2.4")
+
+    robots = (out / site.ROBOTS_FILE).read_text(encoding="utf-8")
+    assert "Disallow" not in robots
+    assert f"Sitemap: {site.SITE_URL}/{site.SITEMAP_FILE}" in robots
+
+
+def test_home_page_describes_the_program_for_search_engines(
+    changelog_file, tmp_path
+) -> None:
+    out = tmp_path / "site"
+    index = site.build(out, changelog_file, repo="owner/repo", expected_version="0.2.4")
+
+    (data,) = _json_ld(index.read_text(encoding="utf-8"))
+    types = {node["@type"]: node for node in data["@graph"]}
+    program = types["SoftwareApplication"]
+    assert program["softwareVersion"] == "0.2.4"
+    assert program["datePublished"] == "2026-10-11"
+    assert program["offers"]["price"] == "0"
+    download = "https://github.com/owner/repo/releases/download/v0.2.4"
+    assert program["downloadUrl"] == [
+        f"{download}/{target.artifact_name}" for target in targets("0.2.4").values()
+    ]
+    assert types["WebSite"]["url"] == f"{site.SITE_URL}/"
+    for url in (program["screenshot"], program["image"]):
+        assert (out / url.removeprefix(site.SITE_URL + "/")).is_file()
+
+
+def test_faq_structured_data_follows_the_questions_on_the_page(
+    changelog_file, tmp_path
+) -> None:
+    out = tmp_path / "site"
+    site.build(out, changelog_file, repo="owner/repo", expected_version="0.2.4")
+
+    page = (out / "faq.html").read_text(encoding="utf-8")
+    (data,) = _json_ld(page)
+    assert data["@type"] == "FAQPage"
+    questions = data["mainEntity"]
+    assert len(questions) == page.count('<details class="faq-item"')
+    for question in questions:
+        text = question["name"] + question["acceptedAnswer"]["text"]
+        assert question["name"] and question["acceptedAnswer"]["text"]
+        assert "<" not in text and "&" not in text and "  " not in text
+    assert "Czy Transkryptor jest płatny?" in [q["name"] for q in questions]
+
+
+def test_author_page_has_a_profile_and_404_has_no_structured_data(
+    changelog_file, tmp_path
+) -> None:
+    out = tmp_path / "site"
+    site.build(out, changelog_file, repo="owner/repo", expected_version="0.2.4")
+
+    (profile,) = _json_ld((out / "autor.html").read_text(encoding="utf-8"))
+    assert profile["@type"] == "ProfilePage"
+    assert profile["mainEntity"]["name"] == site.AUTHOR_NAME
+    assert site.LINKEDIN_URL in profile["mainEntity"]["sameAs"]
+    assert _json_ld((out / "404.html").read_text(encoding="utf-8")) == []
+
+
+def test_structured_data_cannot_close_its_script_tag() -> None:
+    page = site.add_structured_data("<head>\n  </head>", {"text": "</script><b>"})
+    assert page.count("</script>") == 1
+    (data,) = _json_ld(page)
+    assert data == {"text": "</script><b>"}
