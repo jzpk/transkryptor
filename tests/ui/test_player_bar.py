@@ -114,7 +114,7 @@ def window(qtbot, add_window):
 def test_format_loop() -> None:
     assert format_loop(None, None) == ""
     assert format_loop(72_000, None) == "A 01:12"
-    assert format_loop(72_000, 78_000) == "A 01:12 – B 01:18"
+    assert format_loop(72_000, 78_000) == "A 01:12 - B 01:18"
 
 
 def test_player_actions_do_not_collide_with_editor_shortcuts() -> None:
@@ -254,7 +254,7 @@ class TestAutoRewind:
 
 
 class TestLoopControls:
-    """ACC-21: znaczniki A–B, przełącznik pętli i etykieta zakresu."""
+    """ACC-21: znaczniki A-B, przełącznik pętli i etykieta zakresu."""
 
     def _at(self, qtbot, player, position_ms: int) -> None:
         player.set_position(position_ms)

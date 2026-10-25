@@ -431,7 +431,7 @@ jobs:
             echo "::error::MINISIGN_SECRET_KEY nie jest kluczem prywatnym minisign - wklej całą zawartość pliku z minisign -G -W (dwie linie)."
             exit 1
           fi
-          # Bajty 2–3 struktury klucza: algorytm KDF („Sc” = klucz z hasłem).
+          # Bajty 2-3 struktury klucza: algorytm KDF („Sc” = klucz z hasłem).
           if [ "$(printf '%s' "$KEY" | base64 -d 2>/dev/null | head -c 4 | tail -c 2)" = "Sc" ]; then
             echo "::error::Klucz w MINISIGN_SECRET_KEY jest zaszyfrowany hasłem - CI go nie odszyfruje. Wygeneruj klucz z minisign -G -W."
             exit 1

@@ -1,7 +1,7 @@
 """Obwiednia nagrania dla fali dźwiękowej (faza 11, propozycja 6; bez Qt).
 
 Obwiednia to wartość szczytowa amplitudy co ``STEP_MS`` milisekund,
-zapisana jako bajty 0–255 (godzina nagrania ≈ 360 KB). Nagranie dekoduje
+zapisana jako bajty 0-255 (godzina nagrania ≈ 360 KB). Nagranie dekoduje
 PyAV (ta sama zależność co ASR) strumieniowo, po resamplingu do mono
 ``ENVELOPE_RATE`` Hz - pamięć nie rośnie z długością nagrania.
 
@@ -33,7 +33,7 @@ ProgressCallback = Callable[[float], None]
 
 @dataclass(frozen=True)
 class Envelope:
-    """Szczyty amplitudy (0–255) co ``step_ms`` milisekund."""
+    """Szczyty amplitudy (0-255) co ``step_ms`` milisekund."""
 
     step_ms: int
     peaks: bytes

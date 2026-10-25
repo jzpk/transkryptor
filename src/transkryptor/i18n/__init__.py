@@ -80,7 +80,7 @@ def tr(key: str, **kwargs: object) -> str:
 
 
 def plural_form(language: str, count: int) -> str:
-    """Forma liczby mnogiej: ``one``, ``few`` (tylko polski: 2–4) albo ``many``."""
+    """Forma liczby mnogiej: ``one``, ``few`` (tylko polski: 2-4) albo ``many``."""
     if count == 1:
         return "one"
     if (

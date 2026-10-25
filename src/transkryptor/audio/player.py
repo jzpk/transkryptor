@@ -75,7 +75,7 @@ class AudioPlayer(QObject):
         self._source_path: Path | None = None
         self._last_error: ImportAudioError | None = None
         self._loop: tuple[int, int] | None = None
-        # Pętla słowa (Ctrl+klik w niepewne słowo): niezależna od pętli A–B,
+        # Pętla słowa (Ctrl+klik w niepewne słowo): niezależna od pętli A-B,
         # kończy ją pauza albo przewinięcie.
         self._temporary_loop: tuple[int, int] | None = None
         self._rewind_armed = False
@@ -111,7 +111,7 @@ class AudioPlayer(QObject):
 
     @property
     def loop_range(self) -> tuple[int, int] | None:
-        """Aktywna pętla A–B (ms) albo None."""
+        """Aktywna pętla A-B (ms) albo None."""
         return self._loop
 
     @property
@@ -189,11 +189,11 @@ class AudioPlayer(QObject):
         self._player.setPosition(position_ms)
 
     def set_loop(self, start_ms: int, end_ms: int) -> None:
-        """Włącza pętlę A–B; po dojściu do B odtwarzanie wraca do A."""
+        """Włącza pętlę A-B; po dojściu do B odtwarzanie wraca do A."""
         duration = self.duration_ms
         if not (0 <= start_ms < end_ms) or (duration > 0 and end_ms > duration):
             raise ValueError(
-                f"Nieprawidłowy zakres pętli {start_ms}–{end_ms} ms "
+                f"Nieprawidłowy zakres pętli {start_ms}-{end_ms} ms "
                 f"(nagranie {duration} ms)."
             )
         self._loop = (start_ms, end_ms)
@@ -201,7 +201,7 @@ class AudioPlayer(QObject):
         self.loop_changed.emit(self._loop)
 
     def play_loop_once(self, start_ms: int, end_ms: int) -> None:
-        """Odtwarza fragment w tymczasowej pętli (bez zmiany pętli A–B).
+        """Odtwarza fragment w tymczasowej pętli (bez zmiany pętli A-B).
 
         Pętla trwa do pauzy albo przewinięcia.
         """
@@ -216,7 +216,7 @@ class AudioPlayer(QObject):
         self.play()
 
     def clear_loop(self) -> None:
-        """Wyłącza pętlę A–B."""
+        """Wyłącza pętlę A-B."""
         if self._loop is None:
             return
         self._loop = None

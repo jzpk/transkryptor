@@ -4,8 +4,8 @@
   → dekodowanie PyAV (``audio/envelope.py``), z postępem i przerwaniem przy
   zmianie nagrania.
 - ``WaveformView`` rysuje falę w ``paintEvent`` w kolorach motywu: kursor
-  pozycji, pętlę A–B, segmenty ASR (paski w kolorze pewności) i ręczne
-  znaczniki czasu. Klik przewija nagranie, przeciągnięcie ustawia pętlę A–B,
+  pozycji, pętlę A-B, segmenty ASR (paski w kolorze pewności) i ręczne
+  znaczniki czasu. Klik przewija nagranie, przeciągnięcie ustawia pętlę A-B,
   ``Ctrl`` + kółko powiększa, kółko przewija w poziomie.
 - ``WaveformPanel`` to zwijany nagłówek z postępem, widok i pasek przewijania.
 - ``WaveformController`` łączy panel z odtwarzaczem, panelem ASR
@@ -61,7 +61,7 @@ MIN_MS_PER_PX = 2.0
 ZOOM_STEP = 1.5
 SEGMENT_STRIP_PX = 4
 
-# Segment ASR na fali: (początek ms, koniec ms, pewność 0–1).
+# Segment ASR na fali: (początek ms, koniec ms, pewność 0-1).
 SegmentSpan = tuple[int, int, float]
 
 

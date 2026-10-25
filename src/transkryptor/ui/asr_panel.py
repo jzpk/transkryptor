@@ -131,7 +131,7 @@ class TranscribeThread(QThread):
     """Transkrypcja w tle; anulowanie sprawdzane między segmentami."""
 
     segment_ready = Signal(object)  # SegmentResult
-    progressed = Signal(float)  # ułamek nagrania 0.0–1.0
+    progressed = Signal(float)  # ułamek nagrania 0.0-1.0
     succeeded = Signal(object)  # TranscriptionResult
     failed = Signal(object)  # AppError
     cancelled = Signal()
@@ -193,7 +193,7 @@ class AsrPanel(QWidget):
     review_item_apply_requested = Signal(int)
     review_finish_requested = Signal()
     transcription_started = Signal()
-    transcription_progress = Signal(float)  # ułamek nagrania 0.0–1.0
+    transcription_progress = Signal(float)  # ułamek nagrania 0.0-1.0
     transcription_finished = Signal()
     seek_requested = Signal(int)  # pozycja nagrania w ms
     # Wynik transkrypcji fragmentu (``TranscriptionResult``) do wstawienia
@@ -215,7 +215,7 @@ class AsrPanel(QWidget):
         super().__init__(parent)
         self._manager = manager
         self._audio_path_provider = audio_path_provider
-        # Zakres fragmentu (ms) - punkty A–B paska odtwarzacza.
+        # Zakres fragmentu (ms) - punkty A-B paska odtwarzacza.
         self._clip_provider = clip_provider
         self._clip_mode = False
         # Domyślnie podproces roboczy (PERF-04): model zostaje w pamięci,
@@ -908,7 +908,7 @@ class AsrPanel(QWidget):
         self._start_transcription(None)
 
     def _on_fragment_clicked(self) -> None:
-        """Transkrypcja fragmentu A–B (propozycja 10A)."""
+        """Transkrypcja fragmentu A-B (propozycja 10A)."""
         clip = self._clip_provider()
         if clip is None:
             self.transcribe_status_label.setText(tr("asr.fragment.no_range"))
@@ -1002,7 +1002,7 @@ class AsrPanel(QWidget):
 
     def _on_segment_ready(self, segment: SegmentResult) -> None:
         item = QListWidgetItem(
-            f"{format_timestamp(segment.start_s)}–{format_timestamp(segment.end_s)} "
+            f"{format_timestamp(segment.start_s)}-{format_timestamp(segment.end_s)} "
             f"({segment.confidence:.0%}) {segment.text.strip()}"
         )
         item.setData(Qt.ItemDataRole.UserRole, int(segment.start_s * 1000))

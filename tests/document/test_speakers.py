@@ -98,6 +98,17 @@ def test_legend_round_trip_and_anonymization() -> None:
     assert legend(speakers, anonymize=True).split("; ")[2] == "I2 - Informator"
 
 
+@pytest.mark.parametrize(
+    "separator",
+    ["-", "\u2013", "\u2014"],
+    ids=["hyphen", "en-dash", "em-dash-0.6.0-export"],
+)
+def test_legend_accepts_every_dash_separator(separator) -> None:
+    """Legenda z DOCX do 0.6.0 (pauza) i poprawiona przez Worda (półpauza)."""
+    text = f"B {separator} Badacz; I2 {separator} AK"
+    assert parse_legend(text) == [DEFAULT_SPEAKERS[0], I2]
+
+
 def test_informant_spans_and_search_filter() -> None:
     text = "pytanie\nodpowiedź pierwsza\ndrugie pytanie\nodpowiedź"
     assignments = {0: "B", 1: "I", 2: "B", 3: "I2"}

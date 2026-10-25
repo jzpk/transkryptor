@@ -595,7 +595,7 @@ class TestDraftText:
 
 
 class TestClip:
-    """Faza 11: transkrypcja fragmentu nagrania (pętla A–B)."""
+    """Faza 11: transkrypcja fragmentu nagrania (pętla A-B)."""
 
     RATE = 16_000
 

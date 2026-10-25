@@ -55,7 +55,7 @@ PROGRESS_EVERY = 20
 # Znaki kończące zdanie w tekście Whispera (granice wypowiedzi).
 SENTENCE_END = (".", "?", "!", "…")
 
-DiarizationProgress = Callable[[float], None]  # ułamek pracy 0.0–1.0
+DiarizationProgress = Callable[[float], None]  # ułamek pracy 0.0-1.0
 Span = tuple[float, float]  # przedział czasu w sekundach
 
 

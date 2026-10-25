@@ -1,4 +1,4 @@
-"""Wstawienie szkicu ASR i przegląd zmian reguł fonetycznych (REQ-14–REQ-16).
+"""Wstawienie szkicu ASR i przegląd zmian reguł fonetycznych (REQ-14-REQ-16).
 
 ``ReviewController`` wstawia szkic do edytora, stosuje reguły wybrane przez
 autora, śledzi każde dopasowanie kursorem edytora i synchronizuje listę

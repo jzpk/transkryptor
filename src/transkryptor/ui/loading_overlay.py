@@ -97,7 +97,7 @@ class Spinner(QWidget):
         return self._progress
 
     def set_progress(self, fraction: float | None) -> None:
-        """Ustawia postęp 0.0–1.0; ``None`` wraca do trybu nieokreślonego."""
+        """Ustawia postęp 0.0-1.0; ``None`` wraca do trybu nieokreślonego."""
         self._progress = None if fraction is None else min(1.0, max(0.0, fraction))
         self.update()
 
