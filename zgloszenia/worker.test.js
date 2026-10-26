@@ -7,18 +7,11 @@ import { handle, issueBody, noMentions, parseReport } from "./worker.js";
 const ORIGIN = "https://transkryptorapp.pl";
 
 function makeEnv(extra = {}) {
-  const stored = new Map();
   return {
     GITHUB_TOKEN: "ghp_test",
     GITHUB_REPO: "owner/repo",
     TURNSTILE_SECRET: "secret",
     ALLOWED_ORIGINS: `${ORIGIN}, https://www.transkryptorapp.pl`,
-    CONTACTS: {
-      stored,
-      async put(key, value, options) {
-        stored.set(key, { value: JSON.parse(value), options });
-      },
-    },
     ...extra,
   };
 }
@@ -47,7 +40,6 @@ const VALID = {
   kind: "bug",
   title: "Nie zapisuje projektu",
   description: "Klikam Zapisz i nic się nie dzieje.",
-  email: "",
   version: "0.7.0",
   system: "Windows-11",
   website: "",
@@ -87,19 +79,6 @@ test("idea gets the enhancement label", async () => {
   await handle(post({ ...VALID, kind: "idea" }), makeEnv(), fetchImpl);
   const github = fetchImpl.calls.find((call) => call.url.includes("api.github.com"));
   assert.deepEqual(JSON.parse(github.init.body).labels, ["enhancement", "od-uzytkownika"]);
-});
-
-test("email is stored privately and never sent to GitHub", async () => {
-  const env = makeEnv();
-  const fetchImpl = makeFetch();
-  const response = await handle(post({ ...VALID, email: "ala@example.com" }), env, fetchImpl);
-
-  assert.equal(response.status, 201);
-  const github = fetchImpl.calls.find((call) => call.url.includes("api.github.com"));
-  assert.doesNotMatch(github.init.body, /ala@/);
-  const contact = env.CONTACTS.stored.get("issue-42");
-  assert.equal(contact.value.email, "ala@example.com");
-  assert.ok(contact.options.expirationTtl > 0);
 });
 
 test("preflight is answered only for the project site", async () => {
@@ -157,7 +136,6 @@ test("invalid input is rejected", async () => {
   const cases = [
     { ...VALID, title: "abc" },
     { ...VALID, description: "x".repeat(5001) },
-    { ...VALID, email: "nie-adres" },
     { ...VALID, title: 123 },
   ];
   for (const body of cases) {
@@ -188,7 +166,7 @@ test("other methods are not allowed", async () => {
 });
 
 test("mentions are neutralised and fields are normalised", () => {
-  assert.equal(noMentions("cc @octocat i a@b.pl"), "cc @​octocat i a@​b.pl");
+  assert.equal(noMentions("cc @octocat i a@b.pl"), "cc @\u200boctocat i a@\u200bb.pl");
   const report = parseReport({
     ...VALID,
     title: "  Tytuł\nw dwóch\twierszach  ",
@@ -203,5 +181,4 @@ test("issue body marks missing technical details", () => {
   const body = issueBody(parseReport({ ...VALID, version: "", system: "" }));
   assert.match(body, /Wersja programu: nie podano/);
   assert.match(body, /System: nie podano/);
-  assert.doesNotMatch(body, /adres e-mail/);
 });

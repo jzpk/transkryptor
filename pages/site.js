@@ -256,7 +256,7 @@
     // Zwraca pierwsze błędne pole albo null.
     function validate() {
       var invalid = null;
-      ["tytul", "opis", "email"].forEach(function (name) {
+      ["tytul", "opis"].forEach(function (name) {
         var field = form.elements[name];
         field.value = field.value.trim();
         var ok = field.checkValidity();
@@ -273,9 +273,7 @@
       var invalid = validate();
       if (invalid) {
         say(
-          invalid.name === "email"
-            ? "Adres e-mail wygląda na niepoprawny - popraw go albo zostaw pole puste."
-            : "Uzupełnij tytuł (co najmniej 5 znaków) i opis (co najmniej 10 znaków).",
+          "Uzupełnij tytuł (co najmniej 5 znaków) i opis (co najmniej 10 znaków).",
           true
         );
         invalid.focus();
@@ -299,7 +297,6 @@
         kind: elements.rodzaj.value === "pomysl" ? "idea" : "bug",
         title: elements.tytul.value,
         description: elements.opis.value,
-        email: elements.email.value,
         version: elements.wersja.value.trim(),
         system: elements.system.value.trim(),
         website: elements.strona.value,

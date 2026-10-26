@@ -6,11 +6,9 @@
 // - sprawdza token Cloudflare Turnstile (ochrona przed botami),
 // - ogranicza liczbę zgłoszeń z jednego adresu IP (REPORT_LIMITER, opcjonalnie),
 // - po cichu odrzuca formularze z wypełnionym polem-pułapką,
-// - pilnuje długości pól i wyłącza wzmianki @użytkownik w treści,
-// - adres e-mail zapisuje prywatnie w KV (CONTACTS) pod numerem zgłoszenia -
-//   nigdy nie trafia do publicznego issue.
+// - pilnuje długości pól i wyłącza wzmianki @użytkownik w treści.
 //
-// Konfiguracja: wrangler.toml (zmienne, KV, limit) i sekrety GITHUB_TOKEN
+// Konfiguracja: wrangler.toml (zmienne, limit) i sekrety GITHUB_TOKEN
 // oraz TURNSTILE_SECRET (npx wrangler secret put ...).
 
 const GITHUB_API = "https://api.github.com";
@@ -26,16 +24,12 @@ export const LABELS = {
 export const LIMITS = {
   title: [5, 120],
   description: [10, 5000],
-  email: [0, 200],
   version: [0, 40],
   system: [0, 120],
 };
 
 // Całe żądanie - z zapasem na kodowanie JSON polskich znaków.
 const MAX_BODY_BYTES = 32 * 1024;
-// Adres e-mail do odpowiedzi trzymamy rok, potem KV usuwa go sam.
-const CONTACT_TTL_SECONDS = 365 * 24 * 60 * 60;
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default {
   async fetch(request, env) {
@@ -91,18 +85,6 @@ export async function handle(request, env, fetchImpl) {
   const issue = await createIssue(env, report, fetchImpl);
   if (!issue) {
     return json({ error: "github" }, 502, cors);
-  }
-  if (report.email && env.CONTACTS) {
-    try {
-      await env.CONTACTS.put(
-        `issue-${issue.number}`,
-        JSON.stringify({ email: report.email, created: new Date().toISOString() }),
-        { expirationTtl: CONTACT_TTL_SECONDS }
-      );
-    } catch (error) {
-      // Zgłoszenie już jest - brak adresu do odpowiedzi nie powinien go cofać.
-      console.error(`Nie zapisano adresu e-mail dla #${issue.number}: ${error}`);
-    }
   }
   return json({ number: issue.number, url: issue.html_url }, 201, cors);
 }
@@ -170,7 +152,6 @@ export function parseReport(data) {
     kind: data.kind === "idea" ? "idea" : "bug",
     title: oneLine(data.title),
     description: clean(data.description),
-    email: oneLine(data.email),
     version: oneLine(data.version),
     system: oneLine(data.system),
   };
@@ -180,16 +161,13 @@ export function parseReport(data) {
       return null;
     }
   }
-  if (report.email && !EMAIL_RE.test(report.email)) {
-    return null;
-  }
   return report;
 }
 
 // Wzmianka @nazwa w issue powiadamia tę osobę na GitHubie - znak o zerowej
 // szerokości po @ wyłącza powiadomienie, a tekst wygląda tak samo.
 export function noMentions(text) {
-  return text.replace(/@(?=[A-Za-z0-9])/g, "@​");
+  return text.replace(/@(?=[A-Za-z0-9])/g, "@\u200b");
 }
 
 export function issueBody(report) {
@@ -197,16 +175,6 @@ export function issueBody(report) {
     `- Wersja programu: ${noMentions(report.version) || "nie podano"}`,
     `- System: ${noMentions(report.system) || "nie podano"}`,
   ];
-  const footer = [
-    "Zgłoszenie z formularza na stronie programu. Osoba zgłaszająca może " +
-      "nie mieć konta na GitHubie i nie zobaczy odpowiedzi w tym wątku.",
-  ];
-  if (report.email) {
-    footer.push(
-      `Podano adres e-mail do kontaktu - jest zapisany prywatnie ` +
-        `(KV \`CONTACTS\`, klucz \`issue-<numer>\`).`
-    );
-  }
   return [
     "### Opis",
     "",
@@ -217,7 +185,8 @@ export function issueBody(report) {
     ...tech,
     "",
     "---",
-    `_${footer.join(" ")}_`,
+    "_Zgłoszenie z formularza na stronie programu. Osoba zgłaszająca może " +
+      "nie mieć konta na GitHubie i nie zobaczy odpowiedzi w tym wątku._",
     "",
   ].join("\n");
 }

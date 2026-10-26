@@ -10,8 +10,7 @@ Pusta sekcja blokuje wydanie.
 - **Zgłoś problem lub pomysł** - nowy przycisk na dole okna (obok „Co
   nowego”) otwiera w przeglądarce formularz na stronie programu. Błąd albo
   pomysł można zgłosić bez konta na GitHubie; wersja programu i systemu są
-  wpisane w formularz automatycznie. Program niczego nie wysyła sam, a
-  podany (opcjonalnie) adres e-mail nie trafia do publicznego zgłoszenia.
+  wpisane w formularz automatycznie. Program niczego nie wysyła sam.
 - Okno **Korpus** (przycisk na pasku narzędzi, skrót `Ctrl+Shift+F` -
   można go zmienić w zakładce **Skróty**) do pracy na wszystkich
   projektach w folderze (także w podfolderach). Domyślnie otwiera folder
