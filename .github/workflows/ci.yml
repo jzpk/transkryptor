@@ -1,8 +1,9 @@
 # Kontrola jakości przy każdej zmianie: lint, formatowanie, typy i testy.
 #
-# Push na main ze scalenia PR nie powtarza kontroli - ten sam kod przeszedł
-# je już w PR (job „scalony-pr”). Bezpośredni push na main jest sprawdzany
-# jak dotąd.
+# Push na main ze scalenia PR nie powtarza lintu ani testów - ten sam kod
+# przeszedł je już w PR (job „scalony-pr”). Audyt zależności działa zawsze,
+# bo nowe podatności pojawiają się niezależnie od kodu. Bezpośredni push na
+# main jest sprawdzany w całości.
 #
 # Workflow wydania (release.yml) powtarza te same kontrole przed budowaniem
 # artefaktów - tag nie ominie bramki. Akcje są przypięte do SHA commitów
@@ -20,7 +21,7 @@ permissions:
 
 jobs:
   # Commit wypchnięty na main, który jest commitem scalenia PR (merge, squash
-  # albo ostatni commit rebase), pomija pozostałe joby. Błąd API nie pomija
+  # albo ostatni commit rebase), pomija lint i testy. Błąd API nie pomija
   # niczego - kontrole wtedy się wykonują.
   scalony-pr:
     name: Scalenie PR
@@ -141,8 +142,6 @@ jobs:
 
   zaleznosci:
     name: Znane podatności zależności
-    needs: scalony-pr
-    if: needs.scalony-pr.outputs.pominac != 'true'
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
