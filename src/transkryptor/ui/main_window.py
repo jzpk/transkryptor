@@ -57,6 +57,7 @@ from transkryptor.ui.audio_filters import AudioFilterController
 from transkryptor.ui.changelog_dialog import ChangelogDialog
 from transkryptor.ui.comments_controller import CommentsController
 from transkryptor.ui.compare_controller import CompareController
+from transkryptor.ui.corpus_controller import CorpusController
 from transkryptor.ui.editor import TranscriptionEditor
 from transkryptor.ui.export_controller import ExportController
 from transkryptor.ui.fonts import text_font_family
@@ -276,6 +277,15 @@ class MainWindow(QMainWindow):
             self,
         )
         self.session.before_replace = self.compare.finish
+        self.corpus = CorpusController(
+            self.session,
+            self.editor,
+            self.player,
+            lambda: self.settings_store.current.metadata.fields,
+            self.settings_store.recent_projects,
+            lambda text: self.statusBar().showMessage(text, STATUS_MESSAGE_MS),
+            self,
+        )
         self.search = SearchController(
             self.editor, self.search_bar, self, self._informant_spans
         )
@@ -448,6 +458,7 @@ class MainWindow(QMainWindow):
                 save_project_as=self.session.save_project_as,
                 import_docx=self.session.import_docx_dialog,
                 compare=self.compare.compare_dialog,
+                corpus=self.corpus.open_dialog,
                 export_anonymized=lambda: self.exporter.export(anonymize=True),
                 export_as=self.exporter.export_as,
             ),
@@ -467,6 +478,7 @@ class MainWindow(QMainWindow):
         self.save_as_action = bar.save_as_action
         self.import_docx_action = bar.import_docx_action
         self.compare_action = bar.compare_action
+        self.corpus_action = bar.corpus_action
         self.main_toolbar = bar
 
     def _build_status_bar(self) -> None:
@@ -616,6 +628,7 @@ class MainWindow(QMainWindow):
             project_id("export"): self.export_action,
             project_id("settings"): self.settings_action,
             project_id("close"): self.close_action,
+            project_id("corpus"): self.corpus_action,
         }
         for key, action in self.marker_actions.items():
             actions[marker_id(key)] = action
@@ -857,9 +870,14 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event: QCloseEvent) -> None:
         """ACC-10: ostrzeżenie przed utratą pracy przy zamknięciu."""
+        # Wyszukiwanie w korpusie ma przycisk „Przerwij” - okno czeka na nie.
+        if self.corpus.busy:
+            event.ignore()
+            return
         if self.session.can_close():
             self.waveform.shutdown()
             self.audio_filters.shutdown()
+            self.corpus.shutdown()
             event.accept()
         else:
             event.ignore()
@@ -899,6 +917,7 @@ class MainWindow(QMainWindow):
             self.save_as_action,
             self.import_docx_action,
             self.compare_action,
+            self.corpus_action,
             self.comments.add_action,
             *(
                 action
@@ -917,6 +936,7 @@ class MainWindow(QMainWindow):
         self.snippets.set_locked(locked)
         self.speakers.set_locked(locked)
         self.verification.set_locked(locked)
+        self.corpus.set_locked(locked)
 
     # --- stan --------------------------------------------------------------
 

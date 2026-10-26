@@ -37,6 +37,7 @@ from transkryptor.document.anchors import (
     Anchor,
     TimeIndex,
     anchor_at,
+    time_span,
 )
 from transkryptor.i18n import tr
 from transkryptor.settings import AsrSettings, PlayerSettings
@@ -363,19 +364,7 @@ class SyncController(QObject):
         fragment je obejmuje, liczą się tylko one. None - fragment nie ma
         kotwic czasowych albo ich czas jest pusty.
         """
-        touching = [
-            anchor
-            for anchor in self._current()
-            if (anchor.start < end and anchor.end > start)
-            or (anchor.is_point and start <= anchor.start <= end)
-        ]
-        words = [anchor for anchor in touching if anchor.source == WORD]
-        spans = [(anchor.start_ms, anchor.end_ms) for anchor in words or touching]
-        if not spans:
-            return None
-        first = min(span[0] for span in spans)
-        last = max(span[1] for span in spans)
-        return (first, last) if last > first else None
+        return time_span(self._current(), start, end)
 
     def cursor_to_time(self, time_ms: int) -> bool:
         """Kursor na początku tekstu dla czasu nagrania (segment albo znacznik).

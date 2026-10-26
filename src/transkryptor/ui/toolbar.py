@@ -39,6 +39,7 @@ from transkryptor.ui import icons
 from transkryptor.ui.markers import MARKERS, SUPERSCRIPT_SHORTCUT
 from transkryptor.ui.shortcuts import (
     CLOSE_SHORTCUT,
+    CORPUS_SHORTCUT,
     EXPORT_SHORTCUT,
     NEW_SHORTCUT,
     OPEN_PROJECT_SHORTCUT,
@@ -68,6 +69,7 @@ class ToolbarHandlers:
     export_anonymized: Callable[[], None]
     export_as: Callable[[], None] = lambda: None
     compare: Callable[[], object] = lambda: None
+    corpus: Callable[[], object] = lambda: None
 
 
 @dataclass(frozen=True)
@@ -101,6 +103,7 @@ class _Slot:
 NOTATION_SECTION = "notation"
 COLLAPSE_ORDER = (
     "snippets",
+    "corpus",
     *(f"marker:{marker.key}" for marker in reversed(MARKERS)),
     "superscript",
     "comments",
@@ -226,6 +229,19 @@ class MainToolbar:
         comments_toggle.setToolTip(tr("toolbar.comments.tooltip"))
         self._slots["comments"] = _Slot(
             "tools", comments_toggle, (self._add(comments_toggle),)
+        )
+
+        # Wyszukiwanie, słownik form i katalog metryczek folderu projektów.
+        self.corpus_action = _window_action(
+            window,
+            tr("toolbar.corpus"),
+            "corpus",
+            CORPUS_SHORTCUT,
+            tr("toolbar.corpus.tooltip"),
+            handlers.corpus,
+        )
+        self._slots["corpus"] = _Slot(
+            "tools", self.corpus_action, (self._add(self.corpus_action),)
         )
 
         self.settings_action = _action(
