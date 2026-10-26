@@ -1,0 +1,331 @@
+<!doctype html>
+<!--
+  Formularz zgłoszeń błędów i pomysłów (GitHub Pages). Pola $${nazwa}
+  wypełnia src/transkryptor/packaging/site.py; dosłowny znak dolara zapisuje
+  się jako $$. Pasek górny i stopka są takie jak w index.html, faq.html
+  i autor.html - zmieniaj je we wszystkich plikach.
+
+  Formularz wysyła zgłoszenie skryptem (site.js) do Workera Cloudflare
+  (katalog zgloszenia/), który zakłada issue na GitHubie. Gdy adres Workera
+  nie jest ustawiony albo przeglądarka nie uruchamia skryptów, widać tylko
+  odnośnik do zgłoszeń na GitHubie. Program otwiera tę stronę z parametrami
+  ?wersja=...&system=..., które wypełniają pola informacji technicznych.
+-->
+<html lang="pl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Zgłoś problem lub pomysł - ${app_name}</title>
+    <meta
+      name="description"
+      content="Formularz zgłoszenia błędu albo pomysłu na nową funkcję programu ${app_name} - bez zakładania konta."
+    />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="canonical" href="${site_url}/zglos.html" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="${app_name}" />
+    <meta property="og:locale" content="pl_PL" />
+    <meta property="og:url" content="${site_url}/zglos.html" />
+    <meta property="og:title" content="Zgłoś problem lub pomysł - ${app_name}" />
+    <meta
+      property="og:description"
+      content="Coś nie działa albo brakuje Ci funkcji? Napisz - bez zakładania konta."
+    />
+    <meta property="og:image" content="${site_url}/img/podglad.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Okno programu ${app_name}" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" type="image/png" href="icon.png" />
+    <link rel="stylesheet" href="style.css" />
+    <style>
+      ${letters_css}
+    </style>
+    <script src="site.js"></script>
+  </head>
+  <body>
+    ${letters}
+    <header class="topbar">
+      <div class="wrap topbar-inner">
+        <a class="brand" href="index.html"
+          ><img src="img/ikona-56.png" alt="" width="28" height="28" />${app_name}</a
+        >
+        <nav class="nav" aria-label="Sekcje strony">
+          <a href="index.html#mozliwosci">Możliwości</a>
+          <a href="index.html#pobierz">Pobierz</a>
+          <a href="index.html#zmiany"><span class="nav-full">Historia zmian</span
+            ><span class="nav-short">Zmiany</span></a
+          >
+          <a href="faq.html">FAQ</a>
+          <a href="autor.html">O autorze</a>
+        </nav>
+        <div class="prefs">
+          <button
+            class="motion-switch"
+            type="button"
+            role="switch"
+            aria-checked="true"
+            aria-label="Animacja liter w tle"
+            title="Animacja liter w tle"
+            hidden
+          >
+            <span class="motion-switch-track" aria-hidden="true"></span>
+            <span class="motion-switch-label" aria-hidden="true"
+              >animati<b class="motion-on">ON</b><b class="motion-off">OFF</b></span
+            >
+          </button>
+          <button
+            class="icon-button theme-toggle"
+            type="button"
+            title="Zmień motyw"
+            aria-label="Zmień motyw"
+            hidden
+          >
+            <svg class="icon-moon" aria-hidden="true">
+              <use href="img/ikony.svg#ksiezyc" />
+            </svg>
+            <svg class="icon-sun" aria-hidden="true">
+              <use href="img/ikony.svg#slonce" />
+            </svg>
+          </button>
+        </div>
+        <div class="social">
+          <a
+            class="icon-button"
+            href="${repo_url}"
+            title="Kod źródłowy"
+            aria-label="Kod źródłowy"
+          >
+            <svg aria-hidden="true"><use href="img/ikony.svg#github" /></svg
+          ></a>
+          <a
+            class="icon-button"
+            href="${linkedin_url}"
+            title="${author_name} na LinkedIn"
+            aria-label="${author_name} na LinkedIn"
+          >
+            <svg aria-hidden="true"><use href="img/ikony.svg#linkedin" /></svg
+          ></a>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section class="wrap report">
+        <h1>Zgłoś problem lub pomysł</h1>
+        <p class="lead">
+          Coś nie działa tak, jak powinno, albo brakuje Ci jakiejś funkcji?
+          Napisz o tym - nie musisz zakładać żadnego konta.
+        </p>
+
+        <p class="report-fallback" data-report-fallback>
+          Formularz jest chwilowo niedostępny. Zgłoszenie możesz zostawić w
+          <a href="${issues_url}">zgłoszeniach na GitHubie</a> (wymaga konta).
+        </p>
+
+        <form
+          class="report-form"
+          data-report-form
+          data-endpoint="${report_endpoint}"
+          data-sitekey="${turnstile_site_key}"
+          novalidate
+          hidden
+        >
+          <fieldset class="report-kind">
+            <legend>Czego dotyczy zgłoszenie?</legend>
+            <label class="report-choice">
+              <input type="radio" name="rodzaj" value="blad" checked />
+              <span>
+                <strong>Coś nie działa</strong>
+                <span class="small">Błąd, awaria albo dziwne zachowanie</span>
+              </span>
+            </label>
+            <label class="report-choice">
+              <input type="radio" name="rodzaj" value="pomysl" />
+              <span>
+                <strong>Mam pomysł</strong>
+                <span class="small">Nowa funkcja albo usprawnienie</span>
+              </span>
+            </label>
+          </fieldset>
+
+          <div class="field">
+            <label for="report-title">Tytuł</label>
+            <input
+              id="report-title"
+              name="tytul"
+              type="text"
+              required
+              minlength="5"
+              maxlength="120"
+              autocomplete="off"
+              placeholder="np. Nie mogę zapisać projektu na pendrive"
+            />
+          </div>
+
+          <div class="field">
+            <label for="report-description">Opis</label>
+            <p class="small field-hint" data-hint-for="blad">
+              Opisz po kolei: co robisz w programie, co się dzieje i co
+              powinno się stać zamiast tego. Jeśli program pokazał komunikat,
+              przepisz go.
+            </p>
+            <p class="small field-hint" data-hint-for="pomysl" hidden>
+              Opisz, czego potrzebujesz i do czego Ci się to przyda.
+            </p>
+            <textarea
+              id="report-description"
+              name="opis"
+              required
+              minlength="10"
+              maxlength="5000"
+              rows="8"
+            ></textarea>
+          </div>
+
+          <div class="field">
+            <label for="report-email"
+              >Adres e-mail <span class="small">(opcjonalnie)</span></label
+            >
+            <p class="small field-hint">
+              Podaj go, jeśli chcesz dostać odpowiedź albo zgodzisz się na
+              dopytanie o szczegóły. Zobaczy go tylko autor programu - nie
+              trafi do publicznego zgłoszenia.
+            </p>
+            <input
+              id="report-email"
+              name="email"
+              type="email"
+              maxlength="200"
+              autocomplete="email"
+            />
+          </div>
+
+          <details class="report-tech">
+            <summary>Informacje techniczne (opcjonalnie)</summary>
+            <p class="small">
+              Program wypełnia te pola sam, gdy otworzysz formularz przyciskiem
+              <strong>Zgłoś problem lub pomysł</strong> na dole okna.
+            </p>
+            <div class="field">
+              <label for="report-version">Wersja programu</label>
+              <input
+                id="report-version"
+                name="wersja"
+                type="text"
+                maxlength="40"
+                autocomplete="off"
+                placeholder="np. ${version}"
+              />
+            </div>
+            <div class="field">
+              <label for="report-system">System</label>
+              <input
+                id="report-system"
+                name="system"
+                type="text"
+                maxlength="120"
+                autocomplete="off"
+                placeholder="np. Windows 11"
+              />
+            </div>
+          </details>
+
+          <!-- Pułapka na boty: ludzie tego pola nie widzą. -->
+          <div class="report-trap" aria-hidden="true">
+            <label for="report-website">Strona internetowa</label>
+            <input
+              id="report-website"
+              name="strona"
+              type="text"
+              tabindex="-1"
+              autocomplete="off"
+            />
+          </div>
+
+          <div class="report-captcha" data-report-captcha></div>
+
+          <p class="small report-privacy">
+            Zgłoszenie (bez adresu e-mail) będzie publicznie widoczne w
+            <a href="${issues_url}">zgłoszeniach na GitHubie</a>. Nie wpisuj
+            danych osobowych ani fragmentów nagrań i transkrypcji.
+          </p>
+
+          <div class="actions">
+            <button class="button primary" type="submit" data-report-submit>
+              Wyślij zgłoszenie
+            </button>
+          </div>
+          <p
+            class="report-status"
+            data-report-status
+            role="status"
+            aria-live="polite"
+          ></p>
+        </form>
+
+        <div class="report-done" data-report-done tabindex="-1" hidden>
+          <h2>Dziękujemy!</h2>
+          <p>
+            Zgłoszenie zostało przyjęte<span data-report-number></span>. Możesz
+            śledzić je <a data-report-link href="${issues_url}">na GitHubie</a>.
+          </p>
+          <div class="actions">
+            <button class="button" type="button" data-report-again>
+              Wyślij kolejne zgłoszenie
+            </button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="wrap footer-inner">
+        <div class="footer-about">
+          <a class="brand" href="index.html"
+            ><img src="img/ikona-56.png" alt="" width="24" height="24" />${app_name}</a
+          >
+          <p>Wolne oprogramowanie na licencji GPL-3.0-or-later.</p>
+        </div>
+        <nav class="footer-links" aria-label="Odnośniki">
+          <a href="${repo_url}">Kod źródłowy</a>
+          <a href="zglos.html">Zgłoś problem lub pomysł</a>
+          <a href="${guide_url}">Instrukcja użytkownika</a>
+          <a href="faq.html">FAQ</a>
+        </nav>
+        <div class="footer-author">
+          <a class="author-chip" href="autor.html">
+            <img
+              src="img/autor-80.webp"
+              alt=""
+              width="40"
+              height="40"
+              loading="lazy"
+            />
+            <span
+              ><span class="author-chip-label">Autor</span>${author_name}</span
+            >
+          </a>
+          <div class="social">
+            <a
+              class="icon-button"
+              href="${repo_url}"
+              title="Kod źródłowy"
+              aria-label="Kod źródłowy"
+            >
+              <svg aria-hidden="true"><use href="img/ikony.svg#github" /></svg
+            ></a>
+            <a
+              class="icon-button"
+              href="${linkedin_url}"
+              title="${author_name} na LinkedIn"
+              aria-label="${author_name} na LinkedIn"
+            >
+              <svg aria-hidden="true"><use href="img/ikony.svg#linkedin" /></svg
+            ></a>
+          </div>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

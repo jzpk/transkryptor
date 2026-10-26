@@ -46,6 +46,11 @@ jobs:
         run: uv sync --locked
 
       - name: Generowanie strony
+        # Formularz zgłoszeń (zglos.html): adres Workera i publiczny klucz
+        # Turnstile ze zmiennych repozytorium REPORT_ENDPOINT i TURNSTILE_SITE_KEY.
+        env:
+          TRANSKRYPTOR_REPORT_ENDPOINT: ${{ vars.REPORT_ENDPOINT }}
+          TRANSKRYPTOR_TURNSTILE_SITE_KEY: ${{ vars.TURNSTILE_SITE_KEY }}
         run: uv run python -m transkryptor.packaging.site --out _site
 
       - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0

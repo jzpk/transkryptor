@@ -603,6 +603,8 @@
   "settings.asr.vocabulary.hint": "Nazwy własne i wyrazy gwarowe używane we wszystkich nagraniach; do modelu trafiają razem ze słownikiem projektu.",
   "changelog.button": "Co nowego · wersja {version}",
   "changelog.button.tooltip": "Historia zmian: co zmieniło się w kolejnych wersjach programu",
+  "report.button": "Zgłoś problem lub pomysł",
+  "report.button.tooltip": "Otwiera w przeglądarce formularz zgłoszenia na stronie programu - konto na GitHubie nie jest potrzebne",
   "changelog.title": "Co nowego",
   "changelog.header": "Historia zmian - zainstalowana wersja {version}",
   "changelog.unreleased": "Zmiany w przygotowaniu (wersja rozwojowa)",

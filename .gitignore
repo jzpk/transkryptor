@@ -230,3 +230,8 @@ _site/
 
 # Worktree agentów Claude Code (praca równoległa).
 .claude/worktrees/
+
+# Worker zgłoszeń (zgloszenia/): lokalne sekrety i pliki wranglera.
+zgloszenia/.dev.vars
+zgloszenia/.wrangler/
+zgloszenia/node_modules/
