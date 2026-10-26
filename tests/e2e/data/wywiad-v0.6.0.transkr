@@ -61,7 +61,7 @@
  },
  "exported": true,
  "audio": {
-  "relative_path": "../../../../../../home/user/transkryptor/tests/fixtures/audio/sample.mp3",
+  "relative_path": "../../fixtures/audio/sample.mp3",
   "absolute_path": "/home/user/transkryptor/tests/fixtures/audio/sample.mp3",
   "sha256": "1b194c8acb11ec92f2c1ee5798f2af35ae35d82843e6cbca4808c305312b5d4e"
  },
