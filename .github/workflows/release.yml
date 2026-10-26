@@ -1,15 +1,15 @@
 # Wydanie: podbicie wersji, budowanie artefaktów i publikacja GitHub Release.
 #
 # Zwykła droga: Actions → „Wydanie” → Run workflow (gałąź main) i wybór części
-# wersji do podbicia (patch/minor/major). Workflow po zielonych testach podbija
-# wersję w pyproject.toml, uv.lock i src/transkryptor/__init__.py, nadaje
-# sekcji „Nieopublikowane” w CHANGELOG.md numer wersji (pusta sekcja przerywa
-# wydanie), commituje i nadaje tag vX.Y.Z, po czym ten sam przebieg buduje
-# oba artefakty z taga i publikuje wydanie. Commit wydania ma w opisie
+# wersji do podbicia (patch/minor/major). Workflow po zielonych testach e2e
+# podbija wersję w pyproject.toml, uv.lock i src/transkryptor/__init__.py,
+# nadaje sekcji „Nieopublikowane” w CHANGELOG.md numer wersji (pusta sekcja
+# przerywa wydanie), commituje i nadaje tag vX.Y.Z, po czym ten sam przebieg
+# buduje oba artefakty z taga i publikuje wydanie. Commit wydania ma w opisie
 # [skip ci]: jego push nie uruchamia ponownie CI ani tego workflow - kod
-# przeszedł już testy na początku przebiegu, a commit zmienia tylko numer
-# wersji i nagłówek changeloga. Zainstalowane aplikacje znajdują wydania
-# przez GitHub Releases API (src/transkryptor/update/).
+# przeszedł już testy (jednostkowe w CI, e2e na początku przebiegu), a commit
+# zmienia tylko numer wersji i nagłówek changeloga. Zainstalowane aplikacje
+# znajdują wydania przez GitHub Releases API (src/transkryptor/update/).
 #
 # Droga awaryjna: ręcznie wypchnięty tag v* (na commit bez [skip ci], np.
 # poprawkę po commicie wydania) - workflow sprawdza, że tag zgadza się
@@ -64,8 +64,13 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  testy:
-    name: Testy
+  # Testy jednostkowe nie są tu powtarzane: ten sam commit przeszedł je w CI
+  # (PR i push na main). Bramka wydania to testy end-to-end (tests/e2e) -
+  # całe ścieżki pracy w oknie programu i regresja formatów wyjścia względem
+  # plików wzorcowych - oraz szybki lint i typy dla drogi awaryjnej (tag na
+  # commicie, którego CI mogło nie sprawdzić).
+  e2e:
+    name: Testy end-to-end
     runs-on: ubuntu-22.04
     # Zawieszony test (np. zakleszczenie Qt Multimedia) nie może blokować
     # runnera przez domyślne 6 godzin.
@@ -92,26 +97,26 @@ jobs:
       - name: Mypy
         run: uv run mypy
 
-      # Testy UI działają w trybie offscreen (tests/ui/conftest.py), ale
-      # wtyczka platformy Qt i tak linkuje się z tymi bibliotekami.
-      # libpulse0: import PySide6.QtMultimedia (odtwarzacz audio).
+      # Testy działają w trybie offscreen, ale wtyczka platformy Qt i tak
+      # linkuje się z tymi bibliotekami. libpulse0: import
+      # PySide6.QtMultimedia (odtwarzacz audio).
       - name: Biblioteki systemowe Qt
         run: |
           sudo apt-get update
           sudo apt-get install --no-install-recommends -y \
             libegl1 libgl1 libxkbcommon-x11-0 libdbus-1-3 libpulse0
 
-      # Test oznaczony asr_model wymaga pobranego modelu (1.53 GB) i jest
-      # pomijany w CI. Bramka wydania wymaga wykonania go przed publikacją -
+      # Test oznaczony asr_model (tests/asr) wymaga pobranego modelu (1.53 GB)
+      # i nie jest częścią tej bramki - wydawca wykonuje go przed publikacją,
       # patrz docs/release-process.md.
-      - name: Testy jednostkowe i integracyjne
-        run: uv run pytest -m "not asr_model"
+      - name: Testy end-to-end
+        run: uv run pytest --e2e tests/e2e
         env:
           QT_QPA_PLATFORM: offscreen
 
   wersja:
     name: Wersja i tag
-    needs: testy
+    needs: e2e
     runs-on: ubuntu-22.04
     permissions:
       contents: write

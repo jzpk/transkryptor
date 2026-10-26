@@ -22,8 +22,11 @@ Wykonaj kolejno, zanim zgłosisz, że praca jest skończona:
 1. **Lint i formatowanie:** `uv run ruff check .` oraz `uv run black --check .`
    (przy błędach formatowania uruchom `uv run black .`).
 2. **Typy:** `uv run mypy`.
-3. **Testy:** `uv run pytest -q`. Wszystkie muszą przechodzić; jeśli coś
-   nie przechodzi, napraw to albo jasno zgłoś, co i dlaczego.
+3. **Testy:** `uv run pytest -q` oraz testy end-to-end
+   `uv run pytest -q --e2e tests/e2e`. Wszystkie muszą przechodzić; jeśli
+   coś nie przechodzi, napraw to albo jasno zgłoś, co i dlaczego. Gdy
+   zmiana formatu wyjścia jest zamierzona, odśwież wzorce
+   (`--update-golden`) i sprawdź ich różnicę w `git diff`.
 4. **Changelog:** dopisz zmiany widoczne dla użytkownika w sekcji
    `## Nieopublikowane` w `CHANGELOG.md` (po polsku, w stylu
    istniejących wpisów). Zmiany wyłącznie wewnętrzne (testy, CI,

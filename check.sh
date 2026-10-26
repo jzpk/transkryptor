@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 # Formatuje kod (black), a z flagami uruchamia dodatkowo lint, mypy i testy.
 #
-# Użycie: ./check.sh [-l|--lint] [-m|--mypy] [-t|--test] [-a|--all] [-h|--help]
+# Użycie: ./check.sh [-l|--lint] [-m|--mypy] [-t|--test] [-e|--e2e] [-a|--all] [-h|--help]
 #
 # Wszystkie wybrane kroki są wykonywane nawet po niepowodzeniu wcześniejszego;
 # kod wyjścia jest niezerowy, jeśli którykolwiek krok się nie powiódł.
@@ -17,6 +17,7 @@ Zawsze formatuje kod (uv run black .). Dodatkowo:
   -l, --lint    lint (uv run ruff check .)
   -m, --mypy    sprawdzanie typów (uv run mypy)
   -t, --test    testy (uv run pytest -q)
+  -e, --e2e     testy end-to-end (uv run pytest -q --e2e tests/e2e)
   -a, --all     wszystkie powyższe
   -h, --help    ta pomoc
 EOF
@@ -25,13 +26,15 @@ EOF
 lint=0
 mypy=0
 test=0
+e2e=0
 
 for arg in "$@"; do
     case "$arg" in
         -l | --lint) lint=1 ;;
         -m | --mypy) mypy=1 ;;
         -t | --test) test=1 ;;
-        -a | --all) lint=1 mypy=1 test=1 ;;
+        -e | --e2e) e2e=1 ;;
+        -a | --all) lint=1 mypy=1 test=1 e2e=1 ;;
         -h | --help)
             usage
             exit 0
@@ -59,6 +62,7 @@ step format uv run black .
 [ "$lint" -eq 1 ] && step lint uv run ruff check .
 [ "$mypy" -eq 1 ] && step mypy uv run mypy
 [ "$test" -eq 1 ] && step test uv run pytest -q
+[ "$e2e" -eq 1 ] && step e2e uv run pytest -q --e2e tests/e2e
 
 if [ -n "$failed" ]; then
     echo "Niepowodzenie:$failed" >&2

@@ -1,0 +1,148 @@
+{
+ "anchors": [
+  {
+   "end": 21,
+   "end_ms": 1800,
+   "source": "segment",
+   "start": 0,
+   "start_ms": 0
+  },
+  {
+   "end": 86,
+   "end_ms": 6200,
+   "source": "segment",
+   "start": 22,
+   "start_ms": 1900
+  },
+  {
+   "end": 94,
+   "end_ms": 7100,
+   "source": "segment",
+   "start": 87,
+   "start_ms": 6300
+  },
+  {
+   "end": 99,
+   "end_ms": 7600,
+   "probability": 0.42,
+   "source": "word",
+   "start": 95,
+   "start_ms": 7200
+  }
+ ],
+ "asr": {
+  "language": "pl",
+  "model": "large-v3",
+  "segments": [
+   {
+    "confidence": 0.91,
+    "end_s": 1.8,
+    "speaker": 0,
+    "start_s": 0.0,
+    "text": "Jak tu było za młodu?",
+    "words": [
+     {
+      "end_s": 0.3,
+      "probability": 0.95,
+      "start_s": 0.0,
+      "text": "Jak"
+     },
+     {
+      "end_s": 0.5,
+      "probability": 0.9,
+      "start_s": 0.3,
+      "text": "tu"
+     }
+    ]
+   },
+   {
+    "confidence": 0.72,
+    "end_s": 6.2,
+    "speaker": 1,
+    "start_s": 1.9,
+    "text": "No to tak od tego czasu są tu"
+   }
+  ],
+  "text": "Jak tu było za młodu? No to tak od tego czasu są tu"
+ },
+ "asr_context": {
+  "prompt": "",
+  "vocabulary": []
+ },
+ "audio": {
+  "absolute_path": "<repo>/tests/fixtures/audio/sample.mp3",
+  "relative_path": "<rel>",
+  "sha256": "1b194c8acb11ec92f2c1ee5798f2af35ae35d82843e6cbca4808c305312b5d4e"
+ },
+ "comments": [],
+ "document": {
+  "author": "Anna Nowak",
+  "date": "2026-10-08",
+  "metadata": {
+   "district": "wałecki",
+   "place": "Ocieszyn",
+   "signature": "WP-0042"
+  },
+  "paragraph_speakers": [
+   [
+    0,
+    "B"
+   ],
+   [
+    1,
+    "I"
+   ],
+   [
+    2,
+    "S"
+   ],
+   [
+    3,
+    "I"
+   ]
+  ],
+  "speakers": [
+   {
+    "key": "B",
+    "label": "",
+    "role": "researcher"
+   },
+   {
+    "key": "I",
+    "label": "Janina K.",
+    "role": "informant"
+   },
+   {
+    "key": "S",
+    "label": "sąsiadka",
+    "role": "other"
+   }
+  ],
+  "superscript_ranges": [
+   [
+    35,
+    36
+   ],
+   [
+    52,
+    53
+   ],
+   [
+    60,
+    61
+   ]
+  ],
+  "text": "Jak tu było za młodu?\nNo to tak... uod tego czasu som tu, bendzie z pińćdziesiont lat.\nA brat?\nBrat poszed do miasta."
+ },
+ "exported": true,
+ "ignored_warnings": [],
+ "player": {
+  "loop_a_ms": 1000,
+  "loop_active": true,
+  "loop_b_ms": 3000,
+  "position_ms": 1500
+ },
+ "review": [],
+ "schema_version": 6,
+ "verified": []
+}

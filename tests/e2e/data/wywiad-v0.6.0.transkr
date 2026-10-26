@@ -1,0 +1,146 @@
+{
+ "schema_version": 5,
+ "document": {
+  "text": "Jak tu było za młodu?\nNo to tak... uod tego czasu som tu, bendzie z pińćdziesiont lat.\nA brat?\nBrat poszed do miasta.",
+  "superscript_ranges": [
+   [
+    35,
+    36
+   ],
+   [
+    52,
+    53
+   ],
+   [
+    60,
+    61
+   ]
+  ],
+  "author": "Anna Nowak",
+  "date": "2026-10-08",
+  "metadata": {
+   "signature": "WP-0042",
+   "place": "Ocieszyn",
+   "district": "wałecki"
+  },
+  "speakers": [
+   {
+    "key": "B",
+    "label": "",
+    "role": "researcher"
+   },
+   {
+    "key": "I",
+    "label": "Janina K.",
+    "role": "informant"
+   },
+   {
+    "key": "S",
+    "label": "sąsiadka",
+    "role": "other"
+   }
+  ],
+  "paragraph_speakers": [
+   [
+    0,
+    "B"
+   ],
+   [
+    1,
+    "I"
+   ],
+   [
+    2,
+    "S"
+   ],
+   [
+    3,
+    "I"
+   ]
+  ]
+ },
+ "exported": true,
+ "audio": {
+  "relative_path": "../../../../../../home/user/transkryptor/tests/fixtures/audio/sample.mp3",
+  "absolute_path": "/home/user/transkryptor/tests/fixtures/audio/sample.mp3",
+  "sha256": "1b194c8acb11ec92f2c1ee5798f2af35ae35d82843e6cbca4808c305312b5d4e"
+ },
+ "player": {
+  "position_ms": 1500,
+  "loop_a_ms": 1000,
+  "loop_b_ms": 3000,
+  "loop_active": true
+ },
+ "asr": {
+  "text": "Jak tu było za młodu? No to tak od tego czasu są tu",
+  "language": "pl",
+  "model": "large-v3",
+  "segments": [
+   {
+    "start_s": 0.0,
+    "end_s": 1.8,
+    "text": "Jak tu było za młodu?",
+    "confidence": 0.91,
+    "words": [
+     {
+      "start_s": 0.0,
+      "end_s": 0.3,
+      "text": "Jak",
+      "probability": 0.95
+     },
+     {
+      "start_s": 0.3,
+      "end_s": 0.5,
+      "text": "tu",
+      "probability": 0.9
+     }
+    ],
+    "speaker": 0
+   },
+   {
+    "start_s": 1.9,
+    "end_s": 6.2,
+    "text": "No to tak od tego czasu są tu",
+    "confidence": 0.72,
+    "speaker": 1
+   }
+  ]
+ },
+ "review": [],
+ "asr_context": {
+  "prompt": "",
+  "vocabulary": []
+ },
+ "ignored_warnings": [],
+ "anchors": [
+  {
+   "start": 0,
+   "end": 21,
+   "start_ms": 0,
+   "end_ms": 1800,
+   "source": "segment"
+  },
+  {
+   "start": 22,
+   "end": 86,
+   "start_ms": 1900,
+   "end_ms": 6200,
+   "source": "segment"
+  },
+  {
+   "start": 87,
+   "end": 94,
+   "start_ms": 6300,
+   "end_ms": 7100,
+   "source": "segment"
+  },
+  {
+   "start": 95,
+   "end": 99,
+   "start_ms": 7200,
+   "end_ms": 7600,
+   "source": "word",
+   "probability": 0.42
+  }
+ ]
+}

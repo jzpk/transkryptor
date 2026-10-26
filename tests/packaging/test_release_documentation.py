@@ -234,3 +234,16 @@ def test_checkouts_do_not_persist_tokens_outside_the_release_push() -> None:
             assert (
                 "persist-credentials: false" in step
             ), f"{workflow.name}: {match.group(1)}"
+
+
+def test_release_runs_only_end_to_end_tests_and_ci_only_unit_tests() -> None:
+    """Testy jednostkowe biegną w CI, a bramka wydania to testy e2e."""
+    release = WORKFLOW.read_text(encoding="utf-8")
+    gate = _job(release, "e2e")
+    assert "uv run pytest --e2e tests/e2e" in gate
+    assert release.count("pytest") == 1
+    assert "needs: e2e" in _job(release, "wersja")
+
+    ci = (WORKFLOW.parent / "ci.yml").read_text(encoding="utf-8")
+    assert "uv run pytest" in ci
+    assert "--e2e" not in ci

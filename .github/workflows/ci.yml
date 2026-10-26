@@ -5,9 +5,10 @@
 # bo nowe podatności pojawiają się niezależnie od kodu. Bezpośredni push na
 # main jest sprawdzany w całości.
 #
-# Workflow wydania (release.yml) powtarza te same kontrole przed budowaniem
-# artefaktów - tag nie ominie bramki. Akcje są przypięte do SHA commitów
-# (aktualizuje je Dependabot, .github/dependabot.yml).
+# Testy end-to-end (tests/e2e) nie biegną tutaj - zwykły pytest je pomija,
+# a uruchamia je workflow wydania (release.yml) zamiast testów jednostkowych.
+# Akcje są przypięte do SHA commitów (aktualizuje je Dependabot,
+# .github/dependabot.yml).
 name: CI
 
 on:

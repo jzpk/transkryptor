@@ -66,7 +66,8 @@ testpaths = ["tests"]
 # na runnerze CI) i wywraca interpreter (segfault). Komunikaty Qt trafiają
 # wtedy na stderr, który pytest i tak przechwytuje.
 addopts = "--no-qt-log"
-pythonpath = ["src"]
+# "." - testy e2e biorą fikstury z tests/ui/conftest.py (import tests.ui...).
+pythonpath = ["src", "."]
 markers = [
     "asr_model: wymaga pobranego modelu ASR; pomijany, gdy modelu nie ma (ACC-11)",
 ]

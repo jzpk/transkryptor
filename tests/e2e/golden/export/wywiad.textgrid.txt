@@ -1,0 +1,66 @@
+File type = "ooTextFile"
+Object class = "TextGrid"
+
+xmin = 0 
+xmax = 8.595 
+tiers? <exists> 
+size = 3 
+item []: 
+    item [1]:
+        class = "IntervalTier" 
+        name = "B" 
+        xmin = 0 
+        xmax = 8.595 
+        intervals: size = 2 
+        intervals [1]:
+            xmin = 0 
+            xmax = 1.8 
+            text = "Jak tu było za młodu?" 
+        intervals [2]:
+            xmin = 1.8 
+            xmax = 8.595 
+            text = "" 
+    item [2]:
+        class = "IntervalTier" 
+        name = "I" 
+        xmin = 0 
+        xmax = 8.595 
+        intervals: size = 4 
+        intervals [1]:
+            xmin = 0 
+            xmax = 1.9 
+            text = "" 
+        intervals [2]:
+            xmin = 1.9 
+            xmax = 6.2 
+            text = "No to tak... ᵘod tego czasu soᵐ tu, beⁿdzie z pińćdziesiont lat." 
+        intervals [3]:
+            xmin = 6.2 
+            xmax = 7.165 
+            text = "" 
+        intervals [4]:
+            xmin = 7.165 
+            xmax = 8.595 
+            text = "Brat poszed do miasta." 
+    item [3]:
+        class = "IntervalTier" 
+        name = "S" 
+        xmin = 0 
+        xmax = 8.595 
+        intervals: size = 3 
+        intervals [1]:
+            xmin = 0 
+            xmax = 6.3 
+            text = "" 
+        intervals [2]:
+            xmin = 6.3 
+            xmax = 7.1 
+            text = "A brat?" 
+        intervals [3]:
+            xmin = 7.1 
+            xmax = 8.595 
+            text = "" 
+
+=== raport ===
+Czas wyznaczony z sąsiednich kotwic (1):
+• 00:07 „Brat poszed do miasta.”

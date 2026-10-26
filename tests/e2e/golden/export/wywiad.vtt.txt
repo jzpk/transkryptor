@@ -1,0 +1,19 @@
+WEBVTT
+
+NOTE WP-0042
+
+00:00:00.000 --> 00:00:01.800
+<v B>Jak tu było za młodu?
+
+00:00:01.900 --> 00:00:06.200
+<v I>No to tak... ᵘod tego czasu soᵐ tu, beⁿdzie z pińćdziesiont lat.
+
+00:00:06.300 --> 00:00:07.100
+<v S>A brat?
+
+00:00:07.165 --> 00:00:08.595
+<v I>Brat poszed do miasta.
+
+=== raport ===
+Czas wyznaczony z sąsiednich kotwic (1):
+• 00:07 „Brat poszed do miasta.”
