@@ -21,3 +21,13 @@ updates:
     groups:
       zaleznosci:
         patterns: ["*"]
+    ignore:
+      # PyAV 19 usunął argument metadata_errors, którego używa faster-whisper
+      # (patrz komentarz przy "av" w pyproject.toml). Zdjąć po aktualizacji
+      # faster-whisper, gdy przejdzie TestAudioDecodingContract.
+      - dependency-name: av
+        versions: [">=19"]
+      # sherpa-onnx i sherpa-onnx-core muszą mieć tę samą wersję, a Dependabot
+      # podbija je osobno - aktualizujemy je ręcznie, razem.
+      - dependency-name: sherpa-onnx
+      - dependency-name: sherpa-onnx-core
