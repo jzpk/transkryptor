@@ -10,6 +10,7 @@ ustawień (``RulesStore``).
 from __future__ import annotations
 
 import html
+from dataclasses import replace
 from pathlib import Path
 
 from PySide6.QtCore import Qt
@@ -36,6 +37,7 @@ from PySide6.QtWidgets import (
 from transkryptor.document.project import write_atomic
 from transkryptor.errors import AppError
 from transkryptor.i18n import tr
+from transkryptor.notation.learning import free_code
 from transkryptor.notation.rules import (
     ANY_LANGUAGE,
     SCOPE_PAIR,
@@ -210,19 +212,25 @@ class RulesEditor(QWidget):
 
     def add_rule(self) -> None:
         """Nowa reguła użytkownika z wolnym kodem ``USR-n``."""
-        taken = self._taken_codes()
-        number = 1
-        while f"{USER_PREFIX}{number}" in taken:
-            number += 1
         self._user.append(
             PhoneticRule(
-                code=f"{USER_PREFIX}{number}",
+                code=free_code(self._taken_codes()),
                 label={ANY_LANGUAGE: tr("settings.rules.new_label")},
                 pattern="",
                 replacement="",
                 confidence=DEFAULT_CONFIDENCE,
             )
         )
+        self._refresh_list()
+        self.select_user_rule(len(self._user) - 1)
+        self.pattern_edit.setFocus()
+
+    def add_proposed_rule(self, rule: PhoneticRule) -> None:
+        """Dopisuje gotową regułę (np. z poprawek) z wolnym kodem i ją zaznacza."""
+        taken = self._taken_codes()
+        if rule.code in taken:
+            rule = replace(rule, code=free_code(taken))
+        self._user.append(rule)
         self._refresh_list()
         self.select_user_rule(len(self._user) - 1)
         self.pattern_edit.setFocus()

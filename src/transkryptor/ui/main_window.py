@@ -51,6 +51,7 @@ from transkryptor.errors import AppError
 from transkryptor.feedback import report_form_url
 from transkryptor.i18n import tr
 from transkryptor.notation.ellipsis import EllipsisStyle
+from transkryptor.notation.rules import PhoneticRule
 from transkryptor.notation.suggestions import rule_infos
 from transkryptor.settings import ExportSettings, Settings
 from transkryptor.ui import icons
@@ -74,6 +75,7 @@ from transkryptor.ui.layout import (
     side_dock,
     words_label,
 )
+from transkryptor.ui.learning_controller import RuleLearningController
 from transkryptor.ui.loading_overlay import LoadingOverlay
 from transkryptor.ui.markers import marker_text
 from transkryptor.ui.messages import show_error
@@ -321,6 +323,14 @@ class MainWindow(QMainWindow):
             lambda: self.settings_store.current.export.readiness_check,
             self._set_readiness_check,
         )
+        self.learning = RuleLearningController(
+            self.editor,
+            self.sync,
+            lambda: self.document,
+            lambda: self.rules_store.rules,
+            self._on_learned_rule,
+            self,
+        )
         self._sync_timer = QTimer(self)
         self._sync_timer.setSingleShot(True)
         self._sync_timer.setInterval(SYNC_DEBOUNCE_MS)
@@ -526,6 +536,8 @@ class MainWindow(QMainWindow):
         )
         self.report_button.clicked.connect(self._on_report)
         status.addWidget(self.report_button)
+        # Propozycja reguły z powtarzalnych poprawek szkicu (ukryta bez niej).
+        status.addPermanentWidget(self.learning.button)
         self.export_status_label = QLabel()
         status.addPermanentWidget(self.export_status_label)
 
@@ -550,6 +562,7 @@ class MainWindow(QMainWindow):
         self.rules_store.rules_changed.connect(
             lambda: self.asr_panel.set_rules(rule_infos(self.rules_store.rules))
         )
+        self.rules_store.rules_changed.connect(self.learning.refresh)
         app = QApplication.instance()
         if isinstance(app, QApplication):
             # Motyw „zgodny z systemem” podąża za przełączeniem trybu systemu.
@@ -597,6 +610,13 @@ class MainWindow(QMainWindow):
             document_text=self.editor.plain_text(),
             model_manager=self.asr_panel.manager,
         )
+
+    def _on_learned_rule(self, rule: PhoneticRule) -> None:
+        """Ustawienia na zakładce reguł z regułą zaproponowaną z poprawek."""
+        dialog = self.create_settings_dialog()
+        dialog.open_rules_with(rule)
+        if dialog.exec() == SettingsDialog.DialogCode.Accepted:
+            self.accept_settings_dialog(dialog)
 
     def accept_settings_dialog(self, dialog: SettingsDialog) -> None:
         """Zapisuje ustawienia i - gdy się zmieniły - reguły użytkownika."""
@@ -987,6 +1007,7 @@ class MainWindow(QMainWindow):
         self.speakers.set_locked(locked)
         self.verification.set_locked(locked)
         self.corpus.set_locked(locked)
+        self.learning.set_locked(locked)
 
     # --- stan --------------------------------------------------------------
 

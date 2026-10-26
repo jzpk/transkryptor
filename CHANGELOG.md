@@ -22,6 +22,14 @@ Pusta sekcja blokuje wydanie.
   komentarzy ułatwiają cykl z weryfikatorem. Rozwiązany komentarz zostaje
   w projekcie i w eksporcie DOCX, ale jego fragment nie ma tła, a skróty
   „następny/poprzedni komentarz” prowadzą tylko po otwartych.
+- **Reguły fonetyczne z poprawek:** gdy w szkicu ASR kilka razy (domyślnie
+  3) poprawisz ten sam wzorzec - np. „e” na „y” albo dopiszesz „n”
+  w indeksie górnym - w pasku stanu pojawi się **Propozycja reguły**
+  z liczbą poprawek. Kliknięcie otwiera zakładkę **Reguły fonetyczne**
+  w ustawieniach z gotową regułą (wzorzec, zamiennik z indeksem górnym,
+  przykład), którą można sprawdzić w podglądzie, poprawić i zapisać. Gdy
+  wszystkie poprawki mają tę samą literę obok zmiany, wzorzec ją uwzględnia.
+  Menu przycisku pozwala odrzucić propozycję do końca pracy programu.
 
 ## 0.7.0 - 2026-10-26
 
