@@ -603,6 +603,8 @@
   "settings.asr.vocabulary.hint": "Proper names and dialect words used across all recordings; passed to the model together with the project vocabulary.",
   "changelog.button": "What's new · version {version}",
   "changelog.button.tooltip": "Change history: what changed in each version of the application",
+  "report.button": "Report a problem or idea",
+  "report.button.tooltip": "Opens the report form on the program's website in your browser - no GitHub account needed",
   "changelog.title": "What's new",
   "changelog.header": "Change history - installed version {version}",
   "changelog.unreleased": "Upcoming changes (development version)",

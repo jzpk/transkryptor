@@ -5,7 +5,7 @@ wywoływany z „Wydania”), więc przyciski pobierania wskazują pliki najnows
 wydania, a historia zmian obejmuje tylko wydane wersje - sekcja
 „Nieopublikowane” nie trafia na stronę. Opis i wygląd są w katalogu
 ``pages/`` (szablony ``index.html``, ``faq.html``, ``autor.html`` i ``404.html``
-z polami ``${...}``, arkusz stylów, skrypt strony, zrzuty ekranu, zdjęcie autora
+z polami ``${...}``, formularz zgłoszeń ``zglos.html``, arkusz stylów, skrypt strony, zrzuty ekranu, zdjęcie autora
 i ikony); wymagania i nazwy plików pochodzą z ``packaging.metadata``,
 tak jak w notach wydania. Dla wyszukiwarek generator dodaje ``sitemap.xml``,
 ``robots.txt`` i dane strukturalne schema.org (JSON-LD) w nagłówkach stron.
@@ -19,6 +19,7 @@ import argparse
 import html
 import json
 import math
+import os
 import random
 import re
 import shutil
@@ -27,6 +28,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from string import Template
 
+from transkryptor.feedback import REPORT_PAGE, SITE_URL
 from transkryptor.packaging.changelog import (
     _HEADING,
     CHANGELOG_FILE,
@@ -49,14 +51,17 @@ from transkryptor.update.releases import GITHUB_REPO
 
 AUTHOR_NAME = "Jeremiasz Pauszek"
 LINKEDIN_URL = "https://www.linkedin.com/in/jeremiasz-pauszek-55a744213"
-# Adres strony bez końcowego ukośnika: adresy kanoniczne i podglądy linków
-# (Open Graph) muszą być bezwzględne.
-SITE_URL = "https://transkryptorapp.pl"
+# Formularz zgłoszeń wysyła dane do Workera Cloudflare (katalog zgloszenia/),
+# a ten zakłada issue na GitHubie. Adres Workera i publiczny klucz Turnstile
+# (ochrona przed botami) podaje workflow „Strona” ze zmiennych repozytorium;
+# bez nich formularz odsyła do zgłoszeń na GitHubie.
+REPORT_ENDPOINT_ENV = "TRANSKRYPTOR_REPORT_ENDPOINT"
+TURNSTILE_SITE_KEY_ENV = "TRANSKRYPTOR_TURNSTILE_SITE_KEY"
 
 PAGES_DIR = REPO_ROOT / "pages"
 TEMPLATE_FILE = "index.html"
 # Strony z polami ${...}; pierwsza to strona główna.
-TEMPLATE_FILES = (TEMPLATE_FILE, "faq.html", "autor.html", "404.html")
+TEMPLATE_FILES = (TEMPLATE_FILE, "faq.html", "autor.html", REPORT_PAGE, "404.html")
 # Strony w mapie strony; 404.html ma noindex.
 INDEXED_FILES = tuple(name for name in TEMPLATE_FILES if name != "404.html")
 SITEMAP_FILE = "sitemap.xml"
@@ -267,7 +272,12 @@ def background_letters(
     return layer, "\n".join(keyframes)
 
 
-def page_fields(releases: list[Release], repo: str) -> dict[str, str]:
+def page_fields(
+    releases: list[Release],
+    repo: str,
+    report_endpoint: str = "",
+    turnstile_site_key: str = "",
+) -> dict[str, str]:
     """Wartości pól szablonu dla najnowszego wydania."""
     if not releases:
         raise SiteError(f"{CHANGELOG_FILE.name} nie ma żadnej wydanej wersji.")
@@ -291,6 +301,8 @@ def page_fields(releases: list[Release], repo: str) -> dict[str, str]:
         "releases_url": f"{repo_url}/releases",
         "release_url": f"{repo_url}/releases/tag/v{version}",
         "issues_url": f"{repo_url}/issues",
+        "report_endpoint": html.escape(report_endpoint),
+        "turnstile_site_key": html.escape(turnstile_site_key),
         "windows_url": f"{download}/{artifacts['windows'].artifact_name}",
         "windows_file": artifacts["windows"].artifact_name,
         "linux_url": f"{download}/{artifacts['linux'].artifact_name}",
@@ -431,18 +443,29 @@ def build(
     source: Path = PAGES_DIR,
     repo: str = GITHUB_REPO,
     expected_version: str | None = VERSION,
+    report_endpoint: str | None = None,
+    turnstile_site_key: str | None = None,
 ) -> Path:
     """Składa stronę w katalogu ``out`` i zwraca ścieżkę ``index.html``.
 
     ``expected_version`` pilnuje, żeby strona nie zapowiadała wersji innej niż
-    ta w kodzie (np. przy budowaniu z gałęzi bez commita wydania).
+    ta w kodzie (np. przy budowaniu z gałęzi bez commita wydania). Adres
+    Workera zgłoszeń i klucz Turnstile domyślnie pochodzą ze zmiennych
+    środowiska ``TRANSKRYPTOR_REPORT_ENDPOINT`` i
+    ``TRANSKRYPTOR_TURNSTILE_SITE_KEY``.
     """
     try:
         text = Path(changelog_file).read_text(encoding="utf-8")
     except FileNotFoundError:
         raise ChangelogError(f"Brak pliku historii zmian: {changelog_file}.") from None
     releases = released_sections(text)
-    fields = page_fields(releases, repo)
+    if report_endpoint is None:
+        report_endpoint = os.environ.get(REPORT_ENDPOINT_ENV, "").strip()
+    if turnstile_site_key is None:
+        turnstile_site_key = os.environ.get(TURNSTILE_SITE_KEY_ENV, "").strip()
+    if report_endpoint and not report_endpoint.startswith("https://"):
+        raise SiteError("Adres Workera zgłoszeń musi zaczynać się od https://.")
+    fields = page_fields(releases, repo, report_endpoint, turnstile_site_key)
     if expected_version is not None and fields["version"] != expected_version:
         raise SiteError(
             f"Najnowsza wersja w {Path(changelog_file).name} ({fields['version']}) "
@@ -503,9 +526,11 @@ __all__ = [
     "LETTER_COUNT",
     "LINKEDIN_URL",
     "PAGES_DIR",
+    "REPORT_ENDPOINT_ENV",
     "ROBOTS_FILE",
     "SITEMAP_FILE",
     "SITE_URL",
+    "TURNSTILE_SITE_KEY_ENV",
     "Release",
     "SiteError",
     "add_structured_data",

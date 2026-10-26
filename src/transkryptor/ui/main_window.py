@@ -17,8 +17,8 @@ import logging
 from dataclasses import replace
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QAction, QCloseEvent
+from PySide6.QtCore import Qt, QTimer, QUrl
+from PySide6.QtGui import QAction, QCloseEvent, QDesktopServices
 from PySide6.QtWidgets import (
     QApplication,
     QLabel,
@@ -47,6 +47,7 @@ from transkryptor.document.speakers import (
     speakers_for_clusters,
 )
 from transkryptor.errors import AppError
+from transkryptor.feedback import report_form_url
 from transkryptor.i18n import tr
 from transkryptor.notation.ellipsis import EllipsisStyle
 from transkryptor.notation.suggestions import rule_infos
@@ -498,11 +499,27 @@ class MainWindow(QMainWindow):
         )
         self.changelog_button.clicked.connect(self._on_changelog)
         status.addWidget(self.changelog_button)
+        # Obok: formularz zgłoszeń na stronie - bez konta na GitHubie.
+        self.report_button = QToolButton()
+        self.report_button.setObjectName("report_button")
+        self.report_button.setText(tr("report.button"))
+        self.report_button.setToolTip(tr("report.button.tooltip"))
+        self.report_button.setAutoRaise(True)
+        self.report_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        icons.set_icon(self.report_button, "comment", "text_muted", "text_muted")
+        self.report_button.setToolButtonStyle(
+            Qt.ToolButtonStyle.ToolButtonTextBesideIcon
+        )
+        self.report_button.clicked.connect(self._on_report)
+        status.addWidget(self.report_button)
         self.export_status_label = QLabel()
         status.addPermanentWidget(self.export_status_label)
 
     def _on_changelog(self) -> None:
         ChangelogDialog(self).exec()
+
+    def _on_report(self) -> None:
+        QDesktopServices.openUrl(QUrl(report_form_url()))
 
     def _connect_signals(self) -> None:
         self.editor.document().contentsChanged.connect(self._on_editor_changed)

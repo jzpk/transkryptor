@@ -141,6 +141,23 @@ jobs:
           tests/document tests/export tests/notation tests/update
           tests/test_i18n.py tests/test_settings_model.py tests/test_version.py
 
+  # Worker formularza zgłoszeń (zgloszenia/) - bez zależności, wystarczy
+  # Node.js z obrazu runnera.
+  worker-zgloszen:
+    name: Worker zgłoszeń
+    needs: scalony-pr
+    if: needs.scalony-pr.outputs.pominac != 'true'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Testy
+        working-directory: zgloszenia
+        run: node --test worker.test.js
+
   zaleznosci:
     name: Znane podatności zależności
     runs-on: ubuntu-22.04

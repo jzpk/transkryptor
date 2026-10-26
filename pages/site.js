@@ -10,6 +10,9 @@
 //   [data-toggle-all] rozwija albo zwija wszystkie karty w swojej sekcji.
 // - Pobieranie: karta dla systemu odwiedzającego jest wyróżniona, a główny
 //   przycisk pobierania prowadzi wprost do jej pliku.
+// - Formularz zgłoszeń (zglos.html): wysyła zgłoszenie do Workera
+//   (zgloszenia/worker.js), który zakłada issue na GitHubie. Bez adresu
+//   Workera albo bez skryptów zostaje odnośnik do zgłoszeń na GitHubie.
 (function () {
   "use strict";
 
@@ -168,6 +171,194 @@
     });
   }
 
+  var REPORT_ERRORS = {
+    invalid: "Sprawdź pola formularza i spróbuj ponownie.",
+    captcha:
+      "Nie udało się potwierdzić, że nie jesteś robotem. Spróbuj ponownie.",
+    "too-many":
+      "Za dużo zgłoszeń w krótkim czasie. Spróbuj ponownie za kilka minut.",
+  };
+  var REPORT_FAILED =
+    "Nie udało się wysłać zgłoszenia. Spróbuj ponownie za chwilę - " +
+    "wpisany tekst nie zniknie.";
+
+  // Ochrona przed botami (Cloudflare Turnstile) - skrypt ładowany tylko
+  // na stronie formularza i tylko wtedy, gdy ustawiono klucz.
+  function loadCaptcha(container, sitekey, onReady) {
+    window.transkryptorCaptcha = function () {
+      onReady(
+        window.turnstile.render(container, {
+          sitekey: sitekey,
+          language: "pl",
+          theme: root.getAttribute("data-theme") === "dark" ? "dark" : "light",
+        })
+      );
+    };
+    var script = document.createElement("script");
+    script.src =
+      "https://challenges.cloudflare.com/turnstile/v0/api.js" +
+      "?render=explicit&onload=transkryptorCaptcha";
+    script.async = true;
+    document.head.appendChild(script);
+  }
+
+  function reportForm() {
+    var form = document.querySelector("[data-report-form]");
+    var endpoint = form && form.getAttribute("data-endpoint");
+    if (!endpoint || !window.fetch) {
+      return;
+    }
+    var sitekey = form.getAttribute("data-sitekey");
+    var status = form.querySelector("[data-report-status]");
+    var submit = form.querySelector("[data-report-submit]");
+    var done = document.querySelector("[data-report-done]");
+    var captchaId = null;
+
+    document.querySelector("[data-report-fallback]").hidden = true;
+    form.hidden = false;
+
+    // Program otwiera formularz z wersją i systemem w adresie.
+    var params = new URLSearchParams(window.location.search);
+    ["wersja", "system"].forEach(function (name) {
+      var value = params.get(name);
+      if (value) {
+        var field = form.elements[name];
+        field.value = value.slice(0, field.maxLength);
+      }
+    });
+    if (params.get("rodzaj") === "pomysl") {
+      form.elements.rodzaj.value = "pomysl";
+    }
+
+    function showHints() {
+      var kind = form.elements.rodzaj.value;
+      each("[data-hint-for]", function (hint) {
+        hint.hidden = hint.getAttribute("data-hint-for") !== kind;
+      });
+    }
+    each('input[name="rodzaj"]', function (radio) {
+      radio.addEventListener("change", showHints);
+    });
+    showHints();
+
+    if (sitekey) {
+      var captcha = form.querySelector("[data-report-captcha]");
+      loadCaptcha(captcha, sitekey, function (id) {
+        captchaId = id;
+      });
+    }
+
+    function say(text, isError) {
+      status.textContent = text;
+      status.classList.toggle("error", Boolean(isError));
+    }
+
+    // Zwraca pierwsze błędne pole albo null.
+    function validate() {
+      var invalid = null;
+      ["tytul", "opis", "email"].forEach(function (name) {
+        var field = form.elements[name];
+        field.value = field.value.trim();
+        var ok = field.checkValidity();
+        field.setAttribute("aria-invalid", ok ? "false" : "true");
+        if (!ok && !invalid) {
+          invalid = field;
+        }
+      });
+      return invalid;
+    }
+
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      var invalid = validate();
+      if (invalid) {
+        say(
+          invalid.name === "email"
+            ? "Adres e-mail wygląda na niepoprawny - popraw go albo zostaw pole puste."
+            : "Uzupełnij tytuł (co najmniej 5 znaków) i opis (co najmniej 10 znaków).",
+          true
+        );
+        invalid.focus();
+        return;
+      }
+      var token = "";
+      if (sitekey) {
+        if (window.turnstile && captchaId !== null) {
+          token = window.turnstile.getResponse(captchaId) || "";
+        }
+        if (!token) {
+          say(
+            "Poczekaj chwilę, aż zakończy się sprawdzanie, czy nie jesteś robotem.",
+            true
+          );
+          return;
+        }
+      }
+      var elements = form.elements;
+      var payload = {
+        kind: elements.rodzaj.value === "pomysl" ? "idea" : "bug",
+        title: elements.tytul.value,
+        description: elements.opis.value,
+        email: elements.email.value,
+        version: elements.wersja.value.trim(),
+        system: elements.system.value.trim(),
+        website: elements.strona.value,
+        token: token,
+      };
+      submit.disabled = true;
+      say("Wysyłanie...", false);
+      fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+        .then(function (response) {
+          return response
+            .json()
+            .catch(function () {
+              return {};
+            })
+            .then(function (data) {
+              if (!response.ok) {
+                throw { userMessage: REPORT_ERRORS[data.error] || REPORT_FAILED };
+              }
+              return data;
+            });
+        })
+        .then(function (data) {
+          say("", false);
+          form.hidden = true;
+          var number = done.querySelector("[data-report-number]");
+          number.textContent = data.number ? " (nr " + data.number + ")" : "";
+          if (data.url) {
+            done.querySelector("[data-report-link]").href = data.url;
+          }
+          done.hidden = false;
+          done.focus();
+        })
+        .catch(function (error) {
+          // Błąd sieci (TypeError) ma komunikat przeglądarki po angielsku.
+          say((error && error.userMessage) || REPORT_FAILED, true);
+        })
+        .then(function () {
+          submit.disabled = false;
+          // Token Turnstile jest jednorazowy.
+          if (window.turnstile && captchaId !== null) {
+            window.turnstile.reset(captchaId);
+          }
+        });
+    });
+
+    done.querySelector("[data-report-again]").addEventListener("click", function () {
+      ["tytul", "opis"].forEach(function (name) {
+        form.elements[name].value = "";
+      });
+      done.hidden = true;
+      form.hidden = false;
+      form.elements.tytul.focus();
+    });
+  }
+
   document.addEventListener("DOMContentLoaded", function () {
     each(".theme-toggle", function (button) {
       button.hidden = false;
@@ -215,6 +406,7 @@
     });
 
     highlightDownload();
+    reportForm();
     openFromHash();
   });
 })();

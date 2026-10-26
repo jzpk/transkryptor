@@ -338,3 +338,70 @@ def test_structured_data_cannot_close_its_script_tag() -> None:
     assert page.count("</script>") == 1
     (data,) = _json_ld(page)
     assert data == {"text": "</script><b>"}
+
+
+def test_report_form_gets_the_worker_address_and_captcha_key(
+    changelog_file, tmp_path
+) -> None:
+    out = tmp_path / "site"
+    site.build(
+        out,
+        changelog_file,
+        repo="owner/repo",
+        expected_version="0.2.4",
+        report_endpoint="https://zgloszenia.example.workers.dev",
+        turnstile_site_key="0x4AAA&key",
+    )
+
+    page = (out / "zglos.html").read_text(encoding="utf-8")
+    assert 'data-endpoint="https://zgloszenia.example.workers.dev"' in page
+    assert 'data-sitekey="0x4AAA&amp;key"' in page
+    # Bez skryptu albo bez Workera zostaje odnośnik do GitHuba.
+    assert 'href="https://github.com/owner/repo/issues"' in page
+    assert "zglos.html" in (out / site.SITEMAP_FILE).read_text(encoding="utf-8")
+
+
+def test_report_form_configuration_comes_from_the_environment(
+    changelog_file, tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setenv(site.REPORT_ENDPOINT_ENV, " https://worker.example ")
+    monkeypatch.setenv(site.TURNSTILE_SITE_KEY_ENV, "klucz")
+    out = tmp_path / "site"
+    site.build(out, changelog_file, repo="owner/repo", expected_version="0.2.4")
+
+    page = (out / "zglos.html").read_text(encoding="utf-8")
+    assert 'data-endpoint="https://worker.example"' in page
+    assert 'data-sitekey="klucz"' in page
+
+
+def test_report_form_without_worker_has_an_empty_endpoint(
+    changelog_file, tmp_path, monkeypatch
+) -> None:
+    monkeypatch.delenv(site.REPORT_ENDPOINT_ENV, raising=False)
+    monkeypatch.delenv(site.TURNSTILE_SITE_KEY_ENV, raising=False)
+    out = tmp_path / "site"
+    site.build(out, changelog_file, repo="owner/repo", expected_version="0.2.4")
+
+    assert 'data-endpoint=""' in (out / "zglos.html").read_text(encoding="utf-8")
+
+
+def test_report_form_refuses_an_insecure_worker_address(
+    changelog_file, tmp_path
+) -> None:
+    with pytest.raises(SiteError, match="https://"):
+        site.build(
+            tmp_path / "site",
+            changelog_file,
+            repo="owner/repo",
+            expected_version="0.2.4",
+            report_endpoint="http://worker.example",
+        )
+
+
+def test_every_page_footer_links_the_report_form(changelog_file, tmp_path) -> None:
+    out = tmp_path / "site"
+    site.build(out, changelog_file, repo="owner/repo", expected_version="0.2.4")
+
+    for name in site.TEMPLATE_FILES:
+        page = (out / name).read_text(encoding="utf-8")
+        assert re.search(r'<a href="/?zglos.html">Zgłoś problem lub pomysł</a>', page)

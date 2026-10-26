@@ -1,0 +1,29 @@
+# Konfiguracja Workera zgłoszeń (Cloudflare). Wdrożenie: npx wrangler deploy.
+name = "transkryptor-zgloszenia"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+
+[vars]
+# Repozytorium, w którym powstają zgłoszenia.
+GITHUB_REPO = "jzpk/transkryptor"
+# Strony, z których formularz może wysyłać zgłoszenia (po przecinku).
+ALLOWED_ORIGINS = "https://transkryptorapp.pl,https://www.transkryptorapp.pl"
+
+# Sekrety (NIE wpisuj ich tutaj) ustawiasz poleceniem:
+#   npx wrangler secret put GITHUB_TOKEN
+#   npx wrangler secret put TURNSTILE_SECRET
+
+# Prywatne adresy e-mail do odpowiedzi. Identyfikator wypisze polecenie
+#   npx wrangler kv namespace create CONTACTS
+[[kv_namespaces]]
+binding = "CONTACTS"
+id = "WSTAW_ID_Z_POLECENIA_POWYZEJ"
+
+# Najwyżej 3 zgłoszenia na minutę z jednego adresu IP.
+[[ratelimits]]
+name = "REPORT_LIMITER"
+namespace_id = "1001"
+
+  [ratelimits.simple]
+  limit = 3
+  period = 60
