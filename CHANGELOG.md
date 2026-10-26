@@ -7,6 +7,37 @@ Pusta sekcja blokuje wydanie.
 
 ## Nieopublikowane
 
+- Menu **Dźwięk** w karcie odtwarzacza: suwak głośności oraz filtry
+  odsłuchu - **Wzmocnij ciche fragmenty** (wyrównuje głośność mowy, np.
+  cichego informatora daleko od mikrofonu), **Tłum szum niskich tonów**
+  (dudnienie, wiatr, brum sieci) i wybór kanału nagrania stereo (oba, tylko
+  lewy, tylko prawy - np. osobne mikrofony badacza i informatora). Filtry
+  działają na kopii nagrania przygotowywanej w tle (postęp obok przycisku);
+  do tego czasu gra oryginał, a po podmianie odtwarzanie trwa dalej z tego
+  samego miejsca. Kopia jest zapisywana w pamięci podręcznej (bezstratny
+  FLAC, zostają 3 ostatnio używane), więc przy kolejnym otwarciu działa od
+  razu. Plik nagrania się nie zmienia, a szkic ASR i fala dźwiękowa
+  korzystają z oryginału. Głośność i filtry są pamiętane.
+- Przejścia „od problemu do problemu”: **F8** / **Shift+F8** zaznacza
+  następne / poprzednie niepewne słowo szkicu ASR i od razu odtwarza je
+  w pętli (do pauzy), a pasek stanu pokazuje, które to słowo z ilu i jego
+  pewność. **F7** / **Shift+F7** przechodzi do następnego / poprzedniego
+  komentarza recenzji (fragment w tekście i komentarz w panelu). Po
+  ostatnim miejscu wyszukiwanie wraca na początek tekstu. Skróty można
+  zmienić w zakładce **Skróty**.
+- Postęp weryfikacji nagrania: przycisk **Sprawdzono N%** w karcie
+  odtwarzacza pokazuje, jaka część nagrania jest już sprawdzona.
+  **F9** („Oznacz jako sprawdzone do bieżącego miejsca”) oznacza nagranie
+  od końca poprzedniego sprawdzonego fragmentu do pozycji odtwarzania,
+  a **Shift+F9** („Przejdź do niesprawdzonego miejsca”) przewija nagranie
+  i ustawia kursor w tekście tam, gdzie skończyła się weryfikacja - także
+  po ponownym otwarciu projektu. Zaznaczony tekst powiązany z nagraniem
+  można oznaczyć jako sprawdzony albo niesprawdzony z menu kontekstowego.
+  Sprawdzone fragmenty są widoczne na fali dźwiękowej (zielony pasek u góry
+  i tło). Postęp jest zapisywany w pliku projektu; zmiana nagrania go
+  usuwa (program wcześniej pyta).
+- Zapisanie okna **Ustawienia…** nie kasuje już zapamiętanego podpisu
+  komentarzy recenzji.
 - Bezpieczniejsza aktualizacja na Windows: pobrany instalator jest
   blokowany przed zapisem i usunięciem od chwili sprawdzenia podpisu aż do
   zamknięcia programu, więc między weryfikacją a uruchomieniem (także

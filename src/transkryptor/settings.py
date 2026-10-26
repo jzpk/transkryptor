@@ -19,6 +19,7 @@ from typing import Any
 
 from transkryptor.asr.engine import DEVICES
 from transkryptor.asr.models import DEFAULT_MODEL, MODELS
+from transkryptor.audio.processing import CHANNEL_BOTH, CHANNELS, AudioFilters
 from transkryptor.document.metadata import (
     DEFAULT_FIELDS,
     MetadataField,
@@ -47,6 +48,19 @@ class PlayerSettings:
     follow_playback: bool = True
     # Fala dźwiękowa rozwinięta pod suwakiem (zapamiętane zwinięcie).
     waveform_visible: bool = True
+    # Menu „Dźwięk” odtwarzacza: głośność (%) i filtry odsłuchu.
+    volume_pct: int = 100
+    normalize_audio: bool = False
+    audio_channel: str = CHANNEL_BOTH
+    highpass_filter: bool = False
+
+    @property
+    def audio_filters(self) -> AudioFilters:
+        return AudioFilters(
+            normalize=self.normalize_audio,
+            channel=self.audio_channel,
+            highpass=self.highpass_filter,
+        )
 
 
 THEME_SYSTEM = "system"
@@ -339,6 +353,7 @@ class _Field:
 SKIP_RANGE_MS = (500, 30_000)
 AUTO_REWIND_RANGE_MS = (0, 10_000)
 SEGMENT_PREROLL_RANGE_MS = (0, 5_000)
+VOLUME_RANGE_PCT = (0, 100)
 FONT_SIZE_RANGE_PT = (6, 48)  # 0 = domyślny, poza zakresem
 AUTOSAVE_INTERVAL_RANGE_S = (30, 600)
 WORD_THRESHOLD_RANGE_PCT = (5, 95)
@@ -353,6 +368,10 @@ _FIELDS: tuple[_Field, ...] = (
     _Field("player", "segment_preroll_ms", int, *SEGMENT_PREROLL_RANGE_MS),
     _Field("player", "follow_playback", bool),
     _Field("player", "waveform_visible", bool),
+    _Field("player", "volume_pct", int, *VOLUME_RANGE_PCT),
+    _Field("player", "normalize_audio", bool),
+    _Field("player", "audio_channel", str, choices=CHANNELS),
+    _Field("player", "highpass_filter", bool),
     _Field("editor", "font_family", str),
     _Field("editor", "font_size_pt", int, *FONT_SIZE_RANGE_PT),
     _Field("editor", "autocomplete", bool),

@@ -120,6 +120,16 @@ def isolated_waveform_cache(monkeypatch, tmp_path):
 
 
 @pytest.fixture(autouse=True)
+def isolated_playback_cache(monkeypatch, tmp_path):
+    """Kopie nagrań z filtrami odsłuchu w katalogu tymczasowym."""
+    from transkryptor.audio import processing
+
+    directory = tmp_path / "playback"
+    monkeypatch.setattr(processing, "playback_cache_dir", lambda: directory)
+    return directory
+
+
+@pytest.fixture(autouse=True)
 def isolated_rules(monkeypatch, tmp_path):
     """Reguły użytkownika w katalogu tymczasowym; zwraca ścieżkę pliku."""
     from transkryptor.ui import rules_store

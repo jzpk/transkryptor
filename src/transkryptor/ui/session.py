@@ -67,6 +67,7 @@ from transkryptor.ui.player_bar import PlayerBar
 from transkryptor.ui.review import ReviewController
 from transkryptor.ui.settings_store import SettingsStore
 from transkryptor.ui.sync_controller import SyncController
+from transkryptor.ui.verification import VerificationController
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +90,7 @@ class SessionController(QObject):
         ignored_warnings: IgnoredWarnings,
         sync: SyncController,
         comments: CommentsController,
+        verification: VerificationController,
         author_edit: QLineEdit,
         date_edit: QDateEdit,
         metadata_form: MetadataForm,
@@ -111,6 +113,7 @@ class SessionController(QObject):
         self._ignored_warnings = ignored_warnings
         self._sync = sync
         self._comments = comments
+        self._verification = verification
         self._author_edit = author_edit
         self._date_edit = date_edit
         self._metadata_form = metadata_form
@@ -249,6 +252,7 @@ class SessionController(QObject):
         self._editor.blockSignals(False)
         self._sync.clear()
         self._comments.clear()
+        self._verification.clear()
         self._author_edit.clear()
         self._date_edit.setDate(QDate.currentDate())
         self._metadata_form.set_values({})
@@ -275,8 +279,9 @@ class SessionController(QObject):
         self._player_bar.reset()
         self._asr_panel.set_audio_available(True)
         self._asr_panel.restore_result(None)
-        # Kotwice wskazują czasy poprzedniego nagrania.
+        # Kotwice i sprawdzone zakresy wskazują czasy poprzedniego nagrania.
         self._sync.clear()
+        self._verification.clear()
         self._set_audio(Path(path))
         if self.project_path is not None:
             self.document.touch()  # projekt wskazuje teraz inne nagranie
@@ -293,13 +298,21 @@ class SessionController(QObject):
         """Pyta tylko, gdy coś zostanie zastąpione: nagranie albo wynik ASR."""
         has_asr = self._asr_panel.last_result is not None
         has_anchors = self._sync.has_anchors()
-        if self._player.source_path is None and not has_asr and not has_anchors:
+        has_verified = bool(self._verification.ranges)
+        if (
+            self._player.source_path is None
+            and not has_asr
+            and not has_anchors
+            and not has_verified
+        ):
             return True
         text = tr("session.change_audio.text", name=Path(path).name)
         if has_asr:
             text = f"{text}\n\n{tr('session.change_audio.asr')}"
         if has_anchors:
             text = f"{text}\n\n{tr('session.change_audio.anchors')}"
+        if has_verified:
+            text = f"{text}\n\n{tr('session.change_audio.verified')}"
         answer = QMessageBox.question(
             self._parent,
             tr("session.change_audio.title"),
@@ -516,6 +529,7 @@ class SessionController(QObject):
             speakers=tuple(document.speakers),
             paragraph_speakers=dict(document.paragraph_speakers),
             comments=tuple(self._comments.entries()),
+            verified=self._verification.entries(),
         )
 
     # --- otwieranie projektu ---------------------------------------------------
@@ -650,6 +664,7 @@ class SessionController(QObject):
         )
         self._review.restore(state.review)
         self._sync.restore(state.anchors)
+        self._verification.restore(state.verified)
 
         document = Document(
             text=state.text,

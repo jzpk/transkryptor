@@ -58,6 +58,8 @@ class AudioPlayer(QObject):
     playback_state_changed = Signal(bool)  # True = odtwarzanie
     playback_error = Signal(object)  # ImportAudioError
     loop_changed = Signal(object)  # (start_ms, end_ms) | None
+    # Podmiana pliku odsłuchu (filtry): None - oryginał, ścieżka - kopia.
+    playback_file_changed = Signal(object)
 
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -65,7 +67,7 @@ class AudioPlayer(QObject):
         self._output = QAudioOutput(self)
         self._player.setAudioOutput(self._output)
         self._player.positionChanged.connect(self._on_position_changed)
-        self._player.durationChanged.connect(self.duration_changed)
+        self._player.durationChanged.connect(self._on_duration_changed)
         self._player.playbackStateChanged.connect(self._on_state_changed)
         self._player.errorOccurred.connect(self._on_error)
         self._player.mediaStatusChanged.connect(self._on_media_status)
@@ -79,6 +81,14 @@ class AudioPlayer(QObject):
         # kończy ją pauza albo przewinięcie.
         self._temporary_loop: tuple[int, int] | None = None
         self._rewind_armed = False
+        # Plik faktycznie odtwarzany zamiast ``_source_path`` (kopia
+        # przefiltrowana, ``audio/processing.py``) albo None - oryginał.
+        self._playback_path: Path | None = None
+        # Trwa podmiana pliku odsłuchu: pozycja i stan wracają po załadowaniu,
+        # a chwilowe zero czasu trwania i pozycji nie wychodzi poza odtwarzacz.
+        self._swapping = False
+        self._swap_loading = False
+        self._resume_after_swap = False
         self._loop_timer = QTimer(self)
         self._loop_timer.setInterval(LOOP_CHECK_INTERVAL_MS)
         self._loop_timer.timeout.connect(lambda: self._check_loop(self.position_ms))
@@ -94,12 +104,27 @@ class AudioPlayer(QObject):
         return self._source_path
 
     @property
+    def playback_path(self) -> Path | None:
+        """Przefiltrowana kopia odtwarzana zamiast oryginału albo None."""
+        return self._playback_path
+
+    @property
     def duration_ms(self) -> int:
         return self._player.duration()
 
     @property
     def position_ms(self) -> int:
+        if self._swapping and self._pending_position is not None:
+            return self._pending_position
         return self._player.position()
+
+    @property
+    def volume(self) -> float:
+        """Głośność 0.0-1.0."""
+        return self._output.volume()
+
+    def set_volume(self, volume: float) -> None:
+        self._output.setVolume(max(0.0, min(1.0, volume)))
 
     @property
     def playback_rate(self) -> float:
@@ -154,8 +179,29 @@ class AudioPlayer(QObject):
         self.clear_loop()
         self._rewind_armed = False
         self._pending_position = None
+        self._end_swap()
+        self._set_playback_path(None)
         self._player.setSource(QUrl.fromLocalFile(str(candidate.resolve())))
         self._source_path = candidate
+
+    def set_playback_file(self, path: Path | None) -> None:
+        """Odtwarza kopię nagrania (``path``) albo z powrotem oryginał (None).
+
+        Kopia ma tę samą długość co oryginał: pozycja, pętla A-B, tempo
+        i stan odtwarzania zostają. ``source_path`` nadal wskazuje oryginał.
+        """
+        if self._source_path is None or path == self._playback_path:
+            return
+        target = path if path is not None else self._source_path
+        self._pending_position = self.position_ms
+        self._resume_after_swap = self.is_playing or (
+            self._swapping and self._resume_after_swap
+        )
+        self._swapping = True
+        self._swap_loading = False
+        self._temporary_loop = None
+        self._set_playback_path(path)
+        self._player.setSource(QUrl.fromLocalFile(str(target.resolve())))
 
     def last_error(self) -> ImportAudioError | None:
         """Ostatni błąd odtwarzacza (np. uszkodzony plik), jeśli wystąpił."""
@@ -232,6 +278,8 @@ class AudioPlayer(QObject):
         self._temporary_loop = None
         self._rewind_armed = False
         self._pending_position = None
+        self._end_swap()
+        self._set_playback_path(None)
         # Bez ``stop()``: pusty ``setSource`` sam zatrzymuje odtwarzanie, a
         # PySide6 zwalnia przy nim GIL (allow-thread). ``stop()`` wołany z GIL
         # potrafi się zakleszczyć z wątkiem ``QFFmpeg::AudioRenderer``, który
@@ -239,15 +287,44 @@ class AudioPlayer(QObject):
         self._player.setSource(QUrl())
         self._source_path = None
 
+    def _set_playback_path(self, path: Path | None) -> None:
+        if path != self._playback_path:
+            self._playback_path = path
+            self.playback_file_changed.emit(path)
+
+    def _end_swap(self) -> None:
+        self._swapping = False
+        self._swap_loading = False
+        self._resume_after_swap = False
+
     def _on_media_status(self, status: QMediaPlayer.MediaStatus) -> None:
-        if (
-            status == QMediaPlayer.MediaStatus.LoadedMedia
-            and self._pending_position is not None
-        ):
+        if self._swapping:
+            # Po zmianie źródła Qt potrafi jeszcze zgłosić ``LoadedMedia``
+            # poprzedniego pliku - liczy się dopiero ładowanie nowego.
+            if status == QMediaPlayer.MediaStatus.LoadingMedia:
+                self._swap_loading = True
+            if not self._swap_loading:
+                return
+        if status != QMediaPlayer.MediaStatus.LoadedMedia:
+            return
+        if self._pending_position is not None:
             position_ms, self._pending_position = self._pending_position, None
             self._player.setPosition(position_ms)
+        if self._swapping:
+            resume = self._resume_after_swap
+            self._end_swap()
+            if resume:
+                self._player.play()
+
+    def _on_duration_changed(self, duration_ms: int) -> None:
+        # Podmiana pliku: chwilowe zero nie jest „brakiem nagrania”.
+        if self._swapping and duration_ms <= 0:
+            return
+        self.duration_changed.emit(duration_ms)
 
     def _on_position_changed(self, position_ms: int) -> None:
+        if self._swapping:
+            return
         self.position_changed.emit(position_ms)
         self._check_loop(position_ms)
 
@@ -264,6 +341,9 @@ class AudioPlayer(QObject):
             self._loop_timer.stop()
 
     def _on_state_changed(self, state: QMediaPlayer.PlaybackState) -> None:
+        if self._swapping:
+            # Zatrzymanie przy zmianie źródła - stan wróci po załadowaniu kopii.
+            return
         if state == QMediaPlayer.PlaybackState.StoppedState and self._loop is not None:
             # Pętla z B na końcu nagrania: Qt zatrzymuje się na końcu pliku.
             self._player.setPosition(self._loop[0])
@@ -280,6 +360,10 @@ class AudioPlayer(QObject):
 
     def _on_error(self, error: QMediaPlayer.Error, error_string: str) -> None:
         if error == QMediaPlayer.Error.NoError:
+            return
+        if self._playback_path is not None:
+            # Nie da się odtworzyć kopii: wraca oryginał, bez komunikatu.
+            self.set_playback_file(None)
             return
         self._last_error = ImportAudioError(
             user_message=tr(

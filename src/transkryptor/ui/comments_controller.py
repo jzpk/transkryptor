@@ -9,7 +9,8 @@ fragmentu, z cytatem z chwili zapisu). Kontroler obsługuje:
   konfigurowalny skrót), odpowiedzi (wątek jednopoziomowy), edycję i usunięcie;
 - tło komentowanych fragmentów (warstwa ``COMMENT_LAYER``) i podpowiedź
   z treścią po najechaniu;
-- przejście do fragmentu i odsłuch od jego kotwicy czasowej.
+- przejście do fragmentu (także skrótami „następny/poprzedni komentarz”)
+  i odsłuch od jego kotwicy czasowej.
 
 Komentarze należą do projektu (``ProjectState.comments``), nie do tekstu.
 """
@@ -36,6 +37,7 @@ from transkryptor.ui.comments_panel import CommentsPanel
 from transkryptor.ui.compare_panel import short
 from transkryptor.ui.editor import TranscriptionEditor
 from transkryptor.ui.highlights import COMMENT_LAYER, background
+from transkryptor.ui.navigation import step
 from transkryptor.ui.positions import PositionMap
 from transkryptor.ui.sync_controller import SyncController
 from transkryptor.ui.theme import tokens
@@ -62,6 +64,7 @@ class CommentsController(QObject):
         remember_author: Callable[[str], None],
         on_changed: Callable[[], None],
         dialog_parent: QWidget,
+        show_status: Callable[[str], None] = lambda _text: None,
     ) -> None:
         super().__init__(dialog_parent)
         self.editor = editor
@@ -70,6 +73,7 @@ class CommentsController(QObject):
         self._remember_author = remember_author
         self._on_changed = on_changed
         self._parent = dialog_parent
+        self._show_status = show_status
         # Okno autora i treści; testy podstawiają atrapę.
         self.ask = ask_comment
         self.items: list[CommentItem] = []
@@ -197,6 +201,48 @@ class CommentsController(QObject):
         self.editor.setTextCursor(QTextCursor(self.items[index].cursor))
         self.editor.ensureCursorVisible()
         self.editor.setFocus()
+
+    def go_to(self, direction: int) -> bool:
+        """Przechodzi do następnego (1) albo poprzedniego (-1) komentarza.
+
+        Zaznacza komentowany fragment i komentarz w panelu; w pasku stanu
+        jest autor i początek treści. False - dokument nie ma komentarzy.
+        """
+        order = sorted(
+            range(len(self.items)),
+            key=lambda index: self.items[index].cursor.selectionStart(),
+        )
+        cursor = self.editor.textCursor()
+        target = step(
+            [
+                (
+                    self.items[index].cursor.selectionStart(),
+                    self.items[index].cursor.selectionEnd(),
+                )
+                for index in order
+            ],
+            (cursor.selectionStart(), cursor.selectionEnd()),
+            direction,
+        )
+        if target is None:
+            self._show_status(tr("comments.none"))
+            return False
+        position, wrapped = target
+        index = order[position]
+        self.activate(index)
+        self.panel.select(index)
+        comment = self.items[index].comment
+        message = tr(
+            "comments.position",
+            index=position + 1,
+            count=len(order),
+            author=comment.author or tr("comments.anonymous"),
+            text=short(comment.text),
+        )
+        if wrapped:
+            message = f"{message} - {tr('sync.uncertain.wrapped')}"
+        self._show_status(message)
+        return True
 
     def play(self, index: int) -> None:
         start, _end = self.editor.selection_range(self.items[index].cursor)

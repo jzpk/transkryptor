@@ -159,6 +159,14 @@ SPEAKER_COUNT = 9
 SPEAKER_CLEAR_ID = "speaker.clear"
 # Recenzja (faza 14): komentarz do zaznaczenia, jak w Wordzie.
 ADD_COMMENT_ID = "review.add_comment"
+# Przejścia „od problemu do problemu”: niepewne słowa ASR i komentarze.
+NEXT_UNCERTAIN_ID = "review.next_uncertain"
+PREVIOUS_UNCERTAIN_ID = "review.previous_uncertain"
+NEXT_COMMENT_ID = "review.next_comment"
+PREVIOUS_COMMENT_ID = "review.previous_comment"
+# Postęp weryfikacji nagrania (``ui/verification.py``).
+MARK_VERIFIED_ID = "review.mark_verified"
+NEXT_UNVERIFIED_ID = "review.next_unverified"
 
 
 def speaker_id(number: int) -> str:
@@ -237,6 +245,18 @@ SHORTCUT_ACTIONS: tuple[ShortcutDef, ...] = (
         SPEAKER_CLEAR_ID, "speakers.action.clear", ("Alt+Shift+0",), GROUP_SPEAKERS
     ),
     ShortcutDef(ADD_COMMENT_ID, "comments.action.add", ("Ctrl+Alt+M",), GROUP_REVIEW),
+    ShortcutDef(NEXT_COMMENT_ID, "comments.action.next", ("F7",), GROUP_REVIEW),
+    ShortcutDef(
+        PREVIOUS_COMMENT_ID, "comments.action.previous", ("Shift+F7",), GROUP_REVIEW
+    ),
+    ShortcutDef(NEXT_UNCERTAIN_ID, "sync.uncertain.next", ("F8",), GROUP_REVIEW),
+    ShortcutDef(
+        PREVIOUS_UNCERTAIN_ID, "sync.uncertain.previous", ("Shift+F8",), GROUP_REVIEW
+    ),
+    ShortcutDef(MARK_VERIFIED_ID, "verification.action.mark", ("F9",), GROUP_REVIEW),
+    ShortcutDef(
+        NEXT_UNVERIFIED_ID, "verification.action.next", ("Shift+F9",), GROUP_REVIEW
+    ),
 )
 
 SHORTCUT_ACTIONS_BY_ID: dict[str, ShortcutDef] = {d.id: d for d in SHORTCUT_ACTIONS}

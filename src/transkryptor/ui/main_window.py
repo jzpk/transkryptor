@@ -53,6 +53,7 @@ from transkryptor.notation.suggestions import rule_infos
 from transkryptor.settings import ExportSettings, Settings
 from transkryptor.ui import icons
 from transkryptor.ui.asr_panel import AsrPanel
+from transkryptor.ui.audio_filters import AudioFilterController
 from transkryptor.ui.changelog_dialog import ChangelogDialog
 from transkryptor.ui.comments_controller import CommentsController
 from transkryptor.ui.compare_controller import CompareController
@@ -74,6 +75,7 @@ from transkryptor.ui.loading_overlay import LoadingOverlay
 from transkryptor.ui.markers import marker_text
 from transkryptor.ui.messages import show_error
 from transkryptor.ui.metadata_form import MetadataForm
+from transkryptor.ui.navigation import BACKWARD, FORWARD
 from transkryptor.ui.notation_controller import IgnoredWarnings, NotationController
 from transkryptor.ui.player_bar import PlayerBar
 from transkryptor.ui.player_controller import PlayerController
@@ -94,7 +96,14 @@ from transkryptor.ui.shortcuts import (
     ADD_COMMENT_ID,
     BASE_TOOLTIP,
     INSERT_TIMESTAMP,
+    MARK_VERIFIED_ID,
+    NEXT_COMMENT_ID,
+    NEXT_UNCERTAIN_ID,
+    NEXT_UNVERIFIED_ID,
     PLAY_FROM_CURSOR,
+    PREVIOUS_COMMENT_ID,
+    PREVIOUS_UNCERTAIN_ID,
+    SHORTCUT_ACTIONS_BY_ID,
     SUPERSCRIPT_ID,
     apply_shortcuts,
     effective_shortcuts,
@@ -109,6 +118,7 @@ from transkryptor.ui.sync_controller import SyncController
 from transkryptor.ui.theme import apply_theme, resolve_tokens, set_props, tokens
 from transkryptor.ui.toolbar import MainToolbar, ToolbarHandlers
 from transkryptor.ui.update_controller import UpdateController
+from transkryptor.ui.verification import VerificationController
 from transkryptor.ui.warnings_panel import WarningsPanel
 from transkryptor.ui.waveform import WaveformController, segment_spans
 
@@ -155,6 +165,7 @@ class MainWindow(QMainWindow):
         self.compare_view.setPlaceholderText("")
         self.search_bar = SearchBar()
         self.player_bar = PlayerBar(self.player, settings_store.current.player)
+        self.audio_filters = AudioFilterController(self.player, self)
         self.warnings_panel = WarningsPanel()
         self.warnings_panel.set_warnings([])
         self.warning_count_label = label("", "badge")
@@ -208,6 +219,17 @@ class MainWindow(QMainWindow):
             # Późne wiązanie: sesja powstaje niżej.
             lambda: self.session.comments_changed(),
             self,
+            show_status=lambda text: self.statusBar().showMessage(
+                text, STATUS_MESSAGE_MS
+            ),
+        )
+        self.verification = VerificationController(
+            self.editor,
+            self.player,
+            self.player_bar,
+            self.sync,
+            lambda text: self.statusBar().showMessage(text, STATUS_MESSAGE_MS),
+            self,
         )
         self.session = SessionController(
             self,
@@ -219,6 +241,7 @@ class MainWindow(QMainWindow):
             self.ignored_warnings,
             self.sync,
             self.comments,
+            self.verification,
             self.author_edit,
             self.date_edit,
             self.metadata_form,
@@ -298,6 +321,7 @@ class MainWindow(QMainWindow):
         self.player_actions = self.player_controller.actions
         self.search_actions = self.search.create_actions(self)
         self.speaker_actions = self.speakers.create_actions(self)
+        self.review_actions = self._create_review_actions()
         self.snippets = SnippetController(
             self, self.editor, self.main_toolbar.snippets_menu, self._on_settings
         )
@@ -474,6 +498,11 @@ class MainWindow(QMainWindow):
         self.date_edit.dateChanged.connect(self._on_metadata_changed)
         self.metadata_form.changed.connect(self._on_metadata_changed)
         self.player_bar.import_requested.connect(self._on_import_audio)
+        self.player_bar.sound_changed.connect(self._on_sound_changed)
+        self.player_bar.media_available_changed.connect(
+            lambda _available: self.audio_filters.refresh()
+        )
+        self.audio_filters.status_changed.connect(self.player_bar.set_sound_status)
         self.settings_store.settings_changed.connect(self._apply_settings)
         self.rules_store.rules_changed.connect(
             lambda: self.asr_panel.set_rules(rule_infos(self.rules_store.rules))
@@ -489,6 +518,10 @@ class MainWindow(QMainWindow):
         self.sync.timestamps_edited.connect(self.session.project_data_changed)
         self.speakers.speakers_changed.connect(self._on_speakers_changed)
         self.sync.anchors_changed.connect(self.waveform.refresh_markers)
+        self.verification.edited.connect(self.session.project_data_changed)
+        self.verification.ranges_changed.connect(
+            lambda: self.waveform.set_verified(self.verification.ranges)
+        )
         self.asr_panel.result_changed.connect(self._on_asr_result_changed)
         self.player.playback_error.connect(
             lambda error: self._show_error(tr("main.playback_error"), error)
@@ -553,6 +586,7 @@ class MainWindow(QMainWindow):
         """Stosuje ustawienia do komponentów bez restartu (ACC-17)."""
         self._apply_theme(settings.appearance.theme)
         self.player_bar.apply_settings(settings.player)
+        self.audio_filters.set_filters(settings.player.audio_filters)
         self.waveform.panel.set_expanded(settings.player.waveform_visible)
         self.editor.apply_settings(settings.editor)
         self.compare_view.apply_settings(settings.editor)
@@ -591,6 +625,26 @@ class MainWindow(QMainWindow):
             actions[search_id(key)] = action
         actions.update(self.speaker_actions)
         actions[ADD_COMMENT_ID] = self.comments.add_action
+        actions.update(self.review_actions)
+        return actions
+
+    def _create_review_actions(self) -> dict[str, QAction]:
+        """Przejścia po niepewnych słowach i komentarzach oraz postęp weryfikacji."""
+        actions: dict[str, QAction] = {
+            MARK_VERIFIED_ID: self.verification.mark_action,
+            NEXT_UNVERIFIED_ID: self.verification.next_action,
+        }
+        handlers = {
+            NEXT_UNCERTAIN_ID: lambda: self.sync.go_to_uncertain(FORWARD),
+            PREVIOUS_UNCERTAIN_ID: lambda: self.sync.go_to_uncertain(BACKWARD),
+            NEXT_COMMENT_ID: lambda: self.comments.go_to(FORWARD),
+            PREVIOUS_COMMENT_ID: lambda: self.comments.go_to(BACKWARD),
+        }
+        for action_id, handler in handlers.items():
+            action = QAction(SHORTCUT_ACTIONS_BY_ID[action_id].label, self)
+            action.triggered.connect(lambda _checked=False, run=handler: run())
+            self.addAction(action)
+            actions[action_id] = action
         return actions
 
     def _apply_shortcuts(self, shortcuts: dict[str, tuple[str, ...]]) -> None:
@@ -636,6 +690,13 @@ class MainWindow(QMainWindow):
                     current, player=replace(current.player, waveform_visible=expanded)
                 )
             )
+
+    def _on_sound_changed(self) -> None:
+        """Głośność i filtry z menu „Dźwięk” są zapamiętywane w ustawieniach."""
+        current = self.settings_store.current
+        player = self.player_bar.sound_settings(current.player)
+        if player != current.player:
+            self.settings_store.save(replace(current, player=player))
 
     def _on_asr_result_changed(self) -> None:
         result = self.asr_panel.last_result
@@ -798,6 +859,7 @@ class MainWindow(QMainWindow):
         """ACC-10: ostrzeżenie przed utratą pracy przy zamknięciu."""
         if self.session.can_close():
             self.waveform.shutdown()
+            self.audio_filters.shutdown()
             event.accept()
         else:
             event.ignore()
@@ -838,6 +900,11 @@ class MainWindow(QMainWindow):
             self.import_docx_action,
             self.compare_action,
             self.comments.add_action,
+            *(
+                action
+                for action_id, action in self.review_actions.items()
+                if action_id not in (MARK_VERIFIED_ID, NEXT_UNVERIFIED_ID)
+            ),
             self.export_action,
             self.export_anonymized_action,
             self.export_as_action,
@@ -849,6 +916,7 @@ class MainWindow(QMainWindow):
         self.player_controller.set_locked(locked)
         self.snippets.set_locked(locked)
         self.speakers.set_locked(locked)
+        self.verification.set_locked(locked)
 
     # --- stan --------------------------------------------------------------
 

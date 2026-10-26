@@ -234,3 +234,68 @@ class TestTemporaryLoop:
         player.pause()
         qtbot.waitUntil(lambda: not player.is_playing, timeout=5000)
         assert player.temporary_loop is None
+
+
+class TestVolume:
+    def test_volume_is_clamped(self, player) -> None:
+        player.set_volume(0.4)
+        assert player.volume == pytest.approx(0.4)
+        player.set_volume(2.0)
+        assert player.volume == pytest.approx(1.0)
+        player.set_volume(-1.0)
+        assert player.volume == pytest.approx(0.0)
+
+
+class TestPlaybackFile:
+    """Kopia z filtrami odsłuchu zastępuje oryginał bez utraty pozycji."""
+
+    @pytest.fixture
+    def copy(self, tmp_path):
+        from transkryptor.audio.processing import AudioFilters, process_audio
+
+        target = tmp_path / "copy.flac"
+        process_audio(SAMPLE_MP3, target, AudioFilters(highpass=True))
+        return target
+
+    def test_swap_keeps_position_loop_and_playback(self, player, qtbot, copy) -> None:
+        _load(player, qtbot)
+        player.set_loop(10_000, 60_000)
+        player.play()
+        qtbot.waitUntil(lambda: player.is_playing, timeout=5000)
+        player.set_position(20_000)
+        qtbot.waitUntil(lambda: player.position_ms >= 19_000, timeout=5000)
+        durations: list[int] = []
+        player.duration_changed.connect(durations.append)
+        player.set_playback_file(copy)
+        assert player.playback_path == copy
+        assert player.source_path is not None
+        assert player.source_path.name == "sample.mp3"
+        # W trakcie podmiany pozycja nie wraca do zera.
+        assert player.position_ms >= 19_000
+        qtbot.waitUntil(lambda: player.is_playing, timeout=5000)
+        qtbot.waitUntil(lambda: player.position_ms >= 19_000, timeout=5000)
+        assert player.loop_range == (10_000, 60_000)
+        assert 0 not in durations
+
+    def test_back_to_original(self, player, qtbot, copy) -> None:
+        _load(player, qtbot)
+        changes: list[object] = []
+        player.playback_file_changed.connect(changes.append)
+        player.set_playback_file(copy)
+        player.set_playback_file(None)
+        assert player.playback_path is None
+        assert changes == [copy, None]
+        qtbot.waitUntil(lambda: player.duration_ms > 0, timeout=5000)
+
+    def test_load_and_unload_drop_copy(self, player, qtbot, copy) -> None:
+        _load(player, qtbot)
+        player.set_playback_file(copy)
+        _load(player, qtbot)
+        assert player.playback_path is None
+        player.set_playback_file(copy)
+        player.stop_and_unload()
+        assert player.playback_path is None
+
+    def test_without_recording_does_nothing(self, player, copy) -> None:
+        player.set_playback_file(copy)
+        assert player.playback_path is None
