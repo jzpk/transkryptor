@@ -13,6 +13,8 @@
 // - Formularz zgłoszeń (zglos.html): wysyła zgłoszenie do Workera
 //   (zgloszenia/worker.js), który zakłada issue na GitHubie. Bez adresu
 //   Workera albo bez skryptów zostaje odnośnik do zgłoszeń na GitHubie.
+// - Status zgłoszeń (zgloszenia.html): pobiera zgłoszenia z API GitHuba
+//   i pokazuje ich stan. Po błędzie zostaje odnośnik do GitHuba.
 (function () {
   "use strict";
 
@@ -356,6 +358,134 @@
     });
   }
 
+  // Stan zgłoszenia na stronie statusu. Zamknięte jako „not planned” albo
+  // duplikat są odrzucone, pozostałe zamknięte - zrobione. Otwarte są
+  // „w toku”, gdy mają etykietę ISSUE_PROGRESS_LABELS albo przypisaną osobę.
+  // Kolejność kluczy to kolejność na liście: najpierw sprawy w toku i otwarte.
+  var ISSUE_STATES = {
+    progress: "W toku",
+    open: "Otwarte",
+    done: "Zrobione",
+    rejected: "Odrzucone",
+  };
+  var ISSUE_PROGRESS_LABELS = ["w-toku", "in progress"];
+  var ISSUE_KINDS = { bug: "Błąd", enhancement: "Pomysł" };
+  var ISSUES_FAILED =
+    "Nie udało się pobrać listy zgłoszeń. Spróbuj ponownie za chwilę " +
+    "albo sprawdź je w ";
+
+  function labelNames(issue) {
+    return (issue.labels || []).map(function (label) {
+      return String(typeof label === "string" ? label : label.name).toLowerCase();
+    });
+  }
+
+  function issueState(issue) {
+    if (issue.state === "closed") {
+      return issue.state_reason === "not_planned" ||
+        issue.state_reason === "duplicate"
+        ? "rejected"
+        : "done";
+    }
+    var labels = labelNames(issue);
+    var inProgress = ISSUE_PROGRESS_LABELS.some(function (name) {
+      return labels.indexOf(name) >= 0;
+    });
+    return inProgress || (issue.assignees && issue.assignees.length)
+      ? "progress"
+      : "open";
+  }
+
+  function element(tag, className, text) {
+    var node = document.createElement(tag);
+    if (className) {
+      node.className = className;
+    }
+    if (text) {
+      node.textContent = text;
+    }
+    return node;
+  }
+
+  function issueItem(issue) {
+    var state = issueState(issue);
+    var item = element("li", "issue");
+    var badge = element("span", "issue-state", ISSUE_STATES[state]);
+    badge.setAttribute("data-state", state);
+    item.appendChild(badge);
+
+    var link = element("a", "issue-title", issue.title);
+    link.href = issue.html_url;
+    item.appendChild(link);
+
+    var meta = element("span", "issue-meta small", "#" + issue.number);
+    var labels = labelNames(issue);
+    for (var name in ISSUE_KINDS) {
+      if (labels.indexOf(name) >= 0) {
+        meta.textContent += " · " + ISSUE_KINDS[name];
+        break;
+      }
+    }
+    item.appendChild(meta);
+    return item;
+  }
+
+  function issueStatus() {
+    var container = document.querySelector("[data-issues]");
+    var api = container && container.getAttribute("data-api");
+    if (!api || !window.fetch) {
+      return;
+    }
+    var fallback = container.querySelector("[data-issues-status]");
+    var githubLink = fallback.querySelector("a").cloneNode(true);
+    fallback.textContent = "Wczytywanie zgłoszeń...";
+    container.setAttribute("aria-busy", "true");
+
+    fetch(api, { headers: { Accept: "application/vnd.github+json" } })
+      .then(function (response) {
+        if (!response.ok) {
+          throw new Error("GitHub " + response.status);
+        }
+        return response.json();
+      })
+      .then(function (issues) {
+        // API zgłoszeń zwraca też pull requesty - te pomijamy.
+        issues = issues.filter(function (issue) {
+          return !issue.pull_request;
+        });
+        if (!issues.length) {
+          fallback.textContent = "Nie ma jeszcze żadnych zgłoszeń.";
+          return;
+        }
+        // API sortuje od ostatnio zmienionych; to zostaje w obrębie stanu.
+        var order = Object.keys(ISSUE_STATES);
+        issues = issues
+          .map(function (issue, index) {
+            return { issue: issue, rank: order.indexOf(issueState(issue)), index: index };
+          })
+          .sort(function (a, b) {
+            return a.rank - b.rank || a.index - b.index;
+          })
+          .map(function (entry) {
+            return entry.issue;
+          });
+        var list = element("ul", "issues-items");
+        issues.forEach(function (issue) {
+          list.appendChild(issueItem(issue));
+        });
+        container.replaceChild(list, fallback);
+      })
+      .catch(function () {
+        fallback.textContent = ISSUES_FAILED;
+        fallback.appendChild(githubLink);
+        fallback.appendChild(document.createTextNode("."));
+        fallback.classList.add("error");
+      })
+      .then(function () {
+        container.setAttribute("aria-busy", "false");
+      });
+  }
+
   document.addEventListener("DOMContentLoaded", function () {
     each(".theme-toggle", function (button) {
       button.hidden = false;
@@ -404,6 +534,7 @@
 
     highlightDownload();
     reportForm();
+    issueStatus();
     openFromHash();
   });
 })();

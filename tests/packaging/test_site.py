@@ -405,3 +405,31 @@ def test_every_page_footer_links_the_report_form(changelog_file, tmp_path) -> No
     for name in site.TEMPLATE_FILES:
         page = (out / name).read_text(encoding="utf-8")
         assert re.search(r'<a href="/?zglos.html">Zgłoś problem lub pomysł</a>', page)
+
+
+def test_issue_status_page_reads_the_repository_issues(
+    changelog_file, tmp_path
+) -> None:
+    out = tmp_path / "site"
+    site.build(out, changelog_file, repo="owner/repo", expected_version="0.2.4")
+
+    page = (out / site.ISSUES_PAGE).read_text(encoding="utf-8")
+    assert (
+        'data-api="https://api.github.com/repos/owner/repo/issues'
+        '?state=all&amp;sort=updated&amp;per_page=100"'
+    ) in page
+    # Bez skryptu albo po błędzie API zostaje odnośnik do GitHuba.
+    assert 'href="https://github.com/owner/repo/issues"' in page
+    assert 'href="zglos.html"' in page
+    assert site.ISSUES_PAGE in (out / site.SITEMAP_FILE).read_text(encoding="utf-8")
+    report = (out / "zglos.html").read_text(encoding="utf-8")
+    assert f'href="{site.ISSUES_PAGE}"' in report
+
+
+def test_every_page_footer_links_the_issue_status(changelog_file, tmp_path) -> None:
+    out = tmp_path / "site"
+    site.build(out, changelog_file, repo="owner/repo", expected_version="0.2.4")
+
+    for name in site.TEMPLATE_FILES:
+        page = (out / name).read_text(encoding="utf-8")
+        assert re.search(r'<a href="/?zgloszenia.html">Status zgłoszeń</a>', page)
