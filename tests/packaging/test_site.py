@@ -421,6 +421,9 @@ def test_issue_status_page_reads_the_repository_issues(
     # Bez skryptu albo po błędzie API zostaje odnośnik do GitHuba.
     assert 'href="https://github.com/owner/repo/issues"' in page
     assert 'href="zglos.html"' in page
+    filters = re.findall(r'data-filter="([^"]+)"', page)
+    assert filters == ["aktywne", "zrobione", "odrzucone", "wszystkie"]
+    assert "data-issues-pager" in page
     assert site.ISSUES_PAGE in (out / site.SITEMAP_FILE).read_text(encoding="utf-8")
     report = (out / "zglos.html").read_text(encoding="utf-8")
     assert f'href="{site.ISSUES_PAGE}"' in report

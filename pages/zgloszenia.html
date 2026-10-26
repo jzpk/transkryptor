@@ -7,7 +7,7 @@
   plikach.
 
   Strona jest statyczna, więc listę pobiera skrypt (site.js) z publicznego
-  API GitHuba przy każdym otwarciu. Bez skryptów albo po błędzie (np. limit
+  API GitHuba przy każdym otwarciu i dzieli ją filtrami i na strony. Bez skryptów albo po błędzie (np. limit
   zapytań API) zostaje odnośnik do zgłoszeń na GitHubie.
 -->
 <html lang="pl">
@@ -128,6 +128,27 @@
         </ul>
 
         <div
+          class="issues-filters"
+          data-issues-filters
+          role="group"
+          aria-label="Pokaż zgłoszenia"
+          hidden
+        >
+          <button class="button compact" type="button" data-filter="aktywne">
+            Aktywne
+          </button>
+          <button class="button compact" type="button" data-filter="zrobione">
+            Zrobione
+          </button>
+          <button class="button compact" type="button" data-filter="odrzucone">
+            Odrzucone
+          </button>
+          <button class="button compact" type="button" data-filter="wszystkie">
+            Wszystkie
+          </button>
+        </div>
+
+        <div
           class="issues-list"
           data-issues
           data-api="${issues_api_url}"
@@ -139,6 +160,13 @@
             <a href="${issues_url}">zgłoszeniach na GitHubie</a>.
           </p>
         </div>
+
+        <nav
+          class="issues-pager"
+          data-issues-pager
+          aria-label="Strony listy zgłoszeń"
+          hidden
+        ></nav>
       </section>
     </main>
 

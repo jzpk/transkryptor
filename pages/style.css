@@ -985,6 +985,44 @@ button.button:disabled {
   margin-right: 6px;
 }
 
+.issues-filters,
+.issues-pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.issues-filters {
+  margin-bottom: 16px;
+}
+
+.issues-pager {
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.issues-filters[hidden],
+.issues-pager[hidden] {
+  display: none;
+}
+
+.issues-filters [aria-pressed="true"],
+.issues-pager [aria-current="page"] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.issues-pager button:disabled {
+  cursor: default;
+}
+
+.issues-gap {
+  color: var(--muted);
+  padding: 0 4px;
+}
+
 .issues-items {
   margin: 0;
   padding: 0;
@@ -1054,6 +1092,18 @@ button.button:disabled {
   .issue .issue-state {
     justify-self: start;
     grid-column: 1 / -1;
+  }
+
+  .issues-pager {
+    gap: 4px;
+  }
+
+  .issues-pager .button.compact {
+    padding: 6px 10px;
+  }
+
+  .issues-pager-word {
+    display: none;
   }
 }
 
