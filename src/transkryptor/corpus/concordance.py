@@ -13,7 +13,7 @@ Teksty trafień i kontekstu zapisują indeks górny składnią zamiennika
 from __future__ import annotations
 
 from bisect import bisect_right
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 
 import regex
@@ -47,6 +47,8 @@ class Concordance:
     hits: tuple[Hit, ...]
     # Trafień było więcej niż ``MAX_HITS`` - lista jest ucięta.
     truncated: bool = False
+    # Wyszukiwanie przerwano (``progress`` zwrócił False) - lista jest niepełna.
+    cancelled: bool = False
 
     @property
     def project_count(self) -> int:
@@ -120,18 +122,23 @@ def informant_ranges(project: CorpusProject) -> list[tuple[int, int]]:
 
 
 def concordance(
-    projects: Iterable[CorpusProject],
+    projects: Sequence[CorpusProject],
     pattern: regex.Pattern[str],
     informant_only: bool = False,
     limit: int = MAX_HITS,
+    progress: Callable[[int, int], bool] | None = None,
 ) -> Concordance:
     """Trafienia wzorca w projektach, w kolejności projektów i tekstu.
 
     ``informant_only`` zostawia trafienia w akapitach informatorów.
-    Wzorzec zbyt kosztowny dla któregoś projektu - ``SearchError``.
+    ``progress(done, total)`` przed każdym projektem; False przerywa
+    wyszukiwanie. Wzorzec zbyt kosztowny dla któregoś projektu -
+    ``SearchError``.
     """
     hits: list[Hit] = []
-    for project in projects:
+    for index, project in enumerate(projects):
+        if progress is not None and not progress(index, len(projects)):
+            return Concordance(tuple(hits), cancelled=True)
         matches = find_all(project.state.text, pattern)
         if informant_only:
             matches = restrict_to(matches, informant_ranges(project))

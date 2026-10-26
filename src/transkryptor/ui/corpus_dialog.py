@@ -20,11 +20,14 @@ pozostałe - z plików. Otwieranie projektów i zaznaczanie tekstu robi
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
 
-from PySide6.QtCore import Qt
+import regex
+from PySide6.QtCore import QObject, Qt, QThread, QTimer, Signal
 from PySide6.QtGui import QCloseEvent, QFont, QHideEvent
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -57,7 +60,7 @@ from transkryptor.corpus.catalog import (
     forms_table,
     save_table,
 )
-from transkryptor.corpus.concordance import Hit, concordance, make_hit
+from transkryptor.corpus.concordance import Concordance, Hit, concordance, make_hit
 from transkryptor.corpus.forms import FormEntry, form_index, similar_forms
 from transkryptor.corpus.projects import CorpusProject, ScanResult, scan_folder
 from transkryptor.corpus.tei import TEI_SUFFIX, save_tei
@@ -65,6 +68,7 @@ from transkryptor.document.metadata import MetadataField
 from transkryptor.document.search import SearchError, SearchOptions, compile_query
 from transkryptor.errors import AppError
 from transkryptor.i18n import tr
+from transkryptor.ui.busy_overlay import BusyOverlay, InputBlocker
 from transkryptor.ui.file_dialogs import ask_save_path
 from transkryptor.ui.messages import show_error
 from transkryptor.ui.player_bar import format_ms
@@ -74,6 +78,59 @@ from transkryptor.ui.theme import set_props
 CLIP_MARGIN_MS = 400
 SEARCH_TAB, FORMS_TAB, CATALOG_TAB = range(3)
 SCOPE_CURRENT, SCOPE_FOLDER = "current", "folder"
+# Nakładka pojawia się dopiero po tym czasie - krótka praca nie miga.
+BUSY_DELAY_MS = 150
+
+# ``progress(done, total)`` z wątku w tle; False - przerwij pracę.
+Progress = Callable[[int, int], bool]
+
+
+class _Task(QThread):
+    """Praca w wątku w tle z postępem i przerwaniem.
+
+    ``work`` dostaje funkcję postępu - zwraca ona False po :meth:`cancel`.
+    Wynik albo wyjątek odbiera wątek UI po sygnale ``finished``.
+    """
+
+    progressed = Signal(int, int)
+
+    def __init__(self, work: Callable[[Progress], object], parent: QObject) -> None:
+        super().__init__(parent)
+        self._work = work
+        self._cancel = threading.Event()
+        self.result: object = None
+        self.error: BaseException | None = None
+
+    @property
+    def cancelled(self) -> bool:
+        return self._cancel.is_set()
+
+    def cancel(self) -> None:
+        self._cancel.set()
+
+    def run(self) -> None:
+        try:
+            self.result = self._work(self._progress)
+        except Exception as error:  # noqa: BLE001 - przekazywany do wątku UI
+            self.error = error
+
+    def _progress(self, done: int, total: int) -> bool:
+        self.progressed.emit(done, total)
+        return not self._cancel.is_set()
+
+
+@dataclass(frozen=True)
+class _Forms:
+    entries: list[FormEntry]
+    similar: dict[str, tuple[str, ...]]
+
+
+@dataclass(frozen=True)
+class _Refresh:
+    scan: ScanResult
+    # Wyniki wyszukiwania, komunikat błędu zapytania albo None (puste pole).
+    hits: Concordance | str | None
+    forms: _Forms
 
 
 @dataclass(frozen=True)
@@ -200,6 +257,13 @@ class CorpusDialog(QDialog):
         self._similar: dict[str, tuple[str, ...]] = {}
         self._forms_project: CorpusProject | None = None
         self._catalog: Table | None = None
+        self._task: _Task | None = None
+        self._busy_title = ""
+        self._done: Callable[[object], None] = lambda _result: None
+        self._progress: tuple[int, int] | None = None
+        self._informant_search = False
+        self._forms_case = False
+        self._forms_informant = False
 
         self.folder_label = _muted(tr("corpus.folder.none"))
         self.choose_button = QPushButton(tr("corpus.folder.choose"))
@@ -242,6 +306,17 @@ class CorpusDialog(QDialog):
         layout.addLayout(bottom)
 
         self.player.playback_state_changed.connect(self._on_playback_state)
+
+        # Blokada na czas pracy w tle: nakładka ze spinnerem nad tym oknem,
+        # przyciemnienie okna głównego i odrzucanie wejścia poza „Przerwij”.
+        self.overlay = BusyOverlay(self)
+        self.overlay.cancel_requested.connect(self.cancel_work)
+        self._cover = BusyOverlay(parent, with_card=False) if parent else None
+        self._blocker = InputBlocker((self.overlay.cancel_button,), self)
+        self._busy_timer = QTimer(self)
+        self._busy_timer.setSingleShot(True)
+        self._busy_timer.setInterval(BUSY_DELAY_MS)
+        self._busy_timer.timeout.connect(self._show_busy)
         self._update_buttons()
 
     # --- budowa zakładek ----------------------------------------------------
@@ -405,25 +480,47 @@ class CorpusDialog(QDialog):
         if scan:
             self.refresh()
 
-    def refresh(self) -> None:
-        """Czyta projekty folderu na nowo i odświeża wszystkie zakładki."""
-        if self.folder is None:
+    def refresh(self) -> bool:
+        """Czyta projekty folderu na nowo i odświeża wszystkie zakładki.
+
+        Skan, wyszukiwanie i słownik form liczą się w tle pod nakładką.
+        False - trwa już inna praca albo nie wybrano folderu.
+        """
+        folder = self.folder
+        if folder is None:
             self.scan = None
             self.summary_label.setText("")
-        else:
-            current = self._host.current_project()
-            overrides = {} if current.path is None else {current.path: current.state}
-            QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
-            try:
-                self.scan = scan_folder(self.folder, overrides)
-            finally:
-                QApplication.restoreOverrideCursor()
-            self._show_summary(self.scan)
-        if self.query_edit.text().strip():
-            self.run_search()
-        else:
-            self.hits_table.set_hits([], self.folder)
-        self.refresh_forms()
+            self.hits_table.set_hits([], None)
+            self.refresh_forms()
+            self.refresh_catalog()
+            return False
+        current = self._host.current_project()
+        overrides = {} if current.path is None else {current.path: current.state}
+        search = self._search_request()
+        forms = self._forms_request(current)
+
+        def work(progress: Progress) -> _Refresh:
+            scan = scan_folder(folder, overrides, progress)
+            hits: Concordance | str | None = None
+            if isinstance(search, str) or search is None:
+                hits = search
+            else:
+                try:
+                    hits = concordance(
+                        scan.projects, search, self._informant_search, progress=progress
+                    )
+                except SearchError as error:
+                    hits = str(error)
+            projects = scan.projects if forms is None else (forms,)
+            return _Refresh(scan, hits, self._count_forms(projects, progress))
+
+        return self._run(tr("corpus.busy.scan"), work, self._apply_refresh)
+
+    def _apply_refresh(self, result: _Refresh) -> None:
+        self.scan = result.scan
+        self._show_summary(result.scan)
+        self._show_hits(result.hits)
+        self._apply_forms(result.forms)
         self.refresh_catalog()
 
     def _show_summary(self, scan: ScanResult) -> None:
@@ -439,30 +536,132 @@ class CorpusDialog(QDialog):
             self.summary_label.setToolTip("")
         self.summary_label.setText(text)
 
+    # --- praca w tle ----------------------------------------------------------
+
+    @property
+    def busy(self) -> bool:
+        """Trwa praca w tle (interfejs jest zablokowany)."""
+        return self._task is not None
+
+    def _run[T](
+        self,
+        title: str,
+        work: Callable[[Progress], T],
+        done: Callable[[T], None],
+    ) -> bool:
+        """Uruchamia ``work`` w wątku, blokując interfejs do jego końca.
+
+        Wejście (mysz, klawiatura, skróty) jest odrzucane od razu, a nakładkę
+        widać po ``BUSY_DELAY_MS`` - krótka praca nie miga. Wynik trafia do
+        ``done`` w wątku UI; przerwana praca nie zmienia niczego.
+        """
+        if self._task is not None:
+            return False
+        self.player.pause()
+        task = _Task(work, self)
+        # Sloty obiektów wątku UI - wywołania z wątku w tle idą przez kolejkę.
+        task.progressed.connect(self._on_progress)
+        task.finished.connect(self._finish)
+        self._task = task
+        self._progress = None
+        self._done = cast(Callable[[object], None], done)
+        self._busy_title = title
+        self._blocker.start()
+        self._busy_timer.start()
+        task.start()
+        return True
+
+    def _show_busy(self) -> None:
+        if self._task is None:
+            return
+        self.overlay.start(self._busy_title)
+        if self._progress is not None:
+            self.overlay.set_progress(*self._progress)
+        if self._cover is not None:
+            self._cover.start("")
+
+    def _on_progress(self, done: int, total: int) -> None:
+        self._progress = (done, total)
+        self.overlay.set_progress(done, total)
+
+    def _finish(self) -> None:
+        task, done = self._task, self._done
+        if task is None:
+            return
+        self._task = None
+        self._busy_timer.stop()
+        self.overlay.stop()
+        if self._cover is not None:
+            self._cover.stop()
+        self._blocker.stop()
+        task.deleteLater()
+        if task.cancelled:
+            self.status_label.setText(tr("corpus.busy.cancelled"))
+            return
+        if task.error is not None:
+            if isinstance(task.error, AppError):
+                show_error(self, tr("corpus.title"), task.error)
+                return
+            raise task.error
+        self.status_label.setText("")
+        done(task.result)
+
+    def cancel_work(self) -> None:
+        if self._task is not None:
+            self._task.cancel()
+
+    def wait(self, timeout_ms: int = 30_000) -> None:
+        """Czeka na koniec pracy w tle i obsługuje jej wynik (testy, zamknięcie)."""
+        task = self._task
+        if task is not None and task.wait(timeout_ms):
+            QApplication.sendPostedEvents()
+            QApplication.processEvents()
+
     # --- wyszukiwanie -------------------------------------------------------
 
-    def run_search(self) -> None:
+    def _search_request(self) -> regex.Pattern[str] | str | None:
+        """Wzorzec z pola wyszukiwania, komunikat błędu albo None (puste pole)."""
         query = self.query_edit.text()
         if not query.strip():
-            self.hits_table.set_hits([], self.folder)
-            self.hits_label.setText(tr("corpus.search.hint"))
-            return
-        if self.scan is None:
-            self.hits_label.setText(tr("corpus.folder.needed"))
-            return
+            return None
         options = SearchOptions(
             case_sensitive=self.case_check.isChecked(),
             whole_words=self.words_check.isChecked(),
             regex=self.regex_check.isChecked(),
         )
+        self._informant_search = self.informant_check.isChecked()
         try:
-            pattern = compile_query(query, options)
-            result = concordance(
-                self.projects, pattern, self.informant_check.isChecked()
-            )
+            return compile_query(query, options)
         except SearchError as error:
+            return str(error)
+
+    def run_search(self) -> bool:
+        search = self._search_request()
+        if search is None or isinstance(search, str):
+            self._show_hits(search)
+            return False
+        if self.scan is None:
+            self.hits_label.setText(tr("corpus.folder.needed"))
+            return False
+        projects = self.projects
+        informant = self._informant_search
+
+        def work(progress: Progress) -> Concordance | str:
+            try:
+                return concordance(projects, search, informant, progress=progress)
+            except SearchError as error:
+                return str(error)
+
+        return self._run(tr("corpus.busy.search"), work, self._show_hits)
+
+    def _show_hits(self, result: Concordance | str | None) -> None:
+        """Wyniki wyszukiwania, komunikat błędu (tekst) albo podpowiedź (None)."""
+        if not isinstance(result, Concordance):
             self.hits_table.set_hits([], self.folder)
-            self.hits_label.setText(str(error))
+            self.hits_label.setText(
+                tr("corpus.search.hint") if result is None else result
+            )
+            self._update_buttons()
             return
         self.hits_table.set_hits(result.hits, self.folder)
         text = tr(
@@ -477,23 +676,38 @@ class CorpusDialog(QDialog):
 
     # --- słownik form -------------------------------------------------------
 
-    def refresh_forms(self) -> None:
+    def _forms_request(self, current: CorpusProject) -> CorpusProject | None:
+        """Projekt słownika dla zakresu „bieżący projekt” (None - cały folder)."""
+        self._forms_case = self.forms_case_check.isChecked()
+        self._forms_informant = self.forms_informant_check.isChecked()
         if self.scope_combo.currentData() == SCOPE_CURRENT:
-            self._forms_project = self._host.current_project()
-            projects: Sequence[CorpusProject] = (self._forms_project,)
-        elif self.scan is None:
-            self._forms, self._similar = [], {}
-            self._fill_forms()
-            self.forms_label.setText(tr("corpus.folder.needed"))
-            return
-        else:
-            projects = self.projects
-        self._forms = form_index(
-            projects,
-            case_sensitive=self.forms_case_check.isChecked(),
-            informant_only=self.forms_informant_check.isChecked(),
+            self._forms_project = current
+            return current
+        return None
+
+    def _count_forms(
+        self, projects: Sequence[CorpusProject], progress: Progress
+    ) -> _Forms:
+        entries = form_index(
+            projects, self._forms_case, self._forms_informant, progress=progress
         )
-        self._similar = similar_forms(entry.form for entry in self._forms)
+        return _Forms(entries, similar_forms(entry.form for entry in entries))
+
+    def refresh_forms(self) -> bool:
+        forms = self._forms_request(self._host.current_project())
+        if forms is None and self.scan is None:
+            self._apply_forms(_Forms([], {}))
+            self.forms_label.setText(tr("corpus.folder.needed"))
+            return False
+        projects = self.projects if forms is None else (forms,)
+        return self._run(
+            tr("corpus.busy.forms"),
+            lambda progress: self._count_forms(projects, progress),
+            self._apply_forms,
+        )
+
+    def _apply_forms(self, forms: _Forms) -> None:
+        self._forms, self._similar = forms.entries, forms.similar
         self._fill_forms()
 
     def visible_forms(self) -> list[FormEntry]:
@@ -757,9 +971,17 @@ class CorpusDialog(QDialog):
         super().hideEvent(event)
 
     def closeEvent(self, event: QCloseEvent) -> None:
+        if self.busy:
+            event.ignore()
+            return
         self.player.pause()
         super().closeEvent(event)
 
     def shutdown(self) -> None:
-        """Zwalnia nagranie odtwarzacza okna (przy zamykaniu programu)."""
+        """Przerywa pracę w tle i zwalnia nagranie (przy zamykaniu programu)."""
+        task = self._task
+        if task is not None:
+            task.cancel()
+            task.wait()
+            self._blocker.stop()
         self.player.stop_and_unload()

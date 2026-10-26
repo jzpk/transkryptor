@@ -14,7 +14,7 @@ wskazuje formy różniące się jednym znakiem (``jag``/``jak``, ``be^ndzie``/
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Iterable, Iterator, Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import dataclass, field
 
 import regex
@@ -75,13 +75,20 @@ def form_of(
 
 
 def form_index(
-    projects: Iterable[CorpusProject],
+    projects: Sequence[CorpusProject],
     case_sensitive: bool = False,
     informant_only: bool = False,
+    progress: Callable[[int, int], bool] | None = None,
 ) -> list[FormEntry]:
-    """Formy z wystąpieniami: od najczęstszych, przy równej liczbie - alfabetycznie."""
+    """Formy z wystąpieniami: od najczęstszych, przy równej liczbie - alfabetycznie.
+
+    ``progress(done, total)`` przed każdym projektem; False przerywa
+    liczenie (wynik jest wtedy niepełny - decyduje wołający).
+    """
     entries: dict[str, FormEntry] = {}
-    for project in projects:
+    for index, project in enumerate(projects):
+        if progress is not None and not progress(index, len(projects)):
+            break
         state = project.state
         spans = list(word_spans(state.text))
         if informant_only:

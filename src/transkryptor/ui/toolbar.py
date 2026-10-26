@@ -39,6 +39,7 @@ from transkryptor.ui import icons
 from transkryptor.ui.markers import MARKERS, SUPERSCRIPT_SHORTCUT
 from transkryptor.ui.shortcuts import (
     CLOSE_SHORTCUT,
+    CORPUS_SHORTCUT,
     EXPORT_SHORTCUT,
     NEW_SHORTCUT,
     OPEN_PROJECT_SHORTCUT,
@@ -231,10 +232,14 @@ class MainToolbar:
         )
 
         # Wyszukiwanie, słownik form i katalog metryczek folderu projektów.
-        self.corpus_action = QAction(tr("toolbar.corpus"), window)
-        icons.set_icon(self.corpus_action, "corpus", "text", "text_muted")
-        self.corpus_action.setToolTip(tr("toolbar.corpus.tooltip"))
-        self.corpus_action.triggered.connect(lambda _checked=False: handlers.corpus())
+        self.corpus_action = _window_action(
+            window,
+            tr("toolbar.corpus"),
+            "corpus",
+            CORPUS_SHORTCUT,
+            tr("toolbar.corpus.tooltip"),
+            handlers.corpus,
+        )
         self._slots["corpus"] = _Slot(
             "tools", self.corpus_action, (self._add(self.corpus_action),)
         )

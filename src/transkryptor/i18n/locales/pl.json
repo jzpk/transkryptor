@@ -887,5 +887,12 @@
   "corpus.tei.source": "Transkrypcje nagrań (projektów: {count}) z programu Transkryptor.",
   "corpus.tei.transcription": "transkrypcja",
   "corpus.tei.no_recording": "Brak danych nagrania.",
-  "corpus.tei.default_name": "{name}_korpus_tei"
+  "corpus.tei.default_name": "{name}_korpus_tei",
+  "busy.cancel": "Przerwij",
+  "busy.cancelling": "Przerywanie…",
+  "busy.progress": "Projekty: {done} z {total}",
+  "corpus.busy.scan": "Wczytywanie projektów folderu…",
+  "corpus.busy.search": "Wyszukiwanie w projektach…",
+  "corpus.busy.forms": "Liczenie form…",
+  "corpus.busy.cancelled": "Przerwano - wyniki się nie zmieniły."
 }

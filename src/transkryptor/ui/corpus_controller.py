@@ -112,6 +112,11 @@ class CorpusController(QObject):
             return True
         return current is not None and current.resolve() == path.resolve()
 
+    @property
+    def busy(self) -> bool:
+        """Okno korpusu liczy coś w tle (interfejs jest zablokowany)."""
+        return self.dialog is not None and self.dialog.busy
+
     def set_locked(self, locked: bool) -> None:
         """Na czas transkrypcji okno korpusu jest nieaktywne."""
         self._locked = locked

@@ -628,6 +628,7 @@ class MainWindow(QMainWindow):
             project_id("export"): self.export_action,
             project_id("settings"): self.settings_action,
             project_id("close"): self.close_action,
+            project_id("corpus"): self.corpus_action,
         }
         for key, action in self.marker_actions.items():
             actions[marker_id(key)] = action
@@ -869,6 +870,10 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event: QCloseEvent) -> None:
         """ACC-10: ostrzeżenie przed utratą pracy przy zamknięciu."""
+        # Wyszukiwanie w korpusie ma przycisk „Przerwij” - okno czeka na nie.
+        if self.corpus.busy:
+            event.ignore()
+            return
         if self.session.can_close():
             self.waveform.shutdown()
             self.audio_filters.shutdown()

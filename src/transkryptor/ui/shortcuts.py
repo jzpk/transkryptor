@@ -41,6 +41,8 @@ SAVE_PROJECT_SHORTCUT = "Ctrl+S"
 SAVE_PROJECT_AS_SHORTCUT = "Ctrl+Shift+S"
 EXPORT_SHORTCUT = "Ctrl+E"
 CLOSE_SHORTCUT = "Ctrl+W"
+# Okno „Korpus” - jak „szukaj w plikach” w edytorach kodu.
+CORPUS_SHORTCUT = "Ctrl+Shift+F"
 
 # Wyszukiwanie i zamiana (faza 07). Esc zamyka pasek - tylko z fokusem w pasku.
 FIND_SHORTCUT = "Ctrl+F"
@@ -231,6 +233,9 @@ SHORTCUT_ACTIONS: tuple[ShortcutDef, ...] = (
         project_id("settings"), "toolbar.settings", (SETTINGS_SHORTCUT,), GROUP_PROJECT
     ),
     ShortcutDef(project_id("close"), "toolbar.close", (CLOSE_SHORTCUT,), GROUP_PROJECT),
+    ShortcutDef(
+        project_id("corpus"), "toolbar.corpus", (CORPUS_SHORTCUT,), GROUP_PROJECT
+    ),
     *(
         ShortcutDef(
             speaker_id(number),

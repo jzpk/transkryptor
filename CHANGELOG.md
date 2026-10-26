@@ -7,11 +7,15 @@ Pusta sekcja blokuje wydanie.
 
 ## Nieopublikowane
 
-- Okno **Korpus** (przycisk na pasku narzędzi) do pracy na wszystkich
+- Okno **Korpus** (przycisk na pasku narzędzi, skrót `Ctrl+Shift+F` -
+  można go zmienić w zakładce **Skróty**) do pracy na wszystkich
   projektach w folderze (także w podfolderach). Domyślnie otwiera folder
   bieżącego projektu, a bieżący projekt jest czytany z edytora - razem
   z niezapisanymi zmianami. Projekty, których nie da się odczytać, są
-  pomijane z informacją obok liczby projektów.
+  pomijane z informacją obok liczby projektów. Wczytywanie folderu,
+  wyszukiwanie i liczenie form działają w tle: na ten czas program jest
+  zablokowany (nakładka ze spinnerem, postępem i przyciskiem **Przerwij**),
+  a przerwanie zostawia poprzednie wyniki.
 - **Wyszukiwanie w wielu projektach:** słowo, forma gwarowa albo wyrażenie
   regularne (opcje jak w pasku wyszukiwania, także „Tylko informator”).
   Wyniki to konkordancja: projekt, mówca, kontekst z lewej i prawej strony

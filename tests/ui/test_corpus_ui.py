@@ -1,14 +1,23 @@
 """Okno „Korpus”: wyszukiwanie w folderze, słownik form i eksport metryczek."""
 
 import csv
+import threading
 from pathlib import Path
 
 import pytest
+from PySide6.QtCore import QEvent, Qt
+from PySide6.QtGui import QKeyEvent
+from PySide6.QtWidgets import QApplication
 
 from transkryptor.document.anchors import SEGMENT, Anchor
 from transkryptor.document.project import ProjectState, save_project
 from transkryptor.ui import corpus_dialog
-from transkryptor.ui.corpus_dialog import CATALOG_TAB, FORMS_TAB, SCOPE_FOLDER
+from transkryptor.ui.corpus_dialog import (
+    BUSY_DELAY_MS,
+    CATALOG_TAB,
+    FORMS_TAB,
+    SCOPE_FOLDER,
+)
 from transkryptor.ui.main_window import MainWindow
 
 TEXT_A = "tak było\njag pamientam jak dziś"
@@ -39,13 +48,16 @@ def window(qtbot, add_window) -> MainWindow:
 
 def open_corpus(window: MainWindow, folder: Path):
     dialog = window.corpus.open_dialog()
+    dialog.wait()
     dialog.set_folder(folder)
+    dialog.wait()
     return dialog
 
 
 def search(dialog, query: str) -> list:
     dialog.query_edit.setText(query)
     dialog.run_search()
+    dialog.wait()
     return dialog.hits_table.hits
 
 
@@ -57,6 +69,7 @@ class TestCorpusSearch:
         window.corpus_action.trigger()
         dialog = window.corpus.dialog
         assert dialog is not None and dialog.isVisible()
+        dialog.wait()
         assert dialog.folder == folder
         assert dialog.summary_label.text() == "Projekty: 2"
 
@@ -127,6 +140,7 @@ class TestFormsTab:
         assert window.session.open_project(folder / "A_1.transkr", confirm=False)
         dialog = open_corpus(window, folder)
         dialog.tabs.setCurrentIndex(FORMS_TAB)
+        dialog.wait()
         forms = {entry.form: entry.count for entry in dialog.visible_forms()}
         assert forms == {
             "tak": 1,
@@ -145,7 +159,9 @@ class TestFormsTab:
     def test_folder_scope_and_filter(self, window, folder) -> None:
         dialog = open_corpus(window, folder)
         dialog.tabs.setCurrentIndex(FORMS_TAB)
+        dialog.wait()
         dialog.scope_combo.setCurrentIndex(dialog.scope_combo.findData(SCOPE_FOLDER))
+        dialog.wait()
         counts = {entry.form: entry.count for entry in dialog.visible_forms()}
         assert counts["jak"] == 2 and counts["było"] == 2
         dialog.forms_filter_edit.setText("ja")
@@ -154,6 +170,7 @@ class TestFormsTab:
     def test_export_forms_csv(self, window, folder, monkeypatch) -> None:
         dialog = open_corpus(window, folder)
         dialog.scope_combo.setCurrentIndex(dialog.scope_combo.findData(SCOPE_FOLDER))
+        dialog.wait()
         target = folder / "formy.csv"
         monkeypatch.setattr(corpus_dialog, "ask_save_path", lambda *a: target)
         dialog.export_forms(".csv")
@@ -177,3 +194,75 @@ class TestCatalogTab:
         assert "INF" not in (folder / "k.csv").read_text(encoding="utf-8-sig")
         assert "teiCorpus" in (folder / "k.xml").read_text(encoding="utf-8")
         assert dialog.status_label.text() == "Zapisano „k.xml”."
+
+
+class TestShortcut:
+    def test_default_shortcut_opens_corpus(self, window) -> None:
+        assert window.corpus_action.shortcut().toString() == "Ctrl+Shift+F"
+        assert "Ctrl+Shift+F" in window.corpus_action.toolTip()
+        assert window.shortcut_actions["project.corpus"] is window.corpus_action
+
+
+class TestBusyOverlay:
+    @pytest.fixture
+    def blocked(self, window, folder):
+        """Okno korpusu z pracą w tle, która trwa do ``release.set()``."""
+        dialog = open_corpus(window, folder)
+        release = threading.Event()
+        results: list[object] = []
+
+        def work(progress):
+            progress(1, 4)
+            while not release.wait(0.01):
+                if not progress(1, 4):
+                    return "przerwane"
+            return "gotowe"
+
+        assert dialog._run("Praca", work, results.append)
+        yield dialog, release, results
+        release.set()
+        dialog.wait()
+
+    def test_overlay_with_spinner_blocks_input_until_done(
+        self, qtbot, window, blocked
+    ) -> None:
+        dialog, release, results = blocked
+        assert dialog.busy
+        # Druga praca nie startuje, póki trwa pierwsza.
+        assert not dialog.run_search()
+        qtbot.wait(BUSY_DELAY_MS + 100)
+        assert dialog.overlay.isVisible()
+        assert dialog.overlay.spinner.is_spinning()
+        assert dialog.overlay.title_label.text() == "Praca"
+        assert dialog.overlay.detail_label.text() == "Projekty: 1 z 4"
+        assert dialog._cover is not None and dialog._cover.isVisible()
+        # Klawiatura i skróty nie docierają do okien.
+        press = QKeyEvent(
+            QEvent.Type.KeyPress, Qt.Key.Key_A, Qt.KeyboardModifier.NoModifier, "a"
+        )
+        QApplication.sendEvent(dialog.query_edit, press)
+        assert dialog.query_edit.text() == ""
+        # Zamknięcie okien czeka na koniec pracy.
+        assert not dialog.close()
+        assert dialog.isVisible()
+        release.set()
+        dialog.wait()
+        assert results == ["gotowe"]
+        assert not dialog.busy
+        assert not dialog.overlay.isVisible()
+        assert not dialog._cover.isVisible()
+        QApplication.sendEvent(dialog.query_edit, press)
+        assert dialog.query_edit.text() == "a"
+
+    def test_cancel_discards_result(self, qtbot, blocked) -> None:
+        dialog, _release, results = blocked
+        qtbot.wait(BUSY_DELAY_MS + 100)
+        qtbot.mouseClick(dialog.overlay.cancel_button, Qt.MouseButton.LeftButton)
+        dialog.wait()
+        assert results == []
+        assert not dialog.busy
+        assert dialog.status_label.text() == "Przerwano - wyniki się nie zmieniły."
+
+    def test_main_window_waits_for_corpus_work(self, window, blocked) -> None:
+        assert not window.close()
+        assert window.isVisible()

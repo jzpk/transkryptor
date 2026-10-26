@@ -887,5 +887,12 @@
   "corpus.tei.source": "Recording transcriptions (projects: {count}) from Transkryptor.",
   "corpus.tei.transcription": "transcription",
   "corpus.tei.no_recording": "No recording data.",
-  "corpus.tei.default_name": "{name}_corpus_tei"
+  "corpus.tei.default_name": "{name}_corpus_tei",
+  "busy.cancel": "Cancel",
+  "busy.cancelling": "Cancelling…",
+  "busy.progress": "Projects: {done} of {total}",
+  "corpus.busy.scan": "Reading the folder's projects…",
+  "corpus.busy.search": "Searching the projects…",
+  "corpus.busy.forms": "Counting word forms…",
+  "corpus.busy.cancelled": "Cancelled - the results did not change."
 }
