@@ -68,6 +68,7 @@ class ToolbarHandlers:
     export_anonymized: Callable[[], None]
     export_as: Callable[[], None] = lambda: None
     compare: Callable[[], object] = lambda: None
+    corpus: Callable[[], object] = lambda: None
 
 
 @dataclass(frozen=True)
@@ -101,6 +102,7 @@ class _Slot:
 NOTATION_SECTION = "notation"
 COLLAPSE_ORDER = (
     "snippets",
+    "corpus",
     *(f"marker:{marker.key}" for marker in reversed(MARKERS)),
     "superscript",
     "comments",
@@ -226,6 +228,15 @@ class MainToolbar:
         comments_toggle.setToolTip(tr("toolbar.comments.tooltip"))
         self._slots["comments"] = _Slot(
             "tools", comments_toggle, (self._add(comments_toggle),)
+        )
+
+        # Wyszukiwanie, słownik form i katalog metryczek folderu projektów.
+        self.corpus_action = QAction(tr("toolbar.corpus"), window)
+        icons.set_icon(self.corpus_action, "corpus", "text", "text_muted")
+        self.corpus_action.setToolTip(tr("toolbar.corpus.tooltip"))
+        self.corpus_action.triggered.connect(lambda _checked=False: handlers.corpus())
+        self._slots["corpus"] = _Slot(
+            "tools", self.corpus_action, (self._add(self.corpus_action),)
         )
 
         self.settings_action = _action(

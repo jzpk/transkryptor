@@ -7,6 +7,35 @@ Pusta sekcja blokuje wydanie.
 
 ## Nieopublikowane
 
+- Okno **Korpus** (przycisk na pasku narzędzi) do pracy na wszystkich
+  projektach w folderze (także w podfolderach). Domyślnie otwiera folder
+  bieżącego projektu, a bieżący projekt jest czytany z edytora - razem
+  z niezapisanymi zmianami. Projekty, których nie da się odczytać, są
+  pomijane z informacją obok liczby projektów.
+- **Wyszukiwanie w wielu projektach:** słowo, forma gwarowa albo wyrażenie
+  regularne (opcje jak w pasku wyszukiwania, także „Tylko informator”).
+  Wyniki to konkordancja: projekt, mówca, kontekst z lewej i prawej strony
+  (w obrębie wypowiedzi), trafienie i czas w nagraniu. **Odsłuchaj**
+  odtwarza fragment w pętli we własnym odtwarzaczu okna (nagranie okna
+  głównego jest wtedy pauzowane), a **Przejdź do miejsca** albo dwuklik
+  otwiera projekt (z pytaniem o niezapisane zmiany) i zaznacza trafienie
+  w tekście.
+- **Słownik form:** lista unikalnych form bieżącego projektu albo całego
+  folderu z liczbą wystąpień i projektów, a pod nią wszystkie wystąpienia
+  wybranej formy z kontekstem, odsłuchem i przejściem do miejsca. Indeks
+  górny jest częścią formy (zapis `be^ndzie`), więc różne zapisy tej samej
+  realizacji są widoczne osobno. Kolumna **Formy podobne** i opcja **Tylko
+  z podobnymi** wskazują formy różniące się jednym znakiem (np. `jag`
+  i `jak`) - kandydatów na niespójność zapisu. Listę form można filtrować
+  i wyeksportować do CSV albo XLSX.
+- **Zbiorczy eksport metryczek:** zakładka **Metryczki** pokazuje katalog
+  nagrań (jeden wiersz na projekt: plik projektu, pola metryczki według
+  ustawień, autor i data transkrypcji, mówcy, nagranie z sumą SHA-256,
+  liczba słów, słowa informatorów, komentarze) i zapisuje go do CSV (UTF-8,
+  czytelny w Excelu) albo XLSX. Eksport **TEI XML** zapisuje cały korpus
+  w standardzie TEI P5 (`teiCorpus`): metryczki w nagłówkach, mówcy,
+  wypowiedzi z czasami nagrania i indeksem górnym. Opcja **Anonimizuj**
+  pomija pola osobowe i etykiety informatorów, jak eksport anonimizowany.
 - Menu **Dźwięk** w karcie odtwarzacza: suwak głośności oraz filtry
   odsłuchu - **Wzmocnij ciche fragmenty** (wyrównuje głośność mowy, np.
   cichego informatora daleko od mikrofonu), **Tłum szum niskich tonów**

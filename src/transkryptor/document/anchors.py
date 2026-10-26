@@ -158,6 +158,31 @@ def anchor_at(
     return best
 
 
+def time_span(
+    anchors: Iterable[Anchor], start: int, end: int, prefer_words: bool = True
+) -> tuple[int, int] | None:
+    """Czas nagrania (ms) fragmentu tekstu ``[start, end)`` z jego kotwic.
+
+    Słowa z czasem są dokładniejsze niż segment, w którym leżą - gdy
+    fragment je obejmuje, liczą się tylko one (``prefer_words``; bez tego -
+    wszystkie kotwice, np. dla całego akapitu). None - fragment nie ma
+    kotwic czasowych albo ich czas jest pusty.
+    """
+    touching = [
+        anchor
+        for anchor in anchors
+        if (anchor.start < end and anchor.end > start)
+        or (anchor.is_point and start <= anchor.start <= end)
+    ]
+    words = [a for a in touching if a.source == WORD] if prefer_words else []
+    spans = [(anchor.start_ms, anchor.end_ms) for anchor in words or touching]
+    if not spans:
+        return None
+    first = min(span[0] for span in spans)
+    last = max(span[1] for span in spans)
+    return (first, last) if last > first else None
+
+
 class TimeIndex:
     """Segmenty posortowane po czasie: aktywny segment dla pozycji nagrania."""
 
