@@ -680,6 +680,11 @@ class SettingsDialog(QDialog):
         changed = self.language_combo.currentData() != self._initial_language
         self.language_hint.setVisible(changed)
 
+    def open_rules_with(self, rule: PhoneticRule) -> None:
+        """Zakładka reguł z dopisaną proponowaną regułą (do sprawdzenia)."""
+        self.tabs.setCurrentWidget(self.rules_editor)
+        self.rules_editor.add_proposed_rule(rule)
+
     def user_rules(self) -> tuple[PhoneticRule, ...]:
         """Reguły fonetyczne użytkownika po edycji (zapisuje okno główne)."""
         return self.rules_editor.user_rules()
