@@ -9,15 +9,11 @@ GITHUB_REPO = "jzpk/transkryptor"
 # Strony, z których formularz może wysyłać zgłoszenia (po przecinku).
 ALLOWED_ORIGINS = "https://transkryptorapp.pl,https://www.transkryptorapp.pl"
 
-# Sekrety (NIE wpisuj ich tutaj) ustawiasz poleceniem:
-#   npx wrangler secret put GITHUB_TOKEN
-#   npx wrangler secret put TURNSTILE_SECRET
-
 # Prywatne adresy e-mail do odpowiedzi. Identyfikator wypisze polecenie
 #   npx wrangler kv namespace create CONTACTS
 [[kv_namespaces]]
 binding = "CONTACTS"
-id = "WSTAW_ID_Z_POLECENIA_POWYZEJ"
+id = "b4f5481e079940198bbf82b129eb6c64"
 
 # Najwyżej 3 zgłoszenia na minutę z jednego adresu IP.
 [[ratelimits]]
