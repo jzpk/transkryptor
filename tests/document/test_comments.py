@@ -64,6 +64,18 @@ def test_project_round_trip() -> None:
     assert json.loads(dumps(state))["schema_version"] == SCHEMA_VERSION == 6
 
 
+def test_resolved_status_round_trip() -> None:
+    from dataclasses import replace
+
+    resolved = replace(COMMENT, resolved=True)
+    state = ProjectState(text="tak było", comments=(resolved,))
+    assert json.loads(dumps(state))["comments"][0]["resolved"] is True
+    assert loads(dumps(state)).comments == (resolved,)
+    # Otwarty komentarz zapisuje się jak w wersjach bez statusu.
+    plain = json.loads(dumps(ProjectState(text="tak było", comments=(COMMENT,))))
+    assert "resolved" not in plain["comments"][0]
+
+
 def test_schema_5_gets_no_comments() -> None:
     data: dict[str, Any] = {"schema_version": 5, "document": {"text": "ab"}}
     migrated = migrate(data)

@@ -3,7 +3,9 @@
 Komentarz to zakres tekstu ``[start, end)`` (pozycje Pythona) z autorem,
 datą i treścią oraz jednopoziomowym wątkiem odpowiedzi. ``quote`` to treść
 fragmentu w chwili zapisu - pokazuje, czego dotyczył komentarz, gdy
-fragment zmieniono albo usunięto. Komentarz, którego fragment usunięto,
+fragment zmieniono albo usunięto. ``resolved`` oznacza komentarz
+rozwiązany (sprawa załatwiona); zostaje w projekcie, ale nie jest już
+„otwarty” - np. w raporcie gotowości do oddania. Komentarz, którego fragment usunięto,
 zostaje jako punkt (``start == end``): komentarzy nie usuwa się po cichu.
 
 Kotwice przesuwające się z edycją śledzi warstwa UI (kursory edytora,
@@ -46,6 +48,7 @@ class Comment:
     text: str
     quote: str = ""
     replies: tuple[Reply, ...] = ()
+    resolved: bool = False
 
     @property
     def is_point(self) -> bool:

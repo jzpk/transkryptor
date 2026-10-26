@@ -270,12 +270,14 @@ class ExportSettings:
 
     ``template_path`` pusty = szablon wbudowany. ``last_format`` to klucz
     formatu z ``export/registry.py`` ostatnio wybrany w oknie eksportu.
+    ``readiness_check`` - raport „Gotowość do oddania” przed eksportem.
     """
 
     template_path: str = ""
     superscript_mode: str = UNICODE
     untimed_mode: str = UNTIMED_INTERPOLATE
     last_format: str = "docx"
+    readiness_check: bool = True
 
 
 @dataclass(frozen=True)
@@ -403,6 +405,7 @@ _FIELDS: tuple[_Field, ...] = (
     _Field("export", "superscript_mode", str, choices=SUPERSCRIPT_MODES),
     _Field("export", "untimed_mode", str, choices=UNTIMED_MODES),
     _Field("export", "last_format", str),
+    _Field("export", "readiness_check", bool),
     _Field("appearance", "theme", str, choices=THEMES),
     _Field("appearance", "language", str, choices=LANGUAGE_CHOICES),
     _Field("asr", "model_key", str, choices=MODEL_KEYS),

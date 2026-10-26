@@ -75,6 +75,16 @@ def no_blocking_dialogs(monkeypatch):
         return int(QMessageBox.StandardButton.Cancel)
 
     monkeypatch.setattr(QMessageBox, "exec", fake_exec)
+
+    from transkryptor.ui.readiness_dialog import ReadinessDialog
+
+    def fake_readiness(dialog):
+        # Raport gotowości przed eksportem: „Eksportuj mimo to”, żeby testy
+        # eksportu nie zależały od tego, co zostało do sprawdzenia.
+        calls.append(("readiness", dialog.windowTitle(), dialog.summary.text()))
+        return int(ReadinessDialog.DialogCode.Accepted)
+
+    monkeypatch.setattr(ReadinessDialog, "exec", fake_readiness)
     return calls
 
 

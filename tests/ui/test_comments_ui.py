@@ -172,3 +172,79 @@ def test_docx_export_contains_comments(window, tmp_path, monkeypatch) -> None:
     assert comment.author == "Weryfikator"
     window.exporter.export(anonymize=True)
     assert list(DocxReader(str(target)).comments) == []
+
+
+def test_resolve_hides_highlight_and_skips_navigation(window) -> None:
+    answer(window, "A", "pierwszy")
+    select(window, 0, 3)
+    window.comments.add_from_selection()
+    answer(window, "A", "drugi")
+    select(window, 4, 8)
+    window.comments.add_from_selection()
+    window.document.mark_saved()
+
+    assert window.comments.toggle_resolved(0)
+    assert window.document.is_unsaved
+    assert [c.resolved for c in window.comments.entries()] == [True, False]
+    assert window.comments.open_count() == 1
+    assert len(window.editor.highlight_layer(COMMENT_LAYER)) == 1
+    tip = window.comments.tooltip_at(1)
+    assert tip is not None and "rozwiązany" in tip
+
+    # Skróty prowadzą tylko po otwartych komentarzach.
+    select(window, 0, 0)
+    assert window.comments.go_to(1)
+    assert window.editor.textCursor().selectedText() == "było"
+    assert window.comments.go_to(1)
+    assert window.editor.textCursor().selectedText() == "było"
+
+    assert window.comments.toggle_resolved(1)
+    assert not window.comments.go_to(1)
+    assert window.comments.toggle_resolved(0)
+    assert window.comments.entries()[0].resolved is False
+
+
+def test_panel_filter_and_resolve_button(window) -> None:
+    answer(window, "A", "pierwszy")
+    select(window, 0, 3)
+    window.comments.add_from_selection()
+    answer(window, "A", "drugi")
+    select(window, 4, 8)
+    window.comments.add_from_selection()
+    panel = window.comments.panel
+
+    panel.select(0)
+    assert panel.resolve_button.text() == "Rozwiąż"
+    panel.resolve_button.click()
+    assert window.comments.entries()[0].resolved
+    panel.select(0)
+    assert panel.resolve_button.text() == "Otwórz ponownie"
+    assert panel.count_label.text() == "otwarte: 1 z 2"
+
+    panel.set_filter("open")
+    assert panel.tree.topLevelItemCount() == 1
+    # Indeksy panelu dotyczą pełnej listy komentarzy, nie widocznych pozycji.
+    panel.select(1)
+    assert panel.selection() == (1, None)
+    panel.select(0)
+    assert panel.selection() == (1, None)
+
+    panel.set_filter("resolved")
+    assert panel.tree.topLevelItemCount() == 1
+    assert panel.tree.topLevelItem(0).text(0).startswith("✓ Rozwiązany")
+    panel.set_filter("all")
+    assert panel.tree.topLevelItemCount() == 2
+
+
+def test_resolved_status_is_saved(window, add_window, tmp_path, monkeypatch) -> None:
+    answer(window, "A", "uwaga")
+    select(window, 4, 8)
+    window.comments.add_from_selection()
+    window.comments.toggle_resolved(0)
+    path = tmp_path / "projekt.transkr"
+    save_as(window, path, monkeypatch)
+    (saved,) = load_project(path).comments
+    assert saved.resolved
+    other = add_window(MainWindow())
+    assert other.session.open_project(path)
+    assert other.comments.entries()[0].resolved

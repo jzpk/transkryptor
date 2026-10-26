@@ -7,6 +7,22 @@ Pusta sekcja blokuje wydanie.
 
 ## Nieopublikowane
 
+- **Gotowość do oddania** - nowe okno w menu przycisku eksportu zbiera
+  w jednym miejscu to, co zostało do sprawdzenia: ostrzeżenia walidatora,
+  niesprawdzone niepewne słowa, otwarte komentarze, akapity bez mówcy (gdy
+  dokument ma mówców) i puste pola metryczki. Dwuklik albo Enter na pozycji
+  przechodzi do miejsca w tekście lub do pola metryczki. Raport pokazuje się
+  też przed każdym eksportem, jeśli jest coś do sprawdzenia (przyciski
+  **Eksportuj mimo to** i **Anuluj**); pole „Pokazuj ten raport przed
+  eksportem” wyłącza to zachowanie.
+- **Rozwiązywanie komentarzy:** przycisk **Rozwiąż** w panelu komentarzy
+  (i pozycja w menu kontekstowym tekstu) oznacza komentarz jako rozwiązany,
+  a **Otwórz ponownie** przywraca go do otwartych. Filtr **Pokaż:
+  Wszystkie / Otwarte / Rozwiązane** nad listą i licznik otwartych
+  komentarzy ułatwiają cykl z weryfikatorem. Rozwiązany komentarz zostaje
+  w projekcie i w eksporcie DOCX, ale jego fragment nie ma tła, a skróty
+  „następny/poprzedni komentarz” prowadzą tylko po otwartych.
+
 ## 0.7.0 - 2026-10-26
 
 - **Zgłoś problem lub pomysł** - nowy przycisk na dole okna (obok „Co

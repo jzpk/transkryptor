@@ -1,8 +1,10 @@
 """Eksport transkrypcji (REQ-07, REQ-08, REQ-24), także z anonimizacją.
 
 DOCX to format główny (przycisk na pasku, ``Ctrl+E``); pozostałe formaty
-z rejestru ``export/registry.py`` są w oknie „Eksportuj jako…”. Raport
-eksportu (np. fragmenty z czasem interpolowanym) jest pokazywany po zapisie.
+z rejestru ``export/registry.py`` są w oknie „Eksportuj jako…”. Przed
+wyborem pliku ``confirm`` może zatrzymać eksport (raport gotowości do
+oddania, ``ui/readiness_dialog.py``). Raport eksportu (np. fragmenty
+z czasem interpolowanym) jest pokazywany po zapisie.
 """
 
 from __future__ import annotations
@@ -54,6 +56,7 @@ class ExportController(QObject):
         settings: Callable[[], ExportSettings] = ExportSettings,
         save_settings: Callable[[ExportSettings], None] = lambda _settings: None,
         font_family: Callable[[], str] = str,
+        confirm: Callable[[], bool] = lambda: True,
     ) -> None:
         super().__init__(dialog_parent)
         self._parent = dialog_parent
@@ -67,6 +70,7 @@ class ExportController(QObject):
         self._settings = settings
         self._save_settings = save_settings
         self._font_family = font_family
+        self._confirm = confirm
         self.last_report: ExportReport | None = None
 
     def export(self, anonymize: bool = False) -> None:
@@ -124,6 +128,8 @@ class ExportController(QObject):
     def _export(
         self, exporter: Exporter, options: ExportOptions, anonymize: bool
     ) -> bool:
+        if not self._confirm():
+            return False
         document = self._document()
         if exporter.key == DOCX:
             title = tr("export.dialog.anonymized" if anonymize else "export.dialog")
