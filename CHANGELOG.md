@@ -7,6 +7,8 @@ Pusta sekcja blokuje wydanie.
 
 ## Nieopublikowane
 
+## 0.7.0 - 2026-10-26
+
 - **Zgłoś problem lub pomysł** - nowy przycisk na dole okna (obok „Co
   nowego”) otwiera w przeglądarce formularz na stronie programu. Błąd albo
   pomysł można zgłosić bez konta na GitHubie; wersja programu i systemu są
