@@ -1,5 +1,9 @@
 # Kontrola jakości przy każdej zmianie: lint, formatowanie, typy i testy.
 #
+# Push na main ze scalenia PR nie powtarza kontroli - ten sam kod przeszedł
+# je już w PR (job „scalony-pr”). Bezpośredni push na main jest sprawdzany
+# jak dotąd.
+#
 # Workflow wydania (release.yml) powtarza te same kontrole przed budowaniem
 # artefaktów - tag nie ominie bramki. Akcje są przypięte do SHA commitów
 # (aktualizuje je Dependabot, .github/dependabot.yml).
@@ -15,8 +19,37 @@ permissions:
   contents: read
 
 jobs:
+  # Commit wypchnięty na main, który jest commitem scalenia PR (merge, squash
+  # albo ostatni commit rebase), pomija pozostałe joby. Błąd API nie pomija
+  # niczego - kontrole wtedy się wykonują.
+  scalony-pr:
+    name: Scalenie PR
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      pominac: ${{ steps.sprawdzenie.outputs.pominac }}
+    steps:
+      - id: sprawdzenie
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          numer=$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" \
+            --jq "[.[] | select(.merged_at != null and .merge_commit_sha == \"$GITHUB_SHA\")][0].number // empty" \
+            || true)
+          if [ -n "$numer" ]; then
+            echo "Commit $GITHUB_SHA to scalenie PR #$numer - kontrole przeszły w PR."
+            echo "pominac=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "pominac=false" >> "$GITHUB_OUTPUT"
+          fi
+
   jakosc:
     name: Ruff, black, mypy
+    needs: scalony-pr
+    if: needs.scalony-pr.outputs.pominac != 'true'
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -42,6 +75,8 @@ jobs:
 
   testy:
     name: Testy
+    needs: scalony-pr
+    if: needs.scalony-pr.outputs.pominac != 'true'
     runs-on: ubuntu-22.04
     # Zawieszony test (np. zakleszczenie Qt Multimedia) nie może blokować
     # runnera przez domyślne 6 godzin.
@@ -78,6 +113,8 @@ jobs:
 
   testy-windows:
     name: Testy (Windows, bez Qt)
+    needs: scalony-pr
+    if: needs.scalony-pr.outputs.pominac != 'true'
     runs-on: windows-2022
     timeout-minutes: 20
     steps:
@@ -104,6 +141,8 @@ jobs:
 
   zaleznosci:
     name: Znane podatności zależności
+    needs: scalony-pr
+    if: needs.scalony-pr.outputs.pominac != 'true'
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
