@@ -11,8 +11,8 @@ schematu 3 - ostrzeżenia walidatora zignorowane w konkretnych miejscach,
 od schematu 4 - kotwice czasowe tekstu (``document/anchors.py``), od
 schematu 5 - mówcy nagrania, ich przypisanie do akapitów
 (``document/speakers.py``) i mówcy segmentów ASR z podziału na mówców, a od
-schematu 6 - komentarze recenzji z odpowiedziami (``document/comments.py``)
-i sprawdzone zakresy nagrania (``document/verification.py``).
+schematu 6 - komentarze recenzji z odpowiedziami i statusem rozwiązania
+(``document/comments.py``; pole ``resolved`` jest opcjonalne) i sprawdzone zakresy nagrania (``document/verification.py``).
 
 Zapis jest atomowy: plik tymczasowy w katalogu docelowym, ``fsync``
 i ``os.replace`` - przerwany zapis nie psuje poprzedniej wersji. Odczyt
@@ -298,7 +298,7 @@ def _anchor_dict(anchor: Anchor) -> dict[str, Any]:
 
 
 def _comment_dict(comment: Comment) -> dict[str, Any]:
-    return {
+    data: dict[str, Any] = {
         "id": comment.id,
         "start": comment.start,
         "end": comment.end,
@@ -311,6 +311,9 @@ def _comment_dict(comment: Comment) -> dict[str, Any]:
             for r in comment.replies
         ],
     }
+    if comment.resolved:
+        data["resolved"] = True
+    return data
 
 
 def dumps(state: ProjectState, project_path: Path | None = None) -> str:
@@ -678,6 +681,7 @@ def _parse(data: dict[str, Any]) -> ProjectState:
                 )
                 for r in map(_dict, _list(c.get("replies", [])))
             ),
+            resolved=_bool(c.get("resolved", False)),
         )
         for c in map(_dict, _list(data.get("comments", [])))
     )

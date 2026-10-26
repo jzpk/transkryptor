@@ -70,6 +70,7 @@ class ToolbarHandlers:
     export_as: Callable[[], None] = lambda: None
     compare: Callable[[], object] = lambda: None
     corpus: Callable[[], object] = lambda: None
+    readiness: Callable[[], object] = lambda: None
 
 
 @dataclass(frozen=True)
@@ -348,10 +349,17 @@ class MainToolbar:
         self.export_as_action.triggered.connect(
             lambda _checked=False: handlers.export_as()
         )
+        self.readiness_action = QAction(tr("toolbar.readiness"), window)
+        self.readiness_action.setToolTip(tr("toolbar.readiness.tooltip"))
+        self.readiness_action.triggered.connect(
+            lambda _checked=False: handlers.readiness()
+        )
         export_menu = QMenu(window)
         export_menu.addAction(self.export_anonymized_action)
         export_menu.addSeparator()
         export_menu.addAction(self.export_as_action)
+        export_menu.addSeparator()
+        export_menu.addAction(self.readiness_action)
         self._add(self.export_action, menu=export_menu)
         set_props(self._buttons[self.export_action], variant="primary")
 

@@ -10,7 +10,10 @@ fragmentu, z cytatem z chwili zapisu). Kontroler obsługuje:
 - tło komentowanych fragmentów (warstwa ``COMMENT_LAYER``) i podpowiedź
   z treścią po najechaniu;
 - przejście do fragmentu (także skrótami „następny/poprzedni komentarz”)
-  i odsłuch od jego kotwicy czasowej.
+  i odsłuch od jego kotwicy czasowej;
+- rozwiązanie komentarza i ponowne otwarcie. Rozwiązany komentarz zostaje
+  w projekcie i w panelu, ale jego fragment nie ma tła, a skróty
+  „następny/poprzedni komentarz” go pomijają - prowadzą po otwartych.
 
 Komentarze należą do projektu (``ProjectState.comments``), nie do tekstu.
 """
@@ -84,6 +87,7 @@ class CommentsController(QObject):
         self.panel.edit_requested.connect(self.edit)
         self.panel.remove_requested.connect(self.remove)
         self.panel.play_requested.connect(self.play)
+        self.panel.resolve_requested.connect(self.toggle_resolved)
         self.add_action = QAction(tr("comments.action.add"), dialog_parent)
         self.add_action.triggered.connect(
             lambda _checked=False: self.add_from_selection()
@@ -193,6 +197,26 @@ class CommentsController(QObject):
         self._changed()
         return True
 
+    def toggle_resolved(self, index: int) -> bool:
+        """Oznacza komentarz jako rozwiązany albo otwiera go ponownie."""
+        if not 0 <= index < len(self.items):
+            return False
+        item = self.items[index]
+        item.comment = replace(item.comment, resolved=not item.comment.resolved)
+        self._changed()
+        self.panel.select(index)
+        self._show_status(
+            tr(
+                "comments.resolved.status"
+                if item.comment.resolved
+                else "comments.reopened.status"
+            )
+        )
+        return True
+
+    def open_count(self) -> int:
+        return sum(1 for item in self.items if not item.comment.resolved)
+
     # --- przejście i odsłuch ---------------------------------------------
 
     def activate(self, index: int) -> None:
@@ -203,13 +227,17 @@ class CommentsController(QObject):
         self.editor.setFocus()
 
     def go_to(self, direction: int) -> bool:
-        """Przechodzi do następnego (1) albo poprzedniego (-1) komentarza.
+        """Przechodzi do następnego (1) albo poprzedniego (-1) otwartego komentarza.
 
         Zaznacza komentowany fragment i komentarz w panelu; w pasku stanu
-        jest autor i początek treści. False - dokument nie ma komentarzy.
+        jest autor i początek treści. False - brak otwartych komentarzy.
         """
         order = sorted(
-            range(len(self.items)),
+            (
+                index
+                for index, item in enumerate(self.items)
+                if not item.comment.resolved
+            ),
             key=lambda index: self.items[index].cursor.selectionStart(),
         )
         cursor = self.editor.textCursor()
@@ -225,7 +253,9 @@ class CommentsController(QObject):
             direction,
         )
         if target is None:
-            self._show_status(tr("comments.none"))
+            self._show_status(
+                tr("comments.none_open" if self.items else "comments.none")
+            )
             return False
         position, wrapped = target
         index = order[position]
@@ -265,14 +295,15 @@ class CommentsController(QObject):
             return None
         lines: list[str] = []
         for comment in comments:
-            lines.append(
-                tr(
-                    "comments.tooltip",
-                    author=comment.author or tr("comments.anonymous"),
-                    date=display_date(comment.created),
-                    text=comment.text,
-                )
+            line = tr(
+                "comments.tooltip",
+                author=comment.author or tr("comments.anonymous"),
+                date=display_date(comment.created),
+                text=comment.text,
             )
+            if comment.resolved:
+                line = tr("comments.tooltip.resolved", line=line)
+            lines.append(line)
             lines.extend(
                 tr(
                     "comments.tooltip.reply",
@@ -304,6 +335,20 @@ class CommentsController(QObject):
             action.triggered.connect(
                 lambda _checked=False, target=index: self.reply(target)
             )
+            comment = self.items[index].comment
+            toggle = menu.addAction(
+                tr(
+                    (
+                        "comments.action.reopen"
+                        if comment.resolved
+                        else "comments.action.resolve"
+                    ),
+                    author=comment.author or tr("comments.anonymous"),
+                )
+            )
+            toggle.triggered.connect(
+                lambda _checked=False, target=index: self.toggle_resolved(target)
+            )
 
     def refresh(self) -> None:
         color = QColor(tokens().warning)
@@ -313,7 +358,7 @@ class CommentsController(QObject):
             [
                 background(QTextCursor(item.cursor), color)
                 for item in self.items
-                if item.cursor.hasSelection()
+                if item.cursor.hasSelection() and not item.comment.resolved
             ],
         )
         self.panel.set_comments(self.entries())

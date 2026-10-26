@@ -41,6 +41,7 @@ from transkryptor.asr.manager import ModelManager
 from transkryptor.asr.models import model_by_key
 from transkryptor.audio.player import AudioPlayer
 from transkryptor.document.model import Document
+from transkryptor.document.readiness import ReadinessReport, build_report
 from transkryptor.document.speakers import (
     Speaker,
     informant_spans,
@@ -81,6 +82,7 @@ from transkryptor.ui.navigation import BACKWARD, FORWARD
 from transkryptor.ui.notation_controller import IgnoredWarnings, NotationController
 from transkryptor.ui.player_bar import PlayerBar
 from transkryptor.ui.player_controller import PlayerController
+from transkryptor.ui.readiness_dialog import ReadinessController
 from transkryptor.ui.review import (
     DRAFT_APPEND,
     DRAFT_REPLACE,
@@ -265,6 +267,8 @@ class MainWindow(QMainWindow):
             font_family=lambda: text_font_family(
                 self.settings_store.current.editor.font_family
             ),
+            # Późne wiązanie: kontroler notacji powstaje niżej.
+            confirm=lambda: self.readiness.confirm_export(),
         )
         self.compare = CompareController(
             self.editor,
@@ -309,6 +313,14 @@ class MainWindow(QMainWindow):
             ignored=self.ignored_warnings,
         )
         self._validation_timer = self.notation.timer
+        self.readiness = ReadinessController(
+            self,
+            self._readiness_report,
+            self.notation.go_to_range,
+            self.metadata_form.focus_field,
+            lambda: self.settings_store.current.export.readiness_check,
+            self._set_readiness_check,
+        )
         self._sync_timer = QTimer(self)
         self._sync_timer.setSingleShot(True)
         self._sync_timer.setInterval(SYNC_DEBOUNCE_MS)
@@ -462,6 +474,7 @@ class MainWindow(QMainWindow):
                 corpus=self.corpus.open_dialog,
                 export_anonymized=lambda: self.exporter.export(anonymize=True),
                 export_as=self.exporter.export_as,
+                readiness=self.readiness.show,
             ),
         )
         self.toolbar = bar.toolbar
@@ -473,6 +486,7 @@ class MainWindow(QMainWindow):
         self.export_action = bar.export_action
         self.export_anonymized_action = bar.export_anonymized_action
         self.export_as_action = bar.export_as_action
+        self.readiness_action = bar.readiness_action
         self.close_action = bar.close_action
         self.open_action = bar.open_action
         self.save_action = bar.save_action
@@ -704,6 +718,24 @@ class MainWindow(QMainWindow):
             self.settings_store.save(
                 replace(current, asr=replace(current.asr, diarize_speakers=count))
             )
+
+    def _readiness_report(self) -> ReadinessReport:
+        """Raport gotowości z bieżącego tekstu (walidacja bez debounce)."""
+        document = self.document
+        self.notation.run_validation()
+        return build_report(
+            document.text,
+            self.notation.warnings,
+            self.sync.uncertain_ranges(),
+            self.comments.entries(),
+            document.paragraph_speakers,
+            document.metadata,
+            self.settings_store.current.metadata.fields,
+        )
+
+    def _set_readiness_check(self, enabled: bool) -> None:
+        current = self.settings_store.current
+        self._save_export_settings(replace(current.export, readiness_check=enabled))
 
     def _save_export_settings(self, export: ExportSettings) -> None:
         """Ostatni format i opcje okna „Eksportuj jako…” są pamiętane."""
@@ -944,6 +976,7 @@ class MainWindow(QMainWindow):
             self.export_action,
             self.export_anonymized_action,
             self.export_as_action,
+            self.readiness_action,
             self.settings_action,
             self.unify_ellipses_action,
             *self.search_actions.values(),

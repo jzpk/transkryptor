@@ -140,6 +140,15 @@ class MetadataForm(QWidget):
     def value(self, key: str) -> str:
         return self.values().get(key, "")
 
+    def focus_field(self, key: str) -> bool:
+        """Rozwija formularz i ustawia kursor w polu; False - pole ukryte."""
+        edit = self.edits.get(key)
+        if edit is None:
+            return False
+        self.toggle.setChecked(True)
+        edit.setFocus()
+        return True
+
     def set_speakers_summary(self, text: str) -> None:
         """Legenda mówców nagrania (``B - Badacz; I - Informator``)."""
         self.speakers_label.setText(text or tr("metadata_form.speakers.none"))

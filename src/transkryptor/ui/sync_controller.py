@@ -281,6 +281,16 @@ class SyncController(QObject):
             )
         ]
 
+    def uncertain_ranges(self) -> list[tuple[int, int]]:
+        """Zakresy (pozycje Pythona) niepewnych słów w całym dokumencie."""
+        positions = self._editor.position_map()
+        return [
+            self._editor.selection_range(item.cursor, positions)
+            for item in self._uncertain_items(
+                0, self._editor.document().characterCount()
+            )
+        ]
+
     def go_to_uncertain(self, direction: int) -> bool:
         """Zaznacza następne (1) albo poprzednie (-1) niepewne słowo.
 
