@@ -7,6 +7,7 @@ Zakładka nie ma ustawień - niczego nie zapisuje.
 
 from __future__ import annotations
 
+import contextlib
 import html
 import platform
 from pathlib import Path
@@ -37,10 +38,8 @@ def new_issue_url() -> str:
 def log_folder() -> Path:
     """Folder dziennika; tworzony, gdy dziennik jeszcze nie powstał."""
     folder = diagnostics.active_log_dir() or diagnostics.log_dir()
-    try:
+    with contextlib.suppress(OSError):
         folder.mkdir(parents=True, exist_ok=True)
-    except OSError:
-        pass
     return folder
 
 

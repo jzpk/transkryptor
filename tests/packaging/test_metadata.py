@@ -15,7 +15,7 @@ def test_artifact_names_carry_version_and_platform() -> None:
 
 
 def test_default_version_follows_application() -> None:
-    assert metadata.VERSION == __version__
+    assert __version__ == metadata.VERSION
     for target in metadata.targets().values():
         assert __version__ in target.artifact_name
 

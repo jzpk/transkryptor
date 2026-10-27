@@ -46,6 +46,7 @@ Formatowanie i kontrole jakości kodu:
 ./check.sh -l -m -t     # dodatkowo lint (ruff), typy (mypy) i testy (pytest)
 ./check.sh -e           # testy end-to-end
 ./check.sh --all        # to samo co -l -m -t -e
+uvx pre-commit install  # ruff, black i mypy przed każdym commitem
 ```
 
 ## Licencja

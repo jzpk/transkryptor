@@ -17,6 +17,7 @@ i „Nowy dokument” usuwają plik autozapisu sesji.
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import uuid
 from collections.abc import Callable
@@ -218,10 +219,8 @@ def find_orphans(
             lock.unlock()
             continue
         if modified < expired_before:
-            try:
+            with contextlib.suppress(OSError):  # spróbujemy przy kolejnym starcie
                 path.unlink(missing_ok=True)
-            except OSError:
-                pass  # spróbujemy przy kolejnym starcie
             lock.unlock()
             continue
         try:

@@ -86,7 +86,7 @@ def build_text_document(
 
 def _check_writable(path: Path) -> None:
     """Zgłasza ``OSError`` przed zapisem Qt, który błędy tylko sygnalizuje."""
-    with open(path, "wb"):
+    with path.open("wb"):
         pass
 
 

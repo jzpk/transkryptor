@@ -89,10 +89,10 @@ class CorpusController(QObject):
         """Zaznacza fragment projektu w edytorze (otwiera projekt, gdy trzeba)."""
         if self._locked:
             return False
-        if not self._is_current(project.path):
-            assert project.path is not None
-            if not self._session.open_project(project.path):
-                return False
+        if not self._is_current(project.path) and (
+            project.path is None or not self._session.open_project(project.path)
+        ):
+            return False
         text = self._editor.plain_text()
         if text[start:end] != project.state.text[start:end] or end > len(text):
             self._show_status(tr("corpus.stale"))

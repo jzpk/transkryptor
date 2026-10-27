@@ -12,7 +12,6 @@ od nowa. Uszkodzony albo niezgodny plik cache jest pomijany.
 
 from __future__ import annotations
 
-import os
 import struct
 import tempfile
 from collections.abc import Callable
@@ -143,7 +142,7 @@ def save_cached(sha256: str, envelope: Envelope, directory: Path | None = None) 
         ) as handle:
             temp_name = handle.name
             handle.write(payload)
-        os.replace(temp_name, target)
+        Path(temp_name).replace(target)
         temp_name = None
     except OSError:
         return False

@@ -23,6 +23,7 @@ Moduł nie zależy od Qt. Wydanie (PyInstaller) wymaga
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import multiprocessing
 import threading
@@ -134,10 +135,8 @@ class AsrWorker:
         self._conn = None
         self._process = None
         if process is not None and process.is_alive() and conn is not None:
-            try:
+            with contextlib.suppress(OSError):
                 conn.send(("stop",))
-            except OSError:
-                pass
             process.join(STOP_TIMEOUT_S)
         _terminate(process, conn)
 

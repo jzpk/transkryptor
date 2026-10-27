@@ -251,7 +251,7 @@ def background_letters(
     ze stałymi wartościami - klatki ze zmiennymi CSS przeglądarka może
     liczyć w wątku głównym zamiast na GPU, co daje przycięcia ruchu.
     """
-    rng = random.Random(seed)
+    rng = random.Random(seed)  # noqa: S311 - ozdobna animacja, nie kryptografia
     spans = []
     keyframes = []
     for index in range(count):

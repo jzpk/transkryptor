@@ -4,8 +4,8 @@ import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-import pytest  # noqa: E402 - import po ustawieniu platformy Qt
-from PySide6.QtWidgets import QMessageBox  # noqa: E402
+import pytest  # import po ustawieniu platformy Qt
+from PySide6.QtWidgets import QMessageBox
 
 
 @pytest.fixture

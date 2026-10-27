@@ -64,7 +64,7 @@ class FilterThread(QThread):
             )
         except InterruptedError:
             return
-        except Exception:  # noqa: BLE001 - bez filtrów gra oryginał
+        except Exception:  # bez filtrów gra oryginał
             logger.warning("Playback filters could not be applied", exc_info=True)
             return
         self.ok = True

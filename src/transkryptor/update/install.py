@@ -89,7 +89,7 @@ def replace_appimage(new: Path, current: Path, expected_sha256: str) -> None:
                 retry_hint=tr("update.error.verify_failed.hint"),
             )
         staged.chmod(0o755)
-        os.replace(staged, current)
+        staged.replace(current)
     except OSError as error:
         staged.unlink(missing_ok=True)
         raise UpdateError(
@@ -134,7 +134,8 @@ def apply_update(
 
 
 def _start_detached(command: Sequence[str]) -> object:
-    return subprocess.Popen(
+    # Lista argumentów bez powłoki; ścieżka to zweryfikowany AppImage.
+    return subprocess.Popen(  # noqa: S603
         list(command),
         start_new_session=True,
         stdin=subprocess.DEVNULL,

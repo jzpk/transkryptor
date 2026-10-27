@@ -463,8 +463,8 @@ def write_atomic(target: Path, payload: bytes, mode: int | None = None) -> None:
             handle.flush()
             os.fsync(handle.fileno())
         if os.name == "posix":
-            os.chmod(temp_name, _target_mode(target) if mode is None else mode)
-        os.replace(temp_name, target)
+            Path(temp_name).chmod(_target_mode(target) if mode is None else mode)
+        Path(temp_name).replace(target)
         temp_name = None
         _fsync_directory(target.parent)
     except OSError as exc:
@@ -482,7 +482,7 @@ def write_atomic(target: Path, payload: bytes, mode: int | None = None) -> None:
 def _target_mode(target: Path) -> int:
     """Prawa istniejącego pliku albo ``0666`` z maską umask dla nowego."""
     try:
-        return stat.S_IMODE(os.stat(target).st_mode)
+        return stat.S_IMODE(target.stat().st_mode)
     except FileNotFoundError:
         umask = os.umask(0)
         os.umask(umask)
@@ -510,7 +510,7 @@ def file_sha256(
 ) -> str:
     """Suma SHA-256 pliku; ``should_cancel`` przerywa liczenie (InterruptedError)."""
     digest = hashlib.sha256()
-    with open(path, "rb") as handle:
+    with Path(path).open("rb") as handle:
         while chunk := handle.read(_HASH_CHUNK):
             if should_cancel is not None and should_cancel():
                 raise InterruptedError(str(path))

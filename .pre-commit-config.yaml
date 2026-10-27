@@ -1,0 +1,25 @@
+# Hooki przed commitem: te same narzędzia i wersje co w CI (z uv.lock).
+#
+# Instalacja (raz na klon): uvx pre-commit install
+# Ręcznie na wszystkich plikach: uvx pre-commit run --all-files
+repos:
+  - repo: local
+    hooks:
+      - id: ruff
+        name: ruff
+        entry: uv run ruff check --force-exclude
+        language: system
+        types: [python]
+      - id: black
+        name: black
+        entry: uv run black --check
+        language: system
+        types: [python]
+      # mypy sprawdza cały projekt (konfiguracja w pyproject.toml), bo błąd
+      # typu w zmienionym pliku może się ujawnić w innym module.
+      - id: mypy
+        name: mypy
+        entry: uv run mypy
+        language: system
+        types: [python]
+        pass_filenames: false

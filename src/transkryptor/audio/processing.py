@@ -18,6 +18,7 @@ zmieniany, a ASR i eksport korzystają z oryginału.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import os
 import tempfile
@@ -125,14 +126,13 @@ def process_audio(
     Częściowy plik nigdy nie zostaje pod nazwą docelową.
     """
     target.parent.mkdir(parents=True, exist_ok=True)
-    handle = tempfile.NamedTemporaryFile(
+    with tempfile.NamedTemporaryFile(
         dir=target.parent, prefix=f".{target.stem}.", suffix=".flac", delete=False
-    )
-    handle.close()
-    temp = Path(handle.name)
+    ) as handle:
+        temp = Path(handle.name)
     try:
         _process(Path(source), temp, filters, should_cancel, on_progress)
-        os.replace(temp, target)
+        temp.replace(target)
     finally:
         temp.unlink(missing_ok=True)
 
@@ -176,7 +176,8 @@ def _process(
                         frame = graph.pull()
                     except (av.error.BlockingIOError, av.error.EOFError):
                         return
-                    assert isinstance(frame, av.AudioFrame)
+                    if not isinstance(frame, av.AudioFrame):
+                        raise TypeError(f"unexpected filter output: {frame!r}")
                     if encoder is None:
                         encoder = output.add_stream(
                             "flac", rate=frame.sample_rate, layout=frame.layout.name
@@ -218,7 +219,5 @@ def prune_cache(
 
 def touch(path: Path) -> None:
     """Oznacza kopię jako użytą (kolejność usuwania z cache)."""
-    try:
+    with contextlib.suppress(OSError):
         os.utime(path)
-    except OSError:
-        pass

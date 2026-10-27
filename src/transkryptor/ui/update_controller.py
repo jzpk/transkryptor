@@ -73,7 +73,7 @@ class UpdateThread(QThread):
                 on_progress=lambda done, total: self.progressed.emit(done, total),
                 on_stage=lambda stage, release: self.stage_changed.emit(stage, release),
             )
-        except Exception as error:  # noqa: BLE001 - wątek nie może przepaść
+        except Exception as error:  # wątek nie może przepaść
             logger.exception("Update check crashed")
             outcome = UpdateOutcome(
                 UpdateStatus.ERROR,

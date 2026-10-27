@@ -17,7 +17,6 @@ Uszkodzony lub nieczytelny plik oznacza stan pusty i nie blokuje startu.
 from __future__ import annotations
 
 import json
-import os
 from dataclasses import dataclass, replace
 from datetime import date
 from pathlib import Path
@@ -114,7 +113,7 @@ class RequestQuota:
             self.path.parent.mkdir(parents=True, exist_ok=True)
             temporary = self.path.with_name(self.path.name + ".tmp")
             temporary.write_text(json.dumps(payload), encoding="utf-8")
-            os.replace(temporary, self.path)
+            temporary.replace(self.path)
         except OSError:
             # Brak zapisu nie może zablokować pracy aplikacji.
             self._unsaved = state

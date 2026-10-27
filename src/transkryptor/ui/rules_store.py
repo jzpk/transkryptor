@@ -7,6 +7,7 @@ błędne reguły są pomijane, a ich opis udostępnia ``errors``.
 
 from __future__ import annotations
 
+import contextlib
 from collections.abc import Iterable
 from pathlib import Path
 
@@ -83,10 +84,9 @@ class RulesStore(QObject):
         Błąd zapisu (``ProjectError``) przechodzi do wywołującego.
         """
         rules = tuple(rules)
-        try:
+        # Błąd zgłosi ``write_atomic`` jako ``ProjectError``.
+        with contextlib.suppress(OSError):
             self.path.parent.mkdir(parents=True, exist_ok=True)
-        except OSError:
-            pass  # błąd zgłosi ``write_atomic`` jako ``ProjectError``
         write_atomic(self.path, dumps_rules(rules).encode("utf-8"))
         self._user = RuleSet(rules)
         self.rules_changed.emit()

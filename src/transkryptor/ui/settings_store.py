@@ -49,7 +49,7 @@ class SettingsStore(QObject):
             mapping = {
                 key: self._qsettings.value(key) for key in self._qsettings.allKeys()
             }
-        except Exception:  # noqa: BLE001 - uszkodzony magazyn nie blokuje startu
+        except Exception:  # uszkodzony magazyn nie blokuje startu
             logger.warning("Settings could not be read; using defaults", exc_info=True)
             mapping = {}
         self._current = from_mapping(mapping)
@@ -67,7 +67,7 @@ class SettingsStore(QObject):
         """Ostatnio używane projekty (najnowszy pierwszy)."""
         try:
             raw = self._qsettings.value(RECENT_PROJECTS_KEY)
-        except Exception:  # noqa: BLE001 - uszkodzony magazyn nie blokuje pracy
+        except Exception:  # uszkodzony magazyn nie blokuje pracy
             logger.warning("Recent projects could not be read", exc_info=True)
             return []
         if isinstance(raw, str):

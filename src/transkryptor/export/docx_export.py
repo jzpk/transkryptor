@@ -18,6 +18,7 @@ nie ma wątków w podstawowym formacie komentarzy).
 
 from __future__ import annotations
 
+import contextlib
 from bisect import bisect_right
 from collections.abc import Iterable
 from pathlib import Path
@@ -247,10 +248,9 @@ def _metadata_table(
     if not rows:
         return
     table = docx.add_table(rows=0, cols=2)
-    try:
+    # Szablon bez stylu tabeli z siatką - zostaje styl domyślny.
+    with contextlib.suppress(KeyError, ValueError):
         table.style = METADATA_TABLE_STYLE
-    except (KeyError, ValueError):
-        pass  # szablon bez stylu tabeli z siatką - zostaje styl domyślny
     for label, value in rows:
         label_cell, value_cell = table.add_row().cells
         label_cell.text = label

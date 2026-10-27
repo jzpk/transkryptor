@@ -231,7 +231,8 @@ class SnippetController(QObject):
 
     def _popup(self) -> QAbstractItemView:
         popup = self.completer.popup()
-        assert popup is not None  # QCompleter tworzy popup w konstruktorze
+        if popup is None:  # QCompleter tworzy popup w konstruktorze
+            raise RuntimeError("QCompleter has no popup")
         return popup
 
     def _key_filter(self, event: QKeyEvent) -> bool:

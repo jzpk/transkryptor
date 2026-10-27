@@ -394,9 +394,12 @@ class PlayerBar(QFrame):
         self._player.set_position(min(state.position_ms, duration))
         self._loop_a = _clamp(state.loop_a_ms, duration)
         self._loop_b = _clamp(state.loop_b_ms, duration)
-        if self._loop_a is not None and self._loop_b is not None:
-            if self._loop_b <= self._loop_a:
-                self._loop_b = None
+        if (
+            self._loop_a is not None
+            and self._loop_b is not None
+            and self._loop_b <= self._loop_a
+        ):
+            self._loop_b = None
         self._player.clear_loop()
         if state.loop_active and self._loop_a is not None:
             end = self._loop_b if self._loop_b is not None else duration

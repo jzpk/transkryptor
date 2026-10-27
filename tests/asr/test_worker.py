@@ -245,9 +245,11 @@ def test_worker_error_details_reach_the_log(
 ) -> None:
     """Ślad stosu z procesu roboczego trafia do dziennika procesu głównego."""
     worker = make_worker(failing_factory)
-    with caplog.at_level("ERROR", logger="transkryptor.asr.worker"):
-        with pytest.raises(TranscriptionError):
-            worker.transcribe(audio, model_dir)
+    with (
+        caplog.at_level("ERROR", logger="transkryptor.asr.worker"),
+        pytest.raises(TranscriptionError),
+    ):
+        worker.transcribe(audio, model_dir)
     (record,) = caplog.records
     message = record.getMessage()
     assert "ASR worker reported TranscriptionError" in message
@@ -259,7 +261,9 @@ def test_crashed_process_exit_code_is_logged(
     log_file, model_dir, audio, make_worker, caplog
 ) -> None:
     worker = make_worker(crashing_factory)
-    with caplog.at_level("ERROR", logger="transkryptor.asr.worker"):
-        with pytest.raises(TranscriptionError):
-            worker.transcribe(audio, model_dir)
+    with (
+        caplog.at_level("ERROR", logger="transkryptor.asr.worker"),
+        pytest.raises(TranscriptionError),
+    ):
+        worker.transcribe(audio, model_dir)
     assert any("exit code 3" in record.getMessage() for record in caplog.records)

@@ -319,7 +319,7 @@ def transcribe(
             )
         except (ModelDownloadError, TranscriptionCancelled):
             raise
-        except Exception as error:  # noqa: BLE001 - GPU zawiodło → CPU
+        except Exception as error:  # GPU zawiodło → CPU
             if device == "cpu":
                 raise
             device, device_note = "cpu", _short(error)
@@ -328,7 +328,7 @@ def transcribe(
             )
     except (ModelDownloadError, TranscriptionCancelled):
         raise
-    except Exception as error:  # noqa: BLE001 - normalizacja do AppError
+    except Exception as error:  # normalizacja do AppError
         raise transcription_error(error) from error
     duration = float(getattr(info, "duration", 0) or 0)
     origin = 0.0
@@ -376,7 +376,7 @@ def transcribe(
             )
         except DiarizationCancelled:
             raise TranscriptionCancelled() from None
-        except Exception as error:  # noqa: BLE001 - szkic bez mówców
+        except Exception as error:  # szkic bez mówców
             logger.warning("Speaker diarization failed", exc_info=error)
             diarization_note = _short(error)
         else:
@@ -446,7 +446,7 @@ def _guarded(raw_segments: Iterable[Any]) -> Iterator[Any]:
             raw = next(iterator)
         except StopIteration:
             return
-        except Exception as error:  # noqa: BLE001 - normalizacja do AppError
+        except Exception as error:  # normalizacja do AppError
             raise transcription_error(error) from error
         yield raw
 

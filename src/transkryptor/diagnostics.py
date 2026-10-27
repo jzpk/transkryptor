@@ -223,7 +223,7 @@ def _exception_chain(error: BaseException) -> Iterator[BaseException]:
 class RedactingFormatter(logging.Formatter):
     """Format dziennika z maskowaniem danych w całym wpisie (także w śladzie)."""
 
-    def formatException(self, ei: Any) -> str:  # noqa: N802 - API logging
+    def formatException(self, ei: Any) -> str:  # API logging
         error = ei[1]
         if isinstance(error, BaseException):
             return format_exception(error)
@@ -308,7 +308,7 @@ def enable_crash_log(directory: Path | None = None) -> bool:
     path = crash_log_path(directory)
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        crash_file = open(path, "a", encoding="utf-8")  # noqa: SIM115 - do końca
+        crash_file = path.open("a", encoding="utf-8")  # otwarty do końca procesu
     except OSError:
         return False
     faulthandler.enable(file=crash_file, all_threads=True)

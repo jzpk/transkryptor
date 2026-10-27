@@ -49,9 +49,8 @@ def test_every_key_used_in_the_source_exists() -> None:
             first = node.args[0]
             if not (isinstance(first, ast.Constant) and isinstance(first.value, str)):
                 continue
-            if name == "tr":
-                if first.value not in known:
-                    missing.append(f"{path.name}: {first.value}")
+            if name == "tr" and first.value not in known:
+                missing.append(f"{path.name}: {first.value}")
             if name == "tr_plural":
                 for form in ("one", "few", "many"):
                     if f"{first.value}.{form}" not in known:

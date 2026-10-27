@@ -173,7 +173,7 @@ class SearchController(QObject):
         self._current = None
         self.refresh()
 
-    def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # API Qt
         if event.type() == QEvent.Type.Resize:
             self._on_view_changed()
         return super().eventFilter(watched, event)

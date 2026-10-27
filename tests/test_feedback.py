@@ -19,5 +19,5 @@ def test_form_url_carries_version_and_system() -> None:
 
 
 def test_form_is_a_page_of_the_project_site() -> None:
-    assert REPORT_FORM_URL == f"{site.SITE_URL}/zglos.html"
+    assert f"{site.SITE_URL}/zglos.html" == REPORT_FORM_URL
     assert "zglos.html" in site.TEMPLATE_FILES

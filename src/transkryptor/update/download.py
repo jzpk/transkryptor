@@ -14,7 +14,6 @@ katalogi innych wersji są usuwane.
 from __future__ import annotations
 
 import hashlib
-import os
 import shutil
 from collections.abc import Callable, Iterable
 from pathlib import Path
@@ -158,7 +157,7 @@ def download_release(
             user_message=tr("update.error.checksum_mismatch", version=release.version),
             retry_hint=tr("update.error.checksum_mismatch.hint"),
         )
-    os.replace(partial, target)
+    partial.replace(target)
     return target
 
 

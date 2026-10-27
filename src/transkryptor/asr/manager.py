@@ -17,7 +17,6 @@ w katalogu modelu (SEC-05).
 from __future__ import annotations
 
 import hashlib
-import os
 import shutil
 from collections.abc import Callable
 from pathlib import Path
@@ -119,7 +118,7 @@ class ModelManager:
         except ModelDownloadError:
             self._cleanup_partial(dest)
             raise
-        except Exception as error:  # noqa: BLE001 - normalizacja do AppError
+        except Exception as error:  # normalizacja do AppError
             self._cleanup_partial(dest)
             raise ModelDownloadError(
                 user_message=tr(
@@ -222,13 +221,13 @@ def hf_streaming_download(
                             on_progress(downloaded, total, file.name)
             except DownloadCancelled:
                 raise
-            except Exception as error:  # noqa: BLE001
+            except Exception as error:
                 raise ModelDownloadError(
                     user_message=tr("asr.error.file", name=file.name, reason=error),
                     retry_hint=tr("asr.error.network.hint"),
                 ) from error
             _verify(file, size, digest.hexdigest())
-            os.replace(partial, target)
+            partial.replace(target)
 
 
 def model_file_path(dest_dir: Path, name: str) -> Path:

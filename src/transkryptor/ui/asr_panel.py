@@ -1215,7 +1215,7 @@ class _AutoHideLabel(QLabel):
         super().__init__(text, parent)
         self.setVisible(bool(text))
 
-    def setText(self, text: str) -> None:  # noqa: N802 - API Qt
+    def setText(self, text: str) -> None:  # API Qt
         super().setText(text)
         self.setVisible(bool(text))
 
