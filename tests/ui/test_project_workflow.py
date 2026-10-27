@@ -181,7 +181,7 @@ class TestSaveAndOpen:
         assert reopened.player_bar.state().loop_b_ms == 3000
 
         # Nieukończony przegląd: propozycję można zastosować po otwarciu.
-        reopened._on_apply_review_item(0)
+        reopened.review.apply(0)
         assert reopened.editor.toPlainText() == "[00:00] uod som koniec"
         # Ponowne wstawienie szkicu bez powtarzania ASR (REQ-14).
         reopened._ask_draft_placement = lambda: DRAFT_REPLACE
@@ -457,12 +457,12 @@ class TestAutosaveAndRecovery:
 
     def test_autosave_waits_for_asr(self, window) -> None:
         window.editor.setPlainText("tekst")
-        window._on_transcription_started()
+        window.asr.transcription_started()
         try:
             assert not window.session.autosave.save_now()
             assert not window.session.autosave.path.exists()
         finally:
-            window._on_transcription_finished()
+            window.asr.transcription_finished()
         assert window.session.autosave.path.is_file()
 
     def test_disabled_autosave_removes_copy(self, window) -> None:
@@ -545,11 +545,11 @@ class TestAutosaveAndRecovery:
 class TestMetadataForm:
     def test_form_is_locked_during_asr(self, window) -> None:
         edit = window.metadata_form.edits["signature"]
-        window._on_transcription_started()
+        window.asr.transcription_started()
         try:
             assert not edit.isEnabled()
         finally:
-            window._on_transcription_finished()
+            window.asr.transcription_finished()
         assert edit.isEnabled()
 
     def test_changes_reach_document_and_title(self, window) -> None:

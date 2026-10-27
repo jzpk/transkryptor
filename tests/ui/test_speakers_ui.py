@@ -214,7 +214,7 @@ DIARIZED = diarized_result(
 def test_diarized_draft_gets_speaker_paragraphs(add_window, tmp_path) -> None:
     """Podział na mówców: wypowiedź = akapit z mówcą, także w DOCX."""
     window = add_window(MainWindow())
-    window._on_draft_ready(DIARIZED)
+    window.asr.insert_draft(DIARIZED)
     window.session.mark_editor_changed()
 
     assert window.document.text == (
@@ -242,7 +242,7 @@ def test_diarized_draft_gets_speaker_paragraphs(add_window, tmp_path) -> None:
 
 def test_extra_voices_get_new_informants(add_window) -> None:
     window = add_window(MainWindow())
-    window._on_draft_ready(
+    window.asr.insert_draft(
         diarized_result(
             (0.0, 1.0, " Pytanie.", 0),
             (1.0, 2.0, " Odpowiedź.", 1),
@@ -258,7 +258,7 @@ def test_extra_voices_get_new_informants(add_window) -> None:
 def test_cancelled_placement_keeps_speaker_list(add_window, monkeypatch) -> None:
     window = make_window(add_window)
     monkeypatch.setattr(window, "_ask_draft_placement", lambda: None)
-    window._on_draft_ready(
+    window.asr.insert_draft(
         diarized_result((0.0, 1.0, " a", 0), (1.0, 2.0, " b", 1), (2.0, 3.0, " c", 2))
     )
     assert window.document.text == TEXT

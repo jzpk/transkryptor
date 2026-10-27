@@ -86,7 +86,7 @@ def segment_texts(window: MainWindow) -> list[str]:
 
 class TestPlaybackFromText:
     def test_acc45_ctrl_click_and_active_segment(self, qtbot, window, playback) -> None:
-        window._on_draft_ready(draft_result())
+        window.asr.insert_draft(draft_result())
         assert segment_texts(window) == [s[2].strip() for s in SENTENCES]
         text = window.editor.plain_text()
         third = text.index("Trzecie") + 3
@@ -109,14 +109,14 @@ class TestPlaybackFromText:
         )
 
     def test_highlight_survives_new_timestamp(self, window) -> None:
-        window._on_draft_ready(draft_result())
+        window.asr.insert_draft(draft_result())
         window.player.position_changed.emit(2500)
         window.sync.insert_timestamp()
         layer = window.editor.highlight_layer(ACTIVE_LAYER)
         assert [s.cursor.selectedText() for s in layer] == ["Drugie zdanie."]
 
     def test_play_from_cursor_shortcut_uses_segment(self, window, playback) -> None:
-        window._on_draft_ready(draft_result())
+        window.asr.insert_draft(draft_result())
         cursor = window.editor.textCursor()
         cursor.setPosition(window.editor.plain_text().index("Drugie") + 2)
         window.editor.setTextCursor(cursor)
@@ -135,7 +135,7 @@ class TestAnchorsSurviveEditing:
     def test_acc46_delete_segment_edit_another_and_reopen(
         self, qtbot, window, add_window, tmp_path, monkeypatch
     ) -> None:
-        window._on_draft_ready(draft_result())
+        window.asr.insert_draft(draft_result())
         editor = window.editor
         text = editor.plain_text()
         # Usunięcie całego drugiego segmentu (ze spacją przed nim).
@@ -170,21 +170,21 @@ class TestAnchorsSurviveEditing:
         assert times == [(0, 2000), (4000, 6500), (6500, 9000)]
 
     def test_replace_draft_drops_old_anchors(self, window, monkeypatch) -> None:
-        window._on_draft_ready(draft_result())
+        window.asr.insert_draft(draft_result())
         monkeypatch.setattr(window, "_ask_draft_placement", lambda: "replace")
-        window._on_draft_ready(draft_result(SENTENCES[:1]))
+        window.asr.insert_draft(draft_result(SENTENCES[:1]))
         assert segment_texts(window) == ["Pierwsze zdanie."]
 
     def test_append_draft_keeps_offsets(self, window, monkeypatch) -> None:
-        window._on_draft_ready(draft_result(SENTENCES[:2]))
+        window.asr.insert_draft(draft_result(SENTENCES[:2]))
         monkeypatch.setattr(window, "_ask_draft_placement", lambda: "append")
-        window._on_draft_ready(draft_result(SENTENCES[2:]))
+        window.asr.insert_draft(draft_result(SENTENCES[2:]))
         assert segment_texts(window) == [s[2].strip() for s in SENTENCES]
 
     def test_rule_at_segment_end_stays_in_segment(self, window) -> None:
         for code, box in window.asr_panel.review.rule_checkboxes.items():
             box.setChecked(code == "SUG-NAS-A-FINAL")
-        window._on_draft_ready(
+        window.asr.insert_draft(
             draft_result(((0.0, 1.0, " oni są"), (1.0, 2.0, " i już")))
         )
         assert window.editor.plain_text() == "[00:00] oni som i już"
@@ -279,7 +279,7 @@ class TestUncertainWords:
     def test_acc47_uncertain_words(
         self, qtbot, window, playback, tmp_path, monkeypatch
     ) -> None:
-        window._on_draft_ready(words_result())
+        window.asr.insert_draft(words_result())
         sync = window.sync
         assert sync.uncertain_words() == ["my", "żeśmy", "do"]
         layer = window.editor.highlight_layer(UNCERTAIN_LAYER)
@@ -324,7 +324,7 @@ class TestUncertainWords:
         assert runs and not any(run.underline for run in runs)
 
     def test_threshold_and_switch_from_settings(self, window) -> None:
-        window._on_draft_ready(words_result())
+        window.asr.insert_draft(words_result())
         current = window.settings_store.current
         window.settings_store.save(
             replace(current, asr=replace(current.asr, word_threshold_pct=20))
@@ -340,7 +340,7 @@ class TestUncertainWords:
         self, window, add_window, tmp_path, monkeypatch
     ) -> None:
         window.asr_panel.restore_result(words_result())
-        window._on_draft_ready(words_result())
+        window.asr.insert_draft(words_result())
         path = tmp_path / "projekt.transkr"
         monkeypatch.setattr(
             QFileDialog,
@@ -380,7 +380,7 @@ def test_sixty_minute_document_stays_responsive(qtbot, add_window) -> None:
         segments=tuple(segments),
     )
     began = time.perf_counter()
-    window._on_draft_ready(result)
+    window.asr.insert_draft(result)
     insert_s = time.perf_counter() - began
     assert len(window.sync.items) == 10_000
 

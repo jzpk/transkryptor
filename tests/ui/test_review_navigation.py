@@ -121,7 +121,7 @@ class TestShortcuts:
 
 class TestUncertainNavigation:
     def test_walks_uncertain_words_and_wraps(self, window) -> None:
-        window._on_draft_ready(words_result())
+        window.asr.insert_draft(words_result())
         place_cursor(window, 0)
         sync = window.sync
         assert sync.go_to_uncertain(FORWARD)
@@ -140,7 +140,7 @@ class TestUncertainNavigation:
         assert selected(window) == "do"
 
     def test_corrected_word_is_skipped(self, window) -> None:
-        window._on_draft_ready(words_result())
+        window.asr.insert_draft(words_result())
         text = window.editor.plain_text()
         select(window, text.index("żeśmy"), text.index("żeśmy") + 5)
         window.editor.textCursor().insertText("żeźmy")
@@ -163,7 +163,7 @@ class TestUncertainNavigation:
             "play_loop_once",
             lambda start, end: played.append((start, end)),
         )
-        loaded._on_draft_ready(words_result())
+        loaded.asr.insert_draft(words_result())
         place_cursor(loaded, 0)
         loaded.sync.go_to_uncertain(FORWARD)
         # „my”: 2/3 s - 4/3 s, z marginesem 150 ms.
@@ -239,7 +239,7 @@ class TestVerification:
         self, loaded, monkeypatch
     ) -> None:
         window = loaded
-        window._on_draft_ready(words_result())
+        window.asr.insert_draft(words_result())
         seek(window, monkeypatch, 2500)
         window.verification.mark_until()
         seeks: list[int] = []
@@ -254,7 +254,7 @@ class TestVerification:
 
     def test_selection_marks_and_unmarks(self, loaded) -> None:
         window = loaded
-        window._on_draft_ready(words_result())
+        window.asr.insert_draft(words_result())
         text = window.editor.plain_text()
         select(window, text.index("poszli"), len(text))
         assert window.verification.mark_selection(True)
@@ -277,7 +277,7 @@ class TestVerification:
         from PySide6.QtWidgets import QMenu
 
         window = loaded
-        window._on_draft_ready(words_result())
+        window.asr.insert_draft(words_result())
         start = window.editor.plain_text().index("Wtedy")
         select(window, start, start + 5)
         menu = QMenu()

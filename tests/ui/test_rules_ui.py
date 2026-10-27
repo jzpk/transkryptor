@@ -82,7 +82,7 @@ class TestRulesEditor:
         assert not boxes["USR-SOM"].isChecked()
         boxes["USR-SOM"].setChecked(True)
         window.editor.clear()
-        window._on_draft_ready("som")
+        window.asr.insert_draft("som")
         assert window.editor.toPlainText() == "sóm"
         assert any(item.suggestion.code == "USR-SOM" for item in window.review.items)
 
@@ -157,7 +157,7 @@ class TestBrokenRulesFile:
         assert kind == "warning" and "USR-BROKEN" in text and "pattern" in text
 
         window.editor.clear()
-        window._on_draft_ready(("a" * 40 + "b ") * 20 + "tych")
+        window.asr.insert_draft(("a" * 40 + "b ") * 20 + "tych")
         codes = {item.suggestion.code for item in window.review.items}
         assert "USR-CH" in codes and "USR-SLOW" not in codes
         kind, _title, text = no_blocking_dialogs[-1]

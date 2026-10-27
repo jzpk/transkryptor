@@ -365,7 +365,7 @@ class TestDraftPlacement:
     def test_replace_overwrites_editor(self, qtbot, window_with_asr) -> None:
         window = window_with_asr
         window._ask_draft_placement = lambda: DRAFT_REPLACE
-        window._on_draft_ready("tak")
+        window.asr.insert_draft("tak")
         assert window.editor.toPlainText() == "tak"
         window.editor.document().undo()
         assert window.editor.toPlainText() == "ręczny tekst"
@@ -381,13 +381,13 @@ class TestDraftPlacement:
         window.editor.setTextCursor(cursor)
         window.editor.toggle_superscript()
         window._ask_draft_placement = lambda: DRAFT_APPEND
-        window._on_draft_ready("tak")
+        window.asr.insert_draft("tak")
         assert window.editor.toPlainText() == "ręczny tekst\ntak"
         assert superscripts(window) == [(11, 12)]
 
     def test_empty_draft_changes_nothing(self, qtbot, window_with_asr) -> None:
         window = window_with_asr
-        window._on_draft_ready("  ")
+        window.asr.insert_draft("  ")
         assert window.editor.toPlainText() == "ręczny tekst"
 
 
@@ -400,7 +400,7 @@ class TestAutomaticRules:
         for code, box in window.asr_panel.review.rule_checkboxes.items():
             box.setChecked(code in checked)
         window.editor.clear()
-        window._on_draft_ready(self.TEXT)
+        window.asr.insert_draft(self.TEXT)
 
     def test_rule_checkboxes_show_confidence(self, qtbot, window_with_asr) -> None:
         boxes = window_with_asr.asr_panel.review.rule_checkboxes
@@ -437,7 +437,7 @@ class TestAutomaticRules:
     ) -> None:
         window = window_with_asr
         window._ask_draft_placement = lambda: DRAFT_REPLACE
-        window._on_draft_ready(self.TEXT)
+        window.asr.insert_draft(self.TEXT)
         assert window.editor.toPlainText() == "uod som"
         window.editor.document().undo()
         assert window.editor.toPlainText() == self.TEXT
@@ -451,7 +451,7 @@ class TestReview:
     def _draft(self, window) -> None:
         window.asr_panel.review.rule_checkboxes["SUG-LAB-U-INIT"].setChecked(False)
         window.editor.clear()
-        window._on_draft_ready("od są")  # → „od som”, „od” jako propozycja
+        window.asr.insert_draft("od są")  # → „od som”, „od” jako propozycja
 
     def test_applied_changes_are_highlighted(self, qtbot, window_with_asr) -> None:
         window = window_with_asr
@@ -505,7 +505,7 @@ class TestAcc12ApplyProposal:
     def _draft(self, window) -> None:
         window.asr_panel.review.rule_checkboxes["SUG-NAS-A-FINAL"].setChecked(False)
         window.editor.clear()
-        window._on_draft_ready("tak są")
+        window.asr.insert_draft("tak są")
 
     def test_apply_changes_only_its_fragment(self, qtbot, window_with_asr) -> None:
         window = window_with_asr
@@ -522,7 +522,7 @@ class TestAcc12ApplyProposal:
     def test_apply_is_undoable(self, qtbot, window_with_asr) -> None:
         window = window_with_asr
         self._draft(window)
-        window._on_apply_review_item(0)
+        window.review.apply(0)
         assert window.editor.toPlainText() == "tak som"
         window.editor.document().undo()
         assert window.editor.toPlainText() == "tak są"
@@ -537,7 +537,7 @@ class TestAcc12ApplyProposal:
         cursor.setPosition(5)
         cursor.setPosition(6, QTextCursor.MoveMode.KeepAnchor)
         cursor.insertText("ę")
-        window._on_apply_review_item(0)
+        window.review.apply(0)
         assert window.editor.toPlainText() == "tak sę"
         assert any(kind == "information" for kind, *_ in no_blocking_dialogs)
 

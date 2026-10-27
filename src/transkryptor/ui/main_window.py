@@ -32,11 +32,6 @@ from PySide6.QtWidgets import (
 )
 
 from transkryptor import __version__
-from transkryptor.asr.engine import (
-    TranscriptionResult,
-    draft_line_speakers,
-    draft_text,
-)
 from transkryptor.asr.manager import ModelManager
 from transkryptor.asr.models import model_by_key
 from transkryptor.audio.player import AudioPlayer
@@ -45,7 +40,6 @@ from transkryptor.document.readiness import ReadinessReport, build_report
 from transkryptor.document.speakers import (
     Speaker,
     informant_spans,
-    speakers_for_clusters,
 )
 from transkryptor.errors import AppError
 from transkryptor.feedback import report_form_url
@@ -55,6 +49,7 @@ from transkryptor.notation.rules import PhoneticRule
 from transkryptor.notation.suggestions import rule_infos
 from transkryptor.settings import ExportSettings, Settings
 from transkryptor.ui import icons
+from transkryptor.ui.asr_controller import AsrController
 from transkryptor.ui.asr_panel import AsrPanel
 from transkryptor.ui.audio_filters import AudioFilterController
 from transkryptor.ui.changelog_dialog import ChangelogDialog
@@ -124,7 +119,7 @@ from transkryptor.ui.toolbar import MainToolbar, ToolbarHandlers
 from transkryptor.ui.update_controller import UpdateController
 from transkryptor.ui.verification import VerificationController
 from transkryptor.ui.warnings_panel import WarningsPanel
-from transkryptor.ui.waveform import WaveformController, segment_spans
+from transkryptor.ui.waveform import WaveformController
 
 logger = logging.getLogger(__name__)
 
@@ -350,6 +345,19 @@ class MainWindow(QMainWindow):
         self.shortcut_actions = self._collect_shortcut_actions()
         self._build_status_bar()
         self.loading_overlay = LoadingOverlay(self)
+        self.asr = AsrController(
+            self.asr_panel,
+            self.review,
+            self.speakers,
+            self.compare,
+            lambda: self.document,
+            settings_store,
+            self.waveform,
+            self.loading_overlay,
+            self.session.autosave,
+            self._set_ui_locked,
+            self,
+        )
         self._connect_signals()
         self._apply_settings(settings_store.current)
         self.speakers.refresh()
@@ -558,8 +566,6 @@ class MainWindow(QMainWindow):
             # Motyw „zgodny z systemem” podąża za przełączeniem trybu systemu.
             app.styleHints().colorSchemeChanged.connect(self._on_color_scheme_changed)
         self.asr_panel.seek_requested.connect(self.player_controller.seek_to_segment)
-        self.asr_panel.model_changed.connect(self._on_asr_model_changed)
-        self.asr_panel.speakers_changed.connect(self._on_asr_speakers_changed)
         self.asr_panel.context_changed.connect(self._on_asr_context_changed)
         self.sync.timestamps_edited.connect(self.session.project_data_changed)
         self.speakers.speakers_changed.connect(self._on_speakers_changed)
@@ -568,20 +574,8 @@ class MainWindow(QMainWindow):
         self.verification.ranges_changed.connect(
             lambda: self.waveform.set_verified(self.verification.ranges)
         )
-        self.asr_panel.result_changed.connect(self._on_asr_result_changed)
         self.player.playback_error.connect(
             lambda error: self._show_error(tr("main.playback_error"), error)
-        )
-        self.asr_panel.draft_ready.connect(self._on_draft_ready)
-        self.asr_panel.fragment_ready.connect(self._on_fragment_ready)
-        self.asr_panel.review_item_activated.connect(self.review.activate)
-        self.asr_panel.review_item_apply_requested.connect(self._on_apply_review_item)
-        self.asr_panel.review_finish_requested.connect(self.review.finish)
-        self.asr_panel.transcription_started.connect(self._on_transcription_started)
-        self.asr_panel.transcription_finished.connect(self._on_transcription_finished)
-        self.asr_panel.transcription_progress.connect(self.loading_overlay.set_progress)
-        self.loading_overlay.cancel_requested.connect(
-            self.asr_panel.cancel_transcription
         )
 
     # --- ustawienia i notacja ---------------------------------------------
@@ -713,22 +707,6 @@ class MainWindow(QMainWindow):
             shortcuts.get(search_id("find_previous"), ()),
         )
 
-    def _on_asr_model_changed(self, key: str) -> None:
-        """Wybór modelu w panelu jest zapamiętywany w ustawieniach (ACC-35)."""
-        current = self.settings_store.current
-        if current.asr.model_key != key:
-            self.settings_store.save(
-                replace(current, asr=replace(current.asr, model_key=key))
-            )
-
-    def _on_asr_speakers_changed(self, count: int) -> None:
-        """Liczba mówców wybrana w panelu ASR jest zapamiętywana w ustawieniach."""
-        current = self.settings_store.current
-        if current.asr.diarize_speakers != count:
-            self.settings_store.save(
-                replace(current, asr=replace(current.asr, diarize_speakers=count))
-            )
-
     def _readiness_report(self) -> ReadinessReport:
         """Raport gotowości z bieżącego tekstu (walidacja bez debounce)."""
         document = self.document
@@ -769,12 +747,6 @@ class MainWindow(QMainWindow):
         player = self.player_bar.sound_settings(current.player)
         if player != current.player:
             self.settings_store.save(replace(current, player=player))
-
-    def _on_asr_result_changed(self) -> None:
-        result = self.asr_panel.last_result
-        self.waveform.set_segments(
-            segment_spans(result.segments) if result is not None else []
-        )
 
     def _on_asr_context_changed(self) -> None:
         self.session.asr_context_changed()
@@ -882,48 +854,12 @@ class MainWindow(QMainWindow):
     def _add_compared_speakers(self, missing: list[Speaker]) -> None:
         self.speakers.apply_speakers([*self.document.speakers, *missing])
 
-    def _on_draft_ready(self, draft: TranscriptionResult | str) -> None:
-        self.compare.finish()
-        if not isinstance(draft, TranscriptionResult):
-            self.review.insert_draft(draft)
-            return
-        if not draft.diarized:
-            self.review.insert_draft(draft_text(draft), draft.segments)
-            return
-        # Podział na mówców: głosy w kolejności pojawiania się dostają
-        # kolejnych mówców z listy (B, I, a brakujący - I2, I3…).
-        clusters = draft_line_speakers(draft)
-        count = 1 + max(
-            (number for number in clusters if number is not None), default=0
-        )
-        previous = list(self.document.speakers)
-        speakers, keys = speakers_for_clusters(previous, count)
-        if list(speakers) != previous:
-            self.speakers.apply_speakers(list(speakers))
-        line_speakers = [
-            None if number is None else keys[number] for number in clusters
-        ]
-        if (
-            not self.review.insert_draft(
-                draft_text(draft), draft.segments, line_speakers
-            )
-            and list(speakers) != previous
-        ):
-            self.speakers.apply_speakers(previous)
-
-    def _on_fragment_ready(self, result: TranscriptionResult) -> None:
-        self.compare.finish()
-        self.review.insert_fragment(result.text, result.segments)
-
     def _ask_draft_placement(self) -> str | None:
         return ask_draft_placement(self)
 
     def draft_placement_box(self) -> tuple[QMessageBox, object, object]:
         """Dialog wyboru miejsca szkicu: (okno, „Zastąp całość”, „Dopisz”)."""
         return draft_placement_box(self)
-
-    def _on_apply_review_item(self, index: int) -> None:
-        self.review.apply(index)
 
     def _on_export(self) -> None:
         self.exporter.export()
@@ -949,21 +885,6 @@ class MainWindow(QMainWindow):
         show_error(self, title, error)
 
     # --- blokada podczas ASR ----------------------------------------------
-
-    def _on_transcription_started(self) -> None:
-        """Blokuje okno na czas transkrypcji; aktywne zostaje tylko anulowanie.
-
-        Nakładka przechwytuje mysz, a wyłączone widżety i akcje odcinają
-        klawiaturę i skróty (także te o zasięgu całej aplikacji).
-        """
-        self._set_ui_locked(True)
-        self.session.autosave.pause()
-        self.loading_overlay.start()
-
-    def _on_transcription_finished(self) -> None:
-        self.loading_overlay.stop()
-        self._set_ui_locked(False)
-        self.session.autosave.resume()
 
     def _set_ui_locked(self, locked: bool) -> None:
         self._ui_locked = locked

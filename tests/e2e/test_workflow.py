@@ -102,7 +102,7 @@ def test_full_workflow(qtbot, window, add_window, tmp_path, monkeypatch) -> None
         if item.suggestion.code == "SUG-LAB-U-INIT"
         and item.suggestion.start == len("[00:00] ")
     )
-    window._on_apply_review_item(index)
+    window.review.apply(index)
     assert window.editor.toPlainText().startswith("[00:00] uod tego")
     assert superscripts(window) == ["u", "m"]
 
