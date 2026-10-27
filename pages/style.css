@@ -196,6 +196,18 @@ main,
   z-index: 1;
 }
 
+/* Stopka zawsze przy dolnej krawędzi okna, także na krótkich stronach. */
+
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+main {
+  flex: 1 0 auto;
+}
+
 /* Pasek górny */
 
 .topbar {
