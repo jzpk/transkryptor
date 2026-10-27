@@ -15,6 +15,69 @@ zapisuj je kodami `\u2013` / `\u2014` i nie zamieniaj ich na `-` - np.
 na łączniki sprawdzaj najpierw regexy i parsery, żeby nie zepsuć importu
 starszych plików.
 
+## Zasady projektowe: bez narastającego długu
+
+Pisząc nowy kod albo rozbudowując istniejący, trzymaj się tych zasad od
+razu - nie odkładaj ich na „późniejszy refaktor”. Jeśli zmiana przekroczyłaby
+któryś limit, najpierw wydziel część kodu, potem dopisuj funkcję.
+
+**Rozmiar i odpowiedzialność**
+
+- Jedna klasa = jedna odpowiedzialność. Moduł powyżej ~500 linii albo klasa
+  z kilkoma niezależnymi obszarami (np. pobieranie modelu i transkrypcja)
+  to sygnał do podziału na osobne moduły/klasy.
+- Widżet z kilkoma częściami składaj z sekcji (wzorzec: `AsrPanel` +
+  `ModelSection`/`TranscriptionSection`/`ReviewSection`); kontener tylko
+  układa sekcje i przekazuje ich sygnały.
+- `__init__` widżetu tworzy stan i wywołuje metody `_build_*`
+  (`_build_layout`, `_connect_signals`) - bez setek instrukcji w konstruktorze.
+- Złożoność funkcji pilnuje ruff (`C901`, próg 15) - nie podnoś progu
+  ani nie dodawaj `noqa: C901`; podziel funkcję na etapy.
+
+**Zależności**
+
+- `MainWindow` to tylko korzeń kompozycji. Obsługa nowych zdarzeń
+  domenowych trafia do kontrolera (`*_controller.py`), nie do okna.
+- Konstruktor kontrolera: najwyżej ~8 parametrów. Powiązane zależności
+  grupuj w obiekt parametrów (np. `ProjectAnnotations`, `MetadataWidgets`),
+  zamiast konkretnych widżetów przekazuj wąskie funkcje
+  (`Callable[[], QDate]`) albo `Protocol`, a zdarzenia ogłaszaj sygnałami
+  (`SessionEvents`), nie callbackami w konstruktorze.
+- Funkcja z więcej niż ~6 parametrami dostaje dataclass z opcjami.
+- Warstwy: `asr`, `corpus`, `document`, `notation`, `update`, `settings`,
+  `fileio` nie importują Qt ani `transkryptor.ui` (pilnuje
+  `tests/test_layers.py`). Wspólne narzędzia (np. zapis atomowy) trafiają
+  do modułu ogólnego (`fileio.py`), a nie do modułu domenowego, z którego
+  importuje je UI.
+
+**Rozszerzalność**
+
+- Nowe pole ustawień: wpis `_Field` w `settings.py` (cechy pola jako
+  atrybuty `_Field`, nigdy warunki na nazwę pola) i obsługa w odpowiedniej
+  stronie `settings_pages.py` (`load`/`apply`). Nowa zakładka ustawień to
+  nowa klasa strony, nie kolejne pola w `SettingsDialog`.
+- Nowy format eksportu: wpis w rejestrze `export/registry.py`.
+
+**Higiena kodu**
+
+- Używaj istniejących pomocników zamiast kopii: `ui.messages.show_error`,
+  `MainWindow.show_status`, `fileio.write_atomic`.
+- Bez martwego kodu: usuwaj nieużywane moduły i nie zostawiaj
+  re-eksportów „dla zgodności importów” - popraw importy.
+- Nie nadawaj nazw przesłaniających wbudowane (`Warning`, `type`, `id`...).
+- `noqa` i `type: ignore` tylko z kodem reguły i krótkim powodem;
+  ruff zgłasza martwe `noqa` (`RUF100`).
+- Testy korzystają z publicznego API klas. Gdy test potrzebuje wstrzyknąć
+  zależność, dodaj do klasy jawny parametr albo metodę, zamiast
+  przypisywać do prywatnych atrybutów (`panel._manager = ...`).
+
+**Bezpieczne zmiany mechaniczne**
+
+- Po masowej zamianie (regex, `sed`) przejrzyj `git diff` - zamiana nie
+  może trafić w literały napisów (np. klucze tłumaczeń `tr("toolbar.…")`).
+- Nie maskuj kodu wyjścia testów potokiem (`pytest ... | tail` zawsze
+  zwraca 0) - sprawdzaj wynik `pytest` przed commitem.
+
 ## Na koniec każdego zadania zmieniającego kod
 
 Wykonaj kolejno, zanim zgłosisz, że praca jest skończona:
