@@ -24,7 +24,8 @@ from transkryptor.ui.asr_panel import (
 )
 from transkryptor.ui.diarization_box import DiarizationBox
 from transkryptor.ui.loading_overlay import loading_messages
-from transkryptor.ui.main_window import DRAFT_APPEND, DRAFT_REPLACE, MainWindow
+from transkryptor.ui.main_window import MainWindow
+from transkryptor.ui.review import DRAFT_APPEND, DRAFT_REPLACE
 from transkryptor.ui.settings_dialog import SettingsDialog
 
 

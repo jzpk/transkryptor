@@ -27,7 +27,8 @@ from transkryptor.settings import MetadataSettings, ProjectSettings, Settings
 from transkryptor.ui.asr_panel import APPLIED_MARK, PENDING_MARK
 from transkryptor.ui.autosave import ORPHAN_MAX_AGE, RecoveryDialog
 from transkryptor.ui.highlights import REVIEW_LAYER
-from transkryptor.ui.main_window import DRAFT_REPLACE, MainWindow
+from transkryptor.ui.main_window import MainWindow
+from transkryptor.ui.review import DRAFT_REPLACE
 from transkryptor.ui.settings_dialog import SettingsDialog
 
 SAMPLE_MP3 = Path("tests/fixtures/audio/sample.mp3")

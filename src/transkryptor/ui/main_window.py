@@ -86,8 +86,6 @@ from transkryptor.ui.player_bar import PlayerBar
 from transkryptor.ui.player_controller import PlayerController
 from transkryptor.ui.readiness_dialog import ReadinessController
 from transkryptor.ui.review import (
-    DRAFT_APPEND,
-    DRAFT_REPLACE,
     ReviewController,
     ask_draft_placement,
     draft_placement_box,
@@ -127,13 +125,6 @@ from transkryptor.ui.update_controller import UpdateController
 from transkryptor.ui.verification import VerificationController
 from transkryptor.ui.warnings_panel import WarningsPanel
 from transkryptor.ui.waveform import WaveformController, segment_spans
-
-# Stałe przeniesione do kontrolerów, re-eksportowane dla zgodności importów.
-__all__ = [
-    "DRAFT_APPEND",
-    "DRAFT_REPLACE",
-    "MainWindow",
-]
 
 logger = logging.getLogger(__name__)
 
