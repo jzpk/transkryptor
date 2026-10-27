@@ -66,13 +66,13 @@ class TestSettingsDialog:
         dialog = SettingsDialog(CUSTOM)
         qtbot.addWidget(dialog)
         assert dialog.settings() == CUSTOM
-        assert not dialog.auto_rewind_spin.isEnabled()
+        assert not dialog.player_page.auto_rewind_spin.isEnabled()
 
     def test_defaults_round_trip(self, qtbot) -> None:
         dialog = SettingsDialog(Settings())
         qtbot.addWidget(dialog)
         assert dialog.settings() == Settings()
-        assert dialog.font_size_spin.text() == "Domyślny"
+        assert dialog.appearance_page.font_size_spin.text() == "Domyślny"
 
     def test_restore_defaults(self, qtbot) -> None:
         dialog = SettingsDialog(CUSTOM)
@@ -83,8 +83,8 @@ class TestSettingsDialog:
     def test_custom_font_family(self, qtbot) -> None:
         dialog = SettingsDialog(Settings())
         qtbot.addWidget(dialog)
-        dialog.default_font_check.setChecked(False)
-        family = dialog.font_combo.currentFont().family()
+        dialog.appearance_page.default_font_check.setChecked(False)
+        family = dialog.appearance_page.font_combo.currentFont().family()
         assert dialog.settings().editor.font_family == family
 
     def test_ellipsis_style_hint_shown_only_after_change(self, qtbot) -> None:
@@ -92,10 +92,12 @@ class TestSettingsDialog:
         dialog = SettingsDialog(Settings())
         qtbot.addWidget(dialog)
         # Podpowiedź leży na zakładce „Notacja”, niekoniecznie bieżącej.
-        assert dialog.ellipsis_hint.isHidden()
-        dialog.ellipsis_combo.setCurrentIndex(dialog.ellipsis_combo.findData("ascii"))
-        assert not dialog.ellipsis_hint.isHidden()
-        assert "Ujednolić" in dialog.ellipsis_hint.text()
+        assert dialog.notation_page.ellipsis_hint.isHidden()
+        dialog.notation_page.ellipsis_combo.setCurrentIndex(
+            dialog.notation_page.ellipsis_combo.findData("ascii")
+        )
+        assert not dialog.notation_page.ellipsis_hint.isHidden()
+        assert "Ujednolić" in dialog.notation_page.ellipsis_hint.text()
         assert dialog.settings().notation.ellipsis_style == "ascii"
 
     def test_tabs_group_settings_by_area(self, qtbot) -> None:
@@ -135,17 +137,17 @@ class TestSettingsDialog:
                     return dialog.tabs.tabText(index)
             return ""
 
-        assert tab_of(dialog.theme_combo) == "Wygląd"
-        assert tab_of(dialog.font_size_spin) == "Wygląd"
-        assert tab_of(dialog.skip_spin) == "Odtwarzacz"
-        assert tab_of(dialog.ellipsis_combo) == "Notacja"
-        assert tab_of(dialog.autosave_check) == "Projekt"
-        assert tab_of(dialog.metadata_table) == "Metryczka"
-        assert tab_of(dialog.device_combo) == "ASR"
-        assert tab_of(dialog.vocabulary_edit) == "ASR"
-        assert tab_of(dialog.chunked_check) == "ASR"
-        assert tab_of(dialog.models_root_edit) == "ASR"
-        assert tab_of(dialog.template_edit) == "Eksport"
+        assert tab_of(dialog.appearance_page.theme_combo) == "Wygląd"
+        assert tab_of(dialog.appearance_page.font_size_spin) == "Wygląd"
+        assert tab_of(dialog.player_page.skip_spin) == "Odtwarzacz"
+        assert tab_of(dialog.notation_page.ellipsis_combo) == "Notacja"
+        assert tab_of(dialog.project_page.autosave_check) == "Projekt"
+        assert tab_of(dialog.metadata_page.metadata_table) == "Metryczka"
+        assert tab_of(dialog.asr_page.device_combo) == "ASR"
+        assert tab_of(dialog.asr_page.vocabulary_edit) == "ASR"
+        assert tab_of(dialog.asr_page.chunked_check) == "ASR"
+        assert tab_of(dialog.asr_page.models_root_edit) == "ASR"
+        assert tab_of(dialog.export_page.template_edit) == "Eksport"
 
     def test_asr_settings_round_trip_and_keep_model(self, qtbot) -> None:
         """Okno nie zmienia modelu wybranego w panelu ASR."""
@@ -160,11 +162,13 @@ class TestSettingsDialog:
         dialog = SettingsDialog(settings)
         qtbot.addWidget(dialog)
         assert dialog.settings() == settings
-        dialog.vocabulary_edit.setPlainText(" Rożnowo \n\nOcieszyn")
-        dialog.models_root_default_button.click()
-        dialog.device_combo.setCurrentIndex(dialog.device_combo.findData("auto"))
-        assert not dialog.chunked_check.isChecked()  # domyślnie wyłączone
-        dialog.chunked_check.setChecked(True)
+        dialog.asr_page.vocabulary_edit.setPlainText(" Rożnowo \n\nOcieszyn")
+        dialog.asr_page.models_root_default_button.click()
+        dialog.asr_page.device_combo.setCurrentIndex(
+            dialog.asr_page.device_combo.findData("auto")
+        )
+        assert not dialog.asr_page.chunked_check.isChecked()  # domyślnie wyłączone
+        dialog.asr_page.chunked_check.setChecked(True)
         assert dialog.settings().asr == AsrSettings(
             model_key="small",
             models_root="",
@@ -177,25 +181,29 @@ class TestSettingsDialog:
         dialog = SettingsDialog(Settings())
         qtbot.addWidget(dialog)
         assert dialog.settings().appearance.theme == "system"
-        dialog.theme_combo.setCurrentIndex(dialog.theme_combo.findData("light"))
+        dialog.appearance_page.theme_combo.setCurrentIndex(
+            dialog.appearance_page.theme_combo.findData("light")
+        )
         assert dialog.settings().appearance.theme == "light"
 
     def test_language_choice_announces_restart(self, qtbot) -> None:
         dialog = SettingsDialog(Settings())
         qtbot.addWidget(dialog)
         assert dialog.settings().appearance.language == "system"
-        assert dialog.language_hint.isHidden()
-        dialog.language_combo.setCurrentIndex(dialog.language_combo.findData("en"))
+        assert dialog.appearance_page.language_hint.isHidden()
+        dialog.appearance_page.language_combo.setCurrentIndex(
+            dialog.appearance_page.language_combo.findData("en")
+        )
         assert dialog.settings().appearance.language == "en"
-        assert not dialog.language_hint.isHidden()
-        assert "ponownym uruchomieniu" in dialog.language_hint.text()
+        assert not dialog.appearance_page.language_hint.isHidden()
+        assert "ponownym uruchomieniu" in dialog.appearance_page.language_hint.text()
 
     def test_language_names_are_shown_in_their_own_language(self, qtbot) -> None:
         dialog = SettingsDialog(Settings())
         qtbot.addWidget(dialog)
         names = [
-            dialog.language_combo.itemText(i)
-            for i in range(dialog.language_combo.count())
+            dialog.appearance_page.language_combo.itemText(i)
+            for i in range(dialog.appearance_page.language_combo.count())
         ]
         assert names == ["Zgodny z systemem", "Polski", "English"]
 
@@ -204,7 +212,7 @@ class TestSettingsDialog:
         i18n.set_language(i18n.ENGLISH)
         dialog = SettingsDialog(Settings())
         qtbot.addWidget(dialog)
-        item = dialog.metadata_table.item(0, 0)
+        item = dialog.metadata_page.metadata_table.item(0, 0)
         assert item is not None and item.text() == "Reference code"
         assert dialog.settings() == Settings()
 
@@ -222,8 +230,8 @@ class TestMainWindowSettings:
         default_size = window.editor.font().pointSizeF()
 
         def accept(dialog):
-            dialog.font_size_spin.setValue(22)
-            dialog.auto_rewind_spin.setValue(3.0)
+            dialog.appearance_page.font_size_spin.setValue(22)
+            dialog.player_page.auto_rewind_spin.setValue(3.0)
             return QDialog.DialogCode.Accepted
 
         monkeypatch.setattr(SettingsDialog, "exec", accept)
@@ -241,7 +249,7 @@ class TestMainWindowSettings:
         window = add_window(MainWindow())
 
         def cancel(dialog):
-            dialog.font_size_spin.setValue(30)
+            dialog.appearance_page.font_size_spin.setValue(30)
             return QDialog.DialogCode.Rejected
 
         monkeypatch.setattr(SettingsDialog, "exec", cancel)
@@ -326,19 +334,19 @@ class TestExportTab:
         dialog = SettingsDialog(settings)
         qtbot.addWidget(dialog)
         assert dialog.settings().export == settings.export
-        assert "2" in dialog.template_status.text()
-        assert "{{badacz}}" in dialog.placeholders_hint.text()
+        assert "2" in dialog.export_page.template_status.text()
+        assert "{{badacz}}" in dialog.export_page.placeholders_hint.text()
 
     def test_broken_template_warns_on_choice(self, qtbot, tmp_path) -> None:
         broken = tmp_path / "zepsuty.docx"
         broken.write_bytes(b"x")
         dialog = SettingsDialog(Settings())
         qtbot.addWidget(dialog)
-        dialog.template_edit.setText(str(broken))
+        dialog.export_page.template_edit.setText(str(broken))
         check = dialog.check_template()
         assert check is not None and not check.ok
-        assert "wbudowanego" in dialog.template_status.text()
+        assert "wbudowanego" in dialog.export_page.template_status.text()
         # Ostrzeżenie nie blokuje zapisu ustawień.
         assert dialog.settings().export.template_path == str(broken)
-        dialog.template_edit.clear()
+        dialog.export_page.template_edit.clear()
         assert dialog.check_template() is None

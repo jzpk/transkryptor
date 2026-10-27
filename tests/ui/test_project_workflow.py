@@ -575,7 +575,7 @@ class TestMetadataForm:
 
     def test_fields_follow_settings(self, window) -> None:
         dialog = SettingsDialog(window.settings_store.current, window)
-        dialog.add_custom_field("Numer taśmy", personal=True)
+        dialog.metadata_page.add_custom_field("Numer taśmy", personal=True)
         settings = dialog.settings()
         assert settings.metadata.fields[-1].label == "Numer taśmy"
         assert settings.metadata.fields[-1].personal
@@ -617,19 +617,19 @@ class TestSettingsSections:
             metadata=MetadataSettings(fields_spec=encode_fields(reordered)),
         )
         dialog = SettingsDialog(custom, window)
-        assert not dialog.autosave_spin.isEnabled()
+        assert not dialog.project_page.autosave_spin.isEnabled()
         assert dialog.settings() == custom
 
     def test_reorder_and_remove_only_custom(self, window) -> None:
         dialog = SettingsDialog(Settings(), window)
-        dialog.metadata_table.setCurrentCell(1, 0)
-        dialog.field_up_button.click()
-        assert dialog.metadata_fields()[0].key == "place"
-        assert not dialog.remove_field_button.isEnabled()
-        dialog.add_custom_field("Taśma")
-        assert dialog.remove_field_button.isEnabled()
-        dialog.remove_field_button.click()
-        assert len(dialog.metadata_fields()) == len(DEFAULT_FIELDS)
+        dialog.metadata_page.metadata_table.setCurrentCell(1, 0)
+        dialog.metadata_page.field_up_button.click()
+        assert dialog.metadata_page.fields()[0].key == "place"
+        assert not dialog.metadata_page.remove_field_button.isEnabled()
+        dialog.metadata_page.add_custom_field("Taśma")
+        assert dialog.metadata_page.remove_field_button.isEnabled()
+        dialog.metadata_page.remove_field_button.click()
+        assert len(dialog.metadata_page.fields()) == len(DEFAULT_FIELDS)
         dialog.restore_defaults_button.click()
         assert dialog.settings() == Settings()
 

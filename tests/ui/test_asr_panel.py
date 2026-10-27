@@ -936,19 +936,19 @@ class TestDiarizationOption:
         dialog = SettingsDialog(Settings(), model_manager=manager)
         qtbot.addWidget(dialog)
         assert dialog.settings().asr.diarize is True
-        dialog.diarization_box.set_value(False)
+        dialog.asr_page.diarization_box.set_value(False)
         assert dialog.settings().asr.diarize is False
 
     def test_settings_dialog_saves_speaker_count(self, qtbot, manager) -> None:
         dialog = SettingsDialog(Settings(), model_manager=manager)
         qtbot.addWidget(dialog)
         assert dialog.settings().asr.diarize_speakers == 2
-        dialog.diarization_box.set_speakers(0)
-        assert dialog.diarization_box.speakers_combo.currentText() == tr(
+        dialog.asr_page.diarization_box.set_speakers(0)
+        assert dialog.asr_page.diarization_box.speakers_combo.currentText() == tr(
             "settings.asr.diarize.speakers.auto"
         )
         assert dialog.settings().asr.diarize_speakers == 0
-        dialog.diarization_box.set_speakers(4)
+        dialog.asr_page.diarization_box.set_speakers(4)
         assert dialog.settings().asr.diarize_speakers == 4
 
     def test_decoding_options_diarize_only_with_model(self, panel, manager) -> None:

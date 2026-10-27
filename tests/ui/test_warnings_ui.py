@@ -150,10 +150,10 @@ class TestValidatorSettingsTab:
 
         dialog = SettingsDialog(Settings())
         qtbot.addWidget(dialog)
-        assert dialog.validator_checks["VAL-07"].isChecked()
-        assert not dialog.validator_checks["VAL-11"].isChecked()
-        dialog.validator_checks["VAL-07"].setChecked(False)
-        dialog.validator_checks["VAL-11"].setChecked(True)
+        assert dialog.validator_page.validator_checks["VAL-07"].isChecked()
+        assert not dialog.validator_page.validator_checks["VAL-11"].isChecked()
+        dialog.validator_page.validator_checks["VAL-07"].setChecked(False)
+        dialog.validator_page.validator_checks["VAL-11"].setChecked(True)
         result = dialog.settings().validator
         assert result.overrides == {"VAL-07": False, "VAL-11": True}
         dialog.set_settings(Settings())

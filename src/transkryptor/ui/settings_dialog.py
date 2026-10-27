@@ -3,126 +3,47 @@
 Okno tylko edytuje kopię ustawień; zapis i powiadomienie komponentów
 wykonuje ``SettingsStore`` po zatwierdzeniu. Każda zakładka dotyczy jednej
 części aplikacji (wygląd, odtwarzacz, notacja, walidator, projekt, metryczka,
-ASR, dziennik logów); kolejne
-funkcje dopisują pola do właściwej zakładki albo dodają nową.
+ASR, dziennik logów). Zakładki z ustawieniami to strony z ``settings_pages``
+(``load``/``apply``); nowa sekcja ustawień to nowa strona na liście
+``pages``.
 """
 
 from __future__ import annotations
 
-from dataclasses import replace
-from pathlib import Path
-
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
-    QAbstractItemView,
-    QCheckBox,
-    QComboBox,
     QDialog,
     QDialogButtonBox,
-    QDoubleSpinBox,
-    QFileDialog,
-    QFontComboBox,
-    QFormLayout,
-    QFrame,
     QHBoxLayout,
-    QHeaderView,
-    QInputDialog,
-    QLabel,
-    QLineEdit,
     QListWidget,
     QMessageBox,
-    QPlainTextEdit,
     QPushButton,
-    QScrollArea,
-    QSpinBox,
-    QTableWidget,
-    QTableWidgetItem,
     QTabWidget,
     QVBoxLayout,
     QWidget,
 )
 
 from transkryptor.asr.manager import ModelManager
-from transkryptor.asr.models import default_models_root
-from transkryptor.document.metadata import (
-    DEFAULT_FIELDS,
-    DEFAULT_KEYS,
-    MetadataField,
-    enabled_fields,
-    encode_fields,
-    new_custom_field,
-)
-from transkryptor.export.docx_template import (
-    TemplateCheck,
-    check_template,
-    suggested_placeholders,
-)
-from transkryptor.export.options import UNTIMED_MODES
-from transkryptor.export.superscript import MODES as SUPERSCRIPT_MODES
-from transkryptor.i18n import LANGUAGES, tr
-from transkryptor.notation.ellipsis import EllipsisStyle
+from transkryptor.export.docx_template import TemplateCheck
+from transkryptor.i18n import tr
 from transkryptor.notation.rules import PhoneticRule
-from transkryptor.notation.validator import SEVERITY_HINT, VALIDATOR_RULES
-from transkryptor.settings import (
-    AUTO_REWIND_RANGE_MS,
-    AUTOSAVE_INTERVAL_RANGE_S,
-    FONT_SIZE_RANGE_PT,
-    LANGUAGE_SYSTEM,
-    SEGMENT_PREROLL_RANGE_MS,
-    SKIP_RANGE_MS,
-    THEME_DARK,
-    THEME_LIGHT,
-    THEME_SYSTEM,
-    WORD_THRESHOLD_RANGE_PCT,
-    AppearanceSettings,
-    AsrSettings,
-    EditorSettings,
-    MetadataSettings,
-    NotationSettings,
-    ProjectSettings,
-    Settings,
-    ShortcutSettings,
-    SnippetSettings,
-    ValidatorSettings,
-    encode_bool_map,
-    encode_shortcut_map,
-    encode_snippets,
-    split_vocabulary,
-)
-from transkryptor.ui.diarization_box import DiarizationBox
+from transkryptor.settings import Settings
 from transkryptor.ui.log_panel import LogPanel
 from transkryptor.ui.rules_editor import RulesEditor
-from transkryptor.ui.shortcuts import find_conflicts, shortcut_overrides
+from transkryptor.ui.settings_pages import (
+    AppearancePage,
+    AsrPage,
+    ExportPage,
+    MetadataPage,
+    NotationPage,
+    PlayerPage,
+    ProjectPage,
+    SettingsPage,
+    ShortcutPages,
+    ValidatorPage,
+    models_root,
+)
 from transkryptor.ui.shortcuts_editor import ShortcutsEditor, SnippetsEditor
-from transkryptor.ui.theme import set_props
-
-
-def theme_labels() -> dict[str, str]:
-    return {
-        THEME_SYSTEM: tr("settings.theme.system"),
-        THEME_LIGHT: tr("settings.theme.light"),
-        THEME_DARK: tr("settings.theme.dark"),
-    }
-
-
-def language_labels() -> dict[str, str]:
-    """Nazwy języków w nich samych - rozpoznawalne niezależnie od bieżącego."""
-    return {LANGUAGE_SYSTEM: tr("settings.language.system"), **LANGUAGES}
-
-
-def device_labels() -> dict[str, str]:
-    return {
-        "auto": tr("settings.asr.device.auto"),
-        "cpu": tr("settings.asr.device.cpu"),
-    }
-
-
-def ellipsis_style_labels() -> dict[EllipsisStyle, str]:
-    return {
-        EllipsisStyle.UNICODE: tr("settings.ellipsis.unicode"),
-        EllipsisStyle.ASCII: tr("settings.ellipsis.ascii"),
-    }
 
 
 class SettingsDialog(QDialog):
@@ -142,263 +63,56 @@ class SettingsDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle(tr("settings.title"))
         self.setObjectName("settings_dialog")
+        self._loaded = settings
 
-        self.skip_spin = _seconds_spin(SKIP_RANGE_MS)
-        self.auto_rewind_check = QCheckBox(tr("settings.player.auto_rewind"))
-        self.auto_rewind_spin = _seconds_spin(AUTO_REWIND_RANGE_MS)
-        self.auto_rewind_check.toggled.connect(self.auto_rewind_spin.setEnabled)
-        self.preroll_spin = _seconds_spin(SEGMENT_PREROLL_RANGE_MS)
-        self.follow_playback_check = QCheckBox(tr("settings.player.follow"))
-        self.follow_playback_check.setToolTip(tr("settings.player.follow.tooltip"))
-
-        player_form = _form()
-        player_form.addRow(tr("settings.player.skip"), self.skip_spin)
-        player_form.addRow(self.auto_rewind_check)
-        player_form.addRow(
-            tr("settings.player.auto_rewind_length"), self.auto_rewind_spin
-        )
-        player_form.addRow(tr("settings.player.preroll"), self.preroll_spin)
-        player_form.addRow(self.follow_playback_check)
-
-        self.default_font_check = QCheckBox(tr("settings.editor.default_font"))
-        self.font_combo = QFontComboBox()
-        self.default_font_check.toggled.connect(
-            lambda checked: self.font_combo.setEnabled(not checked)
-        )
-        self.font_size_spin = QSpinBox()
-        # Wartość 0 („Domyślny”) leży tuż pod zakresem rozmiarów.
-        self.font_size_spin.setRange(FONT_SIZE_RANGE_PT[0] - 1, FONT_SIZE_RANGE_PT[1])
-        self.font_size_spin.setSpecialValueText(tr("settings.editor.default_size"))
-        self.font_size_spin.setSuffix(" pt")
-
-        self.theme_combo = QComboBox()
-        for value, theme_label in theme_labels().items():
-            self.theme_combo.addItem(theme_label, value)
-        self.theme_combo.setToolTip(tr("settings.theme.tooltip"))
-        self.language_combo = QComboBox()
-        for code, language_label in language_labels().items():
-            self.language_combo.addItem(language_label, code)
-        self.language_hint = QLabel(tr("settings.language.restart_hint"))
-        self.language_hint.setWordWrap(True)
-        set_props(self.language_hint, role="muted")
-        self.language_combo.currentIndexChanged.connect(self._update_language_hint)
-        appearance_form = _form()
-        appearance_form.addRow(tr("settings.language"), self.language_combo)
-        appearance_form.addRow(self.language_hint)
-        appearance_form.addRow(tr("settings.theme"), self.theme_combo)
-        appearance_form.addRow(self.default_font_check)
-        appearance_form.addRow(tr("settings.editor.font"), self.font_combo)
-        appearance_form.addRow(tr("settings.editor.size"), self.font_size_spin)
-
-        self.ellipsis_combo = QComboBox()
-        for style, label in ellipsis_style_labels().items():
-            self.ellipsis_combo.addItem(label, style.value)
-        self.ellipsis_hint = QLabel(tr("settings.ellipsis.change_hint"))
-        self.ellipsis_hint.setWordWrap(True)
-        set_props(self.ellipsis_hint, role="muted")
-        self.ellipsis_combo.currentIndexChanged.connect(self._update_ellipsis_hint)
-        self.autocomplete_check = QCheckBox(tr("settings.editor.autocomplete"))
-        autocomplete_hint = QLabel(tr("settings.editor.autocomplete.hint"))
-        autocomplete_hint.setWordWrap(True)
-        set_props(autocomplete_hint, role="muted")
-        notation_form = _form()
-        notation_form.addRow(tr("settings.ellipsis.style"), self.ellipsis_combo)
-        notation_form.addRow(self.ellipsis_hint)
-        notation_form.addRow(self.autocomplete_check)
-        notation_form.addRow(autocomplete_hint)
-
-        validator_hint = QLabel(tr("settings.validator.hint"))
-        validator_hint.setWordWrap(True)
-        set_props(validator_hint, role="muted")
-        validator_form = _form()
-        validator_form.addRow(validator_hint)
-        self.validator_checks: dict[str, QCheckBox] = {}
-        for rule in VALIDATOR_RULES:
-            text = rule.label
-            if rule.severity == SEVERITY_HINT:
-                text = tr("settings.validator.hint_rule", rule=text)
-            checkbox = QCheckBox(text)
-            validator_form.addRow(checkbox)
-            self.validator_checks[rule.code] = checkbox
-
-        self.autosave_check = QCheckBox(tr("settings.autosave"))
-        self.autosave_check.setToolTip(tr("settings.autosave.tooltip"))
-        self.autosave_spin = QSpinBox()
-        self.autosave_spin.setRange(*AUTOSAVE_INTERVAL_RANGE_S)
-        self.autosave_spin.setSingleStep(30)
-        self.autosave_spin.setSuffix(" s")
-        self.autosave_check.toggled.connect(self.autosave_spin.setEnabled)
-        project_form = _form()
-        project_form.addRow(self.autosave_check)
-        project_form.addRow(tr("settings.autosave.interval"), self.autosave_spin)
-
-        self.metadata_table = QTableWidget(0, 2)
-        self.metadata_table.setHorizontalHeaderLabels(
-            [tr("settings.metadata.field"), tr("settings.metadata.personal")]
-        )
-        self.metadata_table.verticalHeader().setVisible(False)
-        header = self.metadata_table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
-        self.metadata_table.setSelectionBehavior(
-            QAbstractItemView.SelectionBehavior.SelectRows
-        )
-        self.metadata_table.setSelectionMode(
-            QAbstractItemView.SelectionMode.SingleSelection
-        )
-        self.metadata_table.setMinimumWidth(320)
-        metadata_hint = QLabel(tr("settings.metadata.hint"))
-        metadata_hint.setWordWrap(True)
-        set_props(metadata_hint, role="muted")
-        self.field_up_button = QPushButton(tr("settings.metadata.up"))
-        self.field_down_button = QPushButton(tr("settings.metadata.down"))
-        self.add_field_button = QPushButton(tr("settings.metadata.add"))
-        self.remove_field_button = QPushButton(tr("settings.metadata.remove"))
-        self.remove_field_button.setToolTip(tr("settings.metadata.remove.tooltip"))
-        self.field_up_button.clicked.connect(lambda: self._move_field(-1))
-        self.field_down_button.clicked.connect(lambda: self._move_field(1))
-        self.add_field_button.clicked.connect(self._on_add_field)
-        self.remove_field_button.clicked.connect(self._remove_field)
-        self.metadata_table.currentCellChanged.connect(
-            lambda *_args: self._update_field_buttons()
-        )
-        field_buttons = QHBoxLayout()
-        for button in (
-            self.field_up_button,
-            self.field_down_button,
-            self.add_field_button,
-            self.remove_field_button,
-        ):
-            field_buttons.addWidget(button)
-        metadata_page = QWidget()
-        metadata_layout = QVBoxLayout(metadata_page)
-        metadata_layout.setContentsMargins(16, 16, 16, 16)
-        metadata_layout.addWidget(metadata_hint)
-        metadata_layout.addWidget(self.metadata_table, stretch=1)
-        metadata_layout.addLayout(field_buttons)
-
-        self.models_root_edit = QLineEdit()
-        self.models_root_edit.setReadOnly(True)
-        self.models_root_edit.setPlaceholderText(str(default_models_root()))
-        self.models_root_button = QPushButton(tr("settings.asr.models_root.choose"))
-        self.models_root_button.clicked.connect(self._choose_models_root)
-        self.models_root_default_button = QPushButton(
-            tr("settings.asr.models_root.default")
-        )
-        self.models_root_default_button.clicked.connect(self.models_root_edit.clear)
-        models_root_row = QHBoxLayout()
-        models_root_row.addWidget(self.models_root_edit, stretch=1)
-        models_root_row.addWidget(self.models_root_button)
-        models_root_row.addWidget(self.models_root_default_button)
-        models_root_hint = QLabel(tr("settings.asr.models_root.hint"))
-        models_root_hint.setWordWrap(True)
-        set_props(models_root_hint, role="muted")
-        self.device_combo = QComboBox()
-        for device, device_label in device_labels().items():
-            self.device_combo.addItem(device_label, device)
-        device_hint = QLabel(tr("settings.asr.device.hint"))
-        device_hint.setWordWrap(True)
-        set_props(device_hint, role="muted")
-        self.chunked_check = QCheckBox(tr("settings.asr.chunked"))
-        chunked_hint = QLabel(tr("settings.asr.chunked.hint"))
-        chunked_hint.setWordWrap(True)
-        set_props(chunked_hint, role="muted")
-        self.word_timestamps_check = QCheckBox(tr("settings.asr.word_timestamps"))
-        self.word_timestamps_check.setToolTip(
-            tr("settings.asr.word_timestamps.tooltip")
-        )
-        self.diarization_box = DiarizationBox(
+        self.appearance_page = AppearancePage(settings.appearance.language)
+        self.player_page = PlayerPage()
+        self.notation_page = NotationPage(settings.notation.ellipsis_style)
+        self.validator_page = ValidatorPage()
+        self.rules_editor = RulesEditor(builtin_rules, user_rules, document_text)
+        self.shortcut_pages = ShortcutPages()
+        self.project_page = ProjectPage()
+        self.metadata_page = MetadataPage()
+        self.export_page = ExportPage(self.metadata_page.fields)
+        self.asr_page = AsrPage(
             model_manager
-            or ModelManager(models_root=_models_root(settings.asr.models_root))
+            or ModelManager(models_root=models_root(settings.asr.models_root))
         )
-        self.models_root_edit.textChanged.connect(
-            lambda text: self.diarization_box.set_models_root(_models_root(text))
+        self.log_panel = LogPanel()
+        # Kolejność wczytywania: metryczka przed eksportem (sprawdzenie
+        # szablonu korzysta z pól metryczki).
+        self.pages: tuple[SettingsPage, ...] = (
+            self.appearance_page,
+            self.player_page,
+            self.notation_page,
+            self.validator_page,
+            self.shortcut_pages,
+            self.project_page,
+            self.metadata_page,
+            self.export_page,
+            self.asr_page,
         )
-        self.uncertain_words_check = QCheckBox(tr("settings.asr.uncertain_words"))
-        self.word_threshold_spin = QSpinBox()
-        self.word_threshold_spin.setRange(*WORD_THRESHOLD_RANGE_PCT)
-        self.word_threshold_spin.setSuffix(" %")
-        self.word_threshold_spin.setToolTip(tr("settings.asr.word_threshold.tooltip"))
-        self.uncertain_words_check.toggled.connect(self.word_threshold_spin.setEnabled)
-        self.vocabulary_edit = QPlainTextEdit()
-        self.vocabulary_edit.setPlaceholderText(
-            tr("settings.asr.vocabulary.placeholder")
-        )
-        self.vocabulary_edit.setTabChangesFocus(True)
-        vocabulary_hint = QLabel(tr("settings.asr.vocabulary.hint"))
-        vocabulary_hint.setWordWrap(True)
-        set_props(vocabulary_hint, role="muted")
-        asr_form = _form()
-        asr_form.addRow(tr("settings.asr.models_root"), models_root_row)
-        asr_form.addRow(models_root_hint)
-        asr_form.addRow(tr("settings.asr.device"), self.device_combo)
-        asr_form.addRow(device_hint)
-        asr_form.addRow(self.chunked_check)
-        asr_form.addRow(chunked_hint)
-        asr_form.addRow(self.word_timestamps_check)
-        asr_form.addRow(self.diarization_box)
-        asr_form.addRow(self.uncertain_words_check)
-        asr_form.addRow(tr("settings.asr.word_threshold"), self.word_threshold_spin)
-        asr_form.addRow(tr("settings.asr.vocabulary"), self.vocabulary_edit)
-        asr_form.addRow(vocabulary_hint)
-
-        # Eksport (faza 12): szablon DOCX i domyślne opcje formatów tekstowych.
-        self.template_edit = QLineEdit()
-        self.template_edit.setPlaceholderText(tr("settings.export.template.builtin"))
-        self.template_edit.setClearButtonEnabled(True)
-        self.template_edit.editingFinished.connect(self.check_template)
-        self.template_edit.textChanged.connect(
-            lambda text: text or self.check_template()
-        )
-        self.template_button = QPushButton(tr("settings.export.template.choose"))
-        self.template_button.clicked.connect(self._choose_template)
-        template_row = QHBoxLayout()
-        template_row.addWidget(self.template_edit, stretch=1)
-        template_row.addWidget(self.template_button)
-        self.template_status = QLabel()
-        self.template_status.setWordWrap(True)
-        self.template_status.setTextInteractionFlags(
-            Qt.TextInteractionFlag.TextSelectableByMouse
-        )
-        self.placeholders_hint = QLabel()
-        self.placeholders_hint.setWordWrap(True)
-        self.placeholders_hint.setTextInteractionFlags(
-            Qt.TextInteractionFlag.TextSelectableByMouse
-        )
-        set_props(self.placeholders_hint, role="muted")
-        self.superscript_mode_combo = QComboBox()
-        for mode in SUPERSCRIPT_MODES:
-            self.superscript_mode_combo.addItem(tr(f"export.superscript.{mode}"), mode)
-        self.untimed_mode_combo = QComboBox()
-        for mode in UNTIMED_MODES:
-            self.untimed_mode_combo.addItem(tr(f"export.untimed.{mode}"), mode)
-        export_form = _form()
-        export_form.addRow(tr("settings.export.template"), template_row)
-        export_form.addRow(self.template_status)
-        export_form.addRow(self.placeholders_hint)
-        export_form.addRow(tr("export_dialog.superscript"), self.superscript_mode_combo)
-        export_form.addRow(tr("export_dialog.untimed"), self.untimed_mode_combo)
 
         self.tabs = QTabWidget()
-        self.tabs.addTab(_page(appearance_form), tr("settings.tab.appearance"))
-        self.tabs.addTab(_page(player_form), tr("settings.tab.player"))
-        self.tabs.addTab(_page(notation_form), tr("settings.tab.notation"))
-        self.tabs.addTab(_page(validator_form), tr("settings.tab.validator"))
-        self.rules_editor = RulesEditor(builtin_rules, user_rules, document_text)
-        self.tabs.addTab(self.rules_editor, tr("settings.tab.rules"))
-        self.shortcuts_editor = ShortcutsEditor()
-        self.snippets_editor = SnippetsEditor()
-        self.shortcuts_editor.changed.connect(self._update_conflicts)
-        self.snippets_editor.changed.connect(self._update_conflicts)
-        self.tabs.addTab(self.shortcuts_editor, tr("settings.tab.shortcuts"))
-        self.tabs.addTab(self.snippets_editor, tr("settings.tab.snippets"))
-        self.tabs.addTab(_page(project_form), tr("settings.tab.project"))
-        self.tabs.addTab(metadata_page, tr("settings.tab.metadata"))
-        self.tabs.addTab(_page(export_form), tr("settings.tab.export"))
-        self.tabs.addTab(_page(asr_form), tr("settings.tab.asr"))
-        self.log_panel = LogPanel()
-        self.tabs.addTab(self.log_panel, tr("settings.tab.logs"))
+        for page, title in (
+            (self.appearance_page, "settings.tab.appearance"),
+            (self.player_page, "settings.tab.player"),
+            (self.notation_page, "settings.tab.notation"),
+            (self.validator_page, "settings.tab.validator"),
+            (self.rules_editor, "settings.tab.rules"),
+            (self.shortcut_pages.shortcuts_editor, "settings.tab.shortcuts"),
+            (self.shortcut_pages.snippets_editor, "settings.tab.snippets"),
+            (self.project_page, "settings.tab.project"),
+            (self.metadata_page, "settings.tab.metadata"),
+            (self.export_page, "settings.tab.export"),
+            (self.asr_page, "settings.tab.asr"),
+            (self.log_panel, "settings.tab.logs"),
+        ):
+            self.tabs.addTab(page, tr(title))
+        self._build_layout()
+        self.set_settings(settings)
 
+    def _build_layout(self) -> None:
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok
             | QDialogButtonBox.StandardButton.Cancel
@@ -439,246 +153,35 @@ class SettingsDialog(QDialog):
         self.setMinimumSize(760, 480)
         self.resize(940, 680)
 
-        self._initial_ellipsis_style = settings.notation.ellipsis_style
-        self._initial_language = settings.appearance.language
-        self.set_settings(settings)
-
     def set_settings(self, settings: Settings) -> None:
-        """Wypełnia pola wartościami ``settings``."""
-        index = self.theme_combo.findData(settings.appearance.theme)
-        self.theme_combo.setCurrentIndex(max(index, 0))
-        index = self.language_combo.findData(settings.appearance.language)
-        self.language_combo.setCurrentIndex(max(index, 0))
-        self._update_language_hint()
+        """Wypełnia pola wartościami ``settings``.
 
-        player = settings.player
-        self.skip_spin.setValue(player.skip_ms / 1000)
-        self.auto_rewind_check.setChecked(player.auto_rewind_enabled)
-        self.auto_rewind_spin.setValue(player.auto_rewind_ms / 1000)
-        self.auto_rewind_spin.setEnabled(player.auto_rewind_enabled)
-        self.preroll_spin.setValue(player.segment_preroll_ms / 1000)
-        self.follow_playback_check.setChecked(player.follow_playback)
-        # Pola spoza okna (zwinięcie fali, menu „Dźwięk”) zostają bez zmian.
-        self._player = player
+        Pola bez odpowiednika w oknie (np. model ASR, podpis komentarzy,
+        ostatni format eksportu) przechodzą do ``settings()`` bez zmian.
+        """
+        self._loaded = settings
+        for page in self.pages:
+            page.load(settings)
 
-        editor = settings.editor
-        self.default_font_check.setChecked(not editor.font_family)
-        self.font_combo.setEnabled(bool(editor.font_family))
-        if editor.font_family:
-            self.font_combo.setCurrentFont(QFont(editor.font_family))
-        self.font_size_spin.setValue(
-            editor.font_size_pt or self.font_size_spin.minimum()
-        )
+    def settings(self) -> Settings:
+        """Ustawienia odpowiadające bieżącym wartościom pól."""
+        result = self._loaded
+        for page in self.pages:
+            result = page.apply(result)
+        return result
 
-        index = self.ellipsis_combo.findData(settings.notation.ellipsis_style)
-        self.ellipsis_combo.setCurrentIndex(max(index, 0))
-        self._update_ellipsis_hint()
-        self.autocomplete_check.setChecked(settings.editor.autocomplete)
+    # --- operacje na stronach ------------------------------------------------
 
-        self.shortcuts_editor.set_overrides(settings.shortcuts.overrides)
-        self.snippets_editor.set_taken_shortcuts(
-            s for seqs in self.shortcuts_editor.mapping().values() for s in seqs
-        )
-        self.snippets_editor.set_snippets(settings.snippets.snippets)
-        self._update_conflicts()
+    @property
+    def shortcuts_editor(self) -> ShortcutsEditor:
+        return self.shortcut_pages.shortcuts_editor
 
-        enabled = settings.validator.enabled
-        for code, checkbox in self.validator_checks.items():
-            checkbox.setChecked(code in enabled)
-
-        self.autosave_check.setChecked(settings.project.autosave_enabled)
-        self.autosave_spin.setValue(settings.project.autosave_interval_s)
-        self.autosave_spin.setEnabled(settings.project.autosave_enabled)
-
-        self.set_metadata_fields(settings.metadata.fields)
-
-        # Model wybiera się w panelu ASR - okno tylko go przenosi dalej.
-        self._asr_model_key = settings.asr.model_key
-        # Ostatni format okna „Eksportuj jako…” nie jest polem tego okna.
-        self._export = settings.export
-        # Podpis komentarzy recenzji nie ma pola w oknie - zostaje bez zmian.
-        self._review = settings.review
-        self.template_edit.setText(settings.export.template_path)
-        self.superscript_mode_combo.setCurrentIndex(
-            max(
-                self.superscript_mode_combo.findData(settings.export.superscript_mode),
-                0,
-            )
-        )
-        self.untimed_mode_combo.setCurrentIndex(
-            max(self.untimed_mode_combo.findData(settings.export.untimed_mode), 0)
-        )
-        self.check_template()
-        self.models_root_edit.setText(settings.asr.models_root)
-        index = self.device_combo.findData(settings.asr.device)
-        self.device_combo.setCurrentIndex(max(index, 0))
-        self.chunked_check.setChecked(settings.asr.chunked)
-        self.word_timestamps_check.setChecked(settings.asr.word_timestamps)
-        self.diarization_box.set_value(settings.asr.diarize)
-        self.diarization_box.set_speakers(settings.asr.diarize_speakers)
-        self.uncertain_words_check.setChecked(settings.asr.show_uncertain_words)
-        self.word_threshold_spin.setValue(settings.asr.word_threshold_pct)
-        self.word_threshold_spin.setEnabled(settings.asr.show_uncertain_words)
-        self.vocabulary_edit.setPlainText(settings.asr.vocabulary)
-
-    # --- metryczka -----------------------------------------------------------
-
-    def set_metadata_fields(self, fields: tuple[MetadataField, ...]) -> None:
-        self.metadata_table.setRowCount(0)
-        for metadata_field in fields:
-            self._append_field(metadata_field)
-        self.metadata_table.setCurrentCell(-1, -1)
-        self._update_field_buttons()
-
-    def metadata_fields(self) -> tuple[MetadataField, ...]:
-        fields: list[MetadataField] = []
-        for row in range(self.metadata_table.rowCount()):
-            name_item = self.metadata_table.item(row, 0)
-            personal_item = self.metadata_table.item(row, 1)
-            if name_item is None or personal_item is None:
-                continue
-            key = str(name_item.data(Qt.ItemDataRole.UserRole))
-            label = (
-                _default_label(key)
-                if key in DEFAULT_KEYS
-                else name_item.text().strip() or key
-            )
-            fields.append(
-                MetadataField(
-                    key,
-                    label,
-                    personal=personal_item.checkState() == Qt.CheckState.Checked,
-                    enabled=name_item.checkState() == Qt.CheckState.Checked,
-                )
-            )
-        return tuple(fields)
-
-    def add_custom_field(self, label: str, personal: bool = False) -> None:
-        """Dodaje własne pole zespołu na końcu listy."""
-        if not label.strip():
-            return
-        self._append_field(new_custom_field(label, personal))
-        self.metadata_table.setCurrentCell(self.metadata_table.rowCount() - 1, 0)
-
-    def _append_field(self, metadata_field: MetadataField) -> None:
-        row = self.metadata_table.rowCount()
-        self.metadata_table.insertRow(row)
-        name_item = QTableWidgetItem(metadata_field.display_label)
-        flags = (
-            Qt.ItemFlag.ItemIsEnabled
-            | Qt.ItemFlag.ItemIsSelectable
-            | Qt.ItemFlag.ItemIsUserCheckable
-        )
-        if metadata_field.is_custom:
-            flags |= Qt.ItemFlag.ItemIsEditable
-        name_item.setFlags(flags)
-        name_item.setData(Qt.ItemDataRole.UserRole, metadata_field.key)
-        name_item.setCheckState(_check(metadata_field.enabled))
-        personal_item = QTableWidgetItem()
-        personal_item.setFlags(
-            Qt.ItemFlag.ItemIsEnabled
-            | Qt.ItemFlag.ItemIsSelectable
-            | Qt.ItemFlag.ItemIsUserCheckable
-        )
-        personal_item.setCheckState(_check(metadata_field.personal))
-        self.metadata_table.setItem(row, 0, name_item)
-        self.metadata_table.setItem(row, 1, personal_item)
-
-    def _on_add_field(self) -> None:
-        label, accepted = QInputDialog.getText(
-            self, tr("settings.metadata.new_title"), tr("settings.metadata.new_label")
-        )
-        if accepted:
-            self.add_custom_field(label)
-
-    def _move_field(self, delta: int) -> None:
-        fields = list(self.metadata_fields())
-        row = self.metadata_table.currentRow()
-        target = row + delta
-        if not (0 <= row < len(fields) and 0 <= target < len(fields)):
-            return
-        fields[row], fields[target] = fields[target], fields[row]
-        self.set_metadata_fields(tuple(fields))
-        self.metadata_table.setCurrentCell(target, 0)
-
-    def _remove_field(self) -> None:
-        row = self.metadata_table.currentRow()
-        fields = self.metadata_fields()
-        if 0 <= row < len(fields) and fields[row].is_custom:
-            self.metadata_table.removeRow(row)
-        self._update_field_buttons()
-
-    def _update_field_buttons(self) -> None:
-        row = self.metadata_table.currentRow()
-        count = self.metadata_table.rowCount()
-        item = self.metadata_table.item(row, 0) if row >= 0 else None
-        custom = (
-            item is not None and item.data(Qt.ItemDataRole.UserRole) not in DEFAULT_KEYS
-        )
-        self.field_up_button.setEnabled(row > 0)
-        self.field_down_button.setEnabled(0 <= row < count - 1)
-        self.remove_field_button.setEnabled(custom)
-
-    def _choose_models_root(self) -> None:
-        start = self.models_root_edit.text() or str(default_models_root())
-        directory = QFileDialog.getExistingDirectory(
-            self, tr("settings.asr.models_root.dialog"), start
-        )
-        if directory:
-            self.models_root_edit.setText(directory)
-
-    def _choose_template(self) -> None:
-        start = self.template_edit.text().strip()
-        path, _selected = QFileDialog.getOpenFileName(
-            self,
-            tr("settings.export.template.dialog"),
-            str(Path(start).parent) if start else "",
-            tr("export.filter"),
-        )
-        if path:
-            self.template_edit.setText(path)
-            self.check_template()
+    @property
+    def snippets_editor(self) -> SnippetsEditor:
+        return self.shortcut_pages.snippets_editor
 
     def check_template(self) -> TemplateCheck | None:
-        """ACC-56: walidacja szablonu przy wyborze - ostrzeżenie, nie blokada."""
-        fields = self.metadata_fields()
-        self.placeholders_hint.setText(
-            tr(
-                "settings.export.placeholders",
-                names=" ".join(suggested_placeholders(enabled_fields(fields))),
-            )
-        )
-        path = self.template_edit.text().strip()
-        if not path:
-            self.template_status.setText(tr("settings.export.template.builtin_hint"))
-            set_props(self.template_status, role="muted", tone="")
-            return None
-        check = check_template(path, fields)
-        if check.error is not None:
-            text = tr("settings.export.template.invalid", reason=check.error)
-            tone = "danger"
-        elif check.unknown:
-            text = tr(
-                "settings.export.template.unknown",
-                names=", ".join(f"{{{{{name}}}}}" for name in check.unknown),
-            )
-            tone = "warning"
-        else:
-            text = tr("settings.export.template.ok", count=len(check.placeholders))
-            tone = "success"
-        self.template_status.setText(text)
-        set_props(self.template_status, role="status", tone=tone)
-        return check
-
-    def _update_ellipsis_hint(self) -> None:
-        """Podpowiedź „Ujednolić” tylko po zmianie stylu względem bieżącego."""
-        changed = self.ellipsis_combo.currentData() != self._initial_ellipsis_style
-        self.ellipsis_hint.setVisible(changed)
-
-    def _update_language_hint(self) -> None:
-        """Komunikat o restarcie tylko po zmianie języka względem bieżącego."""
-        changed = self.language_combo.currentData() != self._initial_language
-        self.language_hint.setVisible(changed)
+        return self.export_page.check_template()
 
     def open_rules_with(self, rule: PhoneticRule) -> None:
         """Zakładka reguł z dopisaną proponowaną regułą (do sprawdzenia)."""
@@ -691,20 +194,11 @@ class SettingsDialog(QDialog):
 
     def shortcut_conflicts(self) -> list[str]:
         """Opisy konfliktów skrótów akcji i wstawek (ACC-43)."""
-        mapping = {
-            **self.shortcuts_editor.mapping(),
-            **self.snippets_editor.shortcut_mapping(),
-        }
-        return [conflict.message for conflict in find_conflicts(mapping)]
-
-    def _update_conflicts(self) -> None:
-        self.shortcuts_editor.conflicts_label.setText(
-            "\n".join(self.shortcut_conflicts())
-        )
+        return self.shortcut_pages.conflicts()
 
     def accept(self) -> None:
         """Błędna reguła, wstawka albo konflikt skrótów blokuje zapis."""
-        checks = (
+        checks: tuple[tuple[QWidget, str | None], ...] = (
             (self.rules_editor, self.rules_editor.first_problem()),
             (self.snippets_editor, self.snippets_editor.first_problem()),
             (self.shortcuts_editor, "\n".join(self.shortcut_conflicts()) or None),
@@ -720,136 +214,5 @@ class SettingsDialog(QDialog):
 
     def done(self, result: int) -> None:
         # Zamknięcie ustawień przerywa pobieranie modelu mówców.
-        self.diarization_box.cancel_and_wait()
+        self.asr_page.diarization_box.cancel_and_wait()
         super().done(result)
-
-    def settings(self) -> Settings:
-        """Ustawienia odpowiadające bieżącym wartościom pól."""
-        size = self.font_size_spin.value()
-        return Settings(
-            player=replace(
-                self._player,
-                skip_ms=_ms(self.skip_spin),
-                auto_rewind_enabled=self.auto_rewind_check.isChecked(),
-                auto_rewind_ms=_ms(self.auto_rewind_spin),
-                segment_preroll_ms=_ms(self.preroll_spin),
-                follow_playback=self.follow_playback_check.isChecked(),
-            ),
-            editor=EditorSettings(
-                font_family=(
-                    ""
-                    if self.default_font_check.isChecked()
-                    else self.font_combo.currentFont().family()
-                ),
-                font_size_pt=0 if size == self.font_size_spin.minimum() else size,
-                autocomplete=self.autocomplete_check.isChecked(),
-            ),
-            notation=NotationSettings(
-                ellipsis_style=str(self.ellipsis_combo.currentData())
-            ),
-            validator=ValidatorSettings(
-                overrides_spec=encode_bool_map(
-                    {
-                        rule.code: self.validator_checks[rule.code].isChecked()
-                        for rule in VALIDATOR_RULES
-                        if self.validator_checks[rule.code].isChecked()
-                        != rule.default_enabled
-                    }
-                )
-            ),
-            shortcuts=ShortcutSettings(
-                overrides_spec=encode_shortcut_map(
-                    shortcut_overrides(self.shortcuts_editor.mapping())
-                )
-            ),
-            snippets=SnippetSettings(
-                spec=encode_snippets(self.snippets_editor.snippets())
-            ),
-            project=ProjectSettings(
-                autosave_enabled=self.autosave_check.isChecked(),
-                autosave_interval_s=self.autosave_spin.value(),
-            ),
-            metadata=MetadataSettings(fields_spec=_fields_spec(self.metadata_fields())),
-            export=replace(
-                self._export,
-                template_path=self.template_edit.text().strip(),
-                superscript_mode=str(self.superscript_mode_combo.currentData()),
-                untimed_mode=str(self.untimed_mode_combo.currentData()),
-            ),
-            appearance=AppearanceSettings(
-                theme=str(self.theme_combo.currentData()),
-                language=str(self.language_combo.currentData()),
-            ),
-            asr=AsrSettings(
-                model_key=self._asr_model_key,
-                models_root=self.models_root_edit.text().strip(),
-                device=str(self.device_combo.currentData()),
-                vocabulary="\n".join(
-                    split_vocabulary(self.vocabulary_edit.toPlainText())
-                ),
-                chunked=self.chunked_check.isChecked(),
-                word_timestamps=self.word_timestamps_check.isChecked(),
-                diarize=self.diarization_box.value(),
-                diarize_speakers=self.diarization_box.speakers(),
-                show_uncertain_words=self.uncertain_words_check.isChecked(),
-                word_threshold_pct=self.word_threshold_spin.value(),
-            ),
-            review=self._review,
-        )
-
-
-def _models_root(text: str) -> Path | None:
-    return Path(text.strip()) if text.strip() else None
-
-
-def _form() -> QFormLayout:
-    form = QFormLayout()
-    form.setContentsMargins(16, 16, 16, 16)
-    form.setVerticalSpacing(10)
-    return form
-
-
-def _page(form: QFormLayout) -> QWidget:
-    """Strona zakładki z formularzem przy górnej krawędzi.
-
-    Długi formularz (np. ASR) przewija się w pionie zamiast ściskać pola
-    w niskim oknie.
-    """
-    content = QWidget()
-    content.setObjectName("settings_page")
-    layout = QVBoxLayout(content)
-    layout.setContentsMargins(0, 0, 0, 0)
-    layout.addLayout(form)
-    layout.addStretch(1)
-    page = QScrollArea()
-    page.setWidgetResizable(True)
-    page.setFrameShape(QFrame.Shape.NoFrame)
-    page.setWidget(content)
-    return page
-
-
-def _seconds_spin(range_ms: tuple[int, int]) -> QDoubleSpinBox:
-    """Pole czasu w sekundach (ustawienia trzymają milisekundy)."""
-    spin = QDoubleSpinBox()
-    spin.setDecimals(1)
-    spin.setSingleStep(0.5)
-    spin.setRange(range_ms[0] / 1000, range_ms[1] / 1000)
-    spin.setSuffix(" s")
-    return spin
-
-
-def _ms(spin: QDoubleSpinBox) -> int:
-    return round(spin.value() * 1000)
-
-
-def _check(checked: bool) -> Qt.CheckState:
-    return Qt.CheckState.Checked if checked else Qt.CheckState.Unchecked
-
-
-def _default_label(key: str) -> str:
-    return next((f.label for f in DEFAULT_FIELDS if f.key == key), key)
-
-
-def _fields_spec(fields: tuple[MetadataField, ...]) -> str:
-    """Zestaw domyślny zapisuje się jako pusty napis (łatwe przyszłe zmiany)."""
-    return "" if fields == DEFAULT_FIELDS else encode_fields(fields)
