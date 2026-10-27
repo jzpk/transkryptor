@@ -78,7 +78,7 @@ from transkryptor.notation.suggestions import (
 )
 from transkryptor.settings import AsrSettings, split_vocabulary
 from transkryptor.ui import icons
-from transkryptor.ui.messages import log_user_error
+from transkryptor.ui.messages import show_error
 from transkryptor.ui.theme import set_props, tokens
 
 logger = logging.getLogger(__name__)
@@ -858,7 +858,7 @@ class AsrPanel(QWidget):
     def _on_download_failed(self, error: AppError) -> None:
         self._finish_download()
         self._set_model_status(tr("asr.model.missing"), "danger")
-        self._show_error(tr("asr.download.error"), error)
+        show_error(self, tr("asr.download.error"), error)
 
     def _on_download_cancelled(self) -> None:
         logger.info("Model download cancelled")
@@ -1048,7 +1048,7 @@ class AsrPanel(QWidget):
         )
         self._finish_transcribe()
         self.transcribe_status_label.setText(tr("asr.failed"))
-        self._show_error(tr("asr.failed.title"), error)
+        show_error(self, tr("asr.failed.title"), error)
 
     def _on_transcribe_cancelled(self) -> None:
         logger.info(
@@ -1198,14 +1198,6 @@ class AsrPanel(QWidget):
             self.review_item_apply_requested.emit(index)
 
     # --- błędy ---------------------------------------------------------------
-
-    def _show_error(self, title: str, error: AppError) -> None:
-        """NFR-03: zrozumiały komunikat z możliwością ponowienia działania."""
-        log_user_error(error, stacklevel=2)
-        message = error.user_message
-        if error.retry_hint:
-            message += f"\n\n{error.retry_hint}"
-        QMessageBox.warning(self, title, message)
 
 
 class _AutoHideLabel(QLabel):
