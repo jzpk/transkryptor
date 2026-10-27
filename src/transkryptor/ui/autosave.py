@@ -44,9 +44,9 @@ from transkryptor.document.project import (
     ProjectState,
     dumps,
     load_project,
-    write_atomic,
 )
 from transkryptor.errors import AppError
+from transkryptor.fileio import write_atomic
 from transkryptor.i18n import tr
 from transkryptor.settings import ProjectSettings
 from transkryptor.ui.layout import words_label

@@ -1,185 +1,29 @@
-"""Plik projektu ``.transkr``: stan pracy nad nagraniem (bez Qt).
-
-Projekt to jeden plik JSON (UTF-8) z polem ``schema_version``. Zawiera
-tekst z zakresami indeksu górnego, autora, datę i metryczkę, odwołanie do
-nagrania (ścieżka względna do pliku projektu, bezwzględna jako podpowiedź
-i suma SHA-256 - bez osadzania audio), pozycję odtwarzania, pętlę A-B,
-ostatni wynik ASR (tekst i segmenty z czasami i pewnością) oraz pozycje
-przeglądu reguł (zakres w tekście, kod reguły i treść propozycji), a od
-schematu 2 także kontekst nagrania i słownik projektu dla ASR, od
-schematu 3 - ostrzeżenia walidatora zignorowane w konkretnych miejscach,
-od schematu 4 - kotwice czasowe tekstu (``document/anchors.py``), od
-schematu 5 - mówcy nagrania, ich przypisanie do akapitów
-(``document/speakers.py``) i mówcy segmentów ASR z podziału na mówców, a od
-schematu 6 - komentarze recenzji z odpowiedziami i statusem rozwiązania
-(``document/comments.py``; pole ``resolved`` jest opcjonalne) i sprawdzone zakresy nagrania (``document/verification.py``).
-
-Zapis jest atomowy: plik tymczasowy w katalogu docelowym, ``fsync``
-i ``os.replace`` - przerwany zapis nie psuje poprzedniej wersji. Odczyt
-przechodzi przez :func:`migrate`, który podnosi starsze schematy do
-bieżącego; nowa wersja schematu to nowy wpis w ``_MIGRATIONS``.
-"""
+"""Serializacja stanu projektu do JSON i odczyt z walidacją typów pól."""
 
 from __future__ import annotations
 
-import hashlib
 import json
-import os
-import stat
-import tempfile
-from collections.abc import Callable
-from dataclasses import dataclass, field
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Any
 
 from transkryptor.document.anchors import Anchor, check_anchor
 from transkryptor.document.comments import Comment, Reply, check_comment
-from transkryptor.document.speakers import (
-    DEFAULT_SPEAKERS,
-    Speaker,
-    check_speakers,
-    paragraph_count,
+from transkryptor.document.project.errors import invalid
+from transkryptor.document.project.migrations import SCHEMA_VERSION, migrate
+from transkryptor.document.project.model import (
+    AsrContext,
+    AsrDraft,
+    AsrSegment,
+    AsrWord,
+    AudioRef,
+    IgnoredWarning,
+    PlayerState,
+    ProjectState,
+    ReviewEntry,
 )
+from transkryptor.document.project.paths import relative_audio_path
+from transkryptor.document.speakers import Speaker, check_speakers, paragraph_count
 from transkryptor.document.verification import normalized as verified_ranges
-from transkryptor.errors import ProjectError
-from transkryptor.i18n import tr
-
-SCHEMA_VERSION = 6
-PROJECT_SUFFIX = ".transkr"
-_HASH_CHUNK = 1 << 20
-
-
-def file_dialog_filter() -> str:
-    """Filtr okna wyboru pliku projektu."""
-    return tr("project.file_filter", pattern=f"*{PROJECT_SUFFIX}")
-
-
-@dataclass(frozen=True)
-class AudioRef:
-    """Odwołanie do nagrania; ``relative_path`` w zapisie POSIX (``/``)."""
-
-    absolute_path: str
-    sha256: str
-    relative_path: str | None = None
-
-    @property
-    def name(self) -> str:
-        return PurePosixPath(Path(self.absolute_path).as_posix()).name
-
-
-@dataclass(frozen=True)
-class PlayerState:
-    position_ms: int = 0
-    loop_a_ms: int | None = None
-    loop_b_ms: int | None = None
-    loop_active: bool = False
-
-
-@dataclass(frozen=True)
-class AsrWord:
-    start_s: float
-    end_s: float
-    text: str
-    probability: float
-
-
-@dataclass(frozen=True)
-class AsrSegment:
-    start_s: float
-    end_s: float
-    text: str
-    confidence: float
-    # Słowa z czasami (schemat 4; puste, gdy ASR ich nie liczył).
-    words: tuple[AsrWord, ...] = ()
-    # Numer mówcy z podziału na mówców (schemat 5; None bez diaryzacji).
-    speaker: int | None = None
-
-
-@dataclass(frozen=True)
-class AsrDraft:
-    """Ostatni wynik ASR - pozwala wstawić szkic ponownie bez transkrypcji."""
-
-    text: str
-    language: str = "pl"
-    segments: tuple[AsrSegment, ...] = ()
-    # Klucz modelu, którym obliczono szkic (None w projektach sprzed 0.4).
-    model: str | None = None
-
-
-@dataclass(frozen=True)
-class AsrContext:
-    """Kontekst nagrania i słownik projektu przekazywane do ASR (REQ-21)."""
-
-    prompt: str = ""
-    vocabulary: tuple[str, ...] = ()
-
-
-@dataclass(frozen=True)
-class ReviewEntry:
-    """Pozycja przeglądu reguł.
-
-    ``start``/``end`` to bieżący zakres fragmentu w tekście dokumentu
-    (oryginał propozycji albo wstawiona zamiana). Pozostałe pola opisują
-    propozycję tak, jak zwróciła ją reguła (pozycje względem szkicu).
-    """
-
-    start: int
-    end: int
-    applied: bool
-    code: str
-    suggestion_start: int
-    suggestion_end: int
-    original: str
-    replacement: str
-    superscript_ranges: tuple[tuple[int, int], ...] = ()
-    source: str = "rule"
-    confidence: float = 0.0
-    message: str = ""
-    word: str = ""
-    word_start: int = 0
-
-
-@dataclass(frozen=True)
-class IgnoredWarning:
-    """Ostrzeżenie walidatora zignorowane w jednym miejscu („Ignoruj tutaj”).
-
-    ``start``/``end`` to zakres w tekście dokumentu, ``text`` - treść
-    fragmentu w chwili zapisu (kontrola przy odtwarzaniu).
-    """
-
-    code: str
-    start: int
-    end: int
-    text: str = ""
-
-
-@dataclass(frozen=True)
-class ProjectState:
-    text: str = ""
-    superscript_ranges: tuple[tuple[int, int], ...] = ()
-    author: str = ""
-    date: str = ""
-    metadata: dict[str, str] = field(default_factory=dict)
-    exported: bool = False
-    audio: AudioRef | None = None
-    player: PlayerState = field(default_factory=PlayerState)
-    asr: AsrDraft | None = None
-    review: tuple[ReviewEntry, ...] = ()
-    asr_context: AsrContext = field(default_factory=AsrContext)
-    ignored_warnings: tuple[IgnoredWarning, ...] = ()
-    anchors: tuple[Anchor, ...] = ()
-    speakers: tuple[Speaker, ...] = DEFAULT_SPEAKERS
-    paragraph_speakers: dict[int, str] = field(default_factory=dict)
-    comments: tuple[Comment, ...] = ()
-    # Sprawdzone zakresy nagrania (ms), posortowane i rozłączne.
-    verified: tuple[tuple[int, int], ...] = ()
-
-    @property
-    def word_count(self) -> int:
-        return len(self.text.split())
-
-
-# --- serializacja ---------------------------------------------------------------
 
 
 def to_dict(state: ProjectState, project_path: Path | None = None) -> dict[str, Any]:
@@ -326,250 +170,15 @@ def from_dict(data: Any) -> ProjectState:
     try:
         return _parse(data)
     except (KeyError, TypeError, ValueError) as exc:
-        raise _invalid() from exc
+        raise invalid() from exc
 
 
 def loads(raw: str) -> ProjectState:
     try:
         data = json.loads(raw)
     except ValueError as exc:
-        raise _invalid() from exc
+        raise invalid() from exc
     return from_dict(data)
-
-
-# --- migracje -------------------------------------------------------------------
-
-
-# Wersja N → N+1. Migracja dostaje słownik w wersji N i zwraca słownik
-# w wersji N+1 (z podbitym ``schema_version``); nie zmienia wejścia.
-def _add_asr_context(data: dict[str, Any]) -> dict[str, Any]:
-    """1 → 2 (wydanie 0.4.0): pusty kontekst nagrania i słownik projektu."""
-    return {
-        **data,
-        "schema_version": 2,
-        "asr_context": {"prompt": "", "vocabulary": []},
-    }
-
-
-def _add_ignored_warnings(data: dict[str, Any]) -> dict[str, Any]:
-    """2 → 3 (faza 10): brak zignorowanych ostrzeżeń walidatora."""
-    return {**data, "schema_version": 3, "ignored_warnings": []}
-
-
-def _add_anchors(data: dict[str, Any]) -> dict[str, Any]:
-    """3 → 4 (faza 11): tekst bez kotwic czasowych."""
-    return {**data, "schema_version": 4, "anchors": []}
-
-
-def _add_speakers(data: dict[str, Any]) -> dict[str, Any]:
-    """4 → 5 (faza 12): domyślni mówcy, akapity bez przypisań."""
-    document = data.get("document")
-    if not isinstance(document, dict):
-        return {**data, "schema_version": 5}  # błąd zgłosi parsowanie
-    speakers = [
-        {"key": s.key, "label": s.label, "role": s.role} for s in DEFAULT_SPEAKERS
-    ]
-    return {
-        **data,
-        "schema_version": 5,
-        "document": {**document, "speakers": speakers, "paragraph_speakers": []},
-    }
-
-
-def _add_comments(data: dict[str, Any]) -> dict[str, Any]:
-    """5 → 6 (faza 14): brak komentarzy recenzji i sprawdzonych zakresów."""
-    return {**data, "schema_version": 6, "comments": [], "verified": []}
-
-
-_MIGRATIONS: dict[int, Callable[[dict[str, Any]], dict[str, Any]]] = {
-    1: _add_asr_context,
-    2: _add_ignored_warnings,
-    3: _add_anchors,
-    4: _add_speakers,
-    5: _add_comments,
-}
-
-
-def migrate(data: Any) -> dict[str, Any]:
-    """Podnosi projekt do bieżącej wersji schematu.
-
-    Projekt z nowszej wersji aplikacji jest odrzucany zrozumiałym błędem -
-    odczyt mógłby po cichu zgubić nieznane dane.
-    """
-    if not isinstance(data, dict):
-        raise _invalid()
-    version = data.get("schema_version")
-    if not isinstance(version, int) or isinstance(version, bool) or version < 1:
-        raise _invalid()
-    if version > SCHEMA_VERSION:
-        raise ProjectError(
-            user_message=tr(
-                "project.error.newer", version=version, supported=SCHEMA_VERSION
-            ),
-            retry_hint=tr("project.error.newer.hint"),
-        )
-    while version < SCHEMA_VERSION:
-        data = _MIGRATIONS[version](data)
-        version = data["schema_version"]
-    return data
-
-
-# --- pliki ----------------------------------------------------------------------
-
-
-def save_project(state: ProjectState, path: str | Path) -> None:
-    """Zapisuje projekt atomowo; błąd zapisu → ``ProjectError``."""
-    target = Path(path)
-    write_atomic(target, dumps(state, target).encode("utf-8"))
-
-
-def load_project(path: str | Path) -> ProjectState:
-    source = Path(path)
-    try:
-        raw = source.read_bytes()
-    except OSError as exc:
-        raise ProjectError(
-            user_message=tr(
-                "project.error.open", name=source.name, reason=exc.strerror or exc
-            ),
-            retry_hint=tr("project.error.open.hint"),
-        ) from exc
-    try:
-        text = raw.decode("utf-8")
-    except UnicodeDecodeError as exc:
-        raise _invalid(source.name) from exc
-    try:
-        return loads(text)
-    except InvalidProjectError as error:
-        raise _invalid(source.name) from error
-
-
-def write_atomic(target: Path, payload: bytes, mode: int | None = None) -> None:
-    """Plik tymczasowy w katalogu docelowym, ``fsync`` i ``os.replace``.
-
-    ``tempfile`` tworzy plik z prawami ``0600``, a ``os.replace`` przenosi je
-    na plik docelowy. Dlatego przed podmianą plik dostaje prawa ``mode``,
-    a bez niego - prawa istniejącego pliku albo domyślne dla nowego
-    (``0666`` z maską umask). Projekt na wspólnym udziale zostaje czytelny
-    dla zespołu; autozapis podaje ``0o600``.
-    """
-    temp_name: str | None = None
-    try:
-        with tempfile.NamedTemporaryFile(
-            dir=target.parent, prefix=f".{target.name}.", suffix=".tmp", delete=False
-        ) as handle:
-            temp_name = handle.name
-            handle.write(payload)
-            handle.flush()
-            os.fsync(handle.fileno())
-        if os.name == "posix":
-            Path(temp_name).chmod(_target_mode(target) if mode is None else mode)
-        Path(temp_name).replace(target)
-        temp_name = None
-        _fsync_directory(target.parent)
-    except OSError as exc:
-        raise ProjectError(
-            user_message=tr(
-                "project.error.save", name=target.name, reason=exc.strerror or exc
-            ),
-            retry_hint=tr("project.error.save.hint"),
-        ) from exc
-    finally:
-        if temp_name is not None:
-            Path(temp_name).unlink(missing_ok=True)
-
-
-def _target_mode(target: Path) -> int:
-    """Prawa istniejącego pliku albo ``0666`` z maską umask dla nowego."""
-    try:
-        return stat.S_IMODE(target.stat().st_mode)
-    except FileNotFoundError:
-        umask = os.umask(0)
-        os.umask(umask)
-        return 0o666 & ~umask
-
-
-def _fsync_directory(directory: Path) -> None:
-    """Utrwala wpis katalogu po ``os.replace`` (ext4/XFS); tylko POSIX."""
-    if os.name != "posix":
-        return
-    try:
-        fd = os.open(directory, os.O_RDONLY)
-    except OSError:
-        return
-    try:
-        os.fsync(fd)
-    except OSError:
-        pass  # część systemów plików (np. udziały sieciowe) tego nie wspiera
-    finally:
-        os.close(fd)
-
-
-def file_sha256(
-    path: str | Path, should_cancel: Callable[[], bool] | None = None
-) -> str:
-    """Suma SHA-256 pliku; ``should_cancel`` przerywa liczenie (InterruptedError)."""
-    digest = hashlib.sha256()
-    with Path(path).open("rb") as handle:
-        while chunk := handle.read(_HASH_CHUNK):
-            if should_cancel is not None and should_cancel():
-                raise InterruptedError(str(path))
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
-def audio_ref(path: str | Path) -> AudioRef:
-    """Odwołanie do nagrania z sumą SHA-256 (plik musi istnieć)."""
-    absolute = Path(path).resolve()
-    return AudioRef(absolute_path=str(absolute), sha256=file_sha256(absolute))
-
-
-def relative_audio_path(audio_path: str | Path, project_path: Path) -> str | None:
-    """Ścieżka nagrania względem katalogu projektu (zapis POSIX).
-
-    None, gdy ścieżki względnej nie da się zbudować (inny dysk w Windows).
-    """
-    try:
-        relative = os.path.relpath(
-            Path(audio_path).resolve(), Path(project_path).resolve().parent
-        )
-    except ValueError:
-        return None
-    return Path(relative).as_posix()
-
-
-def resolve_audio(audio: AudioRef, project_path: Path | None) -> Path | None:
-    """Istniejący plik nagrania: najpierw ścieżka względna, potem bezwzględna."""
-    candidates: list[Path] = []
-    if audio.relative_path and project_path is not None:
-        candidates.append(
-            Path(project_path).parent.joinpath(
-                *PurePosixPath(audio.relative_path).parts
-            )
-        )
-    candidates.append(Path(audio.absolute_path))
-    for candidate in candidates:
-        if candidate.is_file():
-            return candidate
-    return None
-
-
-# --- parsowanie -----------------------------------------------------------------
-
-
-class InvalidProjectError(ProjectError):
-    """Plik nie jest poprawnym projektem (składnia albo schemat)."""
-
-
-def _invalid(name: str = "") -> InvalidProjectError:
-    return InvalidProjectError(
-        user_message=(
-            tr("project.error.invalid_named", name=name)
-            if name
-            else tr("project.error.invalid")
-        ),
-        retry_hint=tr("project.error.invalid.hint"),
-    )
 
 
 def _parse(data: dict[str, Any]) -> ProjectState:

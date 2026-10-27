@@ -45,7 +45,7 @@ from transkryptor.audio.envelope import (
     save_cached,
 )
 from transkryptor.audio.player import AudioPlayer
-from transkryptor.document.project import file_sha256
+from transkryptor.fileio import file_sha256
 from transkryptor.i18n import tr
 from transkryptor.ui.asr_panel import LOW_CONFIDENCE
 from transkryptor.ui.player_bar import PlayerBar

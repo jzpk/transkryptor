@@ -11,10 +11,10 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox
 from transkryptor.document.project import (
     AudioRef,
     ProjectState,
-    file_sha256,
     load_project,
     save_project,
 )
+from transkryptor.fileio import file_sha256
 from transkryptor.ui.main_window import MainWindow
 
 SAMPLE_MP3 = Path("tests/fixtures/audio/sample.mp3")

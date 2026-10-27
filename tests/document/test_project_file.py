@@ -8,7 +8,6 @@ from pathlib import Path
 
 import pytest
 
-from transkryptor.document import project
 from transkryptor.document.anchors import MANUAL, SEGMENT, WORD, Anchor
 from transkryptor.document.project import (
     SCHEMA_VERSION,
@@ -22,14 +21,15 @@ from transkryptor.document.project import (
     ReviewEntry,
     audio_ref,
     dumps,
-    file_sha256,
     load_project,
     loads,
     migrate,
+    migrations,
     resolve_audio,
     save_project,
 )
 from transkryptor.errors import ProjectError
+from transkryptor.fileio import file_sha256, write_atomic
 
 SAMPLE_MP3 = Path("tests/fixtures/audio/sample.mp3")
 
@@ -145,9 +145,9 @@ class TestSchema:
     def test_migrations_are_chained(self, monkeypatch) -> None:
         """Mechanizm migracji na sztucznej kolejnej wersji schematu."""
         next_version = SCHEMA_VERSION + 1
-        monkeypatch.setattr(project, "SCHEMA_VERSION", next_version)
+        monkeypatch.setattr(migrations, "SCHEMA_VERSION", next_version)
         monkeypatch.setitem(
-            project._MIGRATIONS,
+            migrations._MIGRATIONS,
             SCHEMA_VERSION,
             lambda data: {**data, "schema_version": next_version, "nowe_pole": []},
         )
@@ -340,7 +340,7 @@ class TestFilePermissions:
 
     def test_explicit_mode_wins(self, tmp_path, umask_022) -> None:
         path = tmp_path / "kopia.transkr"
-        project.write_atomic(path, b"{}", mode=0o600)
+        write_atomic(path, b"{}", mode=0o600)
         assert path.stat().st_mode & 0o777 == 0o600
 
 

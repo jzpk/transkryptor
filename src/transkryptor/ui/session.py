@@ -46,13 +46,13 @@ from transkryptor.document.project import (
     AudioRef,
     ProjectState,
     file_dialog_filter,
-    file_sha256,
     load_project,
     resolve_audio,
     save_project,
 )
 from transkryptor.errors import AppError
 from transkryptor.export.docx_import import import_docx
+from transkryptor.fileio import file_sha256
 from transkryptor.i18n import tr
 from transkryptor.ui.asr_panel import AsrPanel
 from transkryptor.ui.audio_hash import HashFunction, HashThread, wait_for

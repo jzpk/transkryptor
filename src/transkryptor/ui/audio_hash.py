@@ -15,7 +15,7 @@ from pathlib import Path
 from PySide6.QtCore import QCoreApplication, QEventLoop, QObject, Qt, QThread
 from PySide6.QtWidgets import QProgressDialog, QWidget
 
-from transkryptor.document.project import file_sha256
+from transkryptor.fileio import file_sha256
 
 # (ścieżka, should_cancel) → suma szesnastkowa; przerwanie → InterruptedError.
 HashFunction = Callable[..., str]

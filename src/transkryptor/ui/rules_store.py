@@ -1,7 +1,7 @@
 """Reguły fonetyczne: wbudowane i z pliku użytkownika (``rules/user.toml``).
 
 Plik użytkownika leży w katalogu danych aplikacji; zapis jest atomowy
-(``document.project.write_atomic``). Błędy ładowania nie blokują pracy -
+(``fileio.write_atomic``). Błędy ładowania nie blokują pracy -
 błędne reguły są pomijane, a ich opis udostępnia ``errors``.
 """
 
@@ -14,7 +14,7 @@ from pathlib import Path
 from PySide6.QtCore import QObject, Signal
 
 from transkryptor import paths
-from transkryptor.document.project import write_atomic
+from transkryptor.fileio import write_atomic
 from transkryptor.notation.rules import (
     PhoneticRule,
     RuleError,

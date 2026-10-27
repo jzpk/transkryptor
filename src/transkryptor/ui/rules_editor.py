@@ -34,8 +34,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from transkryptor.document.project import write_atomic
 from transkryptor.errors import AppError
+from transkryptor.fileio import write_atomic
 from transkryptor.i18n import tr
 from transkryptor.notation.learning import free_code
 from transkryptor.notation.rules import (
