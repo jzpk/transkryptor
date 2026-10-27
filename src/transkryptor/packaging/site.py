@@ -5,7 +5,8 @@ wywoływany z „Wydania”), więc przyciski pobierania wskazują pliki najnows
 wydania, a historia zmian obejmuje tylko wydane wersje - sekcja
 „Nieopublikowane” nie trafia na stronę. Opis i wygląd są w katalogu
 ``pages/`` (szablony ``index.html``, ``faq.html``, ``autor.html`` i ``404.html``
-z polami ``${...}``, formularz zgłoszeń ``zglos.html``, arkusz stylów, skrypt strony, zrzuty ekranu, zdjęcie autora
+z polami ``${...}``, formularz zgłoszeń ``zglos.html``, status zgłoszeń
+``zgloszenia.html``, arkusz stylów, skrypt strony, zrzuty ekranu, zdjęcie autora
 i ikony); wymagania i nazwy plików pochodzą z ``packaging.metadata``,
 tak jak w notach wydania. Dla wyszukiwarek generator dodaje ``sitemap.xml``,
 ``robots.txt`` i dane strukturalne schema.org (JSON-LD) w nagłówkach stron.
@@ -59,9 +60,20 @@ REPORT_ENDPOINT_ENV = "TRANSKRYPTOR_REPORT_ENDPOINT"
 TURNSTILE_SITE_KEY_ENV = "TRANSKRYPTOR_TURNSTILE_SITE_KEY"
 
 PAGES_DIR = REPO_ROOT / "pages"
+# Status zgłoszeń: skrypt strony pobiera listę z publicznego API GitHuba
+# (bez tokenu, więc strona może pokazać najwyżej 100 ostatnio zmienionych).
+ISSUES_PAGE = "zgloszenia.html"
+GITHUB_API = "https://api.github.com"
 TEMPLATE_FILE = "index.html"
 # Strony z polami ${...}; pierwsza to strona główna.
-TEMPLATE_FILES = (TEMPLATE_FILE, "faq.html", "autor.html", REPORT_PAGE, "404.html")
+TEMPLATE_FILES = (
+    TEMPLATE_FILE,
+    "faq.html",
+    "autor.html",
+    REPORT_PAGE,
+    ISSUES_PAGE,
+    "404.html",
+)
 # Strony w mapie strony; 404.html ma noindex.
 INDEXED_FILES = tuple(name for name in TEMPLATE_FILES if name != "404.html")
 SITEMAP_FILE = "sitemap.xml"
@@ -301,6 +313,9 @@ def page_fields(
         "releases_url": f"{repo_url}/releases",
         "release_url": f"{repo_url}/releases/tag/v{version}",
         "issues_url": f"{repo_url}/issues",
+        "issues_api_url": html.escape(
+            f"{GITHUB_API}/repos/{repo}/issues?state=all&sort=updated&per_page=100"
+        ),
         "report_endpoint": html.escape(report_endpoint),
         "turnstile_site_key": html.escape(turnstile_site_key),
         "windows_url": f"{download}/{artifacts['windows'].artifact_name}",
@@ -522,6 +537,7 @@ def main(argv: list[str] | None = None) -> int:
 __all__ = [
     "AUTHOR_NAME",
     "INDEXED_FILES",
+    "ISSUES_PAGE",
     "LETTERS",
     "LETTER_COUNT",
     "LINKEDIN_URL",

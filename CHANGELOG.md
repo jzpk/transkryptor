@@ -7,6 +7,16 @@ Pusta sekcja blokuje wydanie.
 
 ## Nieopublikowane
 
+- **Status zgłoszeń na stronie projektu:** nowa podstrona
+  [Status zgłoszeń](https://transkryptorapp.pl/zgloszenia.html) pokazuje
+  zgłoszone błędy i pomysły z GitHuba - tytuł, numer, rodzaj i stan
+  (**Otwarte**, **W toku**, **Zrobione** albo **Odrzucone**) z odnośnikiem
+  do szczegółów. Nie trzeba już wchodzić na GitHuba, żeby sprawdzić, co
+  dzieje się ze zgłoszeniem. Filtry **Aktywne / Zrobione / Odrzucone /
+  Wszystkie** z liczbą zgłoszeń przełączają widok (domyślnie aktywne),
+  a długa lista jest podzielona na strony po 20 zgłoszeń. Filtr i numer
+  strony są w adresie, więc można podać odnośnik do konkretnego widoku. Odnośnik do podstrony jest w stopce każdej
+  strony i w potwierdzeniu wysłania formularza zgłoszeń.
 - **Gotowość do oddania** - nowe okno w menu przycisku eksportu zbiera
   w jednym miejscu to, co zostało do sprawdzenia: ostrzeżenia walidatora,
   niesprawdzone niepewne słowa, otwarte komentarze, akapity bez mówcy (gdy
