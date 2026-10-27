@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable, Iterable, Mapping
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field, fields, replace
 from typing import Any
 
 from transkryptor.asr.engine import DEVICES
@@ -346,6 +346,8 @@ class _Field:
     maximum: int | None = None
     choices: tuple[str, ...] | None = None
     validate: Callable[[str], bool] | None = None
+    # 0 oznacza wartość domyślną i jest dozwolone poza zakresem.
+    allow_zero: bool = False
 
     @property
     def key(self) -> str:
@@ -375,7 +377,7 @@ _FIELDS: tuple[_Field, ...] = (
     _Field("player", "audio_channel", str, choices=CHANNELS),
     _Field("player", "highpass_filter", bool),
     _Field("editor", "font_family", str),
-    _Field("editor", "font_size_pt", int, *FONT_SIZE_RANGE_PT),
+    _Field("editor", "font_size_pt", int, *FONT_SIZE_RANGE_PT, allow_zero=True),
     _Field("editor", "autocomplete", bool),
     _Field("notation", "ellipsis_style", str, choices=ELLIPSIS_STYLES),
     _Field(
@@ -437,18 +439,7 @@ def from_mapping(mapping: Mapping[str, Any]) -> Settings:
     ``QSettings`` w formacie INI. Nieznane klucze są ignorowane.
     """
     sections: dict[str, dict[str, object]] = {
-        "player": {},
-        "editor": {},
-        "notation": {},
-        "validator": {},
-        "shortcuts": {},
-        "snippets": {},
-        "project": {},
-        "metadata": {},
-        "export": {},
-        "appearance": {},
-        "asr": {},
-        "review": {},
+        section.name: {} for section in fields(Settings)
     }
     for spec in _FIELDS:
         if spec.key not in mapping:
@@ -456,37 +447,12 @@ def from_mapping(mapping: Mapping[str, Any]) -> Settings:
         value = _coerce(spec, mapping[spec.key])
         if value is not None:
             sections[spec.section][spec.name] = value
+    defaults = Settings()
     return Settings(
-        player=replace(PlayerSettings(), **sections["player"]),  # type: ignore[arg-type]
-        editor=replace(EditorSettings(), **sections["editor"]),  # type: ignore[arg-type]
-        notation=replace(
-            NotationSettings(), **sections["notation"]  # type: ignore[arg-type]
-        ),
-        validator=replace(
-            ValidatorSettings(), **sections["validator"]  # type: ignore[arg-type]
-        ),
-        shortcuts=replace(
-            ShortcutSettings(), **sections["shortcuts"]  # type: ignore[arg-type]
-        ),
-        snippets=replace(
-            SnippetSettings(), **sections["snippets"]  # type: ignore[arg-type]
-        ),
-        project=replace(
-            ProjectSettings(), **sections["project"]  # type: ignore[arg-type]
-        ),
-        metadata=replace(
-            MetadataSettings(), **sections["metadata"]  # type: ignore[arg-type]
-        ),
-        export=replace(
-            ExportSettings(), **sections["export"]  # type: ignore[arg-type]
-        ),
-        appearance=replace(
-            AppearanceSettings(), **sections["appearance"]  # type: ignore[arg-type]
-        ),
-        asr=replace(AsrSettings(), **sections["asr"]),  # type: ignore[arg-type]
-        review=replace(
-            ReviewSettings(), **sections["review"]  # type: ignore[arg-type]
-        ),
+        **{
+            name: replace(getattr(defaults, name), **values)
+            for name, values in sections.items()
+        }
     )
 
 
@@ -505,7 +471,7 @@ def _coerce(spec: _Field, raw: object) -> object | None:
     number = _coerce_int(raw)
     if number is None:
         return None
-    if spec.name == "font_size_pt" and number == 0:
+    if spec.allow_zero and number == 0:
         return 0
     if spec.minimum is not None and number < spec.minimum:
         return None
