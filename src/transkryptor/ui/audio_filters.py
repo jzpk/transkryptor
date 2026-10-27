@@ -9,7 +9,8 @@ odtwarzacz grał kopię pasującą do bieżącego nagrania i wybranych filtrów:
 - brakująca powstaje w tle (postęp w karcie odtwarzacza), a do tego czasu
   gra oryginał - po podmianie pozycja i odtwarzanie trwają dalej;
 - zmiana nagrania albo filtrów przerywa przygotowanie nieaktualnej kopii;
-- błąd przetwarzania zostawia oryginał z komunikatem w karcie.
+- błąd przetwarzania zostawia oryginał z komunikatem w karcie i na pasku
+  stanu okna.
 """
 
 from __future__ import annotations
@@ -80,6 +81,10 @@ class AudioFilterController(QObject):
     """Kopia nagrania z filtrami odsłuchu dla odtwarzacza."""
 
     status_changed = Signal(str)  # pusty - brak komunikatu
+    # Filtrów nie udało się zastosować (komunikat dla paska stanu okna):
+    # karta „Dźwięk” bywa zwinięta, a użytkownik musi wiedzieć, że słyszy
+    # nieprzefiltrowany oryginał.
+    failed = Signal(str)
 
     def __init__(
         self,
@@ -121,7 +126,7 @@ class AudioFilterController(QObject):
             target = cache_path(source, self._filters, directory)
         except OSError:
             self._player.set_playback_file(None)
-            self.status_changed.emit(tr("player.sound.failed"))
+            self._report_failure()
             return
         if target.is_file():
             touch(target)
@@ -160,12 +165,20 @@ class AudioFilterController(QObject):
             return
         self._thread = None
         current = self._player.source_path
-        if not thread.ok or current is None or current != thread.source:
-            self.status_changed.emit("" if thread.ok else tr("player.sound.failed"))
+        if not thread.ok:
+            self._report_failure()
+            return
+        if current is None or current != thread.source:
+            self.status_changed.emit("")
             return
         prune_cache(thread.target.parent, keep=thread.target)
         self._player.set_playback_file(thread.target)
         self.status_changed.emit("")
+
+    def _report_failure(self) -> None:
+        message = tr("player.sound.failed")
+        self.status_changed.emit(message)
+        self.failed.emit(message)
 
     def shutdown(self) -> None:
         """Przerywa wątki i czeka na nie (zamknięcie okna)."""

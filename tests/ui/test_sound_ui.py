@@ -138,6 +138,8 @@ class TestFilteredPlayback:
             == "Nie udało się zastosować filtrów - odtwarzany jest oryginał"
         )
         assert window.player_bar.sound_status_label.text() == statuses[-1]
+        # Karta „Dźwięk” bywa zwinięta - komunikat trafia też na pasek stanu.
+        assert window.statusBar().currentMessage() == statuses[-1]
 
     def test_without_filters_nothing_is_prepared(
         self, qtbot, window, audio, isolated_playback_cache

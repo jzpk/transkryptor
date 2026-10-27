@@ -549,6 +549,9 @@ class MainWindow(QMainWindow):
             lambda _available: self.audio_filters.refresh()
         )
         self.audio_filters.status_changed.connect(self.player_bar.set_sound_status)
+        self.audio_filters.failed.connect(
+            lambda text: self.statusBar().showMessage(text, STATUS_MESSAGE_MS)
+        )
         self.settings_store.settings_changed.connect(self._apply_settings)
         self.rules_store.rules_changed.connect(
             lambda: self.asr_panel.set_rules(rule_infos(self.rules_store.rules))
