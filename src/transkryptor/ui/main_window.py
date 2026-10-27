@@ -79,7 +79,7 @@ from transkryptor.ui.learning_controller import RuleLearningController
 from transkryptor.ui.loading_overlay import LoadingOverlay
 from transkryptor.ui.markers import marker_text
 from transkryptor.ui.messages import show_error
-from transkryptor.ui.metadata_form import MetadataForm
+from transkryptor.ui.metadata_form import MetadataForm, MetadataWidgets
 from transkryptor.ui.navigation import BACKWARD, FORWARD
 from transkryptor.ui.notation_controller import IgnoredWarnings, NotationController
 from transkryptor.ui.player_bar import PlayerBar
@@ -93,7 +93,7 @@ from transkryptor.ui.review import (
 from transkryptor.ui.rules_store import RulesStore
 from transkryptor.ui.search_bar import SearchBar
 from transkryptor.ui.search_controller import SearchController
-from transkryptor.ui.session import SessionController
+from transkryptor.ui.session import ProjectAnnotations, SessionController
 from transkryptor.ui.settings_dialog import SettingsDialog
 from transkryptor.ui.settings_store import SettingsStore
 from transkryptor.ui.shortcuts import (
@@ -186,7 +186,7 @@ class MainWindow(QMainWindow):
             self.player,
             self.player_bar,
             lambda: self.settings_store.current.player,
-            lambda text: self.statusBar().showMessage(text, STATUS_MESSAGE_MS),
+            self.show_status,
             self,
             asr_settings=lambda: self.settings_store.current.asr,
         )
@@ -216,16 +216,14 @@ class MainWindow(QMainWindow):
             # Późne wiązanie: sesja powstaje niżej.
             lambda: self.session.comments_changed(),
             self,
-            show_status=lambda text: self.statusBar().showMessage(
-                text, STATUS_MESSAGE_MS
-            ),
+            show_status=self.show_status,
         )
         self.verification = VerificationController(
             self.editor,
             self.player,
             self.player_bar,
             self.sync,
-            lambda text: self.statusBar().showMessage(text, STATUS_MESSAGE_MS),
+            self.show_status,
             self,
         )
         self.session = SessionController(
@@ -234,22 +232,22 @@ class MainWindow(QMainWindow):
             self.player,
             self.player_bar,
             self.asr_panel,
-            self.review,
-            self.ignored_warnings,
-            self.sync,
-            self.comments,
-            self.verification,
-            self.author_edit,
-            self.date_edit,
-            self.metadata_form,
+            ProjectAnnotations(
+                review=self.review,
+                ignored_warnings=self.ignored_warnings,
+                sync=self.sync,
+                comments=self.comments,
+                verification=self.verification,
+            ),
+            MetadataWidgets(self.author_edit, self.date_edit, self.metadata_form),
             settings_store,
-            on_reset=self._on_session_reset,
-            on_state_changed=self._on_session_state_changed,
         )
+        self.session.events.reset.connect(self._on_session_reset)
+        self.session.events.state_changed.connect(self._on_session_state_changed)
         self.exporter = ExportController(
             self,
             lambda: self.document,
-            self.date_edit,
+            self.date_edit.date,
             lambda: self.settings_store.current.metadata.fields,
             self._update_title,
             anchors=self.sync.entries,
@@ -271,7 +269,7 @@ class MainWindow(QMainWindow):
             lambda: self.document,
             self._add_compared_speakers,
             lambda: self.session.audio_sha256,
-            lambda text: self.statusBar().showMessage(text, STATUS_MESSAGE_MS),
+            self.show_status,
             self,
         )
         self.session.before_replace = self.compare.finish
@@ -281,7 +279,7 @@ class MainWindow(QMainWindow):
             self.player,
             lambda: self.settings_store.current.metadata.fields,
             self.settings_store.recent_projects,
-            lambda text: self.statusBar().showMessage(text, STATUS_MESSAGE_MS),
+            self.show_status,
             self,
         )
         self.search = SearchController(
@@ -291,7 +289,7 @@ class MainWindow(QMainWindow):
             self.editor,
             lambda: self.document,
             self.metadata_form,
-            lambda text: self.statusBar().showMessage(text, STATUS_MESSAGE_MS),
+            self.show_status,
             self,
         )
         self.notation = NotationController(
@@ -300,7 +298,7 @@ class MainWindow(QMainWindow):
             self.warning_count_label,
             lambda: self.document,
             lambda: self._ellipsis_style,
-            lambda text: self.statusBar().showMessage(text, STATUS_MESSAGE_MS),
+            self.show_status,
             self,
             enabled_rules=lambda: self.settings_store.current.validator.enabled,
             ignored=self.ignored_warnings,
@@ -549,9 +547,7 @@ class MainWindow(QMainWindow):
             lambda _available: self.audio_filters.refresh()
         )
         self.audio_filters.status_changed.connect(self.player_bar.set_sound_status)
-        self.audio_filters.failed.connect(
-            lambda text: self.statusBar().showMessage(text, STATUS_MESSAGE_MS)
-        )
+        self.audio_filters.failed.connect(self.show_status)
         self.settings_store.settings_changed.connect(self._apply_settings)
         self.rules_store.rules_changed.connect(
             lambda: self.asr_panel.set_rules(rule_infos(self.rules_store.rules))
@@ -816,6 +812,10 @@ class MainWindow(QMainWindow):
     def _on_metadata_changed(self) -> None:
         self.session.sync_metadata()
         self._update_title()
+
+    def show_status(self, text: str) -> None:
+        """Krótki komunikat na pasku stanu (znika po ``STATUS_MESSAGE_MS``)."""
+        self.statusBar().showMessage(text, STATUS_MESSAGE_MS)
 
     # --- delegaty kontrolerów ---------------------------------------------
 

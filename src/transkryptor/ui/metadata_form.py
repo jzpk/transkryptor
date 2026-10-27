@@ -11,9 +11,11 @@ zapewnia wyłączenie karty transkrypcji (REQ-13).
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
+from dataclasses import dataclass
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QDate, Qt, Signal
 from PySide6.QtWidgets import (
+    QDateEdit,
     QGridLayout,
     QHBoxLayout,
     QLabel,
@@ -168,3 +170,37 @@ class MetadataForm(QWidget):
         self.toggle.setText(
             tr("metadata_form.toggle", filled=filled, total=len(self.edits))
         )
+
+
+DATE_FORMAT = "yyyy-MM-dd"
+
+
+@dataclass(frozen=True)
+class MetadataWidgets:
+    """Pola metryczki w oknie: autor, data i formularz pól zespołu."""
+
+    author: QLineEdit
+    date: QDateEdit
+    form: MetadataForm
+
+    def author_text(self) -> str:
+        return self.author.text()
+
+    def date_text(self) -> str:
+        """Data w formacie ISO; pusta, gdy pole pokazuje datę minimalną."""
+        date = self.date.date()
+        return "" if date == self.date.minimumDate() else date.toString(DATE_FORMAT)
+
+    def clear(self) -> None:
+        """Nowy dokument: bez autora, z dzisiejszą datą i pustą metryczką."""
+        self.author.clear()
+        self.date.setDate(QDate.currentDate())
+        self.form.set_values({})
+
+    def restore(self, author: str, date: str, values: Mapping[str, str]) -> bool:
+        """Wypełnia pola z projektu; zwraca, czy data była poprawna."""
+        self.author.setText(author)
+        parsed = QDate.fromString(date, DATE_FORMAT)
+        self.date.setDate(parsed if parsed.isValid() else self.date.minimumDate())
+        self.form.set_values(values)
+        return parsed.isValid()

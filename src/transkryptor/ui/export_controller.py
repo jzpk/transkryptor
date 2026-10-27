@@ -14,8 +14,8 @@ from collections.abc import Callable, Iterable
 from dataclasses import replace
 from pathlib import Path
 
-from PySide6.QtCore import QObject
-from PySide6.QtWidgets import QDateEdit, QMessageBox, QWidget
+from PySide6.QtCore import QDate, QObject
+from PySide6.QtWidgets import QMessageBox, QWidget
 
 from transkryptor.document.anchors import Anchor
 from transkryptor.document.comments import Comment
@@ -47,7 +47,7 @@ class ExportController(QObject):
         self,
         dialog_parent: QWidget,
         document: Callable[[], Document],
-        date_edit: QDateEdit,
+        date: Callable[[], QDate],
         fields: Callable[[], tuple[MetadataField, ...]],
         on_exported: Callable[[], None],
         anchors: Callable[[], Iterable[Anchor]] = tuple,
@@ -61,7 +61,7 @@ class ExportController(QObject):
         super().__init__(dialog_parent)
         self._parent = dialog_parent
         self._document = document
-        self._date_edit = date_edit
+        self._date = date
         self._on_exported = on_exported
         self._fields = fields
         self._anchors = anchors
@@ -190,7 +190,7 @@ class ExportController(QObject):
     def _default_name(self, document: Document, anonymize: bool, suffix: str) -> str:
         base = document.metadata.get(SIGNATURE, "").strip() or tr(
             "export.default_name",
-            date=self._date_edit.date().toString("yyyy-MM-dd"),
+            date=self._date().toString("yyyy-MM-dd"),
         )
         anonymized = tr("export.anonymized_suffix") if anonymize else ""
         return f"{base}{anonymized}{suffix}"

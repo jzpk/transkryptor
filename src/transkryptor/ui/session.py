@@ -19,11 +19,11 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from pathlib import Path
 
-from PySide6.QtCore import QDate, QObject
-from PySide6.QtWidgets import QDateEdit, QFileDialog, QLineEdit, QMessageBox, QWidget
+from PySide6.QtCore import QObject, Signal
+from PySide6.QtWidgets import QFileDialog, QMessageBox, QWidget
 
 from transkryptor import diagnostics
 from transkryptor.asr.engine import SegmentResult, TranscriptionResult, WordResult
@@ -61,7 +61,7 @@ from transkryptor.ui.comments_controller import CommentsController
 from transkryptor.ui.editor import TranscriptionEditor
 from transkryptor.ui.file_dialogs import ask_save_path
 from transkryptor.ui.messages import show_error
-from transkryptor.ui.metadata_form import MetadataForm
+from transkryptor.ui.metadata_form import MetadataWidgets
 from transkryptor.ui.notation_controller import IgnoredWarnings
 from transkryptor.ui.player_bar import PlayerBar
 from transkryptor.ui.review import ReviewController
@@ -71,9 +71,29 @@ from transkryptor.ui.verification import VerificationController
 
 logger = logging.getLogger(__name__)
 
-DATE_FORMAT = "yyyy-MM-dd"
 # Ile zamknięcie okna czeka na przerwanie pobierania modelu.
 DOWNLOAD_SHUTDOWN_WAIT_MS = 5000
+
+
+@dataclass(frozen=True)
+class ProjectAnnotations:
+    """Dane projektu poza tekstem: przegląd reguł, zignorowane ostrzeżenia,
+    kotwice czasowe, komentarze i sprawdzone zakresy nagrania."""
+
+    review: ReviewController
+    ignored_warnings: IgnoredWarnings
+    sync: SyncController
+    comments: CommentsController
+    verification: VerificationController
+
+
+class SessionEvents(QObject):
+    """Zdarzenia sesji dla okna (zamiast przekazywanych callbacków)."""
+
+    # Nowy, pusty dokument.
+    reset = Signal()
+    # Projekt otwarty, zapisany, odzyskany albo zaimportowany.
+    state_changed = Signal()
 
 
 class SessionController(QObject):
@@ -86,17 +106,9 @@ class SessionController(QObject):
         player: AudioPlayer,
         player_bar: PlayerBar,
         asr_panel: AsrPanel,
-        review: ReviewController,
-        ignored_warnings: IgnoredWarnings,
-        sync: SyncController,
-        comments: CommentsController,
-        verification: VerificationController,
-        author_edit: QLineEdit,
-        date_edit: QDateEdit,
-        metadata_form: MetadataForm,
+        annotations: ProjectAnnotations,
+        metadata: MetadataWidgets,
         settings_store: SettingsStore,
-        on_reset: Callable[[], None],
-        on_state_changed: Callable[[], None],
     ) -> None:
         super().__init__(dialog_parent)
         self._document = Document()
@@ -109,17 +121,14 @@ class SessionController(QObject):
         self._player = player
         self._player_bar = player_bar
         self._asr_panel = asr_panel
-        self._review = review
-        self._ignored_warnings = ignored_warnings
-        self._sync = sync
-        self._comments = comments
-        self._verification = verification
-        self._author_edit = author_edit
-        self._date_edit = date_edit
-        self._metadata_form = metadata_form
+        self._review = annotations.review
+        self._ignored_warnings = annotations.ignored_warnings
+        self._sync = annotations.sync
+        self._comments = annotations.comments
+        self._verification = annotations.verification
+        self._metadata = metadata
         self._settings_store = settings_store
-        self._on_reset = on_reset
-        self._on_state_changed = on_state_changed
+        self.events = SessionEvents(self)
         # Wołane przed zastąpieniem treści edytora (nowy dokument, projekt,
         # import DOCX, odzyskanie) - np. koniec porównania wersji.
         self.before_replace: Callable[[], None] = lambda: None
@@ -208,12 +217,10 @@ class SessionController(QObject):
         return answer == QMessageBox.StandardButton.Discard
 
     def sync_metadata(self) -> None:
-        date = self._date_edit.date()
         self.document.set_metadata(
-            self._author_edit.text(),
-            "" if date == self._date_edit.minimumDate() else date.toString(DATE_FORMAT),
+            self._metadata.author_text(), self._metadata.date_text()
         )
-        values = self._metadata_form.values()
+        values = self._metadata.form.values()
         self.document.set_metadata_values(values)
         self._asr_panel.set_context_default(asr_context_hint(values))
 
@@ -231,12 +238,12 @@ class SessionController(QObject):
         self.document.touch()
         if exported:
             self.document.mark_exported()
-        self._on_state_changed()
+        self.events.state_changed.emit()
 
     def comments_changed(self) -> None:
         """Komentarze trafiają do eksportu DOCX - zmiana jak zmiana tekstu."""
         self.document.touch()
-        self._on_state_changed()
+        self.events.state_changed.emit()
 
     def new_document(self) -> None:
         if not self.maybe_discard_changes():
@@ -253,14 +260,12 @@ class SessionController(QObject):
         self._sync.clear()
         self._comments.clear()
         self._verification.clear()
-        self._author_edit.clear()
-        self._date_edit.setDate(QDate.currentDate())
-        self._metadata_form.set_values({})
+        self._metadata.clear()
         self.document = Document()
         self.project_path = None
         self._set_audio(None)
         self.autosave.discard()
-        self._on_reset()
+        self.events.reset.emit()
 
     def import_audio(self, path: str) -> None:
         """Zmienia nagranie; tekst i metryczka zostają (REQ-09).
@@ -285,11 +290,11 @@ class SessionController(QObject):
         self._set_audio(Path(path))
         if self.project_path is not None:
             self.document.touch()  # projekt wskazuje teraz inne nagranie
-        if not self._metadata_form.value(SIGNATURE).strip():
+        if not self._metadata.form.value(SIGNATURE).strip():
             # Sama podpowiedź w pustej pracy nie jest pracą do ochrony -
             # zmiana nagrania lub zamknięcie nie pytają o nią (REQ-09).
             pristine = not self.has_unsaved_work and not self.document.text.strip()
-            self._metadata_form.set_value(SIGNATURE, signature_from_audio(path))
+            self._metadata.form.set_value(SIGNATURE, signature_from_audio(path))
             if pristine and self.project_path is None:
                 self.document.mark_exported()
                 self.document.mark_saved()
@@ -481,7 +486,7 @@ class SessionController(QObject):
         self.project_path = path
         self._settings_store.add_recent_project(str(path))
         self.autosave.discard()
-        self._on_state_changed()
+        self.events.state_changed.emit()
         return True
 
     def capture_state(self) -> ProjectState:
@@ -637,12 +642,7 @@ class SessionController(QObject):
         )
         self._ignored_warnings.restore(state.ignored_warnings)
         self._comments.restore(state.comments)
-        self._author_edit.setText(state.author)
-        date = QDate.fromString(state.date, DATE_FORMAT)
-        self._date_edit.setDate(
-            date if date.isValid() else self._date_edit.minimumDate()
-        )
-        self._metadata_form.set_values(state.metadata)
+        date_valid = self._metadata.restore(state.author, state.date, state.metadata)
         self._asr_panel.set_asr_context(
             state.asr_context.prompt, state.asr_context.vocabulary
         )
@@ -670,7 +670,7 @@ class SessionController(QObject):
             text=state.text,
             superscript_ranges=list(state.superscript_ranges),
             author=state.author,
-            date=state.date if date.isValid() else "",
+            date=state.date if date_valid else "",
             metadata=normalized(state.metadata),
             speakers=list(state.speakers),
             paragraph_speakers=dict(state.paragraph_speakers),
@@ -682,7 +682,7 @@ class SessionController(QObject):
             document.mark_exported()
         self.document = document
         self.project_path = project_path
-        self._on_state_changed()
+        self.events.state_changed.emit()
 
     # --- import DOCX i odzyskiwanie --------------------------------------------
 
