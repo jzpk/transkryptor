@@ -214,7 +214,7 @@ class TestTranscriptionFlow:
         def slow_transcribe(
             audio_path, model_dir, should_cancel, on_segment, on_progress=None, **_
         ):
-            for _ in range(2000):  # do 20 s: czas na kliknięcie anulowania
+            for _step in range(2000):  # do 20 s: czas na kliknięcie anulowania
                 if should_cancel():
                     from transkryptor.asr.engine import TranscriptionCancelled
 

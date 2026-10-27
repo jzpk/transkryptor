@@ -93,6 +93,13 @@ mypy_path = "src"
 explicit_package_bases = true
 warn_unused_ignores = true
 warn_redundant_casts = true
+check_untyped_defs = true
+
+# Warstwy domenowe i samoaktualizacja wymagają pełnych adnotacji.
+[[tool.mypy.overrides]]
+module = ["transkryptor.document.*", "transkryptor.notation.*", "transkryptor.update.*"]
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
 
 # Biblioteki bez wskazówek typów (brak py.typed i pakietu stubów w uv.lock).
 [[tool.mypy.overrides]]
