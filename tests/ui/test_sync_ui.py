@@ -182,7 +182,7 @@ class TestAnchorsSurviveEditing:
         assert segment_texts(window) == [s[2].strip() for s in SENTENCES]
 
     def test_rule_at_segment_end_stays_in_segment(self, window) -> None:
-        for code, box in window.asr_panel.rule_checkboxes.items():
+        for code, box in window.asr_panel.review.rule_checkboxes.items():
             box.setChecked(code == "SUG-NAS-A-FINAL")
         window._on_draft_ready(
             draft_result(((0.0, 1.0, " oni są"), (1.0, 2.0, " i już")))
@@ -421,7 +421,7 @@ class TestFragmentTranscription:
 
         manager = ModelManager(models_root=tmp_path / "models", downloader=downloader)
         manager.download()
-        window.asr_panel._manager = manager
+        window.asr_panel.models._manager = manager
         calls: list = []
 
         def transcribe(audio_path, model_dir, should_cancel, on_segment, **kwargs):
@@ -437,7 +437,7 @@ class TestFragmentTranscription:
                 text="no sóm", language="pl", segments=(segment,)
             )
 
-        window.asr_panel._transcribe_impl = transcribe
+        window.asr_panel.transcription._transcribe_impl = transcribe
         window.asr_panel.refresh_model_status()
         return calls
 
@@ -453,9 +453,10 @@ class TestFragmentTranscription:
         cursor.setPosition(original.index("Koniec"))
         editor.setTextCursor(cursor)
 
-        window.asr_panel.fragment_button.click()
+        window.asr_panel.transcription.fragment_button.click()
         qtbot.waitUntil(
-            lambda: window.asr_panel._transcribe_thread is None, timeout=5000
+            lambda: window.asr_panel.transcription._transcribe_thread is None,
+            timeout=5000,
         )
         assert fake_asr == [(12.0, 15.5)]
         assert editor.plain_text() == "Początek tekstu. no sóm Koniec tekstu."
@@ -469,7 +470,7 @@ class TestFragmentTranscription:
         assert window.sync.uncertain_words() == ["sóm"]
         # Wynik całego nagrania (szkic, segmenty) się nie zmienia.
         assert window.asr_panel.last_result is None
-        assert window.asr_panel.segments_list.count() == 0
+        assert window.asr_panel.transcription.segments_list.count() == 0
 
         editor.document().undo()
         assert editor.plain_text() == original
@@ -483,14 +484,15 @@ class TestFragmentTranscription:
         cursor.setPosition(4)
         cursor.setPosition(9, QTextCursor.MoveMode.KeepAnchor)
         editor.setTextCursor(cursor)
-        window.asr_panel.fragment_button.click()
+        window.asr_panel.transcription.fragment_button.click()
         qtbot.waitUntil(
-            lambda: window.asr_panel._transcribe_thread is None, timeout=5000
+            lambda: window.asr_panel.transcription._transcribe_thread is None,
+            timeout=5000,
         )
         assert editor.plain_text() == "Ala no sóm kota."
 
     def test_fragment_needs_ab_points(self, window, fake_asr) -> None:
         window.player_bar._loop_a = 1000
-        window.asr_panel.fragment_button.click()
+        window.asr_panel.transcription.fragment_button.click()
         assert fake_asr == []
-        assert "A i B" in window.asr_panel.transcribe_status_label.text()
+        assert "A i B" in window.asr_panel.transcription.transcribe_status_label.text()

@@ -59,8 +59,8 @@ def window(qtbot, add_window, tmp_path):
     win = add_window(MainWindow())
     manager = ModelManager(models_root=tmp_path / "models", downloader=fake_downloader)
     manager.download()
-    win.asr_panel._manager = manager
-    win.asr_panel._transcribe_impl = partial(
+    win.asr_panel.models._manager = manager
+    win.asr_panel.transcription._transcribe_impl = partial(
         engine.transcribe, backend_factory=fake_backend_factory
     )
     win.asr_panel.refresh_model_status()
@@ -79,15 +79,15 @@ def test_full_workflow(qtbot, window, add_window, tmp_path, monkeypatch) -> None
     qtbot.waitUntil(lambda: window.player_bar.has_media, timeout=10000)
 
     # 2. ASR: automatycznie tylko nosowość w wygłosie (są → som).
-    for code, box in window.asr_panel.rule_checkboxes.items():
+    for code, box in window.asr_panel.review.rule_checkboxes.items():
         box.setChecked(code == "SUG-NAS-A-FINAL")
-    window.asr_panel.transcribe_button.click()
+    window.asr_panel.transcription.transcribe_button.click()
     qtbot.waitUntil(
-        lambda: window.asr_panel._transcribe_thread is None
+        lambda: window.asr_panel.transcription._transcribe_thread is None
         and window.editor.toPlainText() != "",
         timeout=10000,
     )
-    assert window.asr_panel.segments_list.count() == len(SEGMENTS)
+    assert window.asr_panel.transcription.segments_list.count() == len(SEGMENTS)
 
     # 3. Szkic w stylu wielokropka z ustawień (domyślnie „…”), reguła zastosowana.
     assert window.editor.toPlainText() == (
@@ -151,7 +151,7 @@ def test_full_workflow(qtbot, window, add_window, tmp_path, monkeypatch) -> None
     assert window.session.open_project(project)
     assert window.editor.toPlainText() == expected
     assert superscripts(window) == ["u", "n", "m", "n"]
-    assert window.asr_panel.segments_list.count() == len(SEGMENTS)
+    assert window.asr_panel.transcription.segments_list.count() == len(SEGMENTS)
     qtbot.waitUntil(lambda: window.player_bar.has_media, timeout=10000)
 
     # 9. Eksport DOCX z ponownie otwartego projektu.

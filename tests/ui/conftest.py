@@ -152,4 +152,6 @@ def isolated_rules(monkeypatch, tmp_path):
 @pytest.fixture(autouse=True)
 def enough_memory(monkeypatch):
     """Ostrzeżenie o RAM nie zależy od pamięci komputera z testami."""
-    monkeypatch.setattr("transkryptor.ui.asr_panel.total_memory_bytes", lambda: None)
+    monkeypatch.setattr(
+        "transkryptor.ui.asr_transcription_section.total_memory_bytes", lambda: None
+    )

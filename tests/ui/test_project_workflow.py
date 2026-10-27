@@ -24,7 +24,7 @@ from transkryptor.document.project import (
 from transkryptor.export.docx_export import export_docx
 from transkryptor.i18n import tr
 from transkryptor.settings import MetadataSettings, ProjectSettings, Settings
-from transkryptor.ui.asr_panel import APPLIED_MARK, PENDING_MARK
+from transkryptor.ui.asr_review_section import APPLIED_MARK, PENDING_MARK
 from transkryptor.ui.autosave import ORPHAN_MAX_AGE, RecoveryDialog
 from transkryptor.ui.highlights import REVIEW_LAYER
 from transkryptor.ui.main_window import MainWindow
@@ -103,20 +103,22 @@ def fake_asr(window: MainWindow, tmp_path: Path) -> list[int]:
 
     manager = ModelManager(models_root=tmp_path / "models", downloader=downloader)
     manager.download()
-    window.asr_panel._manager = manager
-    window.asr_panel._transcribe_impl = transcribe
+    window.asr_panel.models._manager = manager
+    window.asr_panel.transcription._transcribe_impl = transcribe
     window.asr_panel.refresh_model_status()
     return calls
 
 
 def run_asr(qtbot, window: MainWindow) -> None:
-    window.asr_panel.transcribe_button.click()
-    qtbot.waitUntil(lambda: window.asr_panel._transcribe_thread is None, timeout=10000)
+    window.asr_panel.transcription.transcribe_button.click()
+    qtbot.waitUntil(
+        lambda: window.asr_panel.transcription._transcribe_thread is None, timeout=10000
+    )
     QCoreApplication.processEvents()
 
 
 def review_labels(window: MainWindow) -> list[str]:
-    items = window.asr_panel.suggestions_list
+    items = window.asr_panel.review.suggestions_list
     return [items.item(i).text() for i in range(items.count())]
 
 
@@ -136,7 +138,7 @@ class TestSaveAndOpen:
         load_audio(qtbot, window, audio)
         assert window.metadata_form.value("signature") == "AdK_1954"
         asr_calls = fake_asr(window, tmp_path)
-        window.asr_panel.rule_checkboxes["SUG-LAB-U-INIT"].setChecked(False)
+        window.asr_panel.review.rule_checkboxes["SUG-LAB-U-INIT"].setChecked(False)
         run_asr(qtbot, window)
         assert window.editor.toPlainText() == "[00:00] od som"
         cursor = window.editor.textCursor()
@@ -172,7 +174,7 @@ class TestSaveAndOpen:
         assert labels[0].startswith(PENDING_MARK) and "od" in labels[0]
         assert labels[1].startswith(APPLIED_MARK)
         assert len(reopened.editor.highlight_layer(REVIEW_LAYER)) == 1
-        assert reopened.asr_panel.segments_list.count() == 2
+        assert reopened.asr_panel.transcription.segments_list.count() == 2
         qtbot.waitUntil(lambda: reopened.player_bar.has_media, timeout=10000)
         qtbot.waitUntil(lambda: reopened.player.position_ms == 5000, timeout=5000)
         assert reopened.player_bar.state().loop_a_ms == 1000
@@ -183,7 +185,7 @@ class TestSaveAndOpen:
         assert reopened.editor.toPlainText() == "[00:00] uod som koniec"
         # Ponowne wstawienie szkicu bez powtarzania ASR (REQ-14).
         reopened._ask_draft_placement = lambda: DRAFT_REPLACE
-        reopened.asr_panel.reinsert_draft_button.click()
+        reopened.asr_panel.transcription.reinsert_draft_button.click()
         # Reguły wybrane w panelu nowego okna (domyślnie wszystkie).
         assert reopened.editor.toPlainText() == "[00:00] uod som"
         assert len(asr_calls) == 1
@@ -194,12 +196,12 @@ class TestSaveAndOpen:
         """ACC-38: kontekst i słownik projektu wracają po otwarciu."""
         window.editor.setPlainText("tekst")
         panel = window.asr_panel
-        panel.context_edit.setText("Wywiad w Ocieszynie")
-        panel.vocabulary_edit.setPlainText("Ocieszyn\nOborniki")
+        panel.transcription.context_edit.setText("Wywiad w Ocieszynie")
+        panel.transcription.vocabulary_edit.setPlainText("Ocieszyn\nOborniki")
         path = tmp_path / "kontekst.transkr"
         save_dialog(monkeypatch, path)
         assert window.session.save_project()
-        panel.vocabulary_edit.setPlainText("Ocieszyn")
+        panel.transcription.vocabulary_edit.setPlainText("Ocieszyn")
         assert window.document.is_unsaved  # słownik to dane projektu
 
         reopened = add_window(MainWindow())
@@ -223,7 +225,7 @@ class TestSaveAndOpen:
         window.open_action.trigger()
         assert window.editor.toPlainText() == "sama edycja tekstu"
         assert window.player.source_path is None
-        assert not window.asr_panel.transcribe_button.isEnabled()
+        assert not window.asr_panel.transcription.transcribe_button.isEnabled()
 
     def test_broken_project_shows_error_and_keeps_work(
         self, window, tmp_path, no_blocking_dialogs

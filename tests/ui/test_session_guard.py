@@ -150,8 +150,8 @@ class TestAudioChangeGuard:
         window._on_import_audio(SAMPLE_AAC)
         assert "ASR" in texts[0]
         assert window.asr_panel.last_result is None
-        assert window.asr_panel.segments_list.count() == 0
-        assert not window.asr_panel.reinsert_draft_button.isEnabled()
+        assert window.asr_panel.transcription.segments_list.count() == 0
+        assert not window.asr_panel.transcription.reinsert_draft_button.isEnabled()
         assert window.session.capture_state().asr is None
 
     def test_import_error_shows_message(self, qtbot, window, monkeypatch) -> None:
@@ -183,11 +183,11 @@ class TestCloseDuringDownload:
         manager = ModelManager(
             models_root=tmp_path / "models", downloader=slow_downloader
         )
-        window.asr_panel._manager = manager
-        window.asr_panel._start_download()
+        window.asr_panel.models._manager = manager
+        window.asr_panel.models._start_download()
         assert started.wait(5)
         yield window
-        thread = window.asr_panel._download_thread
+        thread = window.asr_panel.models._download_thread
         if thread is not None:  # sprzątanie po teście „nie zamykaj”
             window.asr_panel.cancel_download_and_wait(5000)
 
@@ -195,20 +195,20 @@ class TestCloseDuringDownload:
         self, downloading, monkeypatch
     ) -> None:
         window = downloading
-        thread = window.asr_panel._download_thread
+        thread = window.asr_panel.models._download_thread
         calls = answer_dialog(monkeypatch, QMessageBox.StandardButton.Yes)
         assert window.session.can_close()
         assert calls == [True]
         assert thread.isFinished()
         assert not window.asr_panel.is_downloading()
-        assert not window.asr_panel._manager.model_dir.exists()
+        assert not window.asr_panel.models._manager.model_dir.exists()
 
     def test_close_declined_keeps_downloading(self, downloading, monkeypatch) -> None:
         window = downloading
         answer_dialog(monkeypatch, QMessageBox.StandardButton.No)
         assert not window.session.can_close()
         assert window.asr_panel.is_downloading()
-        assert window.asr_panel._download_thread.isRunning()
+        assert window.asr_panel.models._download_thread.isRunning()
 
     def test_close_without_download_does_not_ask(self, window, monkeypatch) -> None:
         calls = answer_dialog(monkeypatch, QMessageBox.StandardButton.No)

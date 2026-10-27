@@ -53,7 +53,7 @@ def test_project_from_previous_release_opens_with_all_work(
     assert window.document.metadata == METADATA
     assert window.author_edit.text() == "Anna Nowak"
     assert window.document.date == "2026-10-08"
-    assert window.asr_panel.segments_list.count() == 2
+    assert window.asr_panel.transcription.segments_list.count() == 2
     assert not window.document.is_unsaved and not window.document.is_dirty
 
     state = window.session.capture_state()

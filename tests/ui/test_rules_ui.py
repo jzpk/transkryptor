@@ -77,7 +77,7 @@ class TestRulesEditor:
         accept(window, dialog)
         assert isolated_rules.is_file()
 
-        boxes = window.asr_panel.rule_checkboxes
+        boxes = window.asr_panel.review.rule_checkboxes
         assert "USR-SOM" in boxes and "70%" in boxes["USR-SOM"].text()
         assert not boxes["USR-SOM"].isChecked()
         boxes["USR-SOM"].setChecked(True)
@@ -87,7 +87,7 @@ class TestRulesEditor:
         assert any(item.suggestion.code == "USR-SOM" for item in window.review.items)
 
         restarted = add_window(MainWindow())
-        assert "USR-SOM" in restarted.asr_panel.rule_checkboxes
+        assert "USR-SOM" in restarted.asr_panel.review.rule_checkboxes
 
     def test_builtin_rules_are_read_only(self, qtbot) -> None:
         from transkryptor.notation.rules import builtin_rules

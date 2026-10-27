@@ -30,7 +30,7 @@ from transkryptor.asr.manager import ModelManager
 from transkryptor.asr.models import DIARIZATION_MODEL, format_size
 from transkryptor.errors import AppError
 from transkryptor.i18n import tr
-from transkryptor.ui.asr_panel import DownloadThread
+from transkryptor.ui.asr_model_section import DownloadThread
 from transkryptor.ui.messages import show_error
 from transkryptor.ui.theme import set_props
 
