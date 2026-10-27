@@ -10,7 +10,7 @@ from transkryptor.document.readiness import (
     WARNINGS,
     build_report,
 )
-from transkryptor.notation.validator import Warning
+from transkryptor.notation.validator import NotationWarning
 
 TEXT = "B: tak było\nI: pamientam\n\ndobrze"
 
@@ -24,8 +24,8 @@ def test_collects_every_category_in_text_order() -> None:
     report = build_report(
         TEXT,
         warnings=[
-            Warning("VAL-02", 20, 25, "druga"),
-            Warning("VAL-01", 0, 1, "pierwsza"),
+            NotationWarning("VAL-02", 20, 25, "druga"),
+            NotationWarning("VAL-01", 0, 1, "pierwsza"),
         ],
         uncertain=[(15, 24)],
         comments=[open_comment],

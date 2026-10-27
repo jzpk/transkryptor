@@ -61,7 +61,7 @@ _OMITTED = "[…?]"
 
 
 @dataclass(frozen=True)
-class Warning:
+class NotationWarning:
     """Ostrzeżenie walidatora z kodem reguły i zakresem znaków."""
 
     code: str
@@ -120,7 +120,7 @@ def validate(
     superscript_ranges: Iterable[tuple[int, int]] = (),
     enabled: Collection[str] | None = None,
     paragraph_speakers: Mapping[int, str] | None = None,
-) -> list[Warning]:
+) -> list[NotationWarning]:
     """Zwraca listę ostrzeżeń dla tekstu, posortowaną po pozycji.
 
     ``ellipsis_style`` włącza wskazówki VAL-05 dla wielokropków zapisanych
@@ -131,7 +131,7 @@ def validate(
     """
     active = DEFAULT_ENABLED if enabled is None else frozenset(enabled)
     ranges = sorted(superscript_ranges)
-    checks: tuple[tuple[str, Callable[[], list[Warning]]], ...] = (
+    checks: tuple[tuple[str, Callable[[], list[NotationWarning]]], ...] = (
         (VAL_01, lambda: _check_pause_spacing(text)),
         (VAL_02, lambda: _check_unclosed(text)),
         (VAL_03, lambda: _check_omission_marker(text)),
@@ -143,7 +143,7 @@ def validate(
         (VAL_11, lambda: _check_missing_superscript(text, ranges)),
         (VAL_12, lambda: _check_missing_speaker(text, paragraph_speakers or {})),
     )
-    warnings: list[Warning] = []
+    warnings: list[NotationWarning] = []
     for code, check in checks:
         if code in active:
             warnings += check()
@@ -153,9 +153,9 @@ def validate(
     return sorted(warnings, key=lambda warning: (warning.start, warning.code))
 
 
-def _check_pause_spacing(text: str) -> list[Warning]:
+def _check_pause_spacing(text: str) -> list[NotationWarning]:
     """VAL-01: ``...``/``…`` poprzedzone odstępem, po którym nie ma odstępu."""
-    warnings: list[Warning] = []
+    warnings: list[NotationWarning] = []
     n = len(text)
     i = 0
     while i < n:
@@ -168,7 +168,7 @@ def _check_pause_spacing(text: str) -> list[Warning]:
         followed_by_text = end < n and not text[end].isspace()
         if preceded_by_space and followed_by_text:
             warnings.append(
-                Warning(
+                NotationWarning(
                     code=VAL_01,
                     start=i,
                     end=end,
@@ -179,11 +179,11 @@ def _check_pause_spacing(text: str) -> list[Warning]:
     return warnings
 
 
-def _check_ellipsis_style(text: str, style: EllipsisStyle) -> list[Warning]:
+def _check_ellipsis_style(text: str, style: EllipsisStyle) -> list[NotationWarning]:
     """VAL-05: wielokropek w zapisie innym niż wybrany w ustawieniach."""
     wanted = ellipsis_text(style)
     return [
-        Warning(
+        NotationWarning(
             code=VAL_05,
             start=start,
             end=end,
@@ -196,7 +196,7 @@ def _check_ellipsis_style(text: str, style: EllipsisStyle) -> list[Warning]:
     ]
 
 
-def _check_unclosed(text: str) -> list[Warning]:
+def _check_unclosed(text: str) -> list[NotationWarning]:
     """VAL-02: dopiski otwarte przez ``[`` bez zamykającego ``]``."""
     unclosed: list[int] = []
     for i, char in enumerate(text):
@@ -205,7 +205,7 @@ def _check_unclosed(text: str) -> list[Warning]:
         elif char == "]" and unclosed:
             unclosed.pop()
     return [
-        Warning(
+        NotationWarning(
             code=VAL_02,
             start=open_index,
             end=len(text),
@@ -215,9 +215,9 @@ def _check_unclosed(text: str) -> list[Warning]:
     ]
 
 
-def _check_omission_marker(text: str) -> list[Warning]:
+def _check_omission_marker(text: str) -> list[NotationWarning]:
     """VAL-03: sekwencja ``[…`` inna niż dokładnie ``[…?]``."""
-    warnings: list[Warning] = []
+    warnings: list[NotationWarning] = []
     n = len(text)
     i = 0
     while i + 1 < n:
@@ -226,7 +226,7 @@ def _check_omission_marker(text: str) -> list[Warning]:
                 close_index = text.find("]", i + 2)
                 end = close_index + 1 if close_index != -1 else n
                 warnings.append(
-                    Warning(
+                    NotationWarning(
                         code=VAL_03,
                         start=i,
                         end=end,
@@ -239,16 +239,16 @@ def _check_omission_marker(text: str) -> list[Warning]:
     return warnings
 
 
-def _check_adjacent_markers(text: str) -> list[Warning]:
+def _check_adjacent_markers(text: str) -> list[NotationWarning]:
     """VAL-06: ``(!)``/``(?)``, po którym od razu zaczyna się słowo."""
-    warnings: list[Warning] = []
+    warnings: list[NotationWarning] = []
     for marker in ("(!)", "(?)"):
         start = text.find(marker)
         while start != -1:
             end = start + len(marker)
             if end < len(text) and text[end].isalnum():
                 warnings.append(
-                    Warning(
+                    NotationWarning(
                         code=VAL_06,
                         start=start,
                         end=end,
@@ -259,9 +259,9 @@ def _check_adjacent_markers(text: str) -> list[Warning]:
     return warnings
 
 
-def _check_double_spaces(text: str) -> list[Warning]:
+def _check_double_spaces(text: str) -> list[NotationWarning]:
     """VAL-07: dwie lub więcej zwykłych spacji z rzędu (jedna wskazówka na ciąg)."""
-    warnings: list[Warning] = []
+    warnings: list[NotationWarning] = []
     i = 0
     n = len(text)
     while i < n:
@@ -273,7 +273,7 @@ def _check_double_spaces(text: str) -> list[Warning]:
             end += 1
         if end - i >= 2:
             warnings.append(
-                Warning(
+                NotationWarning(
                     code=VAL_07,
                     start=i,
                     end=end,
@@ -285,9 +285,9 @@ def _check_double_spaces(text: str) -> list[Warning]:
     return warnings
 
 
-def _check_space_before_close(text: str) -> list[Warning]:
+def _check_space_before_close(text: str) -> list[NotationWarning]:
     """VAL-08: odstęp (bez nowej linii) tuż przed ``]``."""
-    warnings: list[Warning] = []
+    warnings: list[NotationWarning] = []
     for i, char in enumerate(text):
         if char != "]" or i == 0 or text[i - 1] not in " \t ":
             continue
@@ -295,7 +295,7 @@ def _check_space_before_close(text: str) -> list[Warning]:
         while start > 0 and text[start - 1] in " \t ":
             start -= 1
         warnings.append(
-            Warning(
+            NotationWarning(
                 code=VAL_08,
                 start=start,
                 end=i + 1,
@@ -306,13 +306,13 @@ def _check_space_before_close(text: str) -> list[Warning]:
     return warnings
 
 
-def _check_nested(text: str) -> list[Warning]:
+def _check_nested(text: str) -> list[NotationWarning]:
     """VAL-09: ``[`` otwarty, gdy poprzedni dopisek jest jeszcze otwarty.
 
     Marker ``[…?]`` jest gotowym znacznikiem, nie dopiskiem - może stać
     wewnątrz dopisku. Zakres ostrzeżenia obejmuje wewnętrzny dopisek.
     """
-    warnings: list[Warning] = []
+    warnings: list[NotationWarning] = []
     stack: list[int] = []
     i = 0
     n = len(text)
@@ -326,7 +326,7 @@ def _check_nested(text: str) -> list[Warning]:
                 close_index = text.find("]", i + 1)
                 end = close_index + 1 if close_index != -1 else i + 1
                 warnings.append(
-                    Warning(
+                    NotationWarning(
                         code=VAL_09,
                         start=i,
                         end=end,
@@ -342,9 +342,9 @@ def _check_nested(text: str) -> list[Warning]:
 
 def _check_superscript_letters(
     text: str, ranges: list[tuple[int, int]]
-) -> list[Warning]:
+) -> list[NotationWarning]:
     """VAL-10: ciągi znaków w indeksie górnym innych niż ``m``, ``n``, ``u``."""
-    warnings: list[Warning] = []
+    warnings: list[NotationWarning] = []
     for range_start, range_end in ranges:
         i = max(range_start, 0)
         end = min(range_end, len(text))
@@ -356,7 +356,7 @@ def _check_superscript_letters(
             while run_end < end and not _allowed_superscript(text[run_end]):
                 run_end += 1
             warnings.append(
-                Warning(
+                NotationWarning(
                     code=VAL_10,
                     start=i,
                     end=run_end,
@@ -369,7 +369,9 @@ def _check_superscript_letters(
     return warnings
 
 
-def _check_missing_speaker(text: str, speakers: Mapping[int, str]) -> list[Warning]:
+def _check_missing_speaker(
+    text: str, speakers: Mapping[int, str]
+) -> list[NotationWarning]:
     """VAL-12: niepusty akapit bez mówcy, gdy dokument używa mówców.
 
     Sama lista mówców (domyślnie B i I) nie wystarcza - wskazówka pojawia
@@ -378,7 +380,7 @@ def _check_missing_speaker(text: str, speakers: Mapping[int, str]) -> list[Warni
     """
     if not speakers:
         return []
-    warnings: list[Warning] = []
+    warnings: list[NotationWarning] = []
     for index, (start, end) in enumerate(paragraph_spans(text)):
         if index in speakers:
             continue
@@ -389,7 +391,7 @@ def _check_missing_speaker(text: str, speakers: Mapping[int, str]) -> list[Warni
         word_start = start + len(paragraph) - len(stripped)
         word_end = word_start + (len(stripped.split()[0]))
         warnings.append(
-            Warning(
+            NotationWarning(
                 code=VAL_12,
                 start=word_start,
                 end=word_end,
@@ -406,7 +408,7 @@ def _allowed_superscript(char: str) -> bool:
 
 def _check_missing_superscript(
     text: str, ranges: list[tuple[int, int]]
-) -> list[Warning]:
+) -> list[NotationWarning]:
     """VAL-11: heurystyka nosowości i labializacji bez indeksu górnego.
 
     ``m``/``n`` po samogłosce przed spółgłoską lub na końcu słowa
@@ -417,7 +419,7 @@ def _check_missing_superscript(
     for start, end in ranges:
         for i in range(max(start, 0), min(end, len(text))):
             superscript[i] = True
-    warnings: list[Warning] = []
+    warnings: list[NotationWarning] = []
     for i, char in enumerate(text):
         if superscript[i] or not char.isalpha():
             continue
@@ -434,7 +436,7 @@ def _check_missing_superscript(
             suspicious = False
         if suspicious:
             warnings.append(
-                Warning(
+                NotationWarning(
                     code=VAL_11,
                     start=i,
                     end=i + 1,

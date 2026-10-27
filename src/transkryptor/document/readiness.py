@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from transkryptor.document.comments import Comment
 from transkryptor.document.metadata import MetadataField, enabled_fields
 from transkryptor.document.speakers import paragraph_spans
-from transkryptor.notation.validator import Warning
+from transkryptor.notation.validator import NotationWarning
 
 WARNINGS = "warnings"
 UNCERTAIN = "uncertain"
@@ -52,7 +52,7 @@ class ReadinessReport:
 
 def build_report(
     text: str,
-    warnings: Iterable[Warning] = (),
+    warnings: Iterable[NotationWarning] = (),
     uncertain: Iterable[tuple[int, int]] = (),
     comments: Iterable[Comment] = (),
     paragraph_speakers: Mapping[int, str] | None = None,

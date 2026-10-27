@@ -12,7 +12,7 @@ from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QListWidget, QListWidgetItem, QMenu
 
 from transkryptor.i18n import tr
-from transkryptor.notation.validator import SEVERITY_HINT, Warning
+from transkryptor.notation.validator import SEVERITY_HINT, NotationWarning
 from transkryptor.ui import icons
 from transkryptor.ui.theme import set_props, tokens
 
@@ -21,11 +21,11 @@ class WarningsPanel(QListWidget):
     """Lista ostrzeżeń z sygnałem nawigacji do zakresu w tekście."""
 
     warning_activated = Signal(int, int)
-    ignore_requested = Signal(object)  # Warning
+    ignore_requested = Signal(object)  # NotationWarning
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
-        self._warnings: list[Warning] = []
+        self._warnings: list[NotationWarning] = []
         self.setObjectName("warnings_panel")
         set_props(self, flat=True)
         self.setIconSize(icons.ICON_SIZE)
@@ -34,7 +34,7 @@ class WarningsPanel(QListWidget):
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self._on_context_menu)
 
-    def set_warnings(self, warnings: list[Warning]) -> None:
+    def set_warnings(self, warnings: list[NotationWarning]) -> None:
         """Zastępuje listę ostrzeżeń wynikiem walidacji."""
         self._warnings = list(warnings)
         self.clear()
@@ -80,7 +80,7 @@ class WarningsPanel(QListWidget):
             warning = self._warnings[index]
             self.warning_activated.emit(warning.start, warning.end)
 
-    def warning_at_row(self, row: int) -> Warning | None:
+    def warning_at_row(self, row: int) -> NotationWarning | None:
         return self._warnings[row] if 0 <= row < len(self._warnings) else None
 
     def _on_context_menu(self, point: QPoint) -> None:

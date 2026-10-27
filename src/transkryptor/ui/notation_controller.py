@@ -24,7 +24,7 @@ from transkryptor.notation.ellipsis import (
     ellipsis_text,
     foreign_ellipses,
 )
-from transkryptor.notation.validator import SEVERITY_HINT, Warning, validate
+from transkryptor.notation.validator import SEVERITY_HINT, NotationWarning, validate
 from transkryptor.ui.editor import TranscriptionEditor
 from transkryptor.ui.highlights import WARNINGS_LAYER, wave_underline
 from transkryptor.ui.markers import marker_text
@@ -47,7 +47,7 @@ class IgnoredWarnings:
         self._editor = editor
         self._items: list[tuple[str, QTextCursor]] = []
 
-    def add(self, warning: Warning) -> None:
+    def add(self, warning: NotationWarning) -> None:
         self._items.append(
             (warning.code, self._editor.track_range(warning.start, warning.end))
         )
@@ -56,8 +56,8 @@ class IgnoredWarnings:
         self._items = []
 
     def filter(
-        self, warnings: list[Warning], positions: PositionMap | None = None
-    ) -> list[Warning]:
+        self, warnings: list[NotationWarning], positions: PositionMap | None = None
+    ) -> list[NotationWarning]:
         """Ostrzeżenia bez zignorowanych; porządkuje zniknięte fragmenty."""
         if not self._items:
             return warnings
@@ -123,7 +123,7 @@ class NotationController(QObject):
         self._enabled_rules = enabled_rules
         self.ignored = ignored if ignored is not None else IgnoredWarnings(editor)
         # Ostrzeżenia z kursorami podkreśleń (podpowiedź i „Ignoruj tutaj”).
-        self._warnings: list[tuple[Warning, QTextCursor]] = []
+        self._warnings: list[tuple[NotationWarning, QTextCursor]] = []
         self.timer = QTimer(self)
         self.timer.setSingleShot(True)
         self.timer.setInterval(VALIDATION_DEBOUNCE_MS)
@@ -195,7 +195,7 @@ class NotationController(QObject):
         self.update_warning_count()
 
     @property
-    def warnings(self) -> list[Warning]:
+    def warnings(self) -> list[NotationWarning]:
         """Bieżące (niezignorowane) ostrzeżenia."""
         return [warning for warning, _cursor in self._warnings]
 
@@ -213,13 +213,13 @@ class NotationController(QObject):
 
     # --- ostrzeżenia w tekście ------------------------------------------------
 
-    def ignore_warning(self, warning: Warning) -> None:
+    def ignore_warning(self, warning: NotationWarning) -> None:
         """„Ignoruj tutaj”: to jedno wystąpienie przestaje być zgłaszane."""
         self.ignored.add(warning)
         self.run_validation()
         self._show_message(tr("warnings.ignored", code=warning.code))
 
-    def warnings_at(self, position: int) -> list[Warning]:
+    def warnings_at(self, position: int) -> list[NotationWarning]:
         """Ostrzeżenia, których zakres obejmuje pozycję (punkty kodowe)."""
         return [w for w in self.warnings if w.start <= position <= w.end]
 
@@ -241,7 +241,9 @@ class NotationController(QObject):
                 lambda _checked=False, chosen=warning: self.ignore_warning(chosen)
             )
 
-    def _show_underlines(self, warnings: list[Warning], positions: PositionMap) -> None:
+    def _show_underlines(
+        self, warnings: list[NotationWarning], positions: PositionMap
+    ) -> None:
         t = tokens()
         warning_color = QColor(t.warning)
         hint_color = QColor(t.text_muted)
