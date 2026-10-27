@@ -129,47 +129,74 @@ def _project_tei(
     anonymize: bool,
     folder: Path | None,
 ) -> None:
-    state = project.state
     document = export_document(project, fields, anonymize)
     tei = _sub(corpus, "TEI", **{XML_ID: pid})
     header = _sub(tei, "teiHeader")
     file_desc = _sub(header, "fileDesc")
+    _title_stmt(file_desc, project, document)
+    _publication_stmt(file_desc, project, document, folder)
+    _notes_stmt(file_desc, document)
+    _source_desc(file_desc, project, document)
+    _profile_desc(header, document, pid)
+    body = _sub(_sub(tei, "text"), "body")
+    _utterances(body, document, pid)
 
+
+def _title_stmt(
+    file_desc: ET.Element, project: CorpusProject, document: ExportDocument
+) -> None:
     title_stmt = _sub(file_desc, "titleStmt")
     _sub(title_stmt, "title", document.value(SIGNATURE) or project.name)
-    if state.author:
+    if project.state.author:
         resp = _sub(title_stmt, "respStmt")
         _sub(resp, "resp", tr("corpus.tei.transcription"))
-        _sub(resp, "name", state.author)
+        _sub(resp, "name", project.state.author)
 
+
+def _publication_stmt(
+    file_desc: ET.Element,
+    project: CorpusProject,
+    document: ExportDocument,
+    folder: Path | None,
+) -> None:
     publication = _sub(file_desc, "publicationStmt")
     _sub(publication, "authority", "Transkryptor")
     if document.value(SIGNATURE):
         _sub(publication, "idno", document.value(SIGNATURE), type="signature")
     _sub(publication, "idno", project.relative_name(folder), type="project")
-    if state.date:
-        _date(publication, state.date)
+    if project.state.date:
+        _date(publication, project.state.date)
 
+
+def _notes_stmt(file_desc: ET.Element, document: ExportDocument) -> None:
     notes = [(f, v) for f, v in document.metadata if f.key not in _HEADER_KEYS]
     if notes:
         notes_stmt = _sub(file_desc, "notesStmt")
         for field, value in notes:
             _sub(notes_stmt, "note", value, type=field.key, n=field.display_label)
 
-    source = _sub(file_desc, "sourceDesc")
-    recording_date = document.value(RECORDING_DATE)
-    if state.audio is not None or recording_date:
-        recording = _sub(_sub(source, "recordingStmt"), "recording", type="audio")
-        if recording_date:
-            _date(recording, recording_date)
-        if state.audio is not None:
-            mime_type = mimetypes.guess_type(state.audio.name)[0] or "audio"
-            _sub(recording, "media", mimeType=mime_type, url=state.audio.name)
-            if state.audio.sha256:
-                _sub(recording, "note", state.audio.sha256, type="sha256")
-    else:
-        _sub(source, "p", tr("corpus.tei.no_recording"))
 
+def _source_desc(
+    file_desc: ET.Element, project: CorpusProject, document: ExportDocument
+) -> None:
+    source = _sub(file_desc, "sourceDesc")
+    audio = project.state.audio
+    recording_date = document.value(RECORDING_DATE)
+    if audio is None and not recording_date:
+        _sub(source, "p", tr("corpus.tei.no_recording"))
+        return
+    recording = _sub(_sub(source, "recordingStmt"), "recording", type="audio")
+    if recording_date:
+        _date(recording, recording_date)
+    if audio is not None:
+        mime_type = mimetypes.guess_type(audio.name)[0] or "audio"
+        _sub(recording, "media", mimeType=mime_type, url=audio.name)
+        if audio.sha256:
+            _sub(recording, "note", audio.sha256, type="sha256")
+
+
+def _profile_desc(header: ET.Element, document: ExportDocument, pid: str) -> None:
+    """Mówcy i miejsce nagrania; bez nich ``profileDesc`` jest pomijany."""
     profile = _sub(header, "profileDesc")
     if document.uses_speakers:
         persons = _sub(_sub(profile, "particDesc"), "listPerson")
@@ -185,12 +212,8 @@ def _project_tei(
             _sub(setting, "placeName", place)
         if district:
             _sub(setting, "region", district)
-
     if not len(profile):
         header.remove(profile)
-
-    body = _sub(_sub(tei, "text"), "body")
-    _utterances(body, document, pid)
 
 
 def _date(parent: ET.Element, value: str) -> None:

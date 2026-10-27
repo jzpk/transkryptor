@@ -241,74 +241,113 @@ def check_rule(rule: PhoneticRule, taken_codes: Iterable[str] = ()) -> str | Non
     return tr("rules.field_error", field=field_name, reason=reason)
 
 
+class _FieldError(Exception):
+    """Błędne pole reguły: nazwa pola i powód dla użytkownika."""
+
+    def __init__(self, field_name: str, reason: str) -> None:
+        super().__init__(reason)
+        self.field_name = field_name
+        self.reason = reason
+
+
 def _rule_from_dict(
     entry: Any, *, builtin: bool, taken: set[str]
 ) -> PhoneticRule | tuple[str, str, str]:
     """Reguła albo ``(kod, pole, powód)`` błędu."""
     if not isinstance(entry, dict):
         return "", "rule", tr("rules.reason.type")
-    code = entry.get("code")
-    if not isinstance(code, str) or not _CODE_RE.fullmatch(code):
-        return str(code or ""), "code", tr("rules.reason.code")
-    if builtin == code.startswith(USER_PREFIX):
-        reason = (
-            tr("rules.reason.builtin_prefix")
-            if builtin
-            else tr("rules.reason.user_prefix", prefix=USER_PREFIX)
-        )
-        return code, "code", reason
-    if code in taken:
-        return code, "code", tr("rules.reason.duplicate")
-    label = _texts(entry.get("label"))
-    if label is None or not any(label.values()):
-        return code, "label", tr("rules.reason.text")
-    description = _texts(entry.get("description", {}))
-    if description is None:
-        return code, "description", tr("rules.reason.text")
-    pattern = entry.get("pattern")
-    if not isinstance(pattern, str):
-        return code, "pattern", tr("rules.reason.type")
+    raw_code = entry.get("code")
     try:
-        compiled = compile_pattern(pattern)
-    except ValueError as error:
-        return code, "pattern", str(error)
-    replacement = entry.get("replacement")
-    if not isinstance(replacement, str):
-        return code, "replacement", tr("rules.reason.type")
-    try:
-        template = parse_template(replacement)
-    except TemplateError as error:
-        return code, "replacement", str(error)
-    if template.max_group > compiled.groups:
-        return code, "replacement", tr("rules.reason.group", group=template.max_group)
-    confidence = entry.get("confidence")
-    if (
-        isinstance(confidence, bool)
-        or not isinstance(confidence, int | float)
-        or not 0 < confidence <= 1
-    ):
-        return code, "confidence", tr("rules.reason.confidence")
-    scope = entry.get("scope", SCOPE_WORD)
-    if scope not in SCOPES:
-        return code, "scope", tr("rules.reason.scope")
-    example = entry.get("example", "")
-    if not isinstance(example, str):
-        return code, "example", tr("rules.reason.type")
-    auto_apply = entry.get("auto_apply", False)
-    if not isinstance(auto_apply, bool):
-        return code, "auto_apply", tr("rules.reason.type")
+        code = _checked_code(raw_code, builtin, taken)
+        label = _texts(entry.get("label"))
+        if label is None or not any(label.values()):
+            raise _FieldError("label", tr("rules.reason.text"))
+        description = _texts(entry.get("description", {}))
+        if description is None:
+            raise _FieldError("description", tr("rules.reason.text"))
+        pattern = _typed(entry, "pattern", str)
+        compiled = _compiled(pattern)
+        replacement = _typed(entry, "replacement", str)
+        _check_replacement(replacement, compiled)
+        confidence = _checked_confidence(entry.get("confidence"))
+        scope = entry.get("scope", SCOPE_WORD)
+        if scope not in SCOPES:
+            raise _FieldError("scope", tr("rules.reason.scope"))
+        example = _typed(entry, "example", str, "")
+        auto_apply = _typed(entry, "auto_apply", bool, False)
+    except _FieldError as error:
+        return str(raw_code or ""), error.field_name, error.reason
     return PhoneticRule(
         code=code,
         label=label,
         pattern=pattern,
         replacement=replacement,
-        confidence=float(confidence),
+        confidence=confidence,
         scope=scope,
         description=description,
         example=example,
         auto_apply=auto_apply,
         builtin=builtin,
     )
+
+
+def _checked_code(code: Any, builtin: bool, taken: set[str]) -> str:
+    if not isinstance(code, str) or not _CODE_RE.fullmatch(code):
+        raise _FieldError("code", tr("rules.reason.code"))
+    if builtin == code.startswith(USER_PREFIX):
+        raise _FieldError(
+            "code",
+            (
+                tr("rules.reason.builtin_prefix")
+                if builtin
+                else tr("rules.reason.user_prefix", prefix=USER_PREFIX)
+            ),
+        )
+    if code in taken:
+        raise _FieldError("code", tr("rules.reason.duplicate"))
+    return code
+
+
+_MISSING = object()
+
+
+def _typed[T](
+    entry: dict[str, Any], name: str, kind: type[T], default: Any = _MISSING
+) -> T:
+    """Wartość pola o typie ``kind``; brak pola bez ``default`` to błąd typu."""
+    value = entry.get(name) if default is _MISSING else entry.get(name, default)
+    if not isinstance(value, kind):
+        raise _FieldError(name, tr("rules.reason.type"))
+    return value
+
+
+def _compiled(pattern: str) -> regex.Pattern[str]:
+    try:
+        return compile_pattern(pattern)
+    except ValueError as error:
+        raise _FieldError("pattern", str(error)) from error
+
+
+def _check_replacement(replacement: str, compiled: regex.Pattern[str]) -> None:
+    """Zamiana musi się dać sparsować i odwoływać tylko do grup wzorca."""
+    try:
+        template = parse_template(replacement)
+    except TemplateError as error:
+        raise _FieldError("replacement", str(error)) from error
+    if template.max_group > compiled.groups:
+        raise _FieldError(
+            "replacement", tr("rules.reason.group", group=template.max_group)
+        )
+
+
+def _checked_confidence(confidence: Any) -> float:
+    if (
+        isinstance(confidence, bool)
+        or not isinstance(confidence, int | float)
+        or not 0 < confidence <= 1
+    ):
+        raise _FieldError("confidence", tr("rules.reason.confidence"))
+    return float(confidence)
 
 
 def _texts(value: Any) -> dict[str, str] | None:

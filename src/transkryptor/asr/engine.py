@@ -287,6 +287,58 @@ def transcribe(
     ``embedder_factory`` i ``decode`` podstawiają testy.
     """
     cancel = should_cancel or (lambda: False)
+    audio, model_path = _checked_inputs(audio_path, model_dir, model)
+    if cancel():
+        raise TranscriptionCancelled()
+    decoding = options or DecodingOptions()
+    raw_segments, info, device, device_note = _start_with_fallback(
+        backend_factory or faster_whisper_backend,
+        model_path,
+        audio,
+        language,
+        decoding,
+    )
+    share = DIARIZED_ASR_SHARE if decoding.diarizes else 1.0
+    segments = _collect_segments(
+        raw_segments,
+        _clip_span(info, decoding),
+        cancel,
+        on_segment,
+        None if on_progress is None else lambda fraction: on_progress(fraction * share),
+    )
+    if cancel():
+        raise TranscriptionCancelled()
+    diarization_note: str | None = None
+    if decoding.diarizes and segments:
+        segments, diarization_note = _diarize(
+            segments,
+            audio,
+            decoding,
+            cancel,
+            (
+                None
+                if on_progress is None
+                else lambda fraction: on_progress(share + (1 - share) * fraction)
+            ),
+            embedder_factory,
+            decode,
+        )
+    if cancel():
+        raise TranscriptionCancelled()
+    return TranscriptionResult(
+        text="".join(segment.text for segment in segments).strip(),
+        language=getattr(info, "language", language),
+        segments=tuple(segments),
+        device=device,
+        device_note=device_note,
+        diarization_note=diarization_note,
+    )
+
+
+def _checked_inputs(
+    audio_path: str | Path, model_dir: str | Path, model: AsrModelInfo
+) -> tuple[Path, Path]:
+    """Ścieżki nagrania i modelu; błąd, gdy nagrania nie ma albo model niepełny."""
     audio = Path(audio_path)
     if not audio.is_file():
         raise TranscriptionError(
@@ -299,10 +351,11 @@ def transcribe(
             user_message=tr("asr.error.not_downloaded", model=model.display_name),
             retry_hint=tr("asr.error.not_downloaded.hint"),
         )
-    if cancel():
-        raise TranscriptionCancelled()
-    factory = backend_factory or faster_whisper_backend
-    decoding = options or DecodingOptions()
+    return audio, model_path
+
+
+def _backend_kwargs(decoding: DecodingOptions) -> dict[str, Any]:
+    """Opcjonalne argumenty backendu - przekazywane tylko, gdy są ustawione."""
     extra: dict[str, Any] = {}
     if decoding.initial_prompt:
         extra["initial_prompt"] = decoding.initial_prompt
@@ -310,6 +363,21 @@ def transcribe(
         extra["hotwords"] = decoding.hotwords
     if decoding.word_timestamps or decoding.diarizes:
         extra["word_timestamps"] = True
+    return extra
+
+
+def _start_with_fallback(
+    factory: BackendFactory,
+    model_path: Path,
+    audio: Path,
+    language: str,
+    decoding: DecodingOptions,
+) -> tuple[Iterable[Any], Any, str, str | None]:
+    """Uruchamia dekodowanie na GPU (gdy wybrane i dostępne), a po błędzie na CPU.
+
+    Zwraca segmenty, info backendu, użyte urządzenie i powód przejścia na CPU.
+    """
+    extra = _backend_kwargs(decoding)
     device = "cuda" if decoding.device == "auto" and cuda_device_count() else "cpu"
     device_note: str | None = None
     try:
@@ -330,12 +398,27 @@ def transcribe(
         raise
     except Exception as error:  # normalizacja do AppError
         raise transcription_error(error) from error
+    return raw_segments, info, device, device_note
+
+
+def _clip_span(info: Any, decoding: DecodingOptions) -> tuple[float, float]:
+    """Początek i długość transkrybowanego fragmentu (cały plik albo wycinek)."""
     duration = float(getattr(info, "duration", 0) or 0)
-    origin = 0.0
-    if decoding.clip is not None:
-        origin = decoding.clip[0]
-        duration = max(0.0, min(duration, decoding.clip[1]) - origin)
-    share = DIARIZED_ASR_SHARE if decoding.diarizes else 1.0
+    if decoding.clip is None:
+        return 0.0, duration
+    origin = decoding.clip[0]
+    return origin, max(0.0, min(duration, decoding.clip[1]) - origin)
+
+
+def _collect_segments(
+    raw_segments: Iterable[Any],
+    span: tuple[float, float],
+    cancel: CancelCheck,
+    on_segment: SegmentCallback | None,
+    on_progress: ProgressCallback | None,
+) -> list[SegmentResult]:
+    """Zamienia segmenty backendu na ``SegmentResult`` z postępem i anulowaniem."""
+    origin, duration = span
     progress = 0.0
     segments: list[SegmentResult] = []
     for raw in _guarded(raw_segments):
@@ -354,43 +437,39 @@ def transcribe(
         if on_progress is not None and duration > 0:
             # Segmenty idą chronologicznie, ale max() chroni przed cofaniem.
             progress = max(progress, min(1.0, (segment.end_s - origin) / duration))
-            on_progress(progress * share)
-    if cancel():
-        raise TranscriptionCancelled()
-    diarization_note: str | None = None
-    if decoding.diarizes and segments and decoding.diarization_dir is not None:
-        try:
-            samples = (decode or _decode_audio)(str(audio))
-            turns = diarization.diarize(
-                samples,
-                decoding.diarization_dir,
-                _speech(segments),
-                should_cancel=cancel,
-                on_progress=(
-                    None
-                    if on_progress is None
-                    else lambda fraction: on_progress(share + (1 - share) * fraction)
-                ),
-                speakers=decoding.speakers,
-                factory=embedder_factory,
-            )
-        except DiarizationCancelled:
-            raise TranscriptionCancelled() from None
-        except Exception as error:  # szkic bez mówców
-            logger.warning("Speaker diarization failed", exc_info=error)
-            diarization_note = _short(error)
-        else:
-            segments = list(diarization.assign_speakers(segments, turns))
-    if cancel():
-        raise TranscriptionCancelled()
-    return TranscriptionResult(
-        text="".join(segment.text for segment in segments).strip(),
-        language=getattr(info, "language", language),
-        segments=tuple(segments),
-        device=device,
-        device_note=device_note,
-        diarization_note=diarization_note,
-    )
+            on_progress(progress)
+    return segments
+
+
+def _diarize(
+    segments: list[SegmentResult],
+    audio: Path,
+    decoding: DecodingOptions,
+    cancel: CancelCheck,
+    on_progress: ProgressCallback | None,
+    embedder_factory: EmbedderFactory | None,
+    decode: Callable[[str], npt.NDArray[np.float32]] | None,
+) -> tuple[list[SegmentResult], str | None]:
+    """Przypisuje mówców segmentom; błąd zostawia szkic bez mówców (z notą)."""
+    if decoding.diarization_dir is None:
+        return segments, None
+    try:
+        samples = (decode or _decode_audio)(str(audio))
+        turns = diarization.diarize(
+            samples,
+            decoding.diarization_dir,
+            _speech(segments),
+            should_cancel=cancel,
+            on_progress=on_progress,
+            speakers=decoding.speakers,
+            factory=embedder_factory,
+        )
+    except DiarizationCancelled:
+        raise TranscriptionCancelled() from None
+    except Exception as error:  # szkic bez mówców
+        logger.warning("Speaker diarization failed", exc_info=error)
+        return segments, _short(error)
+    return list(diarization.assign_speakers(segments, turns)), None
 
 
 def _speech(segments: Iterable[SegmentResult]) -> list[tuple[float, float]]:

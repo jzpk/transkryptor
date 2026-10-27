@@ -123,6 +123,18 @@ def import_docx(
     return _Reader(docx, fields).read()
 
 
+@dataclass
+class _Blocks:
+    """Wynik pierwszego przejścia po dokumencie: nagłówek i akapity treści."""
+
+    paragraphs: list[Paragraph] = field(default_factory=list)
+    metadata: dict[str, str] = field(default_factory=dict)
+    unknown: list[str] = field(default_factory=list)
+    author: str | None = None
+    date: str = ""
+    skipped_tables: int = 0
+
+
 class _Reader:
     def __init__(self, docx, fields: Iterable[MetadataField]) -> None:
         self._docx = docx
@@ -140,97 +152,103 @@ class _Reader:
         self._styles: _StyleCache = {}
 
     def read(self) -> ImportedDocument:
-        metadata: dict[str, str] = {}
-        unknown: list[str] = []
-        author: str | None = None
-        date = ""
-        skipped_tables = 0
-        paragraphs: list[Paragraph] = []
+        head = self._read_blocks()
+        text, ranges, assignments = self._body_text(head.paragraphs)
+        core = self._docx.core_properties
+        author = head.author if head.author is not None else core.author or ""
+        if PLACE not in head.metadata and core.keywords:
+            head.metadata[PLACE] = core.keywords
+        speakers = self._speakers(assignments)
+        body = self._docx.element.body
+        return ImportedDocument(
+            text=text,
+            superscript_ranges=normalize_ranges(ranges),
+            author=author,
+            date=head.date,
+            metadata=head.metadata,
+            speakers=tuple(speakers) if speakers else DEFAULT_SPEAKERS,
+            paragraph_speakers=assignments,
+            report=ImportReport(
+                formatted_runs=dict(self._formatted),
+                skipped_tables=head.skipped_tables,
+                images=len(body.xpath(".//w:drawing | .//w:pict")),
+                footnotes=len(
+                    body.xpath(".//w:footnoteReference | .//w:endnoteReference")
+                ),
+                unknown_metadata=tuple(head.unknown),
+            ),
+        )
+
+    def _read_blocks(self) -> _Blocks:
+        """Nagłówek dokumentu (metryczka, autor i data) i akapity treści."""
+        blocks = _Blocks()
         # Nagłówek (metryczka, „Autor: … Data: …”) kończy pierwszy akapit
         # z tekstem; flaga zamiast przeglądania wszystkich akapitów w pętli.
         seen_text = False
         for block in self._docx.iter_inner_content():
             in_header = not seen_text
             if isinstance(block, Table):
-                if in_header and self._read_metadata(block, metadata, unknown):
-                    continue
-                skipped_tables += 1
+                if not (
+                    in_header
+                    and self._read_metadata(block, blocks.metadata, blocks.unknown)
+                ):
+                    blocks.skipped_tables += 1
                 continue
-            if in_header:
+            if in_header and blocks.author is None:
                 match = self._header_re.match(block.text)
-                if match and author is None:
-                    author, date = match["author"], match["date"]
+                if match:
+                    blocks.author, blocks.date = match["author"], match["date"]
                     continue
-            paragraphs.append(block)
+            blocks.paragraphs.append(block)
             seen_text = seen_text or bool(block.text.strip())
-
+        paragraphs = blocks.paragraphs
         while paragraphs and not paragraphs[0].text.strip():
             paragraphs.pop(0)
         while paragraphs and not paragraphs[-1].text.strip():
             paragraphs.pop()
+        return blocks
 
+    def _body_text(
+        self, paragraphs: list[Paragraph]
+    ) -> tuple[str, list[tuple[int, int]], dict[int, str]]:
+        """Tekst akapitów bez prefiksów mówców, zakresy indeksu górnego i mówcy."""
         text_parts: list[str] = []
         ranges: list[tuple[int, int]] = []
         assignments: dict[int, str] = {}
         offset = 0
+        legend_keys = {speaker.key for speaker in self._legend}
         for index, paragraph in enumerate(paragraphs):
             if index:
                 text_parts.append("\n")
                 offset += 1
             runs = _runs(paragraph)
-            key, skip = _speaker_prefix(
-                runs, {s.key for s in self._legend}, self._styles
-            )
+            key, skip = _speaker_prefix(runs, legend_keys, self._styles)
             if key is not None:
                 assignments[index] = key
             for run in runs:
                 run_text = run.text
-                if not run_text:
-                    continue
                 if skip:
                     cut = min(skip, len(run_text))
                     skip -= cut
                     run_text = run_text[cut:]
-                    if not run_text:
-                        continue
+                if not run_text:
+                    continue
                 if _is_superscript(run, self._styles):
                     ranges.append((offset, offset + len(run_text)))
                 self._count_formatting(run)
                 text_parts.append(run_text)
                 offset += len(run_text)
+        return "".join(text_parts), ranges, assignments
 
-        core = self._docx.core_properties
-        if author is None:
-            author = core.author or ""
-        if PLACE not in metadata and core.keywords:
-            metadata[PLACE] = core.keywords
-
+    def _speakers(self, assignments: dict[int, str]) -> list[Speaker]:
+        """Legenda mówców uzupełniona o klucze użyte tylko w akapitach."""
         speakers = list(self._legend)
         known = {speaker.key for speaker in speakers}
         for key in dict.fromkeys(assignments.values()):
             if key not in known:
                 speakers.append(Speaker(key, "", guess_role(key)))
                 known.add(key)
-
-        body = self._docx.element.body
-        return ImportedDocument(
-            text="".join(text_parts),
-            superscript_ranges=normalize_ranges(ranges),
-            author=author,
-            date=date,
-            metadata=metadata,
-            speakers=tuple(speakers) if speakers else DEFAULT_SPEAKERS,
-            paragraph_speakers=assignments,
-            report=ImportReport(
-                formatted_runs=dict(self._formatted),
-                skipped_tables=skipped_tables,
-                images=len(body.xpath(".//w:drawing | .//w:pict")),
-                footnotes=len(
-                    body.xpath(".//w:footnoteReference | .//w:endnoteReference")
-                ),
-                unknown_metadata=tuple(unknown),
-            ),
-        )
+        return speakers
 
     def _read_metadata(
         self, table: Table, metadata: dict[str, str], unknown: list[str]

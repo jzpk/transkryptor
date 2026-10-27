@@ -83,13 +83,17 @@ src = ["src", "tests", "scripts"]
 
 [tool.ruff.lint]
 # Formatowanie należy do black - ruff tylko lintuje (E501 pilnuje black).
-select = ["E", "W", "F", "I", "B", "UP", "RUF100", "BLE", "SIM", "PTH", "S"]
+select = ["E", "W", "F", "I", "B", "UP", "RUF100", "BLE", "SIM", "C90", "PTH", "S"]
 ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
 # Asercje, stałe ścieżki tymczasowe, parsowanie własnych plików XML
 # i uruchamianie narzędzi są w testach normalne; testy sprawdzają też API os.
 "tests/**" = ["S101", "S108", "S314", "S603", "S607", "PTH"]
+
+[tool.ruff.lint.mccabe]
+# Próg do stopniowego obniżania.
+max-complexity = 15
 
 [tool.mypy]
 python_version = "3.12"
