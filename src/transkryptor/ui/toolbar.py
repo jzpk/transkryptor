@@ -151,7 +151,34 @@ class MainToolbar:
         self._buttons: dict[QAction, QToolButton] = {}
         self._slots: dict[str, _Slot] = {}
 
-        caption = toolbar.addWidget(_caption(tr("toolbar.notation")))
+        self._build_notation(window, handlers)
+
+        spacer = QWidget()
+        spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        toolbar.addWidget(spacer)
+
+        self._build_tools(window, handlers, asr_toggle, comments_toggle)
+        self._build_session(window, handlers)
+        self._build_export(window, handlers)
+        self._build_close(window, handlers)
+
+        # Skrót akcji działa tylko, gdy akcja należy do widocznego widżetu -
+        # samo okno, bo przycisk w pasku może być schowany.
+        for action in self._buttons:
+            window.addAction(action)
+
+        self.more_menu, self.more_button = _more_menu(window)
+        self.more_menu.aboutToShow.connect(
+            lambda: self._fill_more_menu(self.more_menu, notation=False)
+        )
+        self._more_handle = toolbar.addWidget(self.more_button)
+
+        toolbar.on_resize = self.fit_to_width
+        self.fit_to_width()
+
+    def _build_notation(self, window: QMainWindow, handlers: ToolbarHandlers) -> None:
+        """Indeks górny, znaczniki notacji, wstawki i menu schowanych znaczników."""
+        caption = self.toolbar.addWidget(_caption(tr("toolbar.notation")))
         self.superscript_action = _action(
             window,
             tr("toolbar.superscript"),
@@ -163,7 +190,7 @@ class MainToolbar:
         self._slots["superscript"] = _Slot(
             NOTATION_SECTION,
             self.superscript_action,
-            (caption, self._add(self.superscript_action), toolbar.addSeparator()),
+            (caption, self._add(self.superscript_action), self.toolbar.addSeparator()),
         )
 
         self.marker_actions: dict[str, QAction] = {}
@@ -207,12 +234,16 @@ class MainToolbar:
         self.notation_more_menu.aboutToShow.connect(
             lambda: self._fill_more_menu(self.notation_more_menu, notation=True)
         )
-        self._notation_more_handle = toolbar.addWidget(self.notation_more_button)
+        self._notation_more_handle = self.toolbar.addWidget(self.notation_more_button)
 
-        spacer = QWidget()
-        spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        toolbar.addWidget(spacer)
-
+    def _build_tools(
+        self,
+        window: QMainWindow,
+        handlers: ToolbarHandlers,
+        asr_toggle: QAction,
+        comments_toggle: QAction | None,
+    ) -> None:
+        """Przełączniki paneli ASR i komentarzy, korpus i ustawienia."""
         # Zamknięty panel ASR wraca tym przełącznikiem.
         self.asr_panel_action = asr_toggle
         asr_toggle.setText(tr("main.asr_dock"))
@@ -258,10 +289,12 @@ class MainToolbar:
             self.settings_action,
             (
                 self._add(self.settings_action, icon_only=True),
-                toolbar.addSeparator(),
+                self.toolbar.addSeparator(),
             ),
         )
 
+    def _build_session(self, window: QMainWindow, handlers: ToolbarHandlers) -> None:
+        """Nowy dokument, otwieranie (z ostatnimi projektami) i zapis projektu."""
         self.new_action = QAction(tr("toolbar.new"), window)
         icons.set_icon(self.new_action, "new", "text", "text_muted")
         self.new_action.setShortcut(QKeySequence(NEW_SHORTCUT))
@@ -332,6 +365,8 @@ class MainToolbar:
             (self.save_as_action,),
         )
 
+    def _build_export(self, window: QMainWindow, handlers: ToolbarHandlers) -> None:
+        """Eksport z menu: anonimizacja, inny format i gotowość do eksportu."""
         self.export_action = QAction(tr("toolbar.export"), window)
         icons.set_icon(self.export_action, "export", "on_accent", "text_muted")
         self.export_action.setShortcut(QKeySequence(EXPORT_SHORTCUT))
@@ -363,6 +398,7 @@ class MainToolbar:
         self._add(self.export_action, menu=export_menu)
         set_props(self._buttons[self.export_action], variant="primary")
 
+    def _build_close(self, window: QMainWindow, handlers: ToolbarHandlers) -> None:
         self.close_action = QAction(tr("toolbar.close"), window)
         icons.set_icon(self.close_action, "close", "text_muted", "text_muted")
         self.close_action.setShortcut(QKeySequence(CLOSE_SHORTCUT))
@@ -373,20 +409,6 @@ class MainToolbar:
             self.close_action,
             (self._add(self.close_action, icon_only=True),),
         )
-
-        # Skrót akcji działa tylko, gdy akcja należy do widocznego widżetu -
-        # samo okno, bo przycisk w pasku może być schowany.
-        for action in self._buttons:
-            window.addAction(action)
-
-        self.more_menu, self.more_button = _more_menu(window)
-        self.more_menu.aboutToShow.connect(
-            lambda: self._fill_more_menu(self.more_menu, notation=False)
-        )
-        self._more_handle = toolbar.addWidget(self.more_button)
-
-        toolbar.on_resize = self.fit_to_width
-        self.fit_to_width()
 
     def button_for(self, action: QAction) -> QToolButton:
         """Przycisk paska wywołujący ``action``."""

@@ -206,6 +206,14 @@ class PlayerBar(QFrame):
         set_props(self, card=True)
         self.setObjectName("player_bar")
 
+        self._build_transport()
+        self._build_sound_and_verification()
+        self._build_layout()
+
+        self._connect_signals()
+
+    def _build_transport(self) -> None:
+        """Import, odtwarzanie, suwak pozycji, czas, tempo i pętla A-B."""
         self.import_button = QPushButton(tr("player.import"))
         icons.set_icon(self.import_button, "import", "text", "text_muted")
         self.import_button.setIconSize(icons.ICON_SIZE)
@@ -248,7 +256,9 @@ class PlayerBar(QFrame):
         set_props(self.loop_label, role="muted")
         self.loop_label.setFont(time_font)
 
-        self.sound_menu = SoundMenu(player, self)
+    def _build_sound_and_verification(self) -> None:
+        """Menu „Dźwięk”, stan filtrów i menu postępu weryfikacji nagrania."""
+        self.sound_menu = SoundMenu(self._player, self)
         self.sound_button = QToolButton()
         self.sound_button.setObjectName("sound_button")
         self.sound_button.setText(tr("player.sound"))
@@ -281,6 +291,7 @@ class PlayerBar(QFrame):
         self.sound_menu.set_values(self._settings)
         self.sound_menu.changed.connect(self.sound_changed)
 
+    def _build_layout(self) -> None:
         file_icon = QLabel()
         icons.set_pixmap(file_icon, "audio_file", "accent", 28)
         self.file_label = QLabel(tr("player.no_media"))
@@ -325,8 +336,6 @@ class PlayerBar(QFrame):
         layout.setSpacing(12)
         layout.addLayout(header)
         layout.addLayout(transport)
-
-        self._connect_signals()
 
     def _connect_signals(self) -> None:
         self.import_button.clicked.connect(self._on_import_clicked)
