@@ -120,6 +120,16 @@ def isolated_autosave(monkeypatch, tmp_path):
 
 
 @pytest.fixture(autouse=True)
+def isolated_snapshots(monkeypatch, tmp_path):
+    """Migawki projektów w katalogu tymczasowym, nie w danych użytkownika."""
+    from transkryptor.document import snapshots
+
+    directory = tmp_path / "snapshots"
+    monkeypatch.setattr(snapshots, "snapshots_root", lambda: directory)
+    return directory
+
+
+@pytest.fixture(autouse=True)
 def isolated_waveform_cache(monkeypatch, tmp_path):
     """Obwiednie fali w katalogu tymczasowym, nie w pamięci podręcznej użytkownika."""
     from transkryptor.audio import envelope

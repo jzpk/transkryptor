@@ -62,6 +62,7 @@ from transkryptor.notation.validator import SEVERITY_HINT, VALIDATOR_RULES
 from transkryptor.settings import (
     AUTO_REWIND_RANGE_MS,
     AUTOSAVE_INTERVAL_RANGE_S,
+    DAILY_GOAL_RANGE_MIN,
     FONT_SIZE_RANGE_PT,
     LANGUAGE_SYSTEM,
     SEGMENT_PREROLL_RANGE_MS,
@@ -382,7 +383,7 @@ class ShortcutPages:
 
 
 class ProjectPage(FormPage):
-    """Autozapis projektu."""
+    """Autozapis projektu i dzienny cel pracy."""
 
     def __init__(self) -> None:
         super().__init__()
@@ -395,11 +396,20 @@ class ProjectPage(FormPage):
         self.autosave_check.toggled.connect(self.autosave_spin.setEnabled)
         self.form.addRow(self.autosave_check)
         self.form.addRow(tr("settings.autosave.interval"), self.autosave_spin)
+        # Dzienny cel: 0 (pozycja „Bez celu”) wyłącza podgląd w pasku stanu.
+        self.daily_goal_spin = QSpinBox()
+        self.daily_goal_spin.setRange(0, DAILY_GOAL_RANGE_MIN[1])
+        self.daily_goal_spin.setSingleStep(5)
+        self.daily_goal_spin.setSuffix(tr("settings.daily_goal.suffix"))
+        self.daily_goal_spin.setSpecialValueText(tr("settings.daily_goal.off"))
+        self.daily_goal_spin.setToolTip(tr("settings.daily_goal.tooltip"))
+        self.form.addRow(tr("settings.daily_goal"), self.daily_goal_spin)
 
     def load(self, settings: Settings) -> None:
         self.autosave_check.setChecked(settings.project.autosave_enabled)
         self.autosave_spin.setValue(settings.project.autosave_interval_s)
         self.autosave_spin.setEnabled(settings.project.autosave_enabled)
+        self.daily_goal_spin.setValue(settings.project.daily_goal_min)
 
     def apply(self, settings: Settings) -> Settings:
         return replace(
@@ -408,6 +418,7 @@ class ProjectPage(FormPage):
                 settings.project,
                 autosave_enabled=self.autosave_check.isChecked(),
                 autosave_interval_s=self.autosave_spin.value(),
+                daily_goal_min=self.daily_goal_spin.value(),
             ),
         )
 

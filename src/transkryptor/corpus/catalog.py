@@ -3,8 +3,9 @@
 Wiersz katalogu to jeden projekt: plik projektu (ścieżka względem folderu
 korpusu), pola metryczki w kolejności konfiguracji zespołu (z polami spoza
 konfiguracji na końcu, jak w eksporcie DOCX), autor i data transkrypcji,
-legenda mówców, nagranie (nazwa i suma SHA-256) oraz liczby słów
-i komentarzy. ``anonymize`` pomija pola osobowe i etykiety informatorów.
+legenda mówców, nagranie (nazwa i suma SHA-256), liczby słów i komentarzy
+oraz statystyki postępu (``document/progress.py``): czas pracy i część
+nagrania przetranskrybowana i zweryfikowana. ``anonymize`` pomija pola osobowe i etykiety informatorów.
 
 Tabela trafia do CSV (UTF-8 z BOM, czytelny w Excelu) albo XLSX
 (``corpus/xlsx.py``). Ten sam moduł buduje tabelę słownika form.
@@ -25,6 +26,11 @@ from transkryptor.document.metadata import (
     DEFAULT_FIELDS,
     MetadataField,
     export_items,
+)
+from transkryptor.document.progress import (
+    format_duration,
+    format_percent,
+    project_stats,
 )
 from transkryptor.document.speakers import informant_spans, legend
 from transkryptor.errors import ExportError
@@ -84,6 +90,9 @@ def catalog_table(
         tr("corpus.catalog.words"),
         tr("corpus.catalog.informant_words"),
         tr("corpus.catalog.comments"),
+        tr("corpus.catalog.work_time"),
+        tr("corpus.catalog.transcribed"),
+        tr("corpus.catalog.verified"),
     )
     rows: list[tuple[Cell, ...]] = []
     for project in projects:
@@ -99,6 +108,7 @@ def catalog_table(
                 state.text, state.paragraph_speakers, state.speakers
             )
         )
+        stats = project_stats(state, today="")
         rows.append(
             (
                 project.relative_name(folder),
@@ -111,6 +121,9 @@ def catalog_table(
                 state.word_count,
                 informant_words if uses_speakers else "",
                 0 if anonymize else len(state.comments),
+                format_duration(stats.work_seconds),
+                format_percent(stats.transcribed_ratio),
+                format_percent(stats.verified_ratio),
             )
         )
     return Table(header, tuple(rows))

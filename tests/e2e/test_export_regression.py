@@ -198,6 +198,11 @@ def test_saved_project_matches_golden(
     )
     audio["absolute_path"] = "<repo>/tests/fixtures/audio/sample.mp3"
     audio["relative_path"] = "<rel>"
+    # Czas pracy i dni zależą od chwili uruchomienia testu.
+    work = data["work"]
+    assert work["seconds"] >= 0
+    work["seconds"] = "<s>"
+    work["days"] = [{**day, "date": "<date>", "seconds": "<s>"} for day in work["days"]]
     golden(
         "project/wywiad.transkr.json",
         json.dumps(data, ensure_ascii=False, indent=1, sort_keys=True) + "\n",

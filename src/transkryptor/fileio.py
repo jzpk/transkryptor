@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import os
 import stat
 import tempfile
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from pathlib import Path
+from typing import IO
 
 from transkryptor.errors import ProjectError
 from transkryptor.i18n import tr
@@ -24,13 +26,25 @@ def write_atomic(target: Path, payload: bytes, mode: int | None = None) -> None:
     (``0666`` z maską umask). Projekt na wspólnym udziale zostaje czytelny
     dla zespołu; autozapis podaje ``0o600``.
     """
+    with atomic_output(target, mode) as handle:
+        handle.write(payload)
+
+
+@contextlib.contextmanager
+def atomic_output(target: Path, mode: int | None = None) -> Iterator[IO[bytes]]:
+    """Strumień zapisu atomowego - jak :func:`write_atomic` dla dużych plików.
+
+    Plik docelowy powstaje dopiero po udanym zakończeniu bloku ``with``;
+    wyjątek w bloku zostawia poprzednią wersję i usuwa plik tymczasowy.
+    Błąd systemu plików → ``ProjectError``.
+    """
     temp_name: str | None = None
     try:
         with tempfile.NamedTemporaryFile(
             dir=target.parent, prefix=f".{target.name}.", suffix=".tmp", delete=False
         ) as handle:
             temp_name = handle.name
-            handle.write(payload)
+            yield handle
             handle.flush()
             os.fsync(handle.fileno())
         if os.name == "posix":

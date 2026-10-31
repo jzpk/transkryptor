@@ -8,6 +8,7 @@ from pathlib import Path, PurePosixPath
 from transkryptor.document.anchors import Anchor
 from transkryptor.document.comments import Comment
 from transkryptor.document.speakers import DEFAULT_SPEAKERS, Speaker
+from transkryptor.document.work_log import WorkLog
 from transkryptor.i18n import tr
 
 PROJECT_SUFFIX = ".transkr"
@@ -137,6 +138,8 @@ class ProjectState:
     comments: tuple[Comment, ...] = ()
     # Sprawdzone zakresy nagrania (ms), posortowane i rozłączne.
     verified: tuple[tuple[int, int], ...] = ()
+    # Czas aktywnej pracy nad projektem (schemat 7).
+    work: WorkLog = field(default_factory=WorkLog)
 
     @property
     def word_count(self) -> int:

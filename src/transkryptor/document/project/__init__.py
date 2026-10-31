@@ -12,7 +12,9 @@ od schematu 4 - kotwice czasowe tekstu (``document/anchors.py``), od
 schematu 5 - mówcy nagrania, ich przypisanie do akapitów
 (``document/speakers.py``) i mówcy segmentów ASR z podziału na mówców, a od
 schematu 6 - komentarze recenzji z odpowiedziami i statusem rozwiązania
-(``document/comments.py``; pole ``resolved`` jest opcjonalne) i sprawdzone zakresy nagrania (``document/verification.py``).
+(``document/comments.py``; pole ``resolved`` jest opcjonalne) i sprawdzone
+zakresy nagrania (``document/verification.py``), a od schematu 7 - czas
+aktywnej pracy nad projektem (``document/work_log.py``).
 
 Zapis jest atomowy (``transkryptor.fileio.write_atomic``) - przerwany
 zapis nie psuje poprzedniej wersji. Odczyt przechodzi przez :func:`migrate`,
