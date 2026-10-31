@@ -75,6 +75,7 @@ class ReviewSection(QObject):
         self.rules_details.setVisible(False)
 
         self.suggestions_list = QListWidget()
+        self.suggestions_list.setObjectName("asr_review_list")
         self.suggestions_list.setToolTip(
             tr("asr.review.tooltip", applied=APPLIED_MARK, pending=PENDING_MARK)
         )

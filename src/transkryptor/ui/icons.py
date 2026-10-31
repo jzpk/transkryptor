@@ -75,6 +75,11 @@ _PATHS: dict[str, str] = {
         '<circle cx="12" cy="12" r="9"/><path d="M12 11v5.5"/>'
         '<circle cx="12" cy="7.8" r=".6" fill="currentColor"/>'
     ),
+    "help": (
+        '<circle cx="12" cy="12" r="9"/>'
+        '<path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6"/>'
+        '<circle cx="12" cy="17" r=".6" fill="currentColor"/>'
+    ),
     "redo": '<path d="M20 8H9.5a5.5 5.5 0 0 0 0 11H13"/><path d="M16 4l4 4-4 4"/>',
     "list_check": (
         '<path d="M11 6h9M11 12h9M11 18h9"/>'

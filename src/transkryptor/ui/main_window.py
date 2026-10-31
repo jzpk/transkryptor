@@ -116,6 +116,7 @@ from transkryptor.ui.speaker_controller import SpeakerController
 from transkryptor.ui.sync_controller import SyncController
 from transkryptor.ui.theme import apply_theme, resolve_tokens, set_props, tokens
 from transkryptor.ui.toolbar import MainToolbar, ToolbarHandlers
+from transkryptor.ui.tutorial_controller import TutorialController
 from transkryptor.ui.update_controller import UpdateController
 from transkryptor.ui.verification import VerificationController
 from transkryptor.ui.warnings_panel import WarningsPanel
@@ -343,6 +344,7 @@ class MainWindow(QMainWindow):
             self, self.editor, self.main_toolbar.snippets_menu, self._on_settings
         )
         self.shortcut_actions = self._collect_shortcut_actions()
+        self.tutorials = TutorialController(self, settings_store, self)
         self._build_status_bar()
         self.loading_overlay = LoadingOverlay(self)
         self.asr = AsrController(
@@ -533,9 +535,12 @@ class MainWindow(QMainWindow):
         )
         self.report_button.clicked.connect(self._on_report)
         status.addWidget(self.report_button)
+        # Samouczki: menu z listą przewodników po oknie.
+        status.addWidget(self.tutorials.button)
         # Propozycja reguły z powtarzalnych poprawek szkicu (ukryta bez niej).
         status.addPermanentWidget(self.learning.button)
         self.export_status_label = QLabel()
+        self.export_status_label.setObjectName("export_status_label")
         status.addPermanentWidget(self.export_status_label)
 
     def _on_changelog(self) -> None:
@@ -611,6 +616,8 @@ class MainWindow(QMainWindow):
             except AppError as error:
                 self._show_error(tr("settings.rules.save_error"), error)
         self.settings_store.save(dialog.settings())
+        if dialog.requested_tutorial is not None:
+            self.tutorials.start(dialog.requested_tutorial)
 
     def report_rule_errors(self) -> None:
         """ACC-42: błędne reguły z pliku użytkownika - komunikat przy starcie."""

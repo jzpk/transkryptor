@@ -173,6 +173,7 @@ class MainToolbar:
         )
         self._more_handle = toolbar.addWidget(self.more_button)
 
+        self._name_buttons()
         toolbar.on_resize = self.fit_to_width
         self.fit_to_width()
 
@@ -234,6 +235,7 @@ class MainToolbar:
         self.notation_more_menu.aboutToShow.connect(
             lambda: self._fill_more_menu(self.notation_more_menu, notation=True)
         )
+        self.notation_more_button.setObjectName("notation_more_button")
         self._notation_more_handle = self.toolbar.addWidget(self.notation_more_button)
 
     def _build_tools(
@@ -409,6 +411,13 @@ class MainToolbar:
             self.close_action,
             (self._add(self.close_action, icon_only=True),),
         )
+
+    def _name_buttons(self) -> None:
+        """Nazwy obiektów przycisków (``toolbar_<pozycja>``) - wskazuje je samouczek."""
+        for key, slot in self._slots.items():
+            name = "toolbar_" + key.replace(":", "_")
+            self._buttons[slot.action].setObjectName(name)
+        self._buttons[self.export_action].setObjectName("toolbar_export")
 
     def button_for(self, action: QAction) -> QToolButton:
         """Przycisk paska wywołujący ``action``."""

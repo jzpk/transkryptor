@@ -215,12 +215,14 @@ class PlayerBar(QFrame):
     def _build_transport(self) -> None:
         """Import, odtwarzanie, suwak pozycji, czas, tempo i pętla A-B."""
         self.import_button = QPushButton(tr("player.import"))
+        self.import_button.setObjectName("player_import_button")
         icons.set_icon(self.import_button, "import", "text", "text_muted")
         self.import_button.setIconSize(icons.ICON_SIZE)
         self.import_button.setToolTip(
             tr("player.import.tooltip", formats=SUPPORTED_FORMATS_LABEL)
         )
         self.play_button = QPushButton(tr("player.play"))
+        self.play_button.setObjectName("player_play_button")
         set_props(self.play_button, variant="primary")
         self._set_play_icon(playing=False)
         self.play_button.setIconSize(icons.ICON_SIZE)
@@ -236,6 +238,7 @@ class PlayerBar(QFrame):
         time_font.setStyleHint(time_font.StyleHint.Monospace)
         self.time_label.setFont(time_font)
         self.rate_combo = QComboBox()
+        self.rate_combo.setObjectName("player_rate_combo")
         for label, _rate in PLAYBACK_RATES:
             self.rate_combo.addItem(label)
         self.rate_combo.setCurrentIndex(DEFAULT_RATE_INDEX)
@@ -244,6 +247,7 @@ class PlayerBar(QFrame):
         self.loop_a_button = QPushButton("A")
         self.loop_b_button = QPushButton("B")
         self.loop_button = QPushButton(tr("player.loop"))
+        self.loop_button.setObjectName("player_loop_button")
         self.loop_button.setCheckable(True)
         icons.set_icon(self.loop_button, "loop", "text", "text_muted")
         self.loop_button.setIconSize(icons.ICON_SIZE)

@@ -87,9 +87,14 @@ class AsrPanel(QWidget):
         layout = QVBoxLayout(content)
         layout.setContentsMargins(16, 14, 16, 16)
         layout.setSpacing(18)
-        layout.addWidget(self.models.build_step())
-        layout.addWidget(self.review.build_rules_step())
-        layout.addWidget(self.transcription.build_step())
+        # Nazwy kroków wskazuje samouczek „Szkic ASR”.
+        for name, widget in (
+            ("asr_model_step", self.models.build_step()),
+            ("asr_rules_step", self.review.build_rules_step()),
+            ("asr_transcription_step", self.transcription.build_step()),
+        ):
+            widget.setObjectName(name)
+            layout.addWidget(widget)
         layout.addWidget(divider())
         layout.addLayout(self.transcription.build_segments_box(), stretch=2)
         layout.addLayout(self.review.build_review_box(), stretch=3)
