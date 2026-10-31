@@ -3,7 +3,7 @@
 Okno tylko edytuje kopię ustawień; zapis i powiadomienie komponentów
 wykonuje ``SettingsStore`` po zatwierdzeniu. Każda zakładka dotyczy jednej
 części aplikacji (wygląd, odtwarzacz, notacja, walidator, projekt, metryczka,
-ASR, dziennik logów). Zakładki z ustawieniami to strony z ``settings_pages``
+ASR, samouczki, dziennik logów). Zakładki z ustawieniami to strony z ``settings_pages``
 (``load``/``apply``); nowa sekcja ustawień to nowa strona na liście
 ``pages``.
 """
@@ -44,6 +44,7 @@ from transkryptor.ui.settings_pages import (
     models_root,
 )
 from transkryptor.ui.shortcuts_editor import ShortcutsEditor, SnippetsEditor
+from transkryptor.ui.tutorials_page import TutorialsPage
 
 
 class SettingsDialog(QDialog):
@@ -78,6 +79,10 @@ class SettingsDialog(QDialog):
             model_manager
             or ModelManager(models_root=models_root(settings.asr.models_root))
         )
+        self.tutorials_page = TutorialsPage()
+        # Samouczek wybrany na zakładce „Samouczki” - uruchamia go okno główne.
+        self.requested_tutorial: str | None = None
+        self.tutorials_page.tutorial_requested.connect(self._on_tutorial_requested)
         self.log_panel = LogPanel()
         # Kolejność wczytywania: metryczka przed eksportem (sprawdzenie
         # szablonu korzysta z pól metryczki).
@@ -91,6 +96,7 @@ class SettingsDialog(QDialog):
             self.metadata_page,
             self.export_page,
             self.asr_page,
+            self.tutorials_page,
         )
 
         self.tabs = QTabWidget()
@@ -106,6 +112,7 @@ class SettingsDialog(QDialog):
             (self.metadata_page, "settings.tab.metadata"),
             (self.export_page, "settings.tab.export"),
             (self.asr_page, "settings.tab.asr"),
+            (self.tutorials_page, "settings.tab.tutorials"),
             (self.log_panel, "settings.tab.logs"),
         ):
             self.tabs.addTab(page, tr(title))
@@ -187,6 +194,16 @@ class SettingsDialog(QDialog):
         """Zakładka reguł z dopisaną proponowaną regułą (do sprawdzenia)."""
         self.tabs.setCurrentWidget(self.rules_editor)
         self.rules_editor.add_proposed_rule(rule)
+
+    def open_tutorials(self) -> None:
+        self.tabs.setCurrentWidget(self.tutorials_page)
+
+    def _on_tutorial_requested(self, key: str) -> None:
+        """Zamyka okno jak „OK”; samouczek startuje po zapisie ustawień."""
+        self.requested_tutorial = key
+        self.accept()
+        if self.result() != self.DialogCode.Accepted:
+            self.requested_tutorial = None
 
     def user_rules(self) -> tuple[PhoneticRule, ...]:
         """Reguły fonetyczne użytkownika po edycji (zapisuje okno główne)."""

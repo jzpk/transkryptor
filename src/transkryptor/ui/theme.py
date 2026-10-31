@@ -401,7 +401,9 @@ QToolButton[variant="primary"]:disabled {{
 }}
 
 /* Menu „Więcej poleceń”: ikona ☰ sama mówi, że to lista - bez strzałki. */
-QToolButton#more_button::menu-indicator {{
+QToolButton#more_button::menu-indicator,
+QToolButton#notation_more_button::menu-indicator,
+QToolButton#tutorial_button::menu-indicator {{
     image: none;
     width: 0;
 }}

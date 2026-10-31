@@ -7,6 +7,17 @@ Pusta sekcja blokuje wydanie.
 
 ## Nieopublikowane
 
+- **Samouczki w programie:** krótkie przewodniki po oknie podświetlają
+  kolejne elementy (z pulsującą ramką i resztą okna przyciemnioną)
+  i wyjaśniają, do czego służą. Do wyboru: **Pierwsze kroki**,
+  **Odtwarzacz i nagranie**, **Notacja i ostrzeżenia**, **Szkic ASR**,
+  **Tryb recenzji** oraz **Projekt i eksport**. „Pierwsze kroki” startują
+  same przy pierwszym uruchomieniu; **Pomiń samouczek** (albo Esc) zamyka
+  przewodnik w każdej chwili, a po ukończeniu lub pominięciu nie pokazuje
+  się on już przy starcie. Do samouczków wrócisz przyciskiem **Samouczki**
+  na dole okna albo w ustawieniach, na nowej zakładce **Samouczki** - tam
+  też włączysz ponownie „Pierwsze kroki” przy uruchomieniu. Opisy podają
+  skróty klawiszowe tak, jak są ustawione w programie.
 - **Status zgłoszeń na stronie projektu:** nowa podstrona
   [Status zgłoszeń](https://transkryptorapp.pl/zgloszenia.html) pokazuje
   zgłoszone błędy i pomysły z GitHuba - tytuł, numer, rodzaj i stan

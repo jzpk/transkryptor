@@ -116,6 +116,7 @@ class TestSettingsDialog:
             "Metryczka",
             "Eksport",
             "ASR",
+            "Samouczki",
             "Dziennik logów",
         ]
 

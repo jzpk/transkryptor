@@ -250,6 +250,17 @@ class ReviewSettings:
 
 
 @dataclass(frozen=True)
+class TutorialSettings:
+    """Samouczki: ``show_on_start`` - przewodnik „Pierwsze kroki” przy starcie.
+
+    Pole wyłącza się samo po ukończeniu albo pominięciu dowolnego samouczka;
+    użytkownik może je znów włączyć w ustawieniach (zakładka „Samouczki”).
+    """
+
+    show_on_start: bool = True
+
+
+@dataclass(frozen=True)
 class MetadataSettings:
     """Pola metryczki zespołu: JSON z ``document.metadata.encode_fields``.
 
@@ -333,6 +344,7 @@ class Settings:
     appearance: AppearanceSettings = field(default_factory=AppearanceSettings)
     asr: AsrSettings = field(default_factory=AsrSettings)
     review: ReviewSettings = field(default_factory=ReviewSettings)
+    tutorial: TutorialSettings = field(default_factory=TutorialSettings)
 
 
 @dataclass(frozen=True)
@@ -421,6 +433,7 @@ _FIELDS: tuple[_Field, ...] = (
     _Field("asr", "show_uncertain_words", bool),
     _Field("asr", "word_threshold_pct", int, *WORD_THRESHOLD_RANGE_PCT),
     _Field("review", "comment_author", str),
+    _Field("tutorial", "show_on_start", bool),
 )
 
 

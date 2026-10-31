@@ -248,6 +248,7 @@ class TranscriptionSection(QObject):
         self.reinsert_draft_button.setToolTip(tr("asr.reinsert.tooltip"))
         self.reinsert_draft_button.setEnabled(False)
         self.segments_list = QListWidget()
+        self.segments_list.setObjectName("asr_segments_list")
         self.segments_list.setToolTip(tr("asr.segments.tooltip"))
         self.segments_list.setMinimumHeight(110)
         self.segments_list.setWordWrap(True)

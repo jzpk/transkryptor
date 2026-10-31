@@ -235,6 +235,8 @@ def main(argv: list[str] | None = None) -> int:
     # ACC-30: propozycja odzyskania pracy po awarii - gdy okno już widać.
     QTimer.singleShot(0, window.session.offer_recovery)
     QTimer.singleShot(0, window.report_rule_errors)
+    # Samouczek po komunikatach startowych: modalne okna mają pierwszeństwo.
+    QTimer.singleShot(0, window.tutorials.start_first_run)
     code = app.exec()
     logger.info("Session ended (exit code %d)", code)
     return code
