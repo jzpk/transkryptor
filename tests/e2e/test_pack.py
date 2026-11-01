@@ -140,3 +140,29 @@ def test_pack_without_audio_binds_own_copy_by_checksum(
     assert receiver.player.source_path == own_copy
     assert receiver.session.audio_sha256 == sender.session.audio_sha256
     assert not (tmp_path / "od-transkrybenta" / "WP-0042.mp3").exists()
+
+
+def test_pack_save_dialog_starts_next_to_project_or_audio(
+    qtbot, add_window, tmp_path, monkeypatch
+) -> None:
+    window = transcriber_window(qtbot, add_window, tmp_path)
+    window.packs.run_export_dialog = lambda _dialog: int(
+        PackExportDialog.DialogCode.Accepted
+    )
+    defaults: list[str] = []
+
+    def cancel(_parent, _title, default, _filter):
+        defaults.append(default)
+        return "", ""
+
+    monkeypatch.setattr(QFileDialog, "getSaveFileName", staticmethod(cancel))
+    window.packs.export()
+    project = tmp_path / "projekty" / "AdK 1954.transkr"
+    project.parent.mkdir()
+    window.session.project_path = project
+    window.packs.export()
+
+    assert defaults == [
+        str(tmp_path / "transkrybent" / "WP-0042.tkpack"),
+        str(tmp_path / "projekty" / "AdK 1954.tkpack"),
+    ]

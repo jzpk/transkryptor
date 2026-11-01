@@ -156,11 +156,16 @@ class PackController(QObject):
         return f"{stem}{PROJECT_SUFFIX}"
 
     def _default_pack_path(self) -> str:
-        stem = Path(self._project_name()).stem
-        folder = self._session.project_path
-        if folder is not None:
-            return str(folder.parent / f"{stem}{PACK_SUFFIX}")
-        return f"{stem}{PACK_SUFFIX}"
+        """Obok projektu, a bez pliku projektu - obok nagrania.
+
+        Sama nazwa pliku otworzyłaby okno w katalogu bieżącym procesu,
+        a paczka trafiłaby tam, gdzie użytkownik jej nie szuka.
+        """
+        name = f"{Path(self._project_name()).stem}{PACK_SUFFIX}"
+        anchor = self._session.project_path or self._audio_path()
+        if anchor is not None:
+            return str(anchor.parent / name)
+        return name
 
     # --- otwieranie ------------------------------------------------------
 
