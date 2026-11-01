@@ -20,6 +20,12 @@ from typing import Any
 from transkryptor.asr.engine import DEVICES
 from transkryptor.asr.models import DEFAULT_MODEL, MODELS
 from transkryptor.audio.processing import CHANNEL_BOTH, CHANNELS, AudioFilters
+from transkryptor.audio.spectrogram import (
+    MAX_HZ_CHOICES,
+    WIDEBAND,
+    WINDOWS,
+    SpectrogramOptions,
+)
 from transkryptor.document.metadata import (
     DEFAULT_FIELDS,
     MetadataField,
@@ -53,6 +59,14 @@ class PlayerSettings:
     normalize_audio: bool = False
     audio_channel: str = CHANNEL_BOTH
     highpass_filter: bool = False
+    # Spektrogram pod falą: rozwinięcie, zakres częstotliwości i okno analizy.
+    spectrogram_visible: bool = False
+    spectrogram_max_hz: int = 5000
+    spectrogram_window: str = WIDEBAND
+
+    @property
+    def spectrogram(self) -> SpectrogramOptions:
+        return SpectrogramOptions(self.spectrogram_max_hz, self.spectrogram_window)
 
     @property
     def audio_filters(self) -> AudioFilters:
@@ -391,6 +405,11 @@ _FIELDS: tuple[_Field, ...] = (
     _Field("player", "normalize_audio", bool),
     _Field("player", "audio_channel", str, choices=CHANNELS),
     _Field("player", "highpass_filter", bool),
+    _Field("player", "spectrogram_visible", bool),
+    _Field(
+        "player", "spectrogram_max_hz", int, min(MAX_HZ_CHOICES), max(MAX_HZ_CHOICES)
+    ),
+    _Field("player", "spectrogram_window", str, choices=WINDOWS),
     _Field("editor", "font_family", str),
     _Field("editor", "font_size_pt", int, *FONT_SIZE_RANGE_PT, allow_zero=True),
     _Field("editor", "autocomplete", bool),

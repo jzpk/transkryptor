@@ -3,13 +3,12 @@
 - ``EnvelopeThread`` liczy obwiednię w tle: suma SHA-256 nagrania → cache
   → dekodowanie PyAV (``audio/envelope.py``), z postępem i przerwaniem przy
   zmianie nagrania.
-- ``WaveformView`` rysuje falę w ``paintEvent`` w kolorach motywu: kursor
-  pozycji, pętlę A-B, segmenty ASR (paski w kolorze pewności), ręczne
-  znaczniki czasu i tło sprawdzonych fragmentów (postęp weryfikacji). Klik przewija nagranie, przeciągnięcie ustawia pętlę A-B,
-  ``Ctrl`` + kółko powiększa, kółko przewija w poziomie.
-- ``WaveformPanel`` to zwijany nagłówek z postępem, widok i pasek przewijania.
-- ``WaveformController`` łączy panel z odtwarzaczem, panelem ASR
-  i kotwicami tekstu.
+- ``WaveformView`` (``ui/waveform_view.py``) rysuje falę z nakładkami.
+- ``WaveformPanel`` to zwijany nagłówek z postępem i pokryciem transkrypcji,
+  widok, miniatura całego nagrania (``ui/coverage_overview.py``), pasek
+  przewijania i zwijany spektrogram (``ui/spectrogram_view.py``).
+- ``WaveformController`` łączy panel z odtwarzaczem, panelem ASR, kotwicami
+  tekstu i spektrogramem (``ui/spectrogram_controller.py``).
 """
 
 from __future__ import annotations
@@ -18,20 +17,11 @@ import logging
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
-from PySide6.QtCore import QObject, QPointF, QRectF, Qt, QThread, Signal
-from PySide6.QtGui import (
-    QColor,
-    QMouseEvent,
-    QPainter,
-    QPaintEvent,
-    QPolygonF,
-    QWheelEvent,
-)
+from PySide6.QtCore import QObject, Qt, QThread, Signal
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QScrollBar,
-    QSizePolicy,
     QToolButton,
     QVBoxLayout,
     QWidget,
@@ -43,28 +33,19 @@ from transkryptor.audio.envelope import (
     compute_envelope,
     load_cached,
     save_cached,
+    silent_ranges,
 )
 from transkryptor.audio.player import AudioPlayer
 from transkryptor.fileio import file_sha256
 from transkryptor.i18n import tr
-from transkryptor.ui.asr_transcription_section import LOW_CONFIDENCE
+from transkryptor.ui.coverage_overview import CoverageOverview
 from transkryptor.ui.player_bar import PlayerBar
-from transkryptor.ui.theme import set_props, tokens
+from transkryptor.ui.spectrogram_controller import SpectrogramController
+from transkryptor.ui.spectrogram_view import SpectrogramPanel
+from transkryptor.ui.theme import set_props
+from transkryptor.ui.waveform_view import SegmentSpan, WaveformView
 
 logger = logging.getLogger(__name__)
-
-WAVEFORM_HEIGHT = 72
-# Przeciągnięcie krótsze niż tyle pikseli to klik (przewinięcie).
-DRAG_THRESHOLD_PX = 4
-# Największe powiększenie: tyle ms na piksel.
-MIN_MS_PER_PX = 2.0
-ZOOM_STEP = 1.5
-SEGMENT_STRIP_PX = 4
-# Pasek sprawdzonych fragmentów u góry fali (widoczny także przy gęstej fali).
-VERIFIED_STRIP_PX = 3
-
-# Segment ASR na fali: (początek ms, koniec ms, pewność 0-1).
-SegmentSpan = tuple[int, int, float]
 
 
 class EnvelopeThread(QThread):
@@ -112,252 +93,6 @@ class EnvelopeThread(QThread):
             self.progressed.emit(fraction)
 
 
-class WaveformView(QWidget):
-    """Fala dźwiękowa nagrania z kursorem, pętlą, segmentami i znacznikami."""
-
-    seek_requested = Signal(int)  # ms
-    loop_requested = Signal(int, int)  # początek, koniec ms
-    view_changed = Signal()  # powiększenie albo przewinięcie
-
-    def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self.setObjectName("waveform")
-        self.setMinimumHeight(WAVEFORM_HEIGHT)
-        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self.setMouseTracking(False)
-        self.setCursor(Qt.CursorShape.IBeamCursor)
-        self.setToolTip(tr("waveform.tooltip"))
-        self._envelope: Envelope | None = None
-        self._peaks: Sequence[int] = b""
-        self._scale = 1.0
-        self.duration_ms = 0
-        self.position_ms = 0
-        self.loop: tuple[int, int] | None = None
-        self.segments: list[SegmentSpan] = []
-        self.markers: list[int] = []
-        # Sprawdzone zakresy nagrania (ms) - tło pod falą.
-        self.verified: list[tuple[int, int]] = []
-        self.view_start_ms = 0.0
-        self.ms_per_px = 0.0  # 0 = całe nagranie w szerokości widoku
-        self._press_x: float | None = None
-        self._drag_x: float | None = None
-
-    # --- dane ---------------------------------------------------------------
-
-    @property
-    def envelope(self) -> Envelope | None:
-        return self._envelope
-
-    def set_envelope(self, envelope: Envelope | None) -> None:
-        self._envelope = envelope
-        self._peaks = envelope.peaks if envelope is not None else b""
-        top = max(self._peaks, default=0)
-        # Ciche nagrania terenowe: fala skalowana do najgłośniejszego miejsca.
-        self._scale = 1.0 / top if top else 1.0
-        self.update()
-
-    def set_duration(self, duration_ms: int) -> None:
-        self.duration_ms = max(0, duration_ms)
-        self._clamp_view()
-        self.update()
-
-    def set_position(self, position_ms: int) -> None:
-        self.position_ms = position_ms
-        # Kursor poza powiększonym widokiem: widok przechodzi za nim.
-        if self.ms_per_px and not self._dragging:
-            start, end = self.visible_range_ms()
-            if not start <= position_ms <= end:
-                self.view_start_ms = position_ms - (end - start) * 0.1
-                self._clamp_view()
-                self.view_changed.emit()
-        self.update()
-
-    # --- geometria ------------------------------------------------------------
-
-    def effective_ms_per_px(self) -> float:
-        width = max(1, self.width())
-        fit = self.duration_ms / width if self.duration_ms else 1.0
-        return min(self.ms_per_px, fit) if self.ms_per_px else fit
-
-    def visible_range_ms(self) -> tuple[float, float]:
-        scale = self.effective_ms_per_px()
-        return self.view_start_ms, self.view_start_ms + scale * self.width()
-
-    def ms_at(self, x: float) -> int:
-        position = self.view_start_ms + x * self.effective_ms_per_px()
-        return int(max(0, min(self.duration_ms, position)))
-
-    def x_at(self, ms: float) -> float:
-        return (ms - self.view_start_ms) / self.effective_ms_per_px()
-
-    def zoom(self, factor: float, anchor_x: float | None = None) -> None:
-        """Powiększa (``factor`` < 1) albo pomniejsza widok wokół punktu."""
-        if not self.duration_ms:
-            return
-        anchor_x = self.width() / 2 if anchor_x is None else anchor_x
-        anchor_ms = self.view_start_ms + anchor_x * self.effective_ms_per_px()
-        fit = self.duration_ms / max(1, self.width())
-        scale = self.effective_ms_per_px() * factor
-        self.ms_per_px = 0.0 if scale >= fit else max(MIN_MS_PER_PX, scale)
-        self.view_start_ms = anchor_ms - anchor_x * self.effective_ms_per_px()
-        self._clamp_view()
-        self.view_changed.emit()
-        self.update()
-
-    def scroll_to(self, start_ms: float) -> None:
-        self.view_start_ms = start_ms
-        self._clamp_view()
-        self.update()
-
-    def _clamp_view(self) -> None:
-        span = self.effective_ms_per_px() * self.width()
-        limit = max(0.0, self.duration_ms - span)
-        self.view_start_ms = max(0.0, min(self.view_start_ms, limit))
-
-    @property
-    def _dragging(self) -> bool:
-        return self._drag_x is not None
-
-    # --- rysowanie ----------------------------------------------------------
-
-    def paintEvent(self, event: QPaintEvent) -> None:
-        t = tokens()
-        painter = QPainter(self)
-        width, height = self.width(), self.height()
-        painter.fillRect(self.rect(), QColor(t.surface_alt))
-        if not self.duration_ms:
-            painter.end()
-            return
-        wave_height = height - SEGMENT_STRIP_PX - 2
-        middle = wave_height / 2
-
-        verified = QColor(t.success_soft)
-        for start, end in self.verified:
-            left, right = self.x_at(start), self.x_at(end)
-            if right >= 0 and left <= width:
-                painter.fillRect(QRectF(left, 0, right - left, wave_height), verified)
-
-        loop = self._selection() or self.loop
-        if loop is not None:
-            soft = QColor(t.accent)
-            soft.setAlpha(50)
-            left, right = self.x_at(loop[0]), self.x_at(loop[1])
-            painter.fillRect(QRectF(left, 0, right - left, wave_height), soft)
-
-        if self._peaks:
-            painter.setPen(QColor(t.accent))
-            step = self._envelope.step_ms if self._envelope is not None else 10
-            scale = self.effective_ms_per_px()
-            count = len(self._peaks)
-            for x in range(width):
-                first = int((self.view_start_ms + x * scale) / step)
-                last = max(
-                    first + 1, int((self.view_start_ms + (x + 1) * scale) / step)
-                )
-                if first >= count:
-                    break
-                peak = max(self._peaks[first : min(last, count)]) * self._scale
-                half = max(0.5, peak * (middle - 1))
-                painter.drawLine(QPointF(x, middle - half), QPointF(x, middle + half))
-        else:
-            painter.setPen(QColor(t.border))
-            painter.drawLine(QPointF(0, middle), QPointF(width, middle))
-
-        strip_top = height - SEGMENT_STRIP_PX
-        for start, end, confidence in self.segments:
-            left, right = self.x_at(start), self.x_at(end)
-            if right < 0 or left > width:
-                continue
-            color = QColor(t.success if confidence >= LOW_CONFIDENCE else t.warning)
-            painter.fillRect(
-                QRectF(left, strip_top, max(1.0, right - left - 1), SEGMENT_STRIP_PX),
-                color,
-            )
-
-        for start, end in self.verified:
-            left, right = self.x_at(start), self.x_at(end)
-            if right >= 0 and left <= width:
-                painter.fillRect(
-                    QRectF(left, 0, right - left, VERIFIED_STRIP_PX), QColor(t.success)
-                )
-
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QColor(t.text))
-        for marker in self.markers:
-            marker_x = self.x_at(marker)
-            if 0 <= marker_x <= width:
-                painter.drawPolygon(
-                    QPolygonF(
-                        [
-                            QPointF(marker_x - 4, 0),
-                            QPointF(marker_x + 4, 0),
-                            QPointF(marker_x, 6),
-                        ]
-                    )
-                )
-
-        painter.setPen(QColor(t.danger))
-        cursor_x = self.x_at(self.position_ms)
-        painter.drawLine(QPointF(cursor_x, 0), QPointF(cursor_x, height))
-        painter.end()
-
-    # --- mysz -----------------------------------------------------------------
-
-    def _selection(self) -> tuple[int, int] | None:
-        if self._press_x is None or self._drag_x is None:
-            return None
-        a, b = sorted((self.ms_at(self._press_x), self.ms_at(self._drag_x)))
-        return (a, b) if b > a else None
-
-    def mousePressEvent(self, event: QMouseEvent) -> None:
-        if event.button() == Qt.MouseButton.LeftButton and self.duration_ms:
-            self._press_x = event.position().x()
-            self._drag_x = None
-        super().mousePressEvent(event)
-
-    def mouseMoveEvent(self, event: QMouseEvent) -> None:
-        if self._press_x is not None:
-            x = event.position().x()
-            if self._drag_x is not None or abs(x - self._press_x) > DRAG_THRESHOLD_PX:
-                self._drag_x = x
-                self.update()
-        super().mouseMoveEvent(event)
-
-    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
-        if event.button() == Qt.MouseButton.LeftButton and self._press_x is not None:
-            selection = self._selection()
-            press = self._press_x
-            self._press_x = self._drag_x = None
-            if selection is not None:
-                self.loop_requested.emit(*selection)
-            elif not self._dragging:
-                self.seek_requested.emit(self.ms_at(press))
-            self.update()
-        super().mouseReleaseEvent(event)
-
-    def wheelEvent(self, event: QWheelEvent) -> None:
-        delta = event.angleDelta().y() or event.angleDelta().x()
-        if not delta or not self.duration_ms:
-            event.ignore()
-            return
-        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
-            factor = 1 / ZOOM_STEP if delta > 0 else ZOOM_STEP
-            self.zoom(factor, event.position().x())
-        elif self.ms_per_px:
-            span = self.visible_range_ms()[1] - self.view_start_ms
-            self.scroll_to(self.view_start_ms - span * 0.1 * (delta / 120))
-            self.view_changed.emit()
-        else:
-            event.ignore()
-            return
-        event.accept()
-
-    def resizeEvent(self, event) -> None:  # API Qt
-        super().resizeEvent(event)
-        self._clamp_view()
-        self.view_changed.emit()
-
-
 class WaveformPanel(QWidget):
     """Zwijana fala: nagłówek z postępem, widok i pasek przewijania."""
 
@@ -377,19 +112,28 @@ class WaveformPanel(QWidget):
         self.toggle.setToolTip(tr("waveform.toggle.tooltip"))
         self.status_label = QLabel()
         set_props(self.status_label, role="muted")
+        # Pokrycie transkrypcji tekstem (``ui/coverage_controller.py``).
+        self.coverage_label = QLabel()
+        self.coverage_label.setObjectName("coverage_label")
+        set_props(self.coverage_label, role="muted")
         header = QHBoxLayout()
         header.setContentsMargins(0, 0, 0, 0)
         header.addWidget(self.toggle)
         header.addWidget(self.status_label, stretch=1)
+        header.addWidget(self.coverage_label)
         self.view = WaveformView()
+        self.overview = CoverageOverview()
         self.scrollbar = QScrollBar(Qt.Orientation.Horizontal)
         self.scrollbar.setVisible(False)
+        self.spectrogram = SpectrogramPanel()
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(4)
         layout.addLayout(header)
         layout.addWidget(self.view)
+        layout.addWidget(self.overview)
         layout.addWidget(self.scrollbar)
+        layout.addWidget(self.spectrogram)
         self.toggle.toggled.connect(self._on_toggled)
         self.view.view_changed.connect(self._sync_scrollbar)
         self.scrollbar.valueChanged.connect(
@@ -414,7 +158,8 @@ class WaveformPanel(QWidget):
         self.toggle.setArrowType(
             Qt.ArrowType.DownArrow if expanded else Qt.ArrowType.RightArrow
         )
-        self.view.setVisible(expanded)
+        for widget in (self.view, self.overview, self.spectrogram):
+            widget.setVisible(expanded)
         self._sync_scrollbar()
 
     def _sync_scrollbar(self) -> None:
@@ -423,6 +168,7 @@ class WaveformPanel(QWidget):
         span = int(end - start)
         zoomed = self.expanded and view.duration_ms > span > 0
         self.scrollbar.setVisible(zoomed)
+        self.overview.set_window((int(start), int(end)) if zoomed else None)
         if zoomed:
             self.scrollbar.blockSignals(True)
             self.scrollbar.setRange(0, max(0, view.duration_ms - span))
@@ -434,6 +180,9 @@ class WaveformPanel(QWidget):
 
 class WaveformController(QObject):
     """Fala dla bieżącego nagrania: obliczenie w tle i powiązanie z odtwarzaczem."""
+
+    # Obwiednia nagrania gotowa albo usunięta (np. zmienia się wykryta cisza).
+    envelope_changed = Signal()
 
     def __init__(
         self,
@@ -455,14 +204,22 @@ class WaveformController(QObject):
         self._thread: EnvelopeThread | None = None
         self._threads: set[EnvelopeThread] = set()
         self._path: Path | None = None
+        self.spectrogram = SpectrogramController(
+            self.panel.spectrogram, player, self.view, self._loop_range, self
+        )
         player_bar.set_waveform(self.panel)
+        overview = self.panel.overview
         player.position_changed.connect(self.view.set_position)
+        player.position_changed.connect(overview.set_position)
         player.duration_changed.connect(self.view.set_duration)
+        player.duration_changed.connect(overview.set_duration)
         player.loop_changed.connect(lambda _loop: self.refresh_loop())
         player_bar.loop_points_changed.connect(self.refresh_loop)
         player_bar.media_available_changed.connect(self._on_media_available)
-        self.view.seek_requested.connect(self._on_seek)
-        self.view.loop_requested.connect(self._on_loop)
+        for source in (self.view, self.panel.spectrogram.view):
+            source.seek_requested.connect(self._on_seek)
+            source.loop_requested.connect(self._on_loop)
+        overview.seek_requested.connect(self._on_seek)
         self.panel.expanded_changed.connect(on_expanded_changed)
 
     # --- nagranie -------------------------------------------------------------
@@ -474,6 +231,7 @@ class WaveformController(QObject):
             return
         self.panel.setVisible(True)
         self.view.set_duration(self._player.duration_ms)
+        self.panel.overview.set_duration(self._player.duration_ms)
         self.refresh_loop()
         self.refresh_markers()
         if path != self._path or self.view.envelope is None:
@@ -496,8 +254,11 @@ class WaveformController(QObject):
         self._cancel()
         self._path = None
         self.view.set_envelope(None)
+        self.envelope_changed.emit()
         self.view.set_duration(0)
+        self.panel.overview.set_duration(0)
         self.view.segments = []
+        self.spectrogram.clear()
         self.panel.status_label.setText("")
         self.panel.setVisible(False)
 
@@ -523,6 +284,7 @@ class WaveformController(QObject):
             return
         self._thread = None
         self.view.set_envelope(thread.envelope)
+        self.envelope_changed.emit()
         self.panel.status_label.setText(
             "" if thread.envelope is not None else tr("waveform.failed")
         )
@@ -533,6 +295,7 @@ class WaveformController(QObject):
 
     def shutdown(self) -> None:
         """Przerywa wątki i czeka na nie (zamknięcie okna)."""
+        self.spectrogram.shutdown()
         self._cancel()
         for thread in list(self._threads):
             thread.requestInterruption()
@@ -552,9 +315,18 @@ class WaveformController(QObject):
         self.view.markers = self._markers()
         self.view.update()
 
+    def silence(self) -> tuple[tuple[int, int], ...]:
+        """Cisza wykryta w obwiedni nagrania (pusta, dopóki fala się liczy)."""
+        envelope = self.view.envelope
+        return silent_ranges(envelope) if envelope is not None else ()
+
+    def _loop_range(self) -> tuple[int, int] | None:
+        return self._player.loop_range or self._bar.loop_points()
+
     def refresh_loop(self) -> None:
-        self.view.loop = self._player.loop_range or self._bar.loop_points()
+        self.view.loop = self._loop_range()
         self.view.update()
+        self.spectrogram.schedule()
 
     # --- interakcja -------------------------------------------------------------
 
@@ -577,6 +349,5 @@ __all__ = [
     "EnvelopeThread",
     "WaveformController",
     "WaveformPanel",
-    "WaveformView",
     "segment_spans",
 ]

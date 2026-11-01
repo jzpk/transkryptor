@@ -36,13 +36,13 @@ from transkryptor.ui.settings_pages import (
     ExportPage,
     MetadataPage,
     NotationPage,
-    PlayerPage,
     ProjectPage,
     SettingsPage,
     ShortcutPages,
     ValidatorPage,
     models_root,
 )
+from transkryptor.ui.settings_player_page import PlayerPage
 from transkryptor.ui.shortcuts_editor import ShortcutsEditor, SnippetsEditor
 from transkryptor.ui.tutorials_page import TutorialsPage
 

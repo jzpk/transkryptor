@@ -2,7 +2,8 @@
 
 Statystyki liczy ``document/progress.py`` z bieżącego stanu projektu:
 część nagrania przetranskrybowana (pokrycie tekstem) i zweryfikowana, czas
-aktywnej pracy (``ui/work_time.py``), tempo i szacowany czas do końca,
+aktywnej pracy (``ui/work_time.py``), luki w transkrypcji (jak na mapie
+pokrycia fali, ``ui/coverage_controller.py``), tempo i szacowany czas do końca,
 liczby słów (także na mówcę), otwartych komentarzy i ostrzeżeń. Tabelę
 można zapisać do CSV albo XLSX (jak tabele korpusu). ``ProgressController``
 tworzy polecenie okna i - gdy w ustawieniach jest dzienny cel - etykietę
@@ -11,7 +12,7 @@ postępu dnia w pasku stanu.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from datetime import date
 
 from PySide6.QtCore import QObject, QTimer
@@ -131,6 +132,7 @@ class ProgressController(QObject):
         warning_count: Callable[[], int],
         daily_goal_min: Callable[[], int],
         default_name: Callable[[], str],
+        silence: Callable[[], Sequence[tuple[int, int]]] = lambda: (),
     ) -> None:
         super().__init__(parent)
         self._parent = parent
@@ -138,6 +140,8 @@ class ProgressController(QObject):
         self._warning_count = warning_count
         self._goal = daily_goal_min
         self._default_name = default_name
+        # Cisza wykryta w nagraniu - luki liczone jak na mapie pokrycia fali.
+        self._silence = silence
         self.stats_action = QAction(tr("stats.action"), parent)
         self.stats_action.setToolTip(tr("stats.action.tooltip"))
         self.stats_action.triggered.connect(lambda _checked=False: self.show())
@@ -154,7 +158,10 @@ class ProgressController(QObject):
 
     def stats(self) -> ProjectStats:
         return project_stats(
-            self._state(), date.today().isoformat(), self._warning_count()
+            self._state(),
+            date.today().isoformat(),
+            self._warning_count(),
+            silence=self._silence(),
         )
 
     def show(self) -> None:

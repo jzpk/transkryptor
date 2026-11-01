@@ -39,7 +39,7 @@ from transkryptor.asr.manager import ModelManager
 from transkryptor.asr.models import model_by_key
 from transkryptor.audio.player import AudioPlayer
 from transkryptor.document.model import Document
-from transkryptor.document.progress import covered_ms
+from transkryptor.document.progress import covered_ms, covered_ranges
 from transkryptor.document.readiness import ReadinessReport, build_report
 from transkryptor.document.speakers import (
     Speaker,
@@ -51,7 +51,7 @@ from transkryptor.i18n import tr
 from transkryptor.notation.ellipsis import EllipsisStyle
 from transkryptor.notation.rules import PhoneticRule
 from transkryptor.notation.suggestions import rule_infos
-from transkryptor.settings import ExportSettings, Settings
+from transkryptor.settings import ExportSettings, PlayerSettings, Settings
 from transkryptor.ui import icons
 from transkryptor.ui.asr_controller import AsrController
 from transkryptor.ui.asr_panel import AsrPanel
@@ -60,6 +60,7 @@ from transkryptor.ui.changelog_dialog import ChangelogDialog
 from transkryptor.ui.comments_controller import CommentsController
 from transkryptor.ui.compare_controller import CompareController
 from transkryptor.ui.corpus_controller import CorpusController
+from transkryptor.ui.coverage_controller import CoverageController
 from transkryptor.ui.editor import TranscriptionEditor
 from transkryptor.ui.export_controller import ExportController
 from transkryptor.ui.fonts import text_font_family
@@ -102,10 +103,12 @@ from transkryptor.ui.shortcuts import (
     INSERT_TIMESTAMP,
     MARK_VERIFIED_ID,
     NEXT_COMMENT_ID,
+    NEXT_GAP_ID,
     NEXT_UNCERTAIN_ID,
     NEXT_UNVERIFIED_ID,
     PLAY_FROM_CURSOR,
     PREVIOUS_COMMENT_ID,
+    PREVIOUS_GAP_ID,
     PREVIOUS_UNCERTAIN_ID,
     SHORTCUT_ACTIONS_BY_ID,
     SUPERSCRIPT_ID,
@@ -521,14 +524,28 @@ class MainWindow(QMainWindow):
         self.main_toolbar = bar
 
     def _build_work_tools(self) -> None:
-        """Statystyki, migawki i paczka do przekazania z poleceniami w menu."""
+        """Statystyki, mapa pokrycia, migawki i paczka do przekazania."""
         self.progress = ProgressController(
             self,
             self.session.capture_state,
             lambda: len(self.notation.warnings),
             lambda: self.settings_store.current.project.daily_goal_min,
             lambda: Path(self.session.project_name or tr("stats.default_name")).stem,
+            silence=self.waveform.silence,
         )
+        # Mapa pokrycia na fali - ta sama definicja pokrycia co statystyki.
+        self.coverage = CoverageController(
+            self.waveform,
+            self.player,
+            lambda: covered_ranges(self.document.text, self.sync.entries()),
+            self.sync.cursor_to_time,
+            self.show_status,
+            self,
+        )
+        self.sync.anchors_changed.connect(self.coverage.schedule)
+        self.editor.document().contentsChanged.connect(self.coverage.schedule)
+        self.session.events.state_changed.connect(self.coverage.schedule)
+        self.session.events.reset.connect(self.coverage.schedule)
         self.snapshots = SnapshotController(
             self,
             self.session,
@@ -629,6 +646,9 @@ class MainWindow(QMainWindow):
         self.verification.ranges_changed.connect(
             lambda: self.waveform.set_verified(self.verification.ranges)
         )
+        self.waveform.panel.spectrogram.expanded_changed.connect(
+            self._on_spectrogram_expanded
+        )
         self.player.playback_error.connect(
             lambda error: self._show_error(tr("main.playback_error"), error)
         )
@@ -692,6 +712,10 @@ class MainWindow(QMainWindow):
         self.player_bar.apply_settings(settings.player)
         self.audio_filters.set_filters(settings.player.audio_filters)
         self.waveform.panel.set_expanded(settings.player.waveform_visible)
+        self.waveform.panel.spectrogram.set_expanded(
+            settings.player.spectrogram_visible
+        )
+        self.waveform.spectrogram.apply_options(settings.player.spectrogram)
         self.editor.apply_settings(settings.editor)
         self.compare_view.apply_settings(settings.editor)
         self.metadata_form.set_fields(settings.metadata.fields)
@@ -731,6 +755,8 @@ class MainWindow(QMainWindow):
             actions[search_id(key)] = action
         actions.update(self.speaker_actions)
         actions[ADD_COMMENT_ID] = self.comments.add_action
+        actions[NEXT_GAP_ID] = self.coverage.next_action
+        actions[PREVIOUS_GAP_ID] = self.coverage.previous_action
         actions.update(self.review_actions)
         return actions
 
@@ -791,13 +817,18 @@ class MainWindow(QMainWindow):
 
     def _on_waveform_expanded(self, expanded: bool) -> None:
         """Zwinięcie fali jest zapamiętywane w ustawieniach."""
+        player = self.settings_store.current.player
+        self._save_player_settings(replace(player, waveform_visible=expanded))
+
+    def _on_spectrogram_expanded(self, expanded: bool) -> None:
+        """Rozwinięcie spektrogramu jest zapamiętywane w ustawieniach."""
+        player = self.settings_store.current.player
+        self._save_player_settings(replace(player, spectrogram_visible=expanded))
+
+    def _save_player_settings(self, player: PlayerSettings) -> None:
         current = self.settings_store.current
-        if current.player.waveform_visible != expanded:
-            self.settings_store.save(
-                replace(
-                    current, player=replace(current.player, waveform_visible=expanded)
-                )
-            )
+        if player != current.player:
+            self.settings_store.save(replace(current, player=player))
 
     def _on_sound_changed(self) -> None:
         """Głośność i filtry z menu „Dźwięk” są zapamiętywane w ustawieniach."""
@@ -984,6 +1015,7 @@ class MainWindow(QMainWindow):
         self.corpus.set_locked(locked)
         self.learning.set_locked(locked)
         self.packs.set_locked(locked)
+        self.coverage.set_locked(locked)
 
     # --- stan --------------------------------------------------------------
 

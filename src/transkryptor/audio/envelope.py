@@ -5,6 +5,9 @@ zapisana jako bajty 0-255 (godzina nagrania ≈ 360 KB). Nagranie dekoduje
 PyAV (ta sama zależność co ASR) strumieniowo, po resamplingu do mono
 ``ENVELOPE_RATE`` Hz - pamięć nie rośnie z długością nagrania.
 
+:func:`silent_ranges` wyznacza z obwiedni fragmenty ciszy (mapa pokrycia
+transkrypcji nie oznacza ich jako luk).
+
 Wynik jest zapisywany w katalogu pamięci podręcznej użytkownika pod sumą
 SHA-256 nagrania; ponowne otwarcie tego samego nagrania nie dekoduje go
 od nowa. Uszkodzony albo niezgodny plik cache jest pomijany.
@@ -26,6 +29,11 @@ _MAGIC = b"TKENV"
 _VERSION = 1
 _HEADER = struct.Struct("<5sBHI")  # magia, wersja, krok ms, liczba wartości
 
+# Cisza: szczyt poniżej tej części najgłośniejszego miejsca nagrania, przez
+# co najmniej ``SILENCE_MIN_MS``.
+SILENCE_LEVEL = 0.05
+SILENCE_MIN_MS = 1000
+
 CancelCheck = Callable[[], bool]
 ProgressCallback = Callable[[float], None]
 
@@ -40,6 +48,31 @@ class Envelope:
     @property
     def duration_ms(self) -> int:
         return len(self.peaks) * self.step_ms
+
+
+def silent_ranges(
+    envelope: Envelope,
+    level: float = SILENCE_LEVEL,
+    min_ms: int = SILENCE_MIN_MS,
+) -> tuple[tuple[int, int], ...]:
+    """Fragmenty ciszy (ms) - poziom względem najgłośniejszego miejsca."""
+    top = max(envelope.peaks, default=0)
+    if not top:
+        return ((0, envelope.duration_ms),) if envelope.peaks else ()
+    threshold = top * level
+    ranges: list[tuple[int, int]] = []
+    start: int | None = None
+    for index, peak in enumerate(envelope.peaks):
+        if peak <= threshold:
+            if start is None:
+                start = index
+        elif start is not None:
+            ranges.append((start, index))
+            start = None
+    if start is not None:
+        ranges.append((start, len(envelope.peaks)))
+    step = envelope.step_ms
+    return tuple((a * step, b * step) for a, b in ranges if (b - a) * step >= min_ms)
 
 
 def waveform_cache_dir() -> Path:

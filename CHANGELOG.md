@@ -7,9 +7,32 @@ Pusta sekcja blokuje wydanie.
 
 ## Nieopublikowane
 
+- **Mapa pokrycia transkrypcji na fali:** pod falą dźwiękową pasek
+  pokazuje, które fragmenty nagrania mają już tekst (według kotwic szkicu
+  ASR i znaczników czasu), a luki bez tekstu dłuższe niż 3 s są
+  podświetlone - cisza wykryta w nagraniu nie jest liczona jako luka. Pod
+  falą jest też miniatura całego nagrania z tą samą mapą i ramką
+  widocznego fragmentu powiększonej fali; kliknięcie przewija nagranie.
+  Nagłówek fali podaje procent pokrycia i liczbę luk (np. „Pokrycie: 82% ·
+  luki: 3”). **Następna luka** (F6) i **Poprzednia luka** (Shift+F6)
+  przewijają nagranie do początku luki i stawiają kursor tekstu w miejscu,
+  gdzie brakuje transkrypcji; skróty zmienisz na zakładce **Skróty**.
+  Okno **Statystyki projektu** pokazuje te same luki (liczbę i łączny czas).
+- **Spektrogram fragmentu:** zwijany panel **Spektrogram** pod falą
+  pokazuje spektrogram pętli A-B, a bez pętli - widocznego fragmentu
+  powiększonej fali, do 15 s (dłuższy zakres nie jest liczony, żeby nie
+  obciążać programu). Kursor odtwarzania przesuwa się po spektrogramie,
+  a kliknięcie i przeciągnięcie działają jak na fali (przewinięcie i pętla
+  A-B). Liczenie odbywa się w tle. Na zakładce **Odtwarzacz** wybierzesz
+  zakres częstotliwości (0-5 kHz albo 0-8 kHz) i okno: szerokopasmowe
+  (formanty) albo wąskopasmowe (harmoniczne). Kolory spektrogramu
+  dopasowują się do motywu jasnego i ciemnego. Samouczek **Odtwarzacz
+  i nagranie** opisuje mapę pokrycia i spektrogram.
+
 - **Statystyki projektu:** nowe okno w menu przycisku eksportu pokazuje,
   jaka część nagrania jest przetranskrybowana (pokrycie tekstem według
-  kotwic czasowych szkicu ASR i znaczników czasu) i zweryfikowana, czas
+  kotwic czasowych szkicu ASR i znaczników czasu), ile jest w niej luk
+  i jaka część jest zweryfikowana, czas
   pracy nad projektem (łącznie i dzisiaj), tempo w minutach nagrania na
   godzinę pracy, szacowany czas do końca, liczbę słów (także na mówcę),
   otwarte komentarze i ostrzeżenia. Tabelę można zapisać do CSV albo XLSX.

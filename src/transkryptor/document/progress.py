@@ -7,7 +7,8 @@ przy aktywności w oknie, z limitem bezczynności.
 Pokrycie tekstem liczone jest z kotwic czasowych: zakresy segmentów i słów
 szkicu ASR oraz czas między kolejnymi kotwicami (także ręcznymi znacznikami),
 gdy między nimi w tekście jest coś więcej niż odstęp. Tekst bez kotwic nie
-daje pokrycia - postęp pokazuje wtedy tylko liczba słów.
+daje pokrycia - postęp pokazuje wtedy tylko liczba słów. Z tego samego
+pokrycia mapa na fali dźwiękowej wyznacza luki (``document/coverage.py``).
 
 :func:`project_stats` zbiera z ``ProjectState`` dane okna „Statystyki
 projektu”, a :func:`stats_rows` - wiersze do eksportu CSV/XLSX.
@@ -19,6 +20,7 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 
 from transkryptor.document.anchors import Anchor
+from transkryptor.document.coverage import transcription_gaps
 from transkryptor.document.project.model import ProjectState
 from transkryptor.document.speakers import paragraph_spans
 from transkryptor.document.verification import normalized
@@ -79,6 +81,8 @@ class ProjectStats:
     warnings: int = 0
     today_seconds: int = 0
     today_covered_ms: int = 0
+    # Luki w transkrypcji (``document/coverage.py``); None - nieznana długość.
+    gaps: tuple[Range, ...] | None = None
 
     def ratio(self, part_ms: int) -> float | None:
         """Część nagrania (0.0-1.0); None bez znanej długości nagrania."""
@@ -116,21 +120,28 @@ def project_stats(
     today: str,
     warnings: int = 0,
     duration_ms: int | None = None,
+    silence: Iterable[Range] = (),
 ) -> ProjectStats:
-    """Statystyki projektu; ``duration_ms`` - długość nagrania, gdy znana."""
-    covered = covered_ms(state.text, state.anchors)
+    """Statystyki projektu; ``duration_ms`` - długość nagrania, gdy znana.
+
+    ``silence`` to cisza wykryta w nagraniu - nie jest luką w transkrypcji.
+    """
+    ranges = covered_ranges(state.text, state.anchors)
+    covered = total_ms(ranges)
     day = state.work.day(today)
+    duration = duration_ms or state.work.audio_duration_ms
     return ProjectStats(
         words=state.word_count,
         work_seconds=state.work.seconds,
         transcribed_ms=covered,
         verified_ms=total_ms(state.verified),
-        duration_ms=duration_ms or state.work.audio_duration_ms,
+        duration_ms=duration,
         words_by_speaker=words_by_speaker(state),
         open_comments=sum(1 for c in state.comments if not c.resolved),
         warnings=warnings,
         today_seconds=day.seconds if day is not None else 0,
         today_covered_ms=max(0, covered - day.covered_start_ms) if day else 0,
+        gaps=transcription_gaps(ranges, duration, silence) if duration else None,
     )
 
 
@@ -146,6 +157,17 @@ def format_percent(ratio: float | None) -> str:
     return "-" if ratio is None else f"{ratio * 100:.0f}%"
 
 
+def format_gaps(gaps: tuple[Range, ...] | None) -> str:
+    """Liczba luk i ich łączny czas (``-`` bez znanej długości nagrania)."""
+    if gaps is None:
+        return "-"
+    return tr(
+        "stats.gaps.value",
+        count=len(gaps),
+        time=format_duration(total_ms(gaps) // 1000),
+    )
+
+
 def format_pace(pace: float | None) -> str:
     return "-" if pace is None else tr("stats.pace.value", pace=f"{pace:.1f}")
 
@@ -159,6 +181,7 @@ def stats_rows(stats: ProjectStats) -> Sequence[tuple[str, str | int]]:
         ),
         (tr("stats.transcribed"), format_percent(stats.transcribed_ratio)),
         (tr("stats.transcribed_time"), format_duration(stats.transcribed_ms // 1000)),
+        (tr("stats.gaps"), format_gaps(stats.gaps)),
         (tr("stats.verified"), format_percent(stats.verified_ratio)),
         (tr("stats.verified_time"), format_duration(stats.verified_ms // 1000)),
         (tr("stats.work_time"), format_duration(stats.work_seconds)),
