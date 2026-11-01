@@ -43,9 +43,11 @@ Pusta sekcja blokuje wydanie.
   kolejne elementy (z pulsującą ramką i resztą okna przyciemnioną)
   i wyjaśniają, do czego służą. Do wyboru: **Pierwsze kroki**,
   **Odtwarzacz i nagranie**, **Notacja i ostrzeżenia**, **Szkic ASR**,
-  **Tryb recenzji** oraz **Projekt i eksport**. „Pierwsze kroki” startują
-  same przy pierwszym uruchomieniu; **Pomiń samouczek** (albo Esc) zamyka
-  przewodnik w każdej chwili, a po ukończeniu lub pominięciu nie pokazuje
+  **Tryb recenzji**, **Projekt i eksport** oraz **Organizacja pracy**
+  (statystyki, dzienny cel, migawki i paczka do przekazania). „Pierwsze
+  kroki” startują same przy pierwszym uruchomieniu; **Pomiń samouczek**
+  (albo Esc) zamyka przewodnik w każdej chwili, a po ukończeniu lub
+  pominięciu nie pokazuje
   się on już przy starcie. Do samouczków wrócisz przyciskiem **Samouczki**
   na dole okna albo w ustawieniach, na nowej zakładce **Samouczki** - tam
   też włączysz ponownie „Pierwsze kroki” przy uruchomieniu. Opisy podają
