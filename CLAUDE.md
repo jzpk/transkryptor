@@ -58,6 +58,20 @@ któryś limit, najpierw wydziel część kodu, potem dopisuj funkcję.
   nowa klasa strony, nie kolejne pola w `SettingsDialog`.
 - Nowy format eksportu: wpis w rejestrze `export/registry.py`.
 
+**Samouczki**
+
+- Każda nowa funkcja widoczna dla użytkownika (polecenie, okno, przycisk,
+  ustawienie) musi być opisana w samouczku w tej samej zmianie: nowy krok
+  w pasującym samouczku albo nowy samouczek w `ui/tutorial_content.py`
+  (`TUTORIALS`), z tekstami `tutorial.<samouczek>.<krok>.title`/`.text`
+  w obu katalogach `i18n/locales/*.json`.
+- Krok wskazuje element okna przez `objectName` (z zapasowym celem, np.
+  `more_button`, gdy element bywa schowany); nowy widżet, na który wskazuje
+  samouczek, dostaje `setObjectName`. Skróty wstawiaj polami `{nazwa}`
+  z `shortcuts`, nie na sztywno.
+- Gdy funkcja zmienia coś, co opisuje istniejący krok (np. nowe pozycje
+  w menu przycisku), popraw też jego tekst.
+
 **Higiena kodu**
 
 - Używaj istniejących pomocników zamiast kopii: `ui.messages.show_error`,

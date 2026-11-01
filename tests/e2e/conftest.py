@@ -22,6 +22,7 @@ from tests.ui.conftest import (  # noqa: F401 - fikstury dla testów e2e
     isolated_playback_cache,
     isolated_rules,
     isolated_settings,
+    isolated_snapshots,
     isolated_waveform_cache,
     no_blocking_dialogs,
 )

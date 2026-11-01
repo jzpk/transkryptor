@@ -14,7 +14,7 @@ from transkryptor.document.speakers import DEFAULT_SPEAKERS
 from transkryptor.errors import ProjectError
 from transkryptor.i18n import tr
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 
 
 # Wersja N → N+1. Migracja dostaje słownik w wersji N i zwraca słownik
@@ -58,12 +58,18 @@ def _add_comments(data: dict[str, Any]) -> dict[str, Any]:
     return {**data, "schema_version": 6, "comments": [], "verified": []}
 
 
+def _add_work_log(data: dict[str, Any]) -> dict[str, Any]:
+    """6 → 7 (wydanie 0.8.0): bez zapisanego czasu pracy."""
+    return {**data, "schema_version": 7, "work": {"seconds": 0, "days": []}}
+
+
 _MIGRATIONS: dict[int, Callable[[dict[str, Any]], dict[str, Any]]] = {
     1: _add_asr_context,
     2: _add_ignored_warnings,
     3: _add_anchors,
     4: _add_speakers,
     5: _add_comments,
+    6: _add_work_log,
 }
 
 

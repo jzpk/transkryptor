@@ -236,10 +236,12 @@ def encode_snippets(snippets: Iterable[Snippet]) -> str:
 
 @dataclass(frozen=True)
 class ProjectSettings:
-    """Autozapis bieżącej pracy (sekundy)."""
+    """Autozapis bieżącej pracy (sekundy) i dzienny cel pracy."""
 
     autosave_enabled: bool = True
     autosave_interval_s: int = 60
+    # Dzienny cel: minuty nagrania przetranskrybowane w ciągu dnia (0 - bez celu).
+    daily_goal_min: int = 0
 
 
 @dataclass(frozen=True)
@@ -372,6 +374,7 @@ SEGMENT_PREROLL_RANGE_MS = (0, 5_000)
 VOLUME_RANGE_PCT = (0, 100)
 FONT_SIZE_RANGE_PT = (6, 48)  # 0 = domyślny, poza zakresem
 AUTOSAVE_INTERVAL_RANGE_S = (30, 600)
+DAILY_GOAL_RANGE_MIN = (1, 600)
 WORD_THRESHOLD_RANGE_PCT = (5, 95)
 DIARIZE_SPEAKERS_RANGE = (0, 8)  # 0 = automatycznie
 ELLIPSIS_STYLES = tuple(style.value for style in EllipsisStyle)
@@ -409,6 +412,7 @@ _FIELDS: tuple[_Field, ...] = (
     ),
     _Field("project", "autosave_enabled", bool),
     _Field("project", "autosave_interval_s", int, *AUTOSAVE_INTERVAL_RANGE_S),
+    _Field("project", "daily_goal_min", int, *DAILY_GOAL_RANGE_MIN, allow_zero=True),
     _Field(
         "metadata",
         "fields_spec",

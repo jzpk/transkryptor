@@ -167,6 +167,7 @@ class TestSchema:
             "anchors": [],
             "comments": [],
             "verified": [],
+            "work": {"seconds": 0, "days": []},
             "nowe_pole": [],
         }
 

@@ -209,6 +209,10 @@ class CompareController(QObject):
             )
             if answer != QMessageBox.StandardButton.Yes:
                 return False
+        return self.compare_with_state(other, source.name)
+
+    def compare_with_state(self, other: ProjectState, name: str) -> bool:
+        """Porównuje bieżący dokument ze stanem ``other`` (np. migawką)."""
         self.finish()
         current = Version.from_document(self._document())
         other_version = Version(
@@ -219,7 +223,7 @@ class CompareController(QObject):
             QMessageBox.information(
                 self._parent,
                 tr("compare.title.short"),
-                tr("compare.identical", name=source.name),
+                tr("compare.identical", name=name),
             )
             return False
 
@@ -240,8 +244,8 @@ class CompareController(QObject):
             for change in changes
         ]
         self.editor.setReadOnly(True)
-        self.panel.set_title(source.name)
-        self._show_column(source.name)
+        self.panel.set_title(name)
+        self._show_column(name)
         self.refresh()
         self.panel.select(0)
         self.activate(0)

@@ -7,13 +7,47 @@ Pusta sekcja blokuje wydanie.
 
 ## Nieopublikowane
 
+- **Statystyki projektu:** nowe okno w menu przycisku eksportu pokazuje,
+  jaka część nagrania jest przetranskrybowana (pokrycie tekstem według
+  kotwic czasowych szkicu ASR i znaczników czasu) i zweryfikowana, czas
+  pracy nad projektem (łącznie i dzisiaj), tempo w minutach nagrania na
+  godzinę pracy, szacowany czas do końca, liczbę słów (także na mówcę),
+  otwarte komentarze i ostrzeżenia. Tabelę można zapisać do CSV albo XLSX.
+  Czas pracy rośnie tylko przy pracy w programie (edycja, ruch kursora,
+  odtwarzanie) - przerwa dłuższa niż 2 minuty się nie liczy - i jest
+  zapisywany w pliku projektu; starsze projekty zaczynają od zera.
+  W ustawieniach, na zakładce **Projekt**, można ustawić **dzienny cel**
+  (np. 20 minut nagrania) - postęp dnia widać wtedy w pasku stanu.
+  W zakładce **Metryczki** okna **Korpus** doszły kolumny **Czas pracy**,
+  **Przetranskrybowano** i **Zweryfikowano**.
+- **Migawki projektu:** **Zapisz migawkę…** w menu przycisku zapisu
+  zapamiętuje bieżący stan pracy z krótkim opisem (np. „przed recenzją”).
+  Migawki automatyczne powstają przed wstawieniem szkicu ASR, importem
+  DOCX i ujednoliceniem wielokropków. **Historia projektu…** pokazuje listę
+  migawek (data, opis, liczba słów) z przyciskami **Porównaj z bieżącym**
+  (widok porównania wersji) i **Przywróć** - bieżący stan zostaje
+  wcześniej zapisany jako migawka, więc przywrócenie da się cofnąć.
+  Migawki leżą w katalogu danych programu; automatycznych zostaje najwyżej
+  20 z ostatnich 30 dni.
+- **Paczka do przekazania:** **Eksportuj paczkę…** (menu przycisku
+  eksportu) tworzy jeden plik `.tkpack` z projektem, nagraniem, własnymi
+  regułami fonetycznymi, wstawkami, ustawieniami notacji i walidatora oraz
+  szablonem DOCX. Przed zapisem widać zawartość i rozmiar paczki (z
+  ostrzeżeniem przy bardzo dużym nagraniu); nagranie można pominąć, gdy
+  weryfikator już je ma - wtedy po otwarciu wskazuje własną kopię, a
+  program sprawdza ją po sumie kontrolnej. **Otwórz paczkę…** (menu
+  przycisku otwierania) albo upuszczenie pliku na okno rozpakowuje paczkę
+  do wybranego katalogu i otwiera projekt; reguły, wstawki i ustawienia
+  notacji z paczki można przyjąć, scalić z własnymi albo pominąć.
 - **Samouczki w programie:** krótkie przewodniki po oknie podświetlają
   kolejne elementy (z pulsującą ramką i resztą okna przyciemnioną)
   i wyjaśniają, do czego służą. Do wyboru: **Pierwsze kroki**,
   **Odtwarzacz i nagranie**, **Notacja i ostrzeżenia**, **Szkic ASR**,
-  **Tryb recenzji** oraz **Projekt i eksport**. „Pierwsze kroki” startują
-  same przy pierwszym uruchomieniu; **Pomiń samouczek** (albo Esc) zamyka
-  przewodnik w każdej chwili, a po ukończeniu lub pominięciu nie pokazuje
+  **Tryb recenzji**, **Projekt i eksport** oraz **Organizacja pracy**
+  (statystyki, dzienny cel, migawki i paczka do przekazania). „Pierwsze
+  kroki” startują same przy pierwszym uruchomieniu; **Pomiń samouczek**
+  (albo Esc) zamyka przewodnik w każdej chwili, a po ukończeniu lub
+  pominięciu nie pokazuje
   się on już przy starcie. Do samouczków wrócisz przyciskiem **Samouczki**
   na dole okna albo w ustawieniach, na nowej zakładce **Samouczki** - tam
   też włączysz ponownie „Pierwsze kroki” przy uruchomieniu. Opisy podają

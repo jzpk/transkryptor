@@ -24,6 +24,7 @@ from transkryptor.document.project.model import (
 from transkryptor.document.project.paths import relative_audio_path
 from transkryptor.document.speakers import Speaker, check_speakers, paragraph_count
 from transkryptor.document.verification import normalized as verified_ranges
+from transkryptor.document.work_log import WorkDay, WorkLog
 
 
 def to_dict(state: ProjectState, project_path: Path | None = None) -> dict[str, Any]:
@@ -101,7 +102,25 @@ def to_dict(state: ProjectState, project_path: Path | None = None) -> dict[str, 
         "anchors": [_anchor_dict(a) for a in state.anchors],
         "comments": [_comment_dict(c) for c in state.comments],
         "verified": [list(r) for r in state.verified],
+        "work": _work_dict(state.work),
     }
+
+
+def _work_dict(work: WorkLog) -> dict[str, Any]:
+    data: dict[str, Any] = {
+        "seconds": work.seconds,
+        "days": [
+            {
+                "date": day.date,
+                "seconds": day.seconds,
+                "covered_start_ms": day.covered_start_ms,
+            }
+            for day in work.days
+        ],
+    }
+    if work.audio_duration_ms is not None:
+        data["audio_duration_ms"] = work.audio_duration_ms
+    return data
 
 
 def _segment_dict(segment: AsrSegment) -> dict[str, Any]:
@@ -346,7 +365,27 @@ def _parse(data: dict[str, Any]) -> ProjectState:
         paragraph_speakers=assignments,
         comments=comments,
         verified=verified_ranges(_ranges(data.get("verified", []))),
+        work=_parse_work(_dict(data.get("work", {}))),
     )
+
+
+def _parse_work(work: dict[str, Any]) -> WorkLog:
+    duration = _optional_int(work.get("audio_duration_ms"))
+    log = WorkLog(
+        seconds=max(0, _int(work.get("seconds", 0))),
+        audio_duration_ms=duration if duration and duration > 0 else None,
+        days=tuple(
+            WorkDay(
+                date=_str(day["date"]),
+                seconds=max(0, _int(day.get("seconds", 0))),
+                covered_start_ms=max(0, _int(day.get("covered_start_ms", 0))),
+            )
+            for day in map(_dict, _list(work.get("days", [])))
+        ),
+    )
+    if len({day.date for day in log.days}) != len(log.days):
+        raise ValueError("powtórzony dzień pracy")
+    return log
 
 
 def _dict(value: Any) -> dict[str, Any]:

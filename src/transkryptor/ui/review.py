@@ -11,7 +11,7 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
-from PySide6.QtCore import QObject
+from PySide6.QtCore import QObject, Signal
 from PySide6.QtGui import QTextCharFormat, QTextCursor
 from PySide6.QtWidgets import QMessageBox, QWidget
 
@@ -48,6 +48,9 @@ class ReviewItem:
 
 class ReviewController(QObject):
     """Szkic ASR w edytorze i lista przeglądu automatycznych zmian."""
+
+    # Szkic zaraz zastąpi albo uzupełni tekst (np. migawka automatyczna).
+    draft_about_to_insert = Signal()
 
     def __init__(
         self,
@@ -91,6 +94,7 @@ class ReviewController(QObject):
                 return False
         else:
             placement = DRAFT_REPLACE
+        self.draft_about_to_insert.emit()
         self.finish()
         # Szkic nie wprowadza zapisu wielokropka innego niż wybrany.
         style = self._ellipsis_style()

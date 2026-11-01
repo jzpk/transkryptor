@@ -5,8 +5,11 @@ z polami metadanych, metryczką i paskiem wyszukiwania, panel ostrzeżeń,
 panel ASR oraz pasek stanu. Logikę deleguje do kontrolerów: przegląd szkicu
 ASR (``ui/review.py``), stan sesji, projekt i autozapis (``ui/session.py``,
 ``ui/autosave.py``), eksport
-(``ui/export_controller.py``), odtwarzacz (``ui/player_controller.py``)
-i wyszukiwanie (``ui/search_controller.py``). Okno uruchamia nieblokującą
+(``ui/export_controller.py``), odtwarzacz (``ui/player_controller.py``),
+wyszukiwanie (``ui/search_controller.py``) oraz organizację pracy:
+statystyki (``ui/stats_dialog.py``), migawki
+(``ui/snapshot_controller.py``) i paczkę do przekazania
+(``ui/pack_controller.py``). Okno uruchamia nieblokującą
 walidację ``notation.validate`` z debounce - reguły pozostają w module
 ``notation``, UI je prezentuje - i stosuje ustawienia bez restartu.
 """
@@ -36,6 +39,7 @@ from transkryptor.asr.manager import ModelManager
 from transkryptor.asr.models import model_by_key
 from transkryptor.audio.player import AudioPlayer
 from transkryptor.document.model import Document
+from transkryptor.document.progress import covered_ms
 from transkryptor.document.readiness import ReadinessReport, build_report
 from transkryptor.document.speakers import (
     Speaker,
@@ -77,6 +81,7 @@ from transkryptor.ui.messages import show_error
 from transkryptor.ui.metadata_form import MetadataForm, MetadataWidgets
 from transkryptor.ui.navigation import BACKWARD, FORWARD
 from transkryptor.ui.notation_controller import IgnoredWarnings, NotationController
+from transkryptor.ui.pack_controller import PackController
 from transkryptor.ui.player_bar import PlayerBar
 from transkryptor.ui.player_controller import PlayerController
 from transkryptor.ui.readiness_dialog import ReadinessController
@@ -111,8 +116,10 @@ from transkryptor.ui.shortcuts import (
     project_id,
     search_id,
 )
+from transkryptor.ui.snapshot_controller import SnapshotController
 from transkryptor.ui.snippets import SnippetController
 from transkryptor.ui.speaker_controller import SpeakerController
+from transkryptor.ui.stats_dialog import ProgressController
 from transkryptor.ui.sync_controller import SyncController
 from transkryptor.ui.theme import apply_theme, resolve_tokens, set_props, tokens
 from transkryptor.ui.toolbar import MainToolbar, ToolbarHandlers
@@ -121,6 +128,7 @@ from transkryptor.ui.update_controller import UpdateController
 from transkryptor.ui.verification import VerificationController
 from transkryptor.ui.warnings_panel import WarningsPanel
 from transkryptor.ui.waveform import WaveformController
+from transkryptor.ui.work_time import WorkTimeTracker
 
 logger = logging.getLogger(__name__)
 
@@ -222,6 +230,11 @@ class MainWindow(QMainWindow):
             self.show_status,
             self,
         )
+        # Czas pracy liczony przy aktywności w oknie (zapisywany w projekcie).
+        self.work_time = WorkTimeTracker(
+            self.player, lambda: covered_ms(self.document.text, self.sync.entries())
+        )
+        self.work_time.watch(self.editor.cursorPositionChanged, self.editor.textChanged)
         self.session = SessionController(
             self,
             self.editor,
@@ -234,6 +247,7 @@ class MainWindow(QMainWindow):
                 sync=self.sync,
                 comments=self.comments,
                 verification=self.verification,
+                work=self.work_time,
             ),
             MetadataWidgets(self.author_edit, self.date_edit, self.metadata_form),
             settings_store,
@@ -327,6 +341,7 @@ class MainWindow(QMainWindow):
         # punkt wejścia (``__main__.main``) przez ``updates.start_automatic``.
         self.updates = UpdateController(self)
         self._build_toolbar()
+        self._build_work_tools()
         self.player_controller = PlayerController(
             self,
             self.player,
@@ -505,6 +520,40 @@ class MainWindow(QMainWindow):
         self.corpus_action = bar.corpus_action
         self.main_toolbar = bar
 
+    def _build_work_tools(self) -> None:
+        """Statystyki, migawki i paczka do przekazania z poleceniami w menu."""
+        self.progress = ProgressController(
+            self,
+            self.session.capture_state,
+            lambda: len(self.notation.warnings),
+            lambda: self.settings_store.current.project.daily_goal_min,
+            lambda: Path(self.session.project_name or tr("stats.default_name")).stem,
+        )
+        self.snapshots = SnapshotController(
+            self,
+            self.session,
+            self.compare.compare_with_state,
+            lambda: self.player.source_path,
+            self.show_status,
+        )
+        self.snapshots.watch(
+            self.review.draft_about_to_insert, self.notation.bulk_change_started
+        )
+        self.packs = PackController(
+            self,
+            self.session,
+            self.settings_store,
+            self.rules_store,
+            lambda: self.player.source_path,
+            self.show_status,
+        )
+        self.packs.accept_drops_on(self.editor.viewport())
+        self.main_toolbar.add_open_actions([self.packs.open_action])
+        self.main_toolbar.add_save_actions(self.snapshots.actions)
+        self.main_toolbar.add_export_actions(
+            [self.progress.stats_action, self.packs.export_action]
+        )
+
     def _build_status_bar(self) -> None:
         status = self.statusBar()
         status.setSizeGripEnabled(False)
@@ -539,6 +588,7 @@ class MainWindow(QMainWindow):
         status.addWidget(self.tutorials.button)
         # Propozycja reguły z powtarzalnych poprawek szkicu (ukryta bez niej).
         status.addPermanentWidget(self.learning.button)
+        status.addPermanentWidget(self.progress.goal_label)
         self.export_status_label = QLabel()
         self.export_status_label.setObjectName("export_status_label")
         status.addPermanentWidget(self.export_status_label)
@@ -657,6 +707,7 @@ class MainWindow(QMainWindow):
         self._apply_shortcuts(effective_shortcuts(settings.shortcuts.overrides))
         self.snippets.set_snippets(settings.snippets.snippets)
         self.snippets.set_autocomplete(settings.editor.autocomplete)
+        self.progress.refresh_goal()
         self.notation.schedule_validation()
 
     def _collect_shortcut_actions(self) -> dict[str, QAction]:
@@ -922,6 +973,8 @@ class MainWindow(QMainWindow):
             self.settings_action,
             self.unify_ellipses_action,
             *self.search_actions.values(),
+            *self.snapshots.actions,
+            self.progress.stats_action,
         ):
             action.setEnabled(not locked)
         self.player_controller.set_locked(locked)
@@ -930,6 +983,7 @@ class MainWindow(QMainWindow):
         self.verification.set_locked(locked)
         self.corpus.set_locked(locked)
         self.learning.set_locked(locked)
+        self.packs.set_locked(locked)
 
     # --- stan --------------------------------------------------------------
 

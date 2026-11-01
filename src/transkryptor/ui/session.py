@@ -68,6 +68,7 @@ from transkryptor.ui.review import ReviewController
 from transkryptor.ui.settings_store import SettingsStore
 from transkryptor.ui.sync_controller import SyncController
 from transkryptor.ui.verification import VerificationController
+from transkryptor.ui.work_time import WorkTimeTracker
 
 logger = logging.getLogger(__name__)
 
@@ -78,13 +79,14 @@ DOWNLOAD_SHUTDOWN_WAIT_MS = 5000
 @dataclass(frozen=True)
 class ProjectAnnotations:
     """Dane projektu poza tekstem: przegląd reguł, zignorowane ostrzeżenia,
-    kotwice czasowe, komentarze i sprawdzone zakresy nagrania."""
+    kotwice czasowe, komentarze, sprawdzone zakresy nagrania i czas pracy."""
 
     review: ReviewController
     ignored_warnings: IgnoredWarnings
     sync: SyncController
     comments: CommentsController
     verification: VerificationController
+    work: WorkTimeTracker
 
 
 class SessionEvents(QObject):
@@ -94,6 +96,10 @@ class SessionEvents(QObject):
     reset = Signal()
     # Projekt otwarty, zapisany, odzyskany albo zaimportowany.
     state_changed = Signal()
+    # Projekt zapisany do pliku (przed ``state_changed``).
+    saved = Signal()
+    # Import DOCX zaraz zastąpi bieżącą pracę (np. migawka automatyczna).
+    about_to_import = Signal()
 
 
 class SessionController(QObject):
@@ -126,6 +132,7 @@ class SessionController(QObject):
         self._sync = annotations.sync
         self._comments = annotations.comments
         self._verification = annotations.verification
+        self._work = annotations.work
         self._metadata = metadata
         self._settings_store = settings_store
         self.events = SessionEvents(self)
@@ -260,6 +267,7 @@ class SessionController(QObject):
         self._sync.clear()
         self._comments.clear()
         self._verification.clear()
+        self._work.clear()
         self._metadata.clear()
         self.document = Document()
         self.project_path = None
@@ -428,7 +436,7 @@ class SessionController(QObject):
             thread.requestInterruption()
             thread.wait()
 
-    def _wait_for_audio_hash(self) -> None:
+    def wait_for_audio_hash(self) -> None:
         """Zapis projektu czeka na sumę nagrania liczoną w tle."""
         thread = self._hash_thread
         if thread is None:
@@ -474,7 +482,7 @@ class SessionController(QObject):
         return f"{tr('session.default_project_name')}{PROJECT_SUFFIX}"
 
     def _write_project(self, path: Path) -> bool:
-        self._wait_for_audio_hash()
+        self.wait_for_audio_hash()
         state = self.capture_state()
         logger.info("Saving project: %d characters of text", len(state.text))
         try:
@@ -486,6 +494,7 @@ class SessionController(QObject):
         self.project_path = path
         self._settings_store.add_recent_project(str(path))
         self.autosave.discard()
+        self.events.saved.emit()
         self.events.state_changed.emit()
         return True
 
@@ -535,6 +544,7 @@ class SessionController(QObject):
             paragraph_speakers=dict(document.paragraph_speakers),
             comments=tuple(self._comments.entries()),
             verified=self._verification.entries(),
+            work=self._work.entries(),
         )
 
     # --- otwieranie projektu ---------------------------------------------------
@@ -665,6 +675,7 @@ class SessionController(QObject):
         self._review.restore(state.review)
         self._sync.restore(state.anchors)
         self._verification.restore(state.verified)
+        self._work.restore(state.work)
 
         document = Document(
             text=state.text,
@@ -705,6 +716,7 @@ class SessionController(QObject):
         except AppError as error:
             show_error(self._parent, tr("session.import_docx.title"), error)
             return False
+        self.events.about_to_import.emit()
         state = ProjectState(
             text=imported.text,
             superscript_ranges=tuple(imported.superscript_ranges),

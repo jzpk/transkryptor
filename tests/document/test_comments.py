@@ -61,7 +61,7 @@ def test_project_round_trip() -> None:
     state = ProjectState(text="tak było", comments=(COMMENT,))
     restored = loads(dumps(state))
     assert restored.comments == (COMMENT,)
-    assert json.loads(dumps(state))["schema_version"] == SCHEMA_VERSION == 6
+    assert json.loads(dumps(state))["schema_version"] == SCHEMA_VERSION
 
 
 def test_resolved_status_round_trip() -> None:
@@ -79,7 +79,7 @@ def test_resolved_status_round_trip() -> None:
 def test_schema_5_gets_no_comments() -> None:
     data: dict[str, Any] = {"schema_version": 5, "document": {"text": "ab"}}
     migrated = migrate(data)
-    assert migrated["schema_version"] == 6
+    assert migrated["schema_version"] == SCHEMA_VERSION
     assert migrated["comments"] == []
     assert "comments" not in data  # wejście bez zmian
     assert from_dict(data).comments == ()

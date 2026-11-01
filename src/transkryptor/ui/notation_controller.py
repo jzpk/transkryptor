@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable
 
-from PySide6.QtCore import QObject, QTimer
+from PySide6.QtCore import QObject, QTimer, Signal
 from PySide6.QtGui import QAction, QColor, QTextCursor
 from PySide6.QtWidgets import QLabel, QMenu, QWidget
 
@@ -101,6 +101,9 @@ class IgnoredWarnings:
 class NotationController(QObject):
     """Markery, „Ujednolić wielokropki” i nieblokująca walidacja (REQ-05/06)."""
 
+    # Masowa zmiana tekstu zaraz się zacznie (np. migawka automatyczna).
+    bulk_change_started = Signal()
+
     def __init__(
         self,
         editor: TranscriptionEditor,
@@ -149,6 +152,8 @@ class NotationController(QObject):
         wanted = ellipsis_text(self._style())
         text = self.editor.plain_text()
         ranges = foreign_ellipses(text, self._style())
+        if ranges:
+            self.bulk_change_started.emit()
         positions = PositionMap(text)
         self.editor.apply_tracked_replacements(
             [

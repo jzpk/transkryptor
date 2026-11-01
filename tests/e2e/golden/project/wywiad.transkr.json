@@ -143,6 +143,11 @@
   "position_ms": 1500
  },
  "review": [],
- "schema_version": 6,
- "verified": []
+ "schema_version": 7,
+ "verified": [],
+ "work": {
+  "audio_duration_ms": 90000,
+  "days": [],
+  "seconds": "<s>"
+ }
 }
