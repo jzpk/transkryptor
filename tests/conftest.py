@@ -43,6 +43,14 @@ def pytest_ignore_collect(collection_path: Path, config: pytest.Config) -> bool 
     return None
 
 
+@pytest.fixture(scope="session")
+def qapp_cls():
+    """Ta sama klasa aplikacji co w programie (``LC_NUMERIC=C`` dla FFmpeg)."""
+    from transkryptor.ui.application import Application
+
+    return Application
+
+
 @pytest.fixture(autouse=True)
 def polish_ui_language():
     """Testy sprawdzają polskie teksty - niezależnie od języka systemu."""

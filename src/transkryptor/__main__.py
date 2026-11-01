@@ -220,11 +220,11 @@ def main(argv: list[str] | None = None) -> int:
 
     start_diagnostics()
     from PySide6.QtCore import QTimer
-    from PySide6.QtWidgets import QApplication
 
+    from transkryptor.ui.application import Application
     from transkryptor.ui.theme import apply_theme
 
-    app = QApplication(sys.argv[:1])
+    app = Application(sys.argv[:1])
     app.setApplicationName("transkryptor")
     app.setApplicationDisplayName("Transkryptor")
     app.setApplicationVersion(__version__)
