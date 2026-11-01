@@ -41,6 +41,9 @@ from transkryptor.document.pack_settings import (
 from transkryptor.i18n import tr
 from transkryptor.ui.theme import set_props
 
+# Szerokość, przy której zawijane opisy mieszczą się w kilku liniach.
+DIALOG_MIN_WIDTH = 460
+
 
 def format_size(size: int) -> str:
     """Rozmiar w MB z jednym miejscem po przecinku (np. ``12,5 MB``)."""
@@ -92,6 +95,9 @@ class PackExportDialog(QDialog):
         layout.addWidget(self.size_label)
         layout.addWidget(self.warning_label)
         layout.addWidget(buttons)
+        # Zawijane etykiety bez minimalnej szerokości ściskają okno tak,
+        # że tekst nie mieści się w pionie.
+        self.setMinimumWidth(DIALOG_MIN_WIDTH)
         self._update_size()
 
     @property
@@ -132,6 +138,8 @@ class PackExportDialog(QDialog):
         else:
             self.warning_label.setText("")
         self.warning_label.setVisible(bool(self.warning_label.text()))
+        # Ostrzeżenie pojawia się i znika - okno dopasowuje wysokość.
+        self.adjustSize()
 
 
 class PackImportDialog(QDialog):
@@ -180,6 +188,7 @@ class PackImportDialog(QDialog):
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
+        self.setMinimumWidth(DIALOG_MIN_WIDTH)
 
     def choices(self) -> dict[str, str]:
         return {group: str(combo.currentData()) for group, combo in self.combos.items()}
