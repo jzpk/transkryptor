@@ -169,6 +169,9 @@ PREVIOUS_COMMENT_ID = "review.previous_comment"
 # Postęp weryfikacji nagrania (``ui/verification.py``).
 MARK_VERIFIED_ID = "review.mark_verified"
 NEXT_UNVERIFIED_ID = "review.next_unverified"
+# Mapa pokrycia transkrypcji: luki nagrania bez tekstu (``ui/coverage_controller``).
+NEXT_GAP_ID = "review.next_gap"
+PREVIOUS_GAP_ID = "review.previous_gap"
 
 
 def speaker_id(number: int) -> str:
@@ -261,6 +264,10 @@ SHORTCUT_ACTIONS: tuple[ShortcutDef, ...] = (
     ShortcutDef(MARK_VERIFIED_ID, "verification.action.mark", ("F9",), GROUP_REVIEW),
     ShortcutDef(
         NEXT_UNVERIFIED_ID, "verification.action.next", ("Shift+F9",), GROUP_REVIEW
+    ),
+    ShortcutDef(NEXT_GAP_ID, "coverage.action.next", ("F6",), GROUP_REVIEW),
+    ShortcutDef(
+        PREVIOUS_GAP_ID, "coverage.action.previous", ("Shift+F6",), GROUP_REVIEW
     ),
 )
 

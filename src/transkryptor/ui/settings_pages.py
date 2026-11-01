@@ -19,7 +19,6 @@ from PySide6.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
     QComboBox,
-    QDoubleSpinBox,
     QFileDialog,
     QFontComboBox,
     QFormLayout,
@@ -60,13 +59,10 @@ from transkryptor.i18n import LANGUAGES, tr
 from transkryptor.notation.ellipsis import EllipsisStyle
 from transkryptor.notation.validator import SEVERITY_HINT, VALIDATOR_RULES
 from transkryptor.settings import (
-    AUTO_REWIND_RANGE_MS,
     AUTOSAVE_INTERVAL_RANGE_S,
     DAILY_GOAL_RANGE_MIN,
     FONT_SIZE_RANGE_PT,
     LANGUAGE_SYSTEM,
-    SEGMENT_PREROLL_RANGE_MS,
-    SKIP_RANGE_MS,
     THEME_DARK,
     THEME_LIGHT,
     THEME_SYSTEM,
@@ -212,50 +208,6 @@ class AppearancePage(FormPage):
         """Komunikat o restarcie tylko po zmianie języka względem bieżącego."""
         changed = self.language_combo.currentData() != self._initial_language
         self.language_hint.setVisible(changed)
-
-
-class PlayerPage(FormPage):
-    """Przewijanie, auto-cofanie, odsłuch segmentów i śledzenie odtwarzania."""
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.skip_spin = _seconds_spin(SKIP_RANGE_MS)
-        self.auto_rewind_check = QCheckBox(tr("settings.player.auto_rewind"))
-        self.auto_rewind_spin = _seconds_spin(AUTO_REWIND_RANGE_MS)
-        self.auto_rewind_check.toggled.connect(self.auto_rewind_spin.setEnabled)
-        self.preroll_spin = _seconds_spin(SEGMENT_PREROLL_RANGE_MS)
-        self.follow_playback_check = QCheckBox(tr("settings.player.follow"))
-        self.follow_playback_check.setToolTip(tr("settings.player.follow.tooltip"))
-        self.form.addRow(tr("settings.player.skip"), self.skip_spin)
-        self.form.addRow(self.auto_rewind_check)
-        self.form.addRow(
-            tr("settings.player.auto_rewind_length"), self.auto_rewind_spin
-        )
-        self.form.addRow(tr("settings.player.preroll"), self.preroll_spin)
-        self.form.addRow(self.follow_playback_check)
-
-    def load(self, settings: Settings) -> None:
-        player = settings.player
-        self.skip_spin.setValue(player.skip_ms / 1000)
-        self.auto_rewind_check.setChecked(player.auto_rewind_enabled)
-        self.auto_rewind_spin.setValue(player.auto_rewind_ms / 1000)
-        self.auto_rewind_spin.setEnabled(player.auto_rewind_enabled)
-        self.preroll_spin.setValue(player.segment_preroll_ms / 1000)
-        self.follow_playback_check.setChecked(player.follow_playback)
-
-    def apply(self, settings: Settings) -> Settings:
-        # Pola spoza okna (zwinięcie fali, menu „Dźwięk”) zostają bez zmian.
-        return replace(
-            settings,
-            player=replace(
-                settings.player,
-                skip_ms=_ms(self.skip_spin),
-                auto_rewind_enabled=self.auto_rewind_check.isChecked(),
-                auto_rewind_ms=_ms(self.auto_rewind_spin),
-                segment_preroll_ms=_ms(self.preroll_spin),
-                follow_playback=self.follow_playback_check.isChecked(),
-            ),
-        )
 
 
 class NotationPage(FormPage):
@@ -792,20 +744,6 @@ def _hint(text: str) -> QLabel:
 
 def _select(combo: QComboBox, value: object) -> None:
     combo.setCurrentIndex(max(combo.findData(value), 0))
-
-
-def _seconds_spin(range_ms: tuple[int, int]) -> QDoubleSpinBox:
-    """Pole czasu w sekundach (ustawienia trzymają milisekundy)."""
-    spin = QDoubleSpinBox()
-    spin.setDecimals(1)
-    spin.setSingleStep(0.5)
-    spin.setRange(range_ms[0] / 1000, range_ms[1] / 1000)
-    spin.setSuffix(" s")
-    return spin
-
-
-def _ms(spin: QDoubleSpinBox) -> int:
-    return round(spin.value() * 1000)
 
 
 def _check(checked: bool) -> Qt.CheckState:
