@@ -31,6 +31,7 @@ from PySide6.QtGui import (
     QTextBlockFormat,
     QTextCharFormat,
     QTextCursor,
+    QWheelEvent,
 )
 from PySide6.QtWidgets import QMenu, QTextEdit, QToolTip
 
@@ -78,6 +79,8 @@ class TranscriptionEditor(QTextEdit):
     # Klik w etykietę mówcy: pozycja początku akapitu (punkty kodowe) i punkt
     # ekranu dla menu wyboru mówcy (faza 12).
     speaker_label_clicked = Signal(int, QPoint)
+    # Ctrl + kółko myszy: krok powiększenia tekstu (+1 większy, -1 mniejszy).
+    zoom_requested = Signal(int)
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -113,16 +116,19 @@ class TranscriptionEditor(QTextEdit):
         """Ustawia czcionkę tekstu; puste pole = dołączona Charis SIL.
 
         Czcionka należy do widoku, nie do dokumentu: nie zmienia tekstu ani
-        historii cofania (eksport używa tego samego ustawienia).
+        historii cofania (eksport używa tego samego ustawienia). Powiększenie
+        (``zoom_pct``) mnoży rozmiar czcionki - indeks górny, podkreślenia
+        i etykiety mówców skalują się razem z nią.
         """
         font = QFont(self._base_font)
         family = text_font_family(settings.font_family)
         if family:
             font.setFamily(family)
         if settings.font_size_pt:
-            font.setPointSizeF(settings.font_size_pt)
+            size = float(settings.font_size_pt)
         else:
-            font.setPointSizeF(self._base_font.pointSizeF() * EDITOR_FONT_SCALE)
+            size = self._base_font.pointSizeF() * EDITOR_FONT_SCALE
+        font.setPointSizeF(size * settings.zoom_pct / 100)
         self.setFont(font)
         self.refresh_speakers()
 
@@ -160,6 +166,16 @@ class TranscriptionEditor(QTextEdit):
         super().keyPressEvent(event)
         if self.after_key is not None:
             self.after_key(event)
+
+    def wheelEvent(self, event: QWheelEvent) -> None:
+        """Ctrl + kółko zmienia zapamiętywane powiększenie, a nie samą czcionkę."""
+        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            delta = event.angleDelta().y()
+            if delta:
+                self.zoom_requested.emit(1 if delta > 0 else -1)
+            event.accept()
+            return
+        super().wheelEvent(event)
 
     def contextMenuEvent(self, event: QContextMenuEvent) -> None:
         menu = self.createStandardContextMenu(event.pos())

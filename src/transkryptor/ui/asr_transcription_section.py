@@ -429,6 +429,8 @@ class TranscriptionSection(QObject):
         )
         item.setData(Qt.ItemDataRole.UserRole, int(segment.start_s * 1000))
         if segment.confidence < LOW_CONFIDENCE:
+            # Ikona obok koloru: niska pewność widoczna bez rozróżniania barw.
+            item.setIcon(icons.icon("alert", tokens().warning))
             item.setForeground(QColor(tokens().warning))
             item.setToolTip(tr("asr.low_confidence.tooltip"))
         self.segments_list.addItem(item)

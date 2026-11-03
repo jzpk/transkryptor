@@ -43,3 +43,8 @@ def user_cache_dir() -> Path:
 def autosave_dir() -> Path:
     """Kopie autozapisu bieżącej pracy (usuwane po poprawnym zamknięciu)."""
     return user_data_dir() / "autosave"
+
+
+def profiles_dir() -> Path:
+    """Profile notacji (``transkryptor.profiles``), po jednym pliku na profil."""
+    return user_data_dir() / "profiles"

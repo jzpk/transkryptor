@@ -103,8 +103,10 @@ class MetadataForm(QWidget):
         for index, metadata_field in enumerate(self._fields):
             edit = QLineEdit()
             edit.setClearButtonEnabled(True)
+            edit.setAccessibleName(metadata_field.display_label)
             if metadata_field.personal:
                 edit.setToolTip(tr("metadata_form.personal_tooltip"))
+                edit.setAccessibleDescription(tr("metadata_form.personal_tooltip"))
             edit.textChanged.connect(self._on_edited)
             caption = QLabel(f"{metadata_field.display_label}:")
             caption.setBuddy(edit)

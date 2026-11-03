@@ -142,8 +142,9 @@
   "loop_b_ms": 3000,
   "position_ms": 1500
  },
+ "profile": "Domyślny",
  "review": [],
- "schema_version": 7,
+ "schema_version": 8,
  "verified": [],
  "work": {
   "audio_duration_ms": 90000,

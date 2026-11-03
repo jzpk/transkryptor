@@ -170,6 +170,29 @@ def configure_language(qsettings=None) -> str:
     return set_language(resolve_language(setting, QLocale.system().name()))
 
 
+SCALE_FACTOR_ENV = "QT_SCALE_FACTOR"
+
+
+def configure_ui_scale(qsettings=None, environ=None) -> float:
+    """Skala interfejsu z ustawień (``Wygląd``) jako ``QT_SCALE_FACTOR``.
+
+    Wołane przed utworzeniem ``QApplication`` - zmiana działa od następnego
+    uruchomienia. Zmienna ustawiona ręcznie w systemie ma pierwszeństwo.
+    Zwraca użytą skalę (1.0 - bez zmian).
+    """
+    import os
+
+    from transkryptor.ui.settings_store import SettingsStore
+
+    environ = os.environ if environ is None else environ
+    if environ.get(SCALE_FACTOR_ENV):
+        return 1.0
+    scale = SettingsStore(qsettings).load().appearance.ui_scale_pct / 100
+    if scale != 1.0:
+        environ[SCALE_FACTOR_ENV] = f"{scale:g}"
+    return scale
+
+
 def install_qt_translations(app, language: str | None = None) -> bool:
     """Ładuje tłumaczenie Qt (przyciski Tak/Nie, Odrzuć/Anuluj…) dla języka UI.
 
@@ -219,6 +242,7 @@ def main(argv: list[str] | None = None) -> int:
         return self_test()
 
     start_diagnostics()
+    configure_ui_scale()
     from PySide6.QtCore import QTimer
 
     from transkryptor.ui.application import Application

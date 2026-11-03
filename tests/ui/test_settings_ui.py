@@ -1,5 +1,7 @@
 """Testy ustawień w UI: trwałość, okno ustawień i stosowanie bez restartu."""
 
+from dataclasses import replace
+
 from PySide6.QtWidgets import QDialog, QWidget
 
 from transkryptor import i18n
@@ -106,6 +108,7 @@ class TestSettingsDialog:
         titles = [dialog.tabs.tabText(i) for i in range(dialog.tabs.count())]
         assert titles == [
             "Wygląd",
+            "Profile",
             "Odtwarzacz",
             "Notacja",
             "Walidator",
@@ -254,8 +257,11 @@ class TestMainWindowSettings:
             return QDialog.DialogCode.Rejected
 
         monkeypatch.setattr(SettingsDialog, "exec", cancel)
+        before = window.settings_store.current
         window.settings_action.trigger()
-        assert window.settings_store.current == Settings()
+        assert window.settings_store.current == before
+        # Poza profilem notacji utworzonym przy starcie - wartości domyślne.
+        assert replace(before, profiles=Settings().profiles) == Settings()
         assert window.editor.font().pointSizeF() != 30
 
     def test_default_font_size_is_scaled(self, qtbot) -> None:

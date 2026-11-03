@@ -89,3 +89,12 @@ def dotted_underline(cursor: QTextCursor, color: QColor) -> QTextEdit.ExtraSelec
     selection.format.setUnderlineStyle(QTextCharFormat.UnderlineStyle.DotLine)
     selection.format.setUnderlineColor(color)
     return selection
+
+
+def dashed_underline(cursor: QTextCursor, color: QColor) -> QTextEdit.ExtraSelection:
+    """Kreskowane podkreślenie (wskazówki walidatora - inny wzór niż ostrzeżenia)."""
+    selection = QTextEdit.ExtraSelection()
+    selection.cursor = cursor
+    selection.format.setUnderlineStyle(QTextCharFormat.UnderlineStyle.DashUnderline)
+    selection.format.setUnderlineColor(color)
+    return selection

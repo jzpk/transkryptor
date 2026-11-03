@@ -80,7 +80,9 @@ class PlayerSettings:
 THEME_SYSTEM = "system"
 THEME_LIGHT = "light"
 THEME_DARK = "dark"
-THEMES = (THEME_SYSTEM, THEME_LIGHT, THEME_DARK)
+# Wysoki kontrast: czarne tło, biały tekst i wyraźne obramowania.
+THEME_HIGH_CONTRAST = "high_contrast"
+THEMES = (THEME_SYSTEM, THEME_LIGHT, THEME_DARK, THEME_HIGH_CONTRAST)
 
 # Język interfejsu: ``system`` (za językiem systemu) albo kod z ``i18n.LANGUAGES``.
 LANGUAGE_SYSTEM = "system"
@@ -89,13 +91,17 @@ LANGUAGE_CHOICES = (LANGUAGE_SYSTEM, *LANGUAGES)
 
 @dataclass(frozen=True)
 class AppearanceSettings:
-    """Motyw (``system``, ``light``, ``dark``) i język interfejsu.
+    """Motyw (``THEMES``), język i skala interfejsu, ograniczenie animacji.
 
-    Język działa od następnego uruchomienia programu.
+    Język i skala interfejsu (w procentach) działają od następnego
+    uruchomienia programu. ``reduce_motion`` wyłącza animacje (np. pulsującą
+    ramkę samouczków).
     """
 
     theme: str = THEME_SYSTEM
     language: str = LANGUAGE_SYSTEM
+    ui_scale_pct: int = 100
+    reduce_motion: bool = False
 
 
 @dataclass(frozen=True)
@@ -103,11 +109,13 @@ class EditorSettings:
     """Czcionka edytora; wartości puste/zerowe oznaczają czcionkę domyślną.
 
     ``autocomplete`` włącza podpowiedzi wstawek i słów z dokumentu.
+    ``zoom_pct`` to powiększenie tekstu edytora niezależne od interfejsu.
     """
 
     font_family: str = ""
     font_size_pt: int = 0
     autocomplete: bool = False
+    zoom_pct: int = 100
 
 
 @dataclass(frozen=True)
@@ -266,6 +274,16 @@ class ReviewSettings:
 
 
 @dataclass(frozen=True)
+class ProfileSettings:
+    """Nazwa aktywnego profilu notacji (``transkryptor.profiles``).
+
+    Bieżące ustawienia notacji są roboczą kopią aktywnego profilu.
+    """
+
+    active: str = ""
+
+
+@dataclass(frozen=True)
 class TutorialSettings:
     """Samouczki: ``show_on_start`` - przewodnik „Pierwsze kroki” przy starcie.
 
@@ -361,6 +379,7 @@ class Settings:
     asr: AsrSettings = field(default_factory=AsrSettings)
     review: ReviewSettings = field(default_factory=ReviewSettings)
     tutorial: TutorialSettings = field(default_factory=TutorialSettings)
+    profiles: ProfileSettings = field(default_factory=ProfileSettings)
 
 
 @dataclass(frozen=True)
@@ -387,6 +406,10 @@ AUTO_REWIND_RANGE_MS = (0, 10_000)
 SEGMENT_PREROLL_RANGE_MS = (0, 5_000)
 VOLUME_RANGE_PCT = (0, 100)
 FONT_SIZE_RANGE_PT = (6, 48)  # 0 = domyślny, poza zakresem
+EDITOR_ZOOM_RANGE_PCT = (50, 300)
+EDITOR_ZOOM_STEP_PCT = 10
+UI_SCALE_RANGE_PCT = (100, 200)
+UI_SCALE_STEP_PCT = 25
 AUTOSAVE_INTERVAL_RANGE_S = (30, 600)
 DAILY_GOAL_RANGE_MIN = (1, 600)
 WORD_THRESHOLD_RANGE_PCT = (5, 95)
@@ -413,6 +436,7 @@ _FIELDS: tuple[_Field, ...] = (
     _Field("editor", "font_family", str),
     _Field("editor", "font_size_pt", int, *FONT_SIZE_RANGE_PT, allow_zero=True),
     _Field("editor", "autocomplete", bool),
+    _Field("editor", "zoom_pct", int, *EDITOR_ZOOM_RANGE_PCT),
     _Field("notation", "ellipsis_style", str, choices=ELLIPSIS_STYLES),
     _Field(
         "validator",
@@ -445,6 +469,8 @@ _FIELDS: tuple[_Field, ...] = (
     _Field("export", "readiness_check", bool),
     _Field("appearance", "theme", str, choices=THEMES),
     _Field("appearance", "language", str, choices=LANGUAGE_CHOICES),
+    _Field("appearance", "ui_scale_pct", int, *UI_SCALE_RANGE_PCT),
+    _Field("appearance", "reduce_motion", bool),
     _Field("asr", "model_key", str, choices=MODEL_KEYS),
     _Field("asr", "models_root", str),
     _Field("asr", "device", str, choices=DEVICES),
@@ -457,6 +483,7 @@ _FIELDS: tuple[_Field, ...] = (
     _Field("asr", "word_threshold_pct", int, *WORD_THRESHOLD_RANGE_PCT),
     _Field("review", "comment_author", str),
     _Field("tutorial", "show_on_start", bool),
+    _Field("profiles", "active", str),
 )
 
 
