@@ -160,6 +160,16 @@ def isolated_rules(monkeypatch, tmp_path):
 
 
 @pytest.fixture(autouse=True)
+def isolated_profiles(monkeypatch, tmp_path):
+    """Profile notacji w katalogu tymczasowym; zwraca ten katalog."""
+    from transkryptor import paths
+
+    directory = tmp_path / "profiles"
+    monkeypatch.setattr(paths, "profiles_dir", lambda: directory)
+    return directory
+
+
+@pytest.fixture(autouse=True)
 def enough_memory(monkeypatch):
     """Ostrzeżenie o RAM nie zależy od pamięci komputera z testami."""
     monkeypatch.setattr(

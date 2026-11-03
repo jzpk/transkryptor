@@ -26,7 +26,11 @@ from transkryptor.notation.ellipsis import (
 )
 from transkryptor.notation.validator import SEVERITY_HINT, NotationWarning, validate
 from transkryptor.ui.editor import TranscriptionEditor
-from transkryptor.ui.highlights import WARNINGS_LAYER, wave_underline
+from transkryptor.ui.highlights import (
+    WARNINGS_LAYER,
+    dashed_underline,
+    wave_underline,
+)
 from transkryptor.ui.markers import marker_text
 from transkryptor.ui.positions import PositionMap
 from transkryptor.ui.theme import set_props, tokens
@@ -257,6 +261,9 @@ class NotationController(QObject):
         for warning in warnings:
             cursor = self.editor.track_range(warning.start, warning.end, positions)
             self._warnings.append((warning, cursor))
-            color = hint_color if warning.severity == SEVERITY_HINT else warning_color
-            selections.append(wave_underline(cursor, color))
+            # Wskazówka różni się od ostrzeżenia wzorem, nie tylko kolorem.
+            if warning.severity == SEVERITY_HINT:
+                selections.append(dashed_underline(cursor, hint_color))
+            else:
+                selections.append(wave_underline(cursor, warning_color))
         self.editor.set_highlight_layer(WARNINGS_LAYER, selections)

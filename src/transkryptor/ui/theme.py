@@ -7,6 +7,10 @@ wyłącznie tokenami w ``LIGHT``/``DARK``.
 
 Bazą jest styl Fusion: wygląda tak samo na Windows i Linuksie i w pełni
 respektuje arkusz stylów.
+
+Motyw wysokiego kontrastu (``HIGH_CONTRAST``) ma czarne tło, biały tekst
+i żółty akcent; wszystkie stany (fokus, ostrzeżenia, sukces) są w nim
+dodatkowo odróżnialne obramowaniem albo wzorem, nie tylko kolorem.
 """
 
 from __future__ import annotations
@@ -18,9 +22,9 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QFont, QGuiApplication, QPalette
 from PySide6.QtWidgets import QApplication, QWidget
 
-from transkryptor.settings import THEME_DARK, THEME_LIGHT
+from transkryptor.settings import THEME_DARK, THEME_HIGH_CONTRAST, THEME_LIGHT
 
-#: Zmienna środowiskowa wymuszająca motyw (``light``/``dark``) zamiast
+#: Zmienna środowiskowa wymuszająca motyw (``light``/``dark``/``high_contrast``) zamiast
 #: ustawienia systemu; jawny wybór w oknie „Ustawienia…” ma pierwszeństwo.
 THEME_ENV = "TRANSKRYPTOR_THEME"
 
@@ -97,6 +101,31 @@ DARK = Tokens(
     danger_soft="#3E201D",
 )
 
+# Kontrast tekstu do tła co najmniej 7:1 (WCAG AAA), także dla tekstu
+# pomocniczego i kolorów stanów.
+HIGH_CONTRAST = Tokens(
+    name="high_contrast",
+    bg="#000000",
+    surface="#000000",
+    surface_alt="#1A1A1A",
+    border="#FFFFFF",
+    border_strong="#FFFFFF",
+    text="#FFFFFF",
+    text_muted="#E0E0E0",
+    accent="#FFD700",
+    accent_hover="#FFE34D",
+    accent_pressed="#E6C200",
+    accent_soft="#3D3300",
+    accent_text="#FFFFFF",
+    on_accent="#000000",
+    success="#7CFF7C",
+    success_soft="#0F3A0F",
+    warning="#FFB347",
+    warning_soft="#3D2600",
+    danger="#FF8080",
+    danger_soft="#3D0F0F",
+)
+
 _current: Tokens = LIGHT
 
 
@@ -108,8 +137,8 @@ def tokens() -> Tokens:
 def detect_tokens(app: QGuiApplication | None = None) -> Tokens:
     """Wybiera motyw: zmienna ``TRANSKRYPTOR_THEME``, potem ustawienie systemu."""
     forced = os.environ.get(THEME_ENV, "").strip().lower()
-    if forced in ("light", "dark"):
-        return DARK if forced == "dark" else LIGHT
+    if forced in (THEME_LIGHT, THEME_DARK, THEME_HIGH_CONTRAST):
+        return resolve_tokens(forced, app)
     if app is None:
         instance = QGuiApplication.instance()
         app = instance if isinstance(instance, QGuiApplication) else None
@@ -121,7 +150,9 @@ def detect_tokens(app: QGuiApplication | None = None) -> Tokens:
 
 
 def resolve_tokens(choice: str, app: QGuiApplication | None = None) -> Tokens:
-    """Tokeny dla wyboru z ustawień (``system``, ``light``, ``dark``)."""
+    """Tokeny dla wyboru z ustawień (``settings.THEMES``)."""
+    if choice == THEME_HIGH_CONTRAST:
+        return HIGH_CONTRAST
     if choice == THEME_DARK:
         return DARK
     if choice == THEME_LIGHT:
@@ -635,5 +666,33 @@ QStatusBar::item {{
 }}
 QStatusBar QLabel {{
     padding: 2px 8px;
+}}
+{focus_stylesheet(t)}"""
+
+
+def focus_stylesheet(t: Tokens) -> str:
+    """Widoczny fokus klawiatury we wszystkich motywach.
+
+    Obramowanie zastępuje przezroczyste (bez zmiany rozmiaru elementu),
+    a przyciski narzędzi i pola wyboru dostają też tło - fokus widać
+    niezależnie od rozróżniania kolorów.
+    """
+    return f"""
+/* --- fokus klawiatury ---------------------------------------------------- */
+QToolButton:focus {{
+    border: 1px solid {t.accent};
+    background: {t.accent_soft};
+}}
+QCheckBox:focus, QRadioButton:focus {{
+    background: {t.accent_soft};
+    border-radius: 4px;
+}}
+QListWidget:focus, QTableWidget:focus, QTreeWidget:focus,
+QPlainTextEdit:focus, QSpinBox:focus {{
+    border: 1px solid {t.accent};
+}}
+QSlider:focus {{
+    background: {t.accent_soft};
+    border-radius: 4px;
 }}
 """

@@ -18,6 +18,8 @@ from dataclasses import dataclass
 from transkryptor.i18n import tr
 from transkryptor.ui.shortcuts import (
     ADD_COMMENT_ID,
+    LOOP_A,
+    LOOP_B,
     MARK_VERIFIED_ID,
     NEXT_COMMENT_ID,
     NEXT_GAP_ID,
@@ -27,6 +29,9 @@ from transkryptor.ui.shortcuts import (
     PLAY_PAUSE,
     PREVIOUS_GAP_ID,
     SUPERSCRIPT_ID,
+    ZOOM_IN_ID,
+    ZOOM_OUT_ID,
+    ZOOM_RESET_ID,
     marker_id,
     player_id,
     project_id,
@@ -79,6 +84,7 @@ def _step(
 FIRST_STEPS = "basics"
 REVIEW = "review"
 WORKFLOW = "workflow"
+COMFORT = "comfort"
 
 TUTORIALS: tuple[Tutorial, ...] = (
     Tutorial(
@@ -263,6 +269,37 @@ TUTORIALS: tuple[Tutorial, ...] = (
             _step("history", "toolbar_save", MORE),
             _step("pack_export", "toolbar_export"),
             _step("pack_open", "toolbar_open", MORE),
+        ),
+    ),
+    Tutorial(
+        COMFORT,
+        (
+            _step("profiles", "profile_switcher"),
+            _step(
+                "manage",
+                "toolbar_settings",
+                MORE,
+                shortcuts=(("settings", project_id("settings")),),
+            ),
+            _step(
+                "zoom",
+                "editor",
+                shortcuts=(
+                    ("zoom_in", ZOOM_IN_ID),
+                    ("zoom_out", ZOOM_OUT_ID),
+                    ("zoom_reset", ZOOM_RESET_ID),
+                ),
+            ),
+            _step("appearance", "toolbar_settings", MORE),
+            _step(
+                "keyboard",
+                "player_loop_button",
+                "player_bar",
+                shortcuts=(
+                    ("loop_a", player_id(LOOP_A)),
+                    ("loop_b", player_id(LOOP_B)),
+                ),
+            ),
         ),
     ),
 )
