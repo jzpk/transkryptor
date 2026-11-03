@@ -114,6 +114,7 @@ GROUP_PROJECT = "project"
 GROUP_SNIPPETS = "snippets"
 GROUP_SPEAKERS = "speakers"
 GROUP_REVIEW = "review"
+GROUP_VIEW = "view"
 
 SUPERSCRIPT_ID = "superscript"
 SNIPPET_PREFIX = "snippet."
@@ -172,6 +173,10 @@ NEXT_UNVERIFIED_ID = "review.next_unverified"
 # Mapa pokrycia transkrypcji: luki nagrania bez tekstu (``ui/coverage_controller``).
 NEXT_GAP_ID = "review.next_gap"
 PREVIOUS_GAP_ID = "review.previous_gap"
+# Powiększenie tekstu edytora (``ui/zoom_controller.py``) - jak w przeglądarkach.
+ZOOM_IN_ID = "view.zoom_in"
+ZOOM_OUT_ID = "view.zoom_out"
+ZOOM_RESET_ID = "view.zoom_reset"
 
 
 def speaker_id(number: int) -> str:
@@ -269,6 +274,9 @@ SHORTCUT_ACTIONS: tuple[ShortcutDef, ...] = (
     ShortcutDef(
         PREVIOUS_GAP_ID, "coverage.action.previous", ("Shift+F6",), GROUP_REVIEW
     ),
+    ShortcutDef(ZOOM_IN_ID, "zoom.action.in", ("Ctrl++", "Ctrl+="), GROUP_VIEW),
+    ShortcutDef(ZOOM_OUT_ID, "zoom.action.out", ("Ctrl+-",), GROUP_VIEW),
+    ShortcutDef(ZOOM_RESET_ID, "zoom.action.reset", ("Ctrl+0",), GROUP_VIEW),
 )
 
 SHORTCUT_ACTIONS_BY_ID: dict[str, ShortcutDef] = {d.id: d for d in SHORTCUT_ACTIONS}

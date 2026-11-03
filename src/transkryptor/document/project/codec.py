@@ -103,6 +103,7 @@ def to_dict(state: ProjectState, project_path: Path | None = None) -> dict[str, 
         "comments": [_comment_dict(c) for c in state.comments],
         "verified": [list(r) for r in state.verified],
         "work": _work_dict(state.work),
+        "profile": state.profile,
     }
 
 
@@ -366,6 +367,7 @@ def _parse(data: dict[str, Any]) -> ProjectState:
         comments=comments,
         verified=verified_ranges(_ranges(data.get("verified", []))),
         work=_parse_work(_dict(data.get("work", {}))),
+        profile=_str(data.get("profile", "")),
     )
 
 

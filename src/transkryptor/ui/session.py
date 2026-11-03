@@ -100,6 +100,8 @@ class SessionEvents(QObject):
     saved = Signal()
     # Import DOCX zaraz zastąpi bieżącą pracę (np. migawka automatyczna).
     about_to_import = Signal()
+    # Wczytywany projekt ma zapamiętany profil notacji (nazwa; przed tekstem).
+    profile_requested = Signal(str)
 
 
 class SessionController(QObject):
@@ -545,6 +547,7 @@ class SessionController(QObject):
             comments=tuple(self._comments.entries()),
             verified=self._verification.entries(),
             work=self._work.entries(),
+            profile=self._settings_store.current.profiles.active,
         )
 
     # --- otwieranie projektu ---------------------------------------------------
@@ -559,8 +562,14 @@ class SessionController(QObject):
         if path:
             self.open_project(path, confirm=False)
 
-    def open_project(self, path: str | Path, confirm: bool = True) -> bool:
-        """ACC-28/29: otwiera projekt; brak lub zmiana nagrania nie blokuje tekstu."""
+    def open_project(
+        self, path: str | Path, confirm: bool = True, use_profile: bool = True
+    ) -> bool:
+        """ACC-28/29: otwiera projekt; brak lub zmiana nagrania nie blokuje tekstu.
+
+        ``use_profile=False`` - bez przełączania na profil notacji projektu
+        (paczka: o ustawieniach zdecydował już odbiorca).
+        """
         if confirm and not self.maybe_discard_changes():
             return False
         project_path = Path(path)
@@ -573,6 +582,8 @@ class SessionController(QObject):
                 self._settings_store.remove_recent_project(str(project_path))
             return False
         audio, sha256 = self._locate_audio(state, project_path)
+        if not use_profile:
+            state = replace(state, profile="")
         self.apply_state(state, project_path, audio, saved=True, audio_sha256=sha256)
         self._settings_store.add_recent_project(str(project_path))
         return True
@@ -643,6 +654,9 @@ class SessionController(QObject):
         ``audio_sha256`` to znana już suma nagrania; bez niej jest liczona w tle.
         """
         self.before_replace()
+        # Profil najpierw: pola metryczki i reguły walidatora pochodzą z niego.
+        if state.profile:
+            self.events.profile_requested.emit(state.profile)
         self._player.stop_and_unload()
         self._player_bar.reset()
         self._asr_panel.set_audio_available(False)

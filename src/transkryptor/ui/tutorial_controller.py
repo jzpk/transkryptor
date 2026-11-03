@@ -67,6 +67,9 @@ class TutorialController(QObject):
         tutorial = TUTORIALS_BY_KEY.get(key)
         if tutorial is not None:
             self._first_run = False
+            self.overlay.set_reduced_motion(
+                self._settings_store.current.appearance.reduce_motion
+            )
             self.overlay.start(tutorial)
 
     def start_first_run(self) -> None:

@@ -74,6 +74,8 @@ def shrinkable(widget: QLabel) -> QLabel:
 def buddy_caption(text: str, buddy: QWidget) -> QLabel:
     caption = label(text, "caption")
     caption.setBuddy(buddy)
+    if not buddy.accessibleName():
+        buddy.setAccessibleName(text)
     return caption
 
 

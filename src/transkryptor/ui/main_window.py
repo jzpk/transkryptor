@@ -52,7 +52,7 @@ from transkryptor.notation.ellipsis import EllipsisStyle
 from transkryptor.notation.rules import PhoneticRule
 from transkryptor.notation.suggestions import rule_infos
 from transkryptor.settings import ExportSettings, PlayerSettings, Settings
-from transkryptor.ui import icons
+from transkryptor.ui import accessibility, icons
 from transkryptor.ui.asr_controller import AsrController
 from transkryptor.ui.asr_panel import AsrPanel
 from transkryptor.ui.audio_filters import AudioFilterController
@@ -85,6 +85,7 @@ from transkryptor.ui.notation_controller import IgnoredWarnings, NotationControl
 from transkryptor.ui.pack_controller import PackController
 from transkryptor.ui.player_bar import PlayerBar
 from transkryptor.ui.player_controller import PlayerController
+from transkryptor.ui.profile_controller import ProfileController
 from transkryptor.ui.readiness_dialog import ReadinessController
 from transkryptor.ui.review import (
     ReviewController,
@@ -132,6 +133,7 @@ from transkryptor.ui.verification import VerificationController
 from transkryptor.ui.warnings_panel import WarningsPanel
 from transkryptor.ui.waveform import WaveformController
 from transkryptor.ui.work_time import WorkTimeTracker
+from transkryptor.ui.zoom_controller import ZoomController
 
 logger = logging.getLogger(__name__)
 
@@ -187,6 +189,11 @@ class MainWindow(QMainWindow):
         self.rules_store = RulesStore(parent=self)
         self.rules_store.load()
         self.asr_panel.set_rules(rule_infos(self.rules_store.rules))
+        # Profile notacji: przy pierwszym starcie obecne ustawienia stają się
+        # profilem „Domyślny”.
+        self.profiles = ProfileController(
+            self, settings_store, self.rules_store, self.show_status
+        )
 
         self.sync = SyncController(
             self.editor,
@@ -256,6 +263,7 @@ class MainWindow(QMainWindow):
             settings_store,
         )
         self.session.events.reset.connect(self._on_session_reset)
+        self.session.events.profile_requested.connect(self.profiles.use_project_profile)
         self.session.events.state_changed.connect(self._on_session_state_changed)
         self.exporter = ExportController(
             self,
@@ -358,6 +366,9 @@ class MainWindow(QMainWindow):
         self.search_actions = self.search.create_actions(self)
         self.speaker_actions = self.speakers.create_actions(self)
         self.review_actions = self._create_review_actions()
+        self.zoom = ZoomController(
+            self, (self.editor, self.compare_view), settings_store, self.show_status
+        )
         self.snippets = SnippetController(
             self, self.editor, self.main_toolbar.snippets_menu, self._on_settings
         )
@@ -383,6 +394,8 @@ class MainWindow(QMainWindow):
         self.speakers.refresh()
         self._update_title()
         self.notation.update_warning_count()
+        # Czytniki ekranu: nazwy przycisków z samą ikoną z ich podpowiedzi.
+        accessibility.describe(self)
 
     @property
     def document(self) -> Document:
@@ -605,6 +618,7 @@ class MainWindow(QMainWindow):
         status.addWidget(self.tutorials.button)
         # Propozycja reguły z powtarzalnych poprawek szkicu (ukryta bez niej).
         status.addPermanentWidget(self.learning.button)
+        status.addPermanentWidget(self.profiles.switcher)
         status.addPermanentWidget(self.progress.goal_label)
         self.export_status_label = QLabel()
         self.export_status_label.setObjectName("export_status_label")
@@ -668,6 +682,7 @@ class MainWindow(QMainWindow):
             user_rules=self.rules_store.user_rules,
             document_text=self.editor.plain_text(),
             model_manager=self.asr_panel.manager,
+            profiles=self.profiles,
         )
 
     def _on_learned_rule(self, rule: PhoneticRule) -> None:
@@ -685,7 +700,8 @@ class MainWindow(QMainWindow):
                 self.rules_store.save_user_rules(user_rules)
             except AppError as error:
                 self._show_error(tr("settings.rules.save_error"), error)
-        self.settings_store.save(dialog.settings())
+        # Zmiany pól należą do bieżącego profilu; wybrany profil - po nich.
+        self.profiles.save_settings(dialog.settings())
         if dialog.requested_tutorial is not None:
             self.tutorials.start(dialog.requested_tutorial)
 
@@ -758,6 +774,7 @@ class MainWindow(QMainWindow):
         actions[NEXT_GAP_ID] = self.coverage.next_action
         actions[PREVIOUS_GAP_ID] = self.coverage.previous_action
         actions.update(self.review_actions)
+        actions.update(self.zoom.actions)
         return actions
 
     def _create_review_actions(self) -> dict[str, QAction]:
@@ -877,6 +894,7 @@ class MainWindow(QMainWindow):
     def show_status(self, text: str) -> None:
         """Krótki komunikat na pasku stanu (znika po ``STATUS_MESSAGE_MS``)."""
         self.statusBar().showMessage(text, STATUS_MESSAGE_MS)
+        accessibility.announce(self.statusBar(), text)
 
     # --- delegaty kontrolerów ---------------------------------------------
 
@@ -1016,6 +1034,7 @@ class MainWindow(QMainWindow):
         self.learning.set_locked(locked)
         self.packs.set_locked(locked)
         self.coverage.set_locked(locked)
+        self.profiles.set_locked(locked)
 
     # --- stan --------------------------------------------------------------
 

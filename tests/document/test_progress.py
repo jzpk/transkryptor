@@ -69,7 +69,7 @@ class TestProjectFile:
     def test_schema_6_project_gets_empty_work_log(self) -> None:
         data = {"schema_version": 6, "document": {"text": "ab"}}
         migrated = migrate(data)
-        assert migrated["schema_version"] == SCHEMA_VERSION == 7
+        assert migrated["schema_version"] == SCHEMA_VERSION
         assert migrated["work"] == {"seconds": 0, "days": []}
         assert "work" not in data
         assert loads(json.dumps(data)).work == WorkLog()

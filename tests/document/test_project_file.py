@@ -168,6 +168,7 @@ class TestSchema:
             "comments": [],
             "verified": [],
             "work": {"seconds": 0, "days": []},
+            "profile": "",
             "nowe_pole": [],
         }
 

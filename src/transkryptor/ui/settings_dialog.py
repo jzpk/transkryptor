@@ -2,8 +2,8 @@
 
 Okno tylko edytuje kopię ustawień; zapis i powiadomienie komponentów
 wykonuje ``SettingsStore`` po zatwierdzeniu. Każda zakładka dotyczy jednej
-części aplikacji (wygląd, odtwarzacz, notacja, walidator, projekt, metryczka,
-ASR, samouczki, dziennik logów). Zakładki z ustawieniami to strony z ``settings_pages``
+części aplikacji (wygląd, profile notacji, odtwarzacz, notacja, walidator,
+projekt, metryczka, ASR, samouczki, dziennik logów). Zakładki z ustawieniami to strony z ``settings_pages``
 (``load``/``apply``); nowa sekcja ustawień to nowa strona na liście
 ``pages``.
 """
@@ -30,8 +30,8 @@ from transkryptor.notation.rules import PhoneticRule
 from transkryptor.settings import Settings
 from transkryptor.ui.log_panel import LogPanel
 from transkryptor.ui.rules_editor import RulesEditor
+from transkryptor.ui.settings_appearance_page import AppearancePage
 from transkryptor.ui.settings_pages import (
-    AppearancePage,
     AsrPage,
     ExportPage,
     MetadataPage,
@@ -43,6 +43,7 @@ from transkryptor.ui.settings_pages import (
     models_root,
 )
 from transkryptor.ui.settings_player_page import PlayerPage
+from transkryptor.ui.settings_profiles_page import ProfileActions, ProfilesPage
 from transkryptor.ui.shortcuts_editor import ShortcutsEditor, SnippetsEditor
 from transkryptor.ui.tutorials_page import TutorialsPage
 
@@ -58,15 +59,20 @@ class SettingsDialog(QDialog):
         user_rules: tuple[PhoneticRule, ...] = (),
         document_text: str = "",
         model_manager: ModelManager | None = None,
+        profiles: ProfileActions | None = None,
     ) -> None:
         """``model_manager`` - menedżer modeli ASR (model mówców leży w tym
-        samym katalogu); None oznacza katalog z ``settings``."""
+        samym katalogu); None oznacza katalog z ``settings``. ``profiles`` -
+        biblioteka profili notacji (None - zakładka bez listy)."""
         super().__init__(parent)
         self.setWindowTitle(tr("settings.title"))
         self.setObjectName("settings_dialog")
         self._loaded = settings
 
-        self.appearance_page = AppearancePage(settings.appearance.language)
+        self.appearance_page = AppearancePage(
+            settings.appearance.language, settings.appearance.ui_scale_pct
+        )
+        self.profiles_page = ProfilesPage(profiles)
         self.player_page = PlayerPage()
         self.notation_page = NotationPage(settings.notation.ellipsis_style)
         self.validator_page = ValidatorPage()
@@ -88,6 +94,7 @@ class SettingsDialog(QDialog):
         # szablonu korzysta z pól metryczki).
         self.pages: tuple[SettingsPage, ...] = (
             self.appearance_page,
+            self.profiles_page,
             self.player_page,
             self.notation_page,
             self.validator_page,
@@ -102,6 +109,7 @@ class SettingsDialog(QDialog):
         self.tabs = QTabWidget()
         for page, title in (
             (self.appearance_page, "settings.tab.appearance"),
+            (self.profiles_page, "settings.tab.profiles"),
             (self.player_page, "settings.tab.player"),
             (self.notation_page, "settings.tab.notation"),
             (self.validator_page, "settings.tab.validator"),

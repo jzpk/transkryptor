@@ -140,6 +140,8 @@ class ProjectState:
     verified: tuple[tuple[int, int], ...] = ()
     # Czas aktywnej pracy nad projektem (schemat 7).
     work: WorkLog = field(default_factory=WorkLog)
+    # Profil notacji, z którym zapisano projekt (schemat 8; pusty - brak).
+    profile: str = ""
 
     @property
     def word_count(self) -> int:

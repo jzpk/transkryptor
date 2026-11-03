@@ -27,6 +27,8 @@ class WarningsPanel(QListWidget):
         super().__init__(parent)
         self._warnings: list[NotationWarning] = []
         self.setObjectName("warnings_panel")
+        self.setAccessibleName(tr("main.warnings"))
+        self.setAccessibleDescription(tr("warnings.accessible_description"))
         set_props(self, flat=True)
         self.setIconSize(icons.ICON_SIZE)
         self.itemActivated.connect(self._on_item_activated)
@@ -48,7 +50,8 @@ class WarningsPanel(QListWidget):
             return
         t = tokens()
         alert = icons.icon("alert", t.warning)
-        hint = icons.icon("alert", t.text_muted)
+        # Inna ikona niż ostrzeżenie: rozróżnialne bez rozpoznawania barw.
+        hint = icons.icon("info", t.text_muted)
         for warning in self._warnings:
             is_hint = warning.severity == SEVERITY_HINT
             item = QListWidgetItem(

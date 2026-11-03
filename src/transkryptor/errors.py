@@ -37,3 +37,7 @@ class ProjectError(AppError):
 
 class ImportDocxError(AppError):
     """Nie udało się zaimportować dokumentu DOCX."""
+
+
+class ProfileError(AppError):
+    """Nie udało się odczytać, zapisać albo zaimportować profilu notacji."""
