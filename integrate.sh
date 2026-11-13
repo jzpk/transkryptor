@@ -1,24 +1,42 @@
 #!/usr/bin/env sh
-# Scala gałąź agenta z worktree do lokalnego main (tylko fast-forward).
+# Scala gałąź agenta z worktree do lokalnego main albo release/X.Y
+# (tylko fast-forward).
 #
-# Użycie: ./integrate.sh   (uruchamiane z worktree agenta, po commicie)
+# Użycie: ./integrate.sh [cel]   (z worktree agenta, po commicie)
+#   cel: main (domyślnie) albo release/X.Y - poprawka do wydanej serii;
+#        po fast-forwardzie release/X.Y skrypt scala ją też do main
+#        (./merge-forward.sh X.Y).
 #
-# Kroki: rebase na main -> lint, typy, testy -> pod blokadą fast-forward main.
+# Kroki: rebase na celu -> lint, typy, testy -> pod blokadą fast-forward celu.
 # Kody wyjścia:
-#   0  zmiany są w main
+#   0  zmiany są w celu (i w main)
 #   1  niepowodzenie sprawdzeń (lint/typy/testy) albo zły stan wejściowy
-#   3  konflikt przy rebase: rozwiąż, `git rebase --continue`, uruchom ponownie
-#   4  główny katalog repo ma niezacommitowane zmiany; scalenie wstrzymane
-#   5  main przesunął się w trakcie sprawdzeń; uruchom ponownie
+#   3  konflikt przy rebase albo scalaniu do main (patrz komunikat)
+#   4  katalog z wybranym celem (np. główny katalog repo) ma niezacommitowane
+#      zmiany; scalenie wstrzymane
+#   5  cel przesunął się w trakcie sprawdzeń; uruchom ponownie
 set -eu
 
 cd "$(git rev-parse --show-toplevel)"
+. ./scripts/branch.sh
+
+target="${1:-main}"
+case "$target" in
+    main) ;;
+    release/*.*) ;;
+    *)
+        echo "Cel musi być main albo release/X.Y (podano: $target)." >&2
+        exit 1
+        ;;
+esac
+if ! git rev-parse --verify --quiet "refs/heads/$target" > /dev/null; then
+    echo "Nie ma lokalnej gałęzi $target." >&2
+    exit 1
+fi
 
 branch="$(git rev-parse --abbrev-ref HEAD)"
-main_root="$(git worktree list --porcelain | sed -n '1s/^worktree //p')"
-
-if [ "$branch" = "main" ] || [ "$(pwd -P)" = "$(cd "$main_root" && pwd -P)" ]; then
-    echo "Tryb jednego agenta (main w głównym katalogu): nie ma czego scalać." >&2
+if [ "$branch" = "$target" ] || [ "$branch" = "main" ]; then
+    echo "Jesteś na $branch - tryb jednego agenta: nie ma czego scalać." >&2
     exit 1
 fi
 
@@ -27,39 +45,20 @@ if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
     exit 1
 fi
 
-if [ "$(git -C "$main_root" rev-parse --abbrev-ref HEAD)" != "main" ]; then
-    echo "W głównym katalogu ($main_root) nie jest wybrana gałąź main." >&2
-    exit 1
-fi
-
-if ! git merge-base --is-ancestor main HEAD; then
-    echo "==> rebase na main"
-    if ! git rebase main; then
-        cat >&2 <<'EOF'
+if ! git merge-base --is-ancestor "$target" HEAD; then
+    echo "==> rebase na $target"
+    if ! git rebase "$target"; then
+        cat >&2 <<EOF
 Konflikt przy rebase. Rozwiąż konflikty (zachowaj sens obu stron),
-`git add` + `git rebase --continue`, potem uruchom ./integrate.sh ponownie.
+\`git add\` + \`git rebase --continue\`, potem uruchom ./integrate.sh $target ponownie.
 EOF
         exit 3
     fi
 fi
 
 tested="$(git rev-parse HEAD)"
-
-failed=""
-step() {
-    name="$1"
-    shift
-    echo "==> $name: $*"
-    if ! "$@"; then
-        failed="$failed $name"
-    fi
-}
-step lint uv run ruff check .
-step format uv run black --check .
-step mypy uv run mypy
-step test uv run pytest -q
-if [ -n "$failed" ]; then
-    echo "Niepowodzenie:$failed. Popraw, zacommituj i uruchom ponownie." >&2
+if ! run_checks; then
+    echo "Popraw, zacommituj i uruchom ponownie." >&2
     exit 1
 fi
 
@@ -68,23 +67,16 @@ if [ "$(git rev-parse HEAD)" != "$tested" ]; then
     exit 5
 fi
 
-lock="$(git rev-parse --git-common-dir)/integrate.lock"
-exec 9>"$lock"
-flock 9
-
-if ! git merge-base --is-ancestor main HEAD; then
-    echo "Main przesunął się w trakcie sprawdzeń; uruchom ponownie." >&2
+take_lock
+old="$(git rev-parse "refs/heads/$target")"
+if ! git merge-base --is-ancestor "$old" HEAD; then
+    echo "$target przesunął się w trakcie sprawdzeń; uruchom ponownie." >&2
     exit 5
 fi
+advance_branch "$target" "$tested" "$old" || exit $?
+release_lock
+echo "Gałąź $branch jest w $target."
 
-if [ -n "$(git -C "$main_root" status --porcelain --untracked-files=no)" ]; then
-    cat >&2 <<EOF
-Główny katalog repo ($main_root) ma niezacommitowane zmiany.
-Scalenie wstrzymane, żeby ich nie naruszyć. Zgłoś to użytkownikowi.
-EOF
-    exit 4
+if [ "$target" != "main" ]; then
+    ./merge-forward.sh "$target"
 fi
-
-echo "==> fast-forward main do $branch"
-git -C "$main_root" merge --ff-only "$branch"
-echo "Gałąź $branch jest w main."
