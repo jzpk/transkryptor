@@ -211,6 +211,48 @@ class ReviewController(QObject):
                 tr("review.rules_timeout", codes=", ".join(proposal.failed)),
             )
 
+    def review_text(
+        self,
+        extra: Sequence[Suggestion] = (),
+        protected: Sequence[tuple[int, int]] = (),
+    ) -> int:
+        """Propozycje reguł i ``extra`` dla całego tekstu edytora (zgł. #62).
+
+        Gotowy tekst poprawiał już transkrybent, więc nic nie jest stosowane
+        automatycznie - każda propozycja czeka na jego decyzję (REQ-12).
+        Propozycje nachodzące na ``protected`` (np. indeks górny) są
+        pomijane, a z kolidujących zostaje propozycja reguły. Zastępuje
+        bieżącą listę przeglądu; zwraca liczbę propozycji.
+        """
+        self.finish()
+        text = self.editor.plain_text()
+        proposal = propose_with_report(text, self._rules())
+        candidates = [
+            suggestion
+            for suggestion in [*proposal.suggestions, *extra]
+            if not any(
+                a < suggestion.end and b > suggestion.start for a, b in protected
+            )
+        ]
+        rule_codes = {suggestion.code for suggestion in proposal.suggestions}
+        positions = self.editor.position_map()
+        self.items = [
+            ReviewItem(
+                suggestion,
+                self.editor.track_range(suggestion.start, suggestion.end, positions),
+                applied=False,
+            )
+            for suggestion in without_overlaps(candidates, rule_codes)
+        ]
+        self.refresh()
+        if proposal.failed:
+            QMessageBox.warning(
+                self._dialog_parent,
+                tr("review.rules_timeout.title"),
+                tr("review.rules_timeout", codes=", ".join(proposal.failed)),
+            )
+        return len(self.items)
+
     def activate(self, index: int) -> None:
         """REQ-16: zaznacza w edytorze fragment pozycji z listy przeglądu."""
         cursor = self.items[index].cursor

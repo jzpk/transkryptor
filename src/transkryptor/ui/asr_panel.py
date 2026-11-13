@@ -55,6 +55,7 @@ class AsrPanel(QWidget):
     review_item_activated = Signal(int)  # indeks pozycji listy przeglądu
     review_item_apply_requested = Signal(int)
     review_finish_requested = Signal()
+    recheck_requested = Signal()  # „Sprawdź tekst” - gotowa transkrypcja
     transcription_started = Signal()
     transcription_progress = Signal(float)  # ułamek nagrania 0.0-1.0
     transcription_finished = Signal()
@@ -153,6 +154,7 @@ class AsrPanel(QWidget):
             self.review_item_apply_requested
         )
         self.review.review_finish_requested.connect(self.review_finish_requested)
+        self.review.recheck_requested.connect(self.recheck_requested)
 
     def _on_model_status_changed(self) -> None:
         self.transcription.update_availability()
@@ -270,6 +272,9 @@ class AsrPanel(QWidget):
 
     def set_review_items(self, items: list[tuple[Suggestion, bool]]) -> None:
         self.review.set_review_items(items)
+
+    def show_review(self) -> None:
+        self.review.show_review()
 
     def clear_review(self) -> None:
         self.review.clear_review()

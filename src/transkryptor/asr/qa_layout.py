@@ -16,13 +16,14 @@ długości tekstu.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import dataclass, replace
 
 import regex
 
 from transkryptor.asr.engine import SegmentResult, TranscriptionResult, WordResult
 from transkryptor.asr.phatic import ends_with_phatic_tag
+from transkryptor.document.questionnaire import QuestionMatcher
 
 QUESTION = 0
 ANSWER = 1
@@ -40,6 +41,20 @@ def ends_with_question(sentence: str) -> bool:
     return bool(_QUESTION_END_RE.search(sentence)) and not ends_with_phatic_tag(
         sentence
     )
+
+
+def question_detector(questions: Sequence[str]) -> IsQuestion:
+    """Pytanie: znak zapytania albo zdanie z kwestionariusza (zgł. #47)."""
+    matcher = QuestionMatcher(questions)
+    if not matcher:
+        return ends_with_question
+
+    def is_question(sentence: str) -> bool:
+        if ends_with_question(sentence):
+            return True
+        return not ends_with_phatic_tag(sentence) and matcher.matches(sentence)
+
+    return is_question
 
 
 @dataclass(frozen=True)
@@ -122,4 +137,5 @@ __all__ = [
     "QUESTION",
     "ends_with_question",
     "question_answer_layout",
+    "question_detector",
 ]

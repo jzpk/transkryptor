@@ -1281,5 +1281,15 @@
   "tutorial.player.coverage.title": "Mapa pokrycia",
   "tutorial.player.coverage.text": "Pasek pod falą i miniatura całego nagrania pokazują fragmenty z tekstem i luki bez tekstu (dłuższe niż 3 s, bez ciszy). W nagłówku widać procent pokrycia. <b>{next}</b> przechodzi do następnej luki, a <b>{previous}</b> - do poprzedniej.",
   "tutorial.player.spectrogram.title": "Spektrogram",
-  "tutorial.player.spectrogram.text": "Rozwiń <b>Spektrogram</b>, żeby zobaczyć formanty i harmoniczne pętli A-B albo widocznego fragmentu powiększonej fali (do 15 s). Zakres częstotliwości i okno ustawisz na zakładce <b>Odtwarzacz</b>."
+  "tutorial.player.spectrogram.text": "Rozwiń <b>Spektrogram</b>, żeby zobaczyć formanty i harmoniczne pętli A-B albo widocznego fragmentu powiększonej fali (do 15 s). Zakres częstotliwości i okno ustawisz na zakładce <b>Odtwarzacz</b>.",
+  "recheck.style.abbreviations": "Skróty w pełnym brzmieniu: zapis szkicu z ustawień ASR",
+  "recheck.style.speech": "Zapis mowy: zapis szkicu z ustawień ASR",
+  "asr.recheck": "Sprawdź tekst",
+  "asr.recheck.tooltip": "Sprawdza transkrypcję, która już jest w edytorze (np. zrobioną przed aktualizacją), bez ponownej transkrypcji nagrania: reguły fonetyczne i zapis szkicu z ustawień trafiają na listę propozycji, a akapity bez mówcy mogą dostać mówców według pytań i odpowiedzi",
+  "recheck.empty": "Edytor jest pusty - nie ma czego sprawdzać",
+  "recheck.done": "Sprawdzono tekst: {count} propozycji na liście przeglądu",
+  "recheck.speakers.title": "Mówcy akapitów",
+  "recheck.speakers.text": "{count} akapitów nie ma mówcy. Przypisać im mówców według układu „pytanie - odpowiedź”? Pytania ({questions}) dostaną mówcę {question_key}, pozostałe akapity - {answer_key}. Zmianę można cofnąć.",
+  "tutorial.asr.recheck.title": "Sprawdzenie gotowego tekstu",
+  "tutorial.asr.recheck.text": "„Sprawdź tekst” stosuje reguły szkicu do transkrypcji, która już jest w edytorze - np. zrobionej przed aktualizacją - bez ponownej transkrypcji nagrania. Reguły fonetyczne (także zapisane reguły nauczone) i zapis szkicu z ustawień trafiają na listę przeglądu jako propozycje, a akapitom bez mówcy program może przypisać badacza (pytania) i informatora (odpowiedzi)."
 }

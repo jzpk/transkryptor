@@ -1281,5 +1281,15 @@
   "tutorial.player.coverage.title": "Coverage map",
   "tutorial.player.coverage.text": "The strip under the waveform and the overview of the whole recording show parts with text and gaps without text (longer than 3 s, excluding silence). The header shows the coverage percentage. <b>{next}</b> jumps to the next gap and <b>{previous}</b> to the previous one.",
   "tutorial.player.spectrogram.title": "Spectrogram",
-  "tutorial.player.spectrogram.text": "Expand <b>Spectrogram</b> to see formants and harmonics of the A-B loop or of the visible part of the zoomed waveform (up to 15 s). Set the frequency range and window on the <b>Player</b> tab."
+  "tutorial.player.spectrogram.text": "Expand <b>Spectrogram</b> to see formants and harmonics of the A-B loop or of the visible part of the zoomed waveform (up to 15 s). Set the frequency range and window on the <b>Player</b> tab.",
+  "recheck.style.abbreviations": "Abbreviations in full: draft notation from the ASR settings",
+  "recheck.style.speech": "Speech notation: draft notation from the ASR settings",
+  "asr.recheck": "Check text",
+  "asr.recheck.tooltip": "Checks the transcription already in the editor (e.g. made before an update) without transcribing the recording again: phonetic rules and the draft notation from the settings go to the list of suggestions, and paragraphs without a speaker can get speakers from questions and answers",
+  "recheck.empty": "The editor is empty - there is nothing to check",
+  "recheck.done": "Text checked: {count} suggestions in the review list",
+  "recheck.speakers.title": "Paragraph speakers",
+  "recheck.speakers.text": "{count} paragraphs have no speaker. Assign speakers using the \"question - answer\" layout? Questions ({questions}) get speaker {question_key}, the other paragraphs - {answer_key}. You can undo this.",
+  "tutorial.asr.recheck.title": "Checking finished text",
+  "tutorial.asr.recheck.text": "\"Check text\" applies the draft rules to the transcription already in the editor - e.g. one made before an update - without transcribing the recording again. Phonetic rules (including saved learned rules) and the draft notation from the settings go to the review list as suggestions, and paragraphs without a speaker can get the researcher (questions) and the informant (answers)."
 }
