@@ -8,7 +8,7 @@ więc dostają inne etykiety (tryb wywołania):
   (``state_reason`` „completed”) przed granicą, bez etykiety żadnej wersji.
   Pomija zgłoszenia z etykietą ``webpage`` - strona nie czeka na wydanie.
 - ``site`` - po wdrożeniu strony workflow „Strona” nadaje etykietę
-  ``wdrożone`` zrobionym zgłoszeniom z etykietą ``webpage``, które jej
+  ``Deployed`` zrobionym zgłoszeniom z etykietą ``webpage``, które jej
   jeszcze nie mają.
 
 Wydania i strona powstają z ``main``, więc zamknięte zgłoszenie jest już
@@ -48,7 +48,9 @@ from typing import Any, Protocol
 
 VERSION_LABEL_RE = re.compile(r"^v?\d+\.\d+\.\d+$")
 WEBPAGE_LABEL = "webpage"
-DEPLOYED_LABEL = "wdrożone"
+# Nazwy etykiet po angielsku, jak pozostałe etykiety repozytorium; GitHub
+# porównuje je bez rozróżniania wielkości liter, więc tu też.
+DEPLOYED_LABEL = "Deployed"
 LABEL_COLOR = "2da44e"
 API_URL = "https://api.github.com"
 
@@ -75,7 +77,7 @@ class Target:
         if (WEBPAGE_LABEL in names) != self.webpage:
             return False
         if self.webpage:
-            return DEPLOYED_LABEL not in names
+            return DEPLOYED_LABEL.lower() not in names
         return not any(is_version_label(name) for name in names)
 
 
@@ -86,7 +88,7 @@ def release_target(version: str) -> Target:
     return Target(version, "Wydane w tej wersji programu", webpage=False)
 
 
-SITE_TARGET = Target(DEPLOYED_LABEL, "Wdrożone na stronie projektu", webpage=True)
+SITE_TARGET = Target(DEPLOYED_LABEL, "Deployed on the project website", webpage=True)
 
 
 class IssueTracker(Protocol):

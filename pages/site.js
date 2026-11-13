@@ -393,7 +393,8 @@
   };
   var ISSUE_VERSION_LABEL = /^v?(\d+)\.(\d+)\.(\d+)$/;
   var ISSUE_WEBPAGE_LABEL = "webpage";
-  var ISSUE_DEPLOYED_LABEL = "wdrożone";
+  // Małymi literami - labelNames() porównuje nazwy etykiet bez wielkości liter.
+  var ISSUE_DEPLOYED_LABEL = "deployed";
   var ISSUE_PROGRESS_LABELS = ["w-toku", "in progress"];
   var ISSUE_KINDS = { bug: "Błąd", enhancement: "Pomysł" };
   var ISSUES_FAILED =

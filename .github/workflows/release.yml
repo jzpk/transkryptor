@@ -513,7 +513,7 @@ jobs:
   # Etykieta z numerem wersji dla zgłoszeń zamkniętych jako zrobione przed
   # publikacją - strona statusu zgłoszeń pokazuje z niej, w której wersji
   # zmiana trafiła do programu. Zgłoszenia strony (etykieta webpage) nie
-  # czekają na wydanie: etykietę „wdrożone” nadaje im workflow „Strona”.
+  # czekają na wydanie: etykietę „Deployed” nadaje im workflow „Strona”.
   # Błąd tutaj nie cofa wydania; job można uruchomić ponownie (już
   # oznaczone zgłoszenia zostają bez zmian).
   etykiety:

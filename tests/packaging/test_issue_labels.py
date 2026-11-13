@@ -136,3 +136,11 @@ def test_missing_token_is_an_error(monkeypatch, capsys) -> None:
     monkeypatch.delenv("GH_TOKEN", raising=False)
     assert main(["site", "--cutoff", "2026-11-20T12:00:00Z"]) == 1
     assert "GH_TOKEN" in capsys.readouterr().err
+
+
+def test_deployed_label_is_matched_regardless_of_case() -> None:
+    """GitHub nie rozróżnia wielkości liter w etykietach - ponowne wdrożenie
+    nie oznacza drugi raz zgłoszenia z etykietą ``deployed``."""
+    assert not SITE_TARGET.applies_to(["webpage", DEPLOYED_LABEL.lower()])
+    assert not SITE_TARGET.applies_to(["Webpage", DEPLOYED_LABEL])
+    assert SITE_TARGET.applies_to(["webpage"])

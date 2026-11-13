@@ -10,7 +10,7 @@
 # dopuszczać gałąź main i tagi v* (Settings → Environments).
 #
 # Po wdrożeniu zgłoszenia strony (etykieta webpage) zamknięte jako zrobione
-# przed początkiem budowania dostają etykietę „wdrożone” - strona statusu
+# przed początkiem budowania dostają etykietę „Deployed” - strona statusu
 # zgłoszeń pokazuje je jako wdrożone, a nie czekające na wydanie programu.
 name: Strona
 
@@ -38,7 +38,7 @@ jobs:
     outputs:
       start: ${{ steps.start.outputs.start }}
     steps:
-      # Granica dla etykiety „wdrożone”: zgłoszenia zamknięte później mogą
+      # Granica dla etykiety „Deployed”: zgłoszenia zamknięte później mogą
       # nie być w budowanym kodzie.
       - id: start
         run: echo "start=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
@@ -99,7 +99,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Etykieta „wdrożone”
+      - name: Etykieta „Deployed”
         env:
           GH_TOKEN: ${{ github.token }}
           CUTOFF: ${{ needs.budowanie.outputs.start }}
