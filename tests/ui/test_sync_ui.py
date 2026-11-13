@@ -433,6 +433,7 @@ class TestFragmentTranscription:
                 WordResult(start + 0.5, start + 1.2, " sóm", 0.2),
             )
             segment = SegmentResult(start + 0.1, start + 1.2, " no sóm", 0.6, words)
+            on_segment(segment)
             return TranscriptionResult(
                 text="no sóm", language="pl", segments=(segment,)
             )
@@ -496,3 +497,31 @@ class TestFragmentTranscription:
         window.asr_panel.transcription.fragment_button.click()
         assert fake_asr == []
         assert "A i B" in window.asr_panel.transcription.transcribe_status_label.text()
+
+    def test_clip_only_draft_uses_ab_points(self, qtbot, window, fake_asr) -> None:
+        """Zgłoszenie #39: szkic z samej pętli A-B, jak szkic całego nagrania."""
+        transcription = window.asr_panel.transcription
+        window.player_bar._loop_a = 12_000
+        window.player_bar._loop_b = 15_500
+        transcription.clip_only_check.setChecked(True)
+        assert "A-B" in transcription.transcribe_button.text()
+        transcription.transcribe_button.click()
+        qtbot.waitUntil(lambda: transcription._transcribe_thread is None, timeout=5000)
+        assert fake_asr == [(12.0, 15.5)]
+        assert window.editor.plain_text() == "[00:12] no sóm"
+        assert window.asr_panel.last_result is not None
+        assert transcription.segments_list.count() == 1
+        assert transcription.reinsert_draft_button.isEnabled()
+
+    def test_clip_only_draft_needs_ab_points(self, window, fake_asr) -> None:
+        transcription = window.asr_panel.transcription
+        transcription.clip_only_check.setChecked(True)
+        transcription.transcribe_button.click()
+        assert fake_asr == []
+        assert "A i B" in transcription.transcribe_status_label.text()
+
+    def test_transcribe_label_follows_clip_only(self, window) -> None:
+        transcription = window.asr_panel.transcription
+        transcription.clip_only_check.setChecked(True)
+        transcription.clip_only_check.setChecked(False)
+        assert transcription.transcribe_button.text() == "Utwórz szkic ASR z nagrania"

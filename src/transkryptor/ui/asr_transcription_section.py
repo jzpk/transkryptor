@@ -3,7 +3,9 @@
 Sekcja zbiera kontekst nagrania i słownik projektu, które trafiają do
 Whispera razem ze słownikiem globalnym z ustawień (REQ-21), uruchamia
 transkrypcję całego nagrania albo fragmentu A-B w wątku ``TranscribeThread``
-i pokazuje segmenty wyniku. Kliknięcie segmentu emituje ``seek_requested``.
+i pokazuje segmenty wyniku. Fragment trafia w miejsce kursora („Rozpoznaj
+fragment A-B”) albo - przy zaznaczonym „Tylko fragment A-B” - staje się
+szkicem jak całe nagranie (segmenty, „Wstaw szkic ponownie”). Kliknięcie segmentu emituje ``seek_requested``.
 Model i jego katalog bierze z :class:`ModelSection`.
 """
 
@@ -18,6 +20,7 @@ from pathlib import Path
 from PySide6.QtCore import QObject, Qt, QThread, Signal
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QHBoxLayout,
     QLabel,
@@ -151,7 +154,8 @@ class TranscriptionSection(QObject):
         self._audio_path_provider = audio_path_provider
         # Zakres fragmentu (ms) - punkty A-B paska odtwarzacza.
         self._clip_provider = clip_provider
-        self._clip_mode = False
+        # Wynik trafia w miejsce kursora zamiast stać się szkicem.
+        self._fragment_mode = False
         # Domyślnie podproces roboczy (PERF-04): model zostaje w pamięci,
         # a „Anuluj” kończy pracę od razu. Testy podstawiają imitację.
         self._worker: AsrWorker | None = None
@@ -182,7 +186,8 @@ class TranscriptionSection(QObject):
         self.context_edit.textChanged.connect(self._on_context_edited)
         self.vocabulary_edit.textChanged.connect(self._on_context_edited)
         self.speakers_combo.currentIndexChanged.connect(self._on_speakers_selected)
-        self.transcribe_button.clicked.connect(lambda: self._start_transcription(None))
+        self.transcribe_button.clicked.connect(self._on_transcribe_clicked)
+        self.clip_only_check.toggled.connect(self._update_transcribe_label)
         self.fragment_button.clicked.connect(self._on_fragment_clicked)
         self.cancel_transcribe_button.clicked.connect(self.cancel_transcription)
         self.reinsert_draft_button.clicked.connect(
@@ -234,6 +239,9 @@ class TranscriptionSection(QObject):
         set_props(self.transcribe_button, variant="primary")
         icons.set_icon(self.transcribe_button, "sparkles", "on_accent", "text_muted")
         self.transcribe_button.setIconSize(icons.ICON_SIZE)
+        self.clip_only_check = QCheckBox(tr("asr.clip_only"))
+        self.clip_only_check.setObjectName("asr_clip_only_check")
+        self.clip_only_check.setToolTip(tr("asr.clip_only.tooltip"))
         self.fragment_button = QPushButton(tr("asr.fragment"))
         icons.set_icon(self.fragment_button, "loop", "text", "text_muted")
         self.fragment_button.setToolTip(tr("asr.fragment.tooltip"))
@@ -275,6 +283,7 @@ class TranscriptionSection(QObject):
                 self.vocabulary_hint,
                 self.speakers_row,
                 transcribe_row,
+                self.clip_only_check,
                 self.fragment_button,
                 self.transcribe_status_label,
                 self.device_label,
@@ -435,29 +444,51 @@ class TranscriptionSection(QObject):
 
     # --- transkrypcja --------------------------------------------------------
 
+    def _update_transcribe_label(self, clip_only: bool) -> None:
+        self.transcribe_button.setText(
+            tr("asr.transcribe.clip" if clip_only else "asr.transcribe")
+        )
+
+    def _on_transcribe_clicked(self) -> None:
+        """Szkic całego nagrania albo - przy „Tylko fragment A-B” - pętli."""
+        if not self.clip_only_check.isChecked():
+            self._start_transcription(None, fragment=False)
+            return
+        clip = self._loop_clip()
+        if clip is not None:
+            self._start_transcription(clip, fragment=False)
+
     def _on_fragment_clicked(self) -> None:
-        """Transkrypcja fragmentu A-B (propozycja 10A)."""
+        """Transkrypcja fragmentu A-B w miejsce kursora (propozycja 10A)."""
+        clip = self._loop_clip()
+        if clip is not None:
+            self._start_transcription(clip, fragment=True)
+
+    def _loop_clip(self) -> tuple[float, float] | None:
+        """Punkty A-B pętli w sekundach; bez nich - komunikat w panelu."""
         clip = self._clip_provider()
         if clip is None:
             self.transcribe_status_label.setText(tr("asr.fragment.no_range"))
-            return
+            return None
         start_ms, end_ms = clip
-        self._start_transcription((start_ms / 1000, end_ms / 1000))
+        return start_ms / 1000, end_ms / 1000
 
-    def _start_transcription(self, clip: tuple[float, float] | None) -> None:
+    def _start_transcription(
+        self, clip: tuple[float, float] | None, *, fragment: bool
+    ) -> None:
         audio_path = self._audio_path_provider()
         if audio_path is None:
             self.transcribe_status_label.setText(tr("asr.no_audio"))
             return
         if not self._confirm_memory():
             return
-        self._clip_mode = clip is not None
+        self._fragment_mode = fragment
         self.transcribe_button.setEnabled(False)
         self.fragment_button.setEnabled(False)
         self.cancel_transcribe_button.setVisible(True)
         self.transcribe_status_label.setText(tr("asr.transcribing"))
         self.device_label.setText("")
-        if not self._clip_mode:
+        if not self._fragment_mode:
             self.segments_list.clear()
             self.reinsert_draft_button.setEnabled(False)
         options = replace(self.decoding_options(), clip=clip)
@@ -473,7 +504,7 @@ class TranscriptionSection(QObject):
             model=model,
             options=options,
         )
-        if not self._clip_mode:
+        if not self._fragment_mode:
             thread.segment_ready.connect(self._on_segment_ready)
         thread.progressed.connect(self._on_transcribe_progress)
         thread.succeeded.connect(self._on_transcribe_succeeded)
@@ -525,7 +556,7 @@ class TranscriptionSection(QObject):
             len({s.speaker for s in result.segments if s.speaker is not None}),
         )
         self._finish_transcribe()
-        if self._clip_mode:
+        if self._fragment_mode:
             self.device_label.setText(_device_text(result))
             if not result.text.strip():
                 self.transcribe_status_label.setText(tr("asr.no_speech"))

@@ -113,6 +113,14 @@ Pusta sekcja blokuje wydanie.
   sie, myszkę → myszke, szyję → szyje). Reguła jest domyślnie zaznaczona
   w panelu ASR, więc działa od razu po wstawieniu szkicu; przy nagraniu
   osoby mówiącej hiperpoprawnie wystarczy ją odznaczyć.
+- **Szkic ASR z fragmentu A-B:** pod przyciskiem **Utwórz szkic ASR
+  z nagrania** jest pole **Tylko fragment A-B**. Po jego zaznaczeniu szkic
+  powstaje tylko z fragmentu nagrania między punktami A i B pętli, a nie
+  z całego nagrania - nie trzeba już uruchamiać transkrypcji drugi raz.
+  Taki szkic działa jak pełny: ma listę segmentów, kotwice czasowe
+  i przycisk **Wstaw szkic ponownie**. Przycisk **Rozpoznaj fragment A-B**
+  nadal wstawia rozpoznany fragment w miejsce kursora. Samouczek **Szkic
+  ASR** opisuje nową opcję.
 
 ## 0.7.0 - 2026-10-26
 
