@@ -178,6 +178,13 @@ Pusta sekcja blokuje wydanie.
   nie ma okresu”. Opcję **Zapis dosłowny: powtórzenia i „nie?”** wyłączysz
   w ustawieniach, na zakładce **ASR**, w części **Zapis szkicu**. Model
   large-v3 zapisuje powtórzenia częściej także bez niej.
+- **Fatyczne „nie?” w szkicu ASR:** szkic częściej zachowuje fatyczne
+  „nie?” na końcu wypowiedzi („…sie wybudowali, nie?”), zapisane ze znakiem
+  zapytania. Na nagraniu wywiadu gwarowego model medium zapisał wszystkie
+  sześć takich „nie?” z trzech minut nagrania (wcześniej trzy). Działa
+  w ramach opcji **Zapis dosłowny: powtórzenia i „nie?”** na zakładce
+  **ASR**. Program odróżnia też takie „nie?”, „co nie?” i „prawda?” od
+  prawdziwych pytań.
 
 ## 0.7.0 - 2026-10-26
 
