@@ -108,6 +108,11 @@ Pusta sekcja blokuje wydanie.
   przykład), którą można sprawdzić w podglądzie, poprawić i zapisać. Gdy
   wszystkie poprawki mają tę samą literę obok zmiany, wzorzec ją uwzględnia.
   Menu przycisku pozwala odrzucić propozycję do końca pracy programu.
+- **Wygłosowe „ę” w szkicu ASR:** nowa wbudowana reguła fonetyczna
+  zamienia końcowe „ę” na „e”, tak jak zwykle brzmi ono w mowie (się →
+  sie, myszkę → myszke, szyję → szyje). Reguła jest domyślnie zaznaczona
+  w panelu ASR, więc działa od razu po wstawieniu szkicu; przy nagraniu
+  osoby mówiącej hiperpoprawnie wystarczy ją odznaczyć.
 
 ## 0.7.0 - 2026-10-26
 

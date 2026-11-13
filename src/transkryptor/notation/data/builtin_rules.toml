@@ -7,8 +7,9 @@
 # auto_apply = true zaznacza regułę w panelu ASR (stosowana od razu po
 # wstawieniu szkicu); pozostałe dają tylko propozycje.
 #
-# Pierwsze pięć reguł odpowiada regułom z wersji 0.4.0. Pewności kolejnych
-# są orientacyjne - kalibracja na korpusie w fazie 15.
+# Pierwsze pięć reguł odpowiada regułom z wersji 0.4.0. Szósta (wygłosowe
+# „ę” → „e”) też jest domyślnie zaznaczona. Pewności kolejnych są
+# orientacyjne - kalibracja na korpusie w fazie 15.
 
 [[rule]]
 code = "SUG-NAS-A-FINAL"
@@ -58,6 +59,16 @@ pattern = '^o(?=.)'
 replacement = '^uo'
 confidence = 0.3
 example = "od"
+auto_apply = true
+
+[[rule]]
+code = "SUG-NAS-E-FINAL"
+label = { pl = "Odnosowienie: końcowe „ę” → „e” (się → sie)", en = "Denasalization: final “ę” → “e” (się → sie)" }
+description = { pl = "Odnosowienie wygłosowe: w mowie końcowe „ę” wymawiane jest zwykle jako „e” (przykłady: się → sie, myszkę → myszke, szyję → szyje).", en = "Word-final denasalization: in speech a final “ę” is usually pronounced as “e” (examples: się → sie, myszkę → myszke, szyję → szyje)." }
+pattern = '(?<=.)ę$'
+replacement = 'e'
+confidence = 0.6
+example = "się"
 auto_apply = true
 
 [[rule]]

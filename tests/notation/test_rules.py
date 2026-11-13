@@ -28,6 +28,8 @@ ORIGINAL_CODES = (
     "SUG-NAS-A-LAB",
     "SUG-LAB-U-INIT",
 )
+# Reguły dodane później, ale domyślnie zaznaczone w panelu ASR.
+AUTO_APPLIED_LATER = ("SUG-NAS-E-FINAL",)
 
 
 def user_rule(**overrides) -> str:
@@ -96,6 +98,9 @@ class TestBuiltinRules:
             ("tych", "SUG-CH-FINAL", "tyh"),
             ("są", "SUG-A-O-ACUTE", "sóm"),
             ("kosa", "SUG-LAB-MEDIAL", "kuosa"),
+            ("się", "SUG-NAS-E-FINAL", "sie"),
+            ("myszkę", "SUG-NAS-E-FINAL", "myszke"),
+            ("szyję", "SUG-NAS-E-FINAL", "szyje"),
         ],
     )
     def test_new_rules_follow_specification_examples(
@@ -108,8 +113,19 @@ class TestBuiltinRules:
         assert result == expected
 
     def test_new_rules_are_not_applied_automatically(self) -> None:
-        new = [r for r in default_rules() if r.code not in ORIGINAL_CODES]
+        new = [
+            r
+            for r in default_rules()
+            if r.code not in ORIGINAL_CODES + AUTO_APPLIED_LATER
+        ]
         assert new and not any(rule.auto_apply for rule in new)
+
+    def test_final_e_nasal_is_applied_automatically(self) -> None:
+        """Wygłosowe „ę” w mowie to zwykle „e” (zgłoszenie #44)."""
+        (rule,) = [r for r in default_rules() if r.code == "SUG-NAS-E-FINAL"]
+        assert rule.auto_apply
+        assert [s for s in propose("ę") if s.code == "SUG-NAS-E-FINAL"] == []
+        assert [s for s in propose("będzie") if s.code == "SUG-NAS-E-FINAL"] == []
 
     def test_pair_rule_needs_whitespace_between_words(self) -> None:
         assert [s for s in propose("kiedyś, jak") if s.code == "SUG-VOICE-S-PAIR"] == []
