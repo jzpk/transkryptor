@@ -1,8 +1,8 @@
 """Krok „Szkic” panelu ASR: kontekst, słownik, transkrypcja i segmenty.
 
 Krok zaczyna się od danych nagrania (pole przekazane przez panel), potem
-kwestionariusz, mówcy i transkrypcja; kontekst, słownik i fragment A-B są
-w zwiniętych „Więcej opcjach”, a segmenty - w zwiniętej liście pod krokami.
+kwestionariusz, mówcy i transkrypcja z „Tylko fragment A-B”; kontekst,
+słownik i rozpoznanie fragmentu w miejscu kursora są w zwiniętych „Więcej opcjach”, a segmenty - w zwiniętej liście pod krokami.
 
 Sekcja zbiera kontekst nagrania i słownik projektu, które trafiają do
 Whispera razem ze słownikiem globalnym z ustawień (REQ-21), uruchamia
@@ -220,7 +220,8 @@ class TranscriptionSection(QObject):
     def build_step(self, recording: QWidget) -> QWidget:
         """Krok 3 panelu: dane nagrania, kwestionariusz, mówcy i transkrypcja.
 
-        Kontekst, słownik i fragment A-B są w zwiniętych „Więcej opcjach” -
+        „Tylko fragment A-B” stoi pod przyciskiem szkicu, który zmienia; kontekst,
+        słownik i „Rozpoznaj fragment A-B” są w zwiniętych „Więcej opcjach” -
         zwykle wystarczają dane nagrania i kwestionariusz (zgł. #57).
         """
         transcribe_row = QHBoxLayout()
@@ -238,7 +239,6 @@ class TranscriptionSection(QObject):
                 QLabel(tr("asr.vocabulary")),
                 self.vocabulary_edit,
                 self.vocabulary_hint,
-                self.clip_only_check,
                 self.fragment_button,
             ],
         )
@@ -254,6 +254,7 @@ class TranscriptionSection(QObject):
                 self.speakers_box,
                 self.qa_layout_check,
                 transcribe_row,
+                self.clip_only_check,
                 self.transcribe_status_label,
                 self.device_label,
                 self.reinsert_draft_button,

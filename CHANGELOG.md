@@ -22,9 +22,9 @@ Pusta sekcja blokuje wydanie.
   i płci informatora. To te same pola co w metryczce (zmiana w jednym
   miejscu widać w drugim), a miejsce nagrania podpowiada modelowi nazwy
   własne. Metryczka ma nowe pole **Płeć informatora** (dane osobowe -
-  pomijane w eksporcie anonimizowanym). Kontekst nagrania, słownik
-  projektu i rozpoznawanie fragmentu A-B są w zwiniętych **Więcej
-  opcjach**, a listy **Segmenty i pewność** oraz **Zmiany i propozycje do
+  pomijane w eksporcie anonimizowanym). **Tylko fragment A-B** stoi
+  zaraz pod przyciskiem szkicu, a kontekst nagrania, słownik projektu
+  i **Rozpoznaj fragment A-B** są w zwiniętych **Więcej opcjach**, a listy **Segmenty i pewność** oraz **Zmiany i propozycje do
   przeglądu** są zwinięte - liczba pozycji stoi w ich tytule.
 
 - **Rozmówcy w panelu Szkic ASR:** w kroku „Szkic z nagrania” widać

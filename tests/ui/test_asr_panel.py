@@ -1086,10 +1086,10 @@ class TestDraftStepLayout:
         transcription = panel.transcription
         assert panel.recording.isVisibleTo(panel)
         assert transcription.questionnaire_box.isVisibleTo(panel)
+        assert transcription.clip_only_check.isVisibleTo(panel)
         for widget in (
             transcription.context_edit,
             transcription.vocabulary_edit,
-            transcription.clip_only_check,
             transcription.fragment_button,
             transcription.segments_list,
             panel.review.suggestions_list,
