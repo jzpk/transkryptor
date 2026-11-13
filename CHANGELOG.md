@@ -7,6 +7,8 @@ Pusta sekcja blokuje wydanie.
 
 ## Nieopublikowane
 
+## 0.8.1 - 2026-11-13
+
 - **Czytelniejsze okno „Mówcy nagrania”:** okno otwiera się w rozmiarze,
   w którym widać cały opis i kilka wierszy tabeli, z tytułem jak inne
   okna programu. Przyciski OK i Anuluj we wszystkich oknach nie mają już
