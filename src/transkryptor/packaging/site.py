@@ -48,6 +48,14 @@ from transkryptor.packaging.metadata import (
     VERSION,
     targets,
 )
+from transkryptor.packaging.site_nav import (
+    CHANGES_PAGE,
+    HOME_PAGE,
+    ISSUES_PAGE,
+    NOT_FOUND_PAGE,
+    footer_links_html,
+    nav_html,
+)
 from transkryptor.update.releases import GITHUB_REPO
 
 AUTHOR_NAME = "Jeremiasz Pauszek"
@@ -62,20 +70,20 @@ TURNSTILE_SITE_KEY_ENV = "TRANSKRYPTOR_TURNSTILE_SITE_KEY"
 PAGES_DIR = REPO_ROOT / "pages"
 # Status zgłoszeń: skrypt strony pobiera listę z publicznego API GitHuba
 # (bez tokenu, więc strona może pokazać najwyżej 100 ostatnio zmienionych).
-ISSUES_PAGE = "zgloszenia.html"
 GITHUB_API = "https://api.github.com"
-TEMPLATE_FILE = "index.html"
+TEMPLATE_FILE = HOME_PAGE
 # Strony z polami ${...}; pierwsza to strona główna.
 TEMPLATE_FILES = (
     TEMPLATE_FILE,
     "faq.html",
     "autor.html",
+    CHANGES_PAGE,
     REPORT_PAGE,
     ISSUES_PAGE,
-    "404.html",
+    NOT_FOUND_PAGE,
 )
 # Strony w mapie strony; 404.html ma noindex.
-INDEXED_FILES = tuple(name for name in TEMPLATE_FILES if name != "404.html")
+INDEXED_FILES = tuple(name for name in TEMPLATE_FILES if name != NOT_FOUND_PAGE)
 SITEMAP_FILE = "sitemap.xml"
 ROBOTS_FILE = "robots.txt"
 # Pliki z pages/ kopiowane bez zmian (poza szablonami).
@@ -490,7 +498,9 @@ def build(
     for name in TEMPLATE_FILES:
         template = Template((source / name).read_text(encoding="utf-8"))
         try:
-            pages[name] = template.substitute(fields)
+            pages[name] = template.substitute(
+                fields, nav=nav_html(name), footer_links=footer_links_html(fields)
+            )
         except KeyError as error:
             raise SiteError(f"Szablon {name} używa nieznanego pola {error}.") from None
         except ValueError as error:
@@ -536,6 +546,7 @@ def main(argv: list[str] | None = None) -> int:
 
 __all__ = [
     "AUTHOR_NAME",
+    "CHANGES_PAGE",
     "INDEXED_FILES",
     "ISSUES_PAGE",
     "LETTERS",

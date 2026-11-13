@@ -134,6 +134,20 @@
 
   window.addEventListener("hashchange", openFromHash);
 
+  // Historia zmian była kiedyś sekcją strony głównej - stare odnośniki
+  // (index.html#zmiany, index.html#v0.7.0) prowadzą teraz na jej stronę.
+  var OLD_CHANGELOG_HASH = /^#(zmiany|v\d+\.\d+\.\d+)$/;
+
+  function redirectOldChangelogLink() {
+    var hash = window.location.hash;
+    var home = document.getElementById("pobierz");
+    if (home && OLD_CHANGELOG_HASH.test(hash) && !document.getElementById(hash.slice(1))) {
+      window.location.replace("zmiany.html" + hash);
+      return true;
+    }
+    return false;
+  }
+
   // System odwiedzającego: "windows", "linux" albo null (macOS, telefony
   // i inne - dla nich nie ma wydania, więc strona niczego nie wyróżnia).
   function visitorOs() {
@@ -455,7 +469,7 @@
       // Wersja prowadzi do jej sekcji w historii zmian na stronie głównej.
       var version = issueRelease(issue);
       badge = element("a", "issue-state", ISSUE_STATES[state] + " " + version);
-      badge.href = "index.html#v" + version;
+      badge.href = "zmiany.html#v" + version;
       badge.title = "Historia zmian wersji " + version;
     } else {
       badge = element("span", "issue-state", ISSUE_STATES[state]);
@@ -738,6 +752,9 @@
       update();
     });
 
+    if (redirectOldChangelogLink()) {
+      return;
+    }
     highlightDownload();
     reportForm();
     issueStatus();

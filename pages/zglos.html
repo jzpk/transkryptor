@@ -1,15 +1,15 @@
 <!doctype html>
 <!--
   Formularz zgłoszeń błędów i pomysłów (GitHub Pages). Pola $${nazwa}
-  wypełnia src/transkryptor/packaging/site.py; dosłowny znak dolara zapisuje
-  się jako $$. Pasek górny i stopka są takie jak w index.html, faq.html
-  i autor.html - zmieniaj je we wszystkich plikach.
-
+  wypełnia src/transkryptor/packaging/site.py; dosłowny znak dolara
+  zapisuje się jako $$. Odnośniki paska górnego i stopki ($${nav},
+  $${footer_links}) składa src/transkryptor/packaging/site_nav.py.
   Formularz wysyła zgłoszenie skryptem (site.js) do Workera Cloudflare
-  (katalog zgloszenia/), który zakłada issue na GitHubie. Gdy adres Workera
-  nie jest ustawiony albo przeglądarka nie uruchamia skryptów, widać tylko
-  odnośnik do zgłoszeń na GitHubie. Program otwiera tę stronę z parametrami
-  ?wersja=...&system=..., które wypełniają pola informacji technicznych.
+  (katalog zgloszenia/), który zakłada issue na GitHubie. Gdy adres
+  Workera nie jest ustawiony albo przeglądarka nie uruchamia skryptów,
+  widać tylko odnośnik do zgłoszeń na GitHubie. Program otwiera tę stronę
+  z parametrami ?wersja=...&system=..., które wypełniają pola informacji
+  technicznych.
 -->
 <html lang="pl">
   <head>
@@ -50,14 +50,8 @@
         <a class="brand" href="index.html"
           ><img src="img/ikona-56.png" alt="" width="28" height="28" />${app_name}</a
         >
-        <nav class="nav" aria-label="Sekcje strony">
-          <a href="index.html#mozliwosci">Możliwości</a>
-          <a href="index.html#pobierz">Pobierz</a>
-          <a href="index.html#zmiany"><span class="nav-full">Historia zmian</span
-            ><span class="nav-short">Zmiany</span></a
-          >
-          <a href="faq.html">FAQ</a>
-          <a href="autor.html">O autorze</a>
+        <nav class="nav" aria-label="Strony">
+          ${nav}
         </nav>
         <div class="prefs">
           <button
@@ -271,11 +265,7 @@
           <p>Wolne oprogramowanie na licencji GPL-3.0-or-later.</p>
         </div>
         <nav class="footer-links" aria-label="Odnośniki">
-          <a href="${repo_url}">Kod źródłowy</a>
-          <a href="zglos.html">Zgłoś problem lub pomysł</a>
-          <a href="zgloszenia.html">Status zgłoszeń</a>
-          <a href="${guide_url}">Instrukcja użytkownika</a>
-          <a href="faq.html">FAQ</a>
+          ${footer_links}
         </nav>
         <div class="footer-author">
           <a class="author-chip" href="autor.html">

@@ -1,0 +1,170 @@
+<!doctype html>
+<!--
+  Historia zmian (GitHub Pages): sekcje wydanych wersji z CHANGELOG.md.
+  Pola $${nazwa} wypełnia src/transkryptor/packaging/site.py; dosłowny znak
+  dolara zapisuje się jako $$. Sekcje wersji mają identyfikatory v0.8.0 -
+  strona statusu zgłoszeń linkuje do nich (zmiany.html#v0.8.0). Odnośniki
+  paska górnego i stopki ($${nav}, $${footer_links}) składa
+  src/transkryptor/packaging/site_nav.py.
+-->
+<html lang="pl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Historia zmian - ${app_name}, program do transkrypcji gwar</title>
+    <meta
+      name="description"
+      content="Historia zmian programu ${app_name}: nowości i poprawki w kolejnych wydaniach."
+    />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="canonical" href="${site_url}/zmiany.html" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="${app_name}" />
+    <meta property="og:locale" content="pl_PL" />
+    <meta property="og:url" content="${site_url}/zmiany.html" />
+    <meta property="og:title" content="Historia zmian - ${app_name}" />
+    <meta
+      property="og:description"
+      content="Nowości i poprawki w kolejnych wydaniach programu ${app_name}."
+    />
+    <meta property="og:image" content="${site_url}/img/podglad.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="Okno programu ${app_name}: odtwarzacz nagrania, transkrypcja z indeksem górnym i panel szkicu ASR"
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" type="image/png" href="icon.png" />
+    <link rel="stylesheet" href="style.css" />
+    <style>
+      ${letters_css}
+    </style>
+    <script src="site.js"></script>
+  </head>
+  <body>
+    ${letters}
+    <header class="topbar">
+      <div class="wrap topbar-inner">
+        <a class="brand" href="index.html"
+          ><img src="img/ikona-56.png" alt="" width="28" height="28" />${app_name}</a
+        >
+        <nav class="nav" aria-label="Strony">
+          ${nav}
+        </nav>
+        <div class="prefs">
+          <button
+            class="motion-switch"
+            type="button"
+            role="switch"
+            aria-checked="true"
+            aria-label="Animacja liter w tle"
+            title="Animacja liter w tle"
+            hidden
+          >
+            <span class="motion-switch-track" aria-hidden="true"></span>
+            <span class="motion-switch-label" aria-hidden="true"
+              >animati<b class="motion-on">ON</b><b class="motion-off">OFF</b></span
+            >
+          </button>
+          <button
+            class="icon-button theme-toggle"
+            type="button"
+            title="Zmień motyw"
+            aria-label="Zmień motyw"
+            hidden
+          >
+            <svg class="icon-moon" aria-hidden="true">
+              <use href="img/ikony.svg#ksiezyc" />
+            </svg>
+            <svg class="icon-sun" aria-hidden="true">
+              <use href="img/ikony.svg#slonce" />
+            </svg>
+          </button>
+        </div>
+        <div class="social">
+          <a
+            class="icon-button"
+            href="${repo_url}"
+            title="Kod źródłowy"
+            aria-label="Kod źródłowy"
+          >
+            <svg aria-hidden="true"><use href="img/ikony.svg#github" /></svg
+          ></a>
+          <a
+            class="icon-button"
+            href="${linkedin_url}"
+            title="${author_name} na LinkedIn"
+            aria-label="${author_name} na LinkedIn"
+          >
+            <svg aria-hidden="true"><use href="img/ikony.svg#linkedin" /></svg
+          ></a>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section id="zmiany" class="wrap">
+        <div class="section-head">
+          <h1>Historia zmian</h1>
+          <button
+            class="button compact"
+            type="button"
+            data-toggle-all="#zmiany .changelog"
+            hidden
+          >
+            Rozwiń wszystkie
+          </button>
+        </div>
+        <p class="lead">Co zmieniło się w kolejnych wydaniach.</p>
+        <div class="changelog">${changelog}</div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="wrap footer-inner">
+        <div class="footer-about">
+          <a class="brand" href="index.html"
+            ><img src="img/ikona-56.png" alt="" width="24" height="24" />${app_name}</a
+          >
+          <p>Wolne oprogramowanie na licencji GPL-3.0-or-later.</p>
+        </div>
+        <nav class="footer-links" aria-label="Odnośniki">
+          ${footer_links}
+        </nav>
+        <div class="footer-author">
+          <a class="author-chip" href="autor.html">
+            <img
+              src="img/autor-80.webp"
+              alt=""
+              width="40"
+              height="40"
+              loading="lazy"
+            />
+            <span
+              ><span class="author-chip-label">Autor</span>${author_name}</span
+            >
+          </a>
+          <div class="social">
+            <a
+              class="icon-button"
+              href="${repo_url}"
+              title="Kod źródłowy"
+              aria-label="Kod źródłowy"
+            >
+              <svg aria-hidden="true"><use href="img/ikony.svg#github" /></svg
+            ></a>
+            <a
+              class="icon-button"
+              href="${linkedin_url}"
+              title="${author_name} na LinkedIn"
+              aria-label="${author_name} na LinkedIn"
+            >
+              <svg aria-hidden="true"><use href="img/ikony.svg#linkedin" /></svg
+            ></a>
+          </div>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

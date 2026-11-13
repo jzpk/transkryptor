@@ -270,6 +270,31 @@ main {
   color: var(--accent);
 }
 
+/* Sześć pozycji menu mieści się w jednym wierszu z nazwą i przełącznikami
+   dopiero przy pełnej szerokości .wrap - stąd węższe odstępy niż w stopce,
+   a poniżej 1180px menu ma własny wiersz (zobacz @media niżej). */
+.nav {
+  gap: 2px;
+}
+
+.nav a {
+  padding: 6px 10px;
+}
+
+/* „Pobierz” - jedyna akcja w menu, wyróżniona jak przycisk główny. */
+.nav a.nav-download {
+  margin-left: 4px;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+.nav a.nav-download:hover {
+  background: var(--accent);
+  color: var(--accent-text);
+  filter: brightness(1.08);
+}
+
 .social,
 .prefs {
   display: flex;
@@ -1241,6 +1266,15 @@ a.issue-state:focus-visible {
   font-weight: 500;
 }
 
+@media (max-width: 1180px) {
+  .nav {
+    order: 3;
+    width: calc(100% + 16px);
+    margin: 0 -8px 8px;
+    gap: 0;
+  }
+}
+
 @media (max-width: 820px) {
   .hero-inner,
   .author {
@@ -1262,13 +1296,6 @@ a.issue-state:focus-visible {
 
   .footer-author {
     flex-wrap: wrap;
-  }
-
-  .nav {
-    order: 3;
-    width: calc(100% + 16px);
-    margin: 0 -8px 8px;
-    gap: 0;
   }
 
   .nav a {
@@ -1307,8 +1334,12 @@ a.issue-state:focus-visible {
   }
 
   .nav a {
-    padding: 6px 5px;
+    padding: 6px 4px;
     font-size: 0.85rem;
+  }
+
+  .nav a.nav-download {
+    margin-left: 0;
   }
 
   .nav-full {

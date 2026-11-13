@@ -2,10 +2,11 @@
 <!--
   Strona błędu 404 (GitHub Pages pokazuje ją pod każdym nieistniejącym
   adresem). Pola $${nazwa} wypełnia src/transkryptor/packaging/site.py;
-  dosłowny znak dolara zapisuje się jako $$.
-  Strona może się wyświetlić pod zagnieżdżonym adresem (np. /a/b/c), więc
-  wszystkie odnośniki i zasoby mają ścieżki bezwzględne od /. Pasek górny
-  i stopka odpowiadają tym z pozostałych stron.
+  dosłowny znak dolara zapisuje się jako $$. Strona może się wyświetlić
+  pod zagnieżdżonym adresem (np. /a/b/c), więc wszystkie odnośniki i
+  zasoby mają ścieżki bezwzględne od /. Odnośniki paska górnego i stopki
+  ($${nav}, $${footer_links}) składa
+  src/transkryptor/packaging/site_nav.py.
 -->
 <html lang="pl">
   <head>
@@ -28,14 +29,8 @@
         <a class="brand" href="/"
           ><img src="/img/ikona-56.png" alt="" width="28" height="28" />${app_name}</a
         >
-        <nav class="nav" aria-label="Sekcje strony">
-          <a href="/#mozliwosci">Możliwości</a>
-          <a href="/#pobierz">Pobierz</a>
-          <a href="/#zmiany"><span class="nav-full">Historia zmian</span
-            ><span class="nav-short">Zmiany</span></a
-          >
-          <a href="/faq.html">FAQ</a>
-          <a href="/autor.html">O autorze</a>
+        <nav class="nav" aria-label="Strony">
+          ${nav}
         </nav>
         <div class="prefs">
           <button
@@ -114,11 +109,7 @@
           <p>Wolne oprogramowanie na licencji GPL-3.0-or-later.</p>
         </div>
         <nav class="footer-links" aria-label="Odnośniki">
-          <a href="${repo_url}">Kod źródłowy</a>
-          <a href="/zglos.html">Zgłoś problem lub pomysł</a>
-          <a href="/zgloszenia.html">Status zgłoszeń</a>
-          <a href="${guide_url}">Instrukcja użytkownika</a>
-          <a href="/faq.html">FAQ</a>
+          ${footer_links}
         </nav>
         <div class="footer-author">
           <a class="author-chip" href="/autor.html">

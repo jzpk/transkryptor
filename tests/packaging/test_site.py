@@ -9,6 +9,7 @@ from transkryptor import __version__
 from transkryptor.packaging import site
 from transkryptor.packaging.metadata import targets
 from transkryptor.packaging.site import SiteError
+from transkryptor.packaging.site_nav import NAV_ITEMS, download_href
 
 CHANGELOG = """\
 # Historia zmian
@@ -79,8 +80,9 @@ def test_build_links_downloads_of_the_latest_release(changelog_file, tmp_path) -
     for target in targets("0.2.4").values():
         assert f'href="{download}/{target.artifact_name}"' in page
     assert "SHA256SUMS.txt" not in page
-    assert 'id="v0.2.3"' in page
-    assert "Funkcja w toku" not in page
+    changes = (out / site.CHANGES_PAGE).read_text(encoding="utf-8")
+    assert 'id="v0.2.3"' in changes
+    assert "Funkcja w toku" not in changes
     assert (out / "style.css").is_file()
     assert (out / "icon.png").is_file()
     assert any((out / "img").iterdir())
@@ -196,7 +198,9 @@ def test_changelog_releases_start_collapsed(changelog_file, tmp_path) -> None:
     out = tmp_path / "site"
     index = site.build(out, changelog_file, repo="owner/repo", expected_version="0.2.4")
 
-    page = index.read_text(encoding="utf-8")
+    # Historia zmian ma własną stronę, a nie sekcję strony głównej.
+    assert '<details class="release"' not in index.read_text(encoding="utf-8")
+    page = (out / site.CHANGES_PAGE).read_text(encoding="utf-8")
     assert page.count('<details class="release"') == 2
     assert " open>" not in page
     assert 'data-toggle-all="#zmiany .changelog"' in page
@@ -398,13 +402,41 @@ def test_report_form_refuses_an_insecure_worker_address(
         )
 
 
-def test_every_page_footer_links_the_report_form(changelog_file, tmp_path) -> None:
+def nav_block(page: str, css_class: str) -> str:
+    """Zawartość ``<nav class="css_class">`` złożonej strony."""
+    match = re.search(rf'<nav class="{css_class}"[^>]*>(.*?)</nav>', page, re.S)
+    assert match is not None, css_class
+    return match.group(1)
+
+
+def test_every_page_menu_links_the_pages_and_download(changelog_file, tmp_path) -> None:
     out = tmp_path / "site"
     site.build(out, changelog_file, repo="owner/repo", expected_version="0.2.4")
 
     for name in site.TEMPLATE_FILES:
         page = (out / name).read_text(encoding="utf-8")
-        assert re.search(r'<a href="/?zglos.html">Zgłoś problem lub pomysł</a>', page)
+        nav = nav_block(page, "nav")
+        prefix = "/" if name == "404.html" else ""
+        for item in NAV_ITEMS:
+            assert f'href="{prefix}{item.page}"' in nav, (name, item.page)
+        assert f'href="{download_href(name)}">Pobierz</a>' in nav
+        # Tylko bieżąca strona jest zaznaczona w menu.
+        current = re.findall(r'href="/?([^"]+)" aria-current="page"', nav)
+        assert current == ([name] if name in {i.page for i in NAV_ITEMS} else [])
+
+
+def test_every_page_footer_links_only_code_and_guide(changelog_file, tmp_path) -> None:
+    out = tmp_path / "site"
+    site.build(out, changelog_file, repo="owner/repo", expected_version="0.2.4")
+
+    for name in site.TEMPLATE_FILES:
+        page = (out / name).read_text(encoding="utf-8")
+        links = nav_block(page, "footer-links")
+        assert re.findall(r">([^<]+)</a>", links) == [
+            "Kod źródłowy",
+            "Instrukcja użytkownika",
+        ]
+        assert 'href="https://github.com/owner/repo"' in links
 
 
 def test_issue_status_page_reads_the_repository_issues(
@@ -436,12 +468,3 @@ def test_issue_status_page_reads_the_repository_issues(
     assert site.ISSUES_PAGE in (out / site.SITEMAP_FILE).read_text(encoding="utf-8")
     report = (out / "zglos.html").read_text(encoding="utf-8")
     assert f'href="{site.ISSUES_PAGE}"' in report
-
-
-def test_every_page_footer_links_the_issue_status(changelog_file, tmp_path) -> None:
-    out = tmp_path / "site"
-    site.build(out, changelog_file, repo="owner/repo", expected_version="0.2.4")
-
-    for name in site.TEMPLATE_FILES:
-        page = (out / name).read_text(encoding="utf-8")
-        assert re.search(r'<a href="/?zgloszenia.html">Status zgłoszeń</a>', page)
