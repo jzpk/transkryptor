@@ -328,11 +328,6 @@
         .then(function (data) {
           say("", false);
           form.hidden = true;
-          var number = done.querySelector("[data-report-number]");
-          number.textContent = data.number ? " (nr " + data.number + ")" : "";
-          if (data.url) {
-            done.querySelector("[data-report-link]").href = data.url;
-          }
           done.hidden = false;
           done.focus();
         })
@@ -472,11 +467,13 @@
     link.href = issue.html_url;
     item.appendChild(link);
 
-    var meta = element("span", "issue-meta small", "#" + issue.number);
+    // Bez numeru zgłoszenia: numeracja GitHuba (wspólna z pull requestami)
+    // ma przerwy, które osobom spoza projektu wyglądają na zgubione zgłoszenia.
+    var meta = element("span", "issue-meta small");
     var labels = labelNames(issue);
     for (var name in ISSUE_KINDS) {
       if (labels.indexOf(name) >= 0) {
-        meta.textContent += " · " + ISSUE_KINDS[name];
+        meta.textContent = ISSUE_KINDS[name];
         break;
       }
     }
@@ -500,7 +497,13 @@
 
   // Kolejne strony odpowiedzi API (nagłówek Link z rel="next").
   function fetchIssues(url, requestsLeft) {
-    return fetch(url, { headers: { Accept: "application/vnd.github+json" } }).then(
+    // no-cache: API pozwala trzymać odpowiedź w pamięci podręcznej minutę,
+    // a świeżo wysłane zgłoszenie ma się pojawić od razu. Przeglądarka pyta
+    // z ETagiem, więc niezmienionej listy nie pobiera ponownie.
+    return fetch(url, {
+      headers: { Accept: "application/vnd.github+json" },
+      cache: "no-cache",
+    }).then(
       function (response) {
         if (!response.ok) {
           throw new Error("GitHub " + response.status);

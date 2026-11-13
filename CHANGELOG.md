@@ -7,6 +7,11 @@ Pusta sekcja blokuje wydanie.
 
 ## Nieopublikowane
 
+- **Prostsza lista na stronie statusu zgłoszeń:** lista nie pokazuje już
+  numerów zgłoszeń - przerwy w numeracji wyglądały jak zgubione
+  zgłoszenia. Po wysłaniu formularza strona informuje, że rejestracja
+  zgłoszenia potrwa do minuty, a lista zgłoszeń pobiera zawsze aktualny
+  stan zamiast zapamiętanego przez przeglądarkę.
 - **Wersja wydania na stronie statusu zgłoszeń:** zrobione zgłoszenie
   pokazuje na [Status zgłoszeń](https://transkryptorapp.pl/zgloszenia.html),
   w której wersji trafiło do programu (np. **Wydane 0.8.0** - kliknięcie
