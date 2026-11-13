@@ -253,8 +253,8 @@ class TestLocking:
 
 
 def test_open_menu_offers_pack(window) -> None:
-    window.main_toolbar.refresh_recent_menu()
-    assert window.packs.open_action in window.main_toolbar.open_menu.actions()
+    window.main_toolbar.open_menu.refresh()
+    assert window.packs.open_action in window.main_toolbar.open_menu.menu.actions()
 
 
 def test_pack_drop_detection() -> None:

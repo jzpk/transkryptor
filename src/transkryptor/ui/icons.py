@@ -119,6 +119,10 @@ _PATHS: dict[str, str] = {
         '<path d="M15.5 9a4.5 4.5 0 0 1 0 6M18 6.5a8 8 0 0 1 0 11"/>'
     ),
     "flag": ('<path d="M5.5 21V4M5.5 4.5h12l-2.5 4 2.5 4h-12"/>'),
+    "highlighter": (
+        '<path d="M14.5 4.5l5 5-8 8H6.5v-5z"/><path d="M11.5 7.5l5 5"/>'
+        '<path d="M3.5 20.5h17"/>'
+    ),
 }
 
 

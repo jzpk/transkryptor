@@ -152,6 +152,7 @@ TUTORIALS: tuple[Tutorial, ...] = (
                 "editor",
                 shortcuts=(("find", search_id("find")),),
             ),
+            _step("highlights", "toolbar_highlights", MORE),
         ),
     ),
     Tutorial(

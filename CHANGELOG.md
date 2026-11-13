@@ -121,6 +121,15 @@ Pusta sekcja blokuje wydanie.
   i przycisk **Wstaw szkic ponownie**. Przycisk **Rozpoznaj fragment A-B**
   nadal wstawia rozpoznany fragment w miejsce kursora. Samouczek **Szkic
   ASR** opisuje nową opcję.
+- **Podświetlanie fraz:** przycisk **Podświetl** w pasku wyszukiwania
+  podświetla na stałe wszystkie wystąpienia wpisanej frazy, jak zakreślacz
+  w edytorze tekstu. Każda fraza ma inny kolor, podświetlenia zostają po
+  zamknięciu paska i nadążają za pisaniem; działają opcje wyszukiwania
+  (wielkość liter, całe słowa, wyrażenie regularne). Nowy przycisk
+  **Podświetlenia** na pasku narzędzi pokazuje listę fraz z liczbą
+  wystąpień - odznaczenie frazy usuwa jej podświetlenie, a **Usuń wszystkie
+  podświetlenia fraz** czyści listę. Podświetlenia nie trafiają do projektu
+  ani do eksportu. Samouczek **Notacja i ostrzeżenia** opisuje nową funkcję.
 
 ## 0.7.0 - 2026-10-26
 

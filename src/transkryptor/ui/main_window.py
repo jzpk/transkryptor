@@ -64,6 +64,7 @@ from transkryptor.ui.coverage_controller import CoverageController
 from transkryptor.ui.editor import TranscriptionEditor
 from transkryptor.ui.export_controller import ExportController
 from transkryptor.ui.fonts import text_font_family
+from transkryptor.ui.highlights_menu import HighlightsMenu
 from transkryptor.ui.layout import (
     author_field,
     buddy_caption,
@@ -83,6 +84,7 @@ from transkryptor.ui.metadata_form import MetadataForm, MetadataWidgets
 from transkryptor.ui.navigation import BACKWARD, FORWARD
 from transkryptor.ui.notation_controller import IgnoredWarnings, NotationController
 from transkryptor.ui.pack_controller import PackController
+from transkryptor.ui.phrase_highlights import PhraseHighlighter
 from transkryptor.ui.player_bar import PlayerBar
 from transkryptor.ui.player_controller import PlayerController
 from transkryptor.ui.readiness_dialog import ReadinessController
@@ -298,6 +300,10 @@ class MainWindow(QMainWindow):
         self.search = SearchController(
             self.editor, self.search_bar, self, self._informant_spans
         )
+        self.phrases = PhraseHighlighter(
+            self.editor, self.search.open_find, self.show_status, self
+        )
+        self.search_bar.highlight_requested.connect(self.phrases.add)
         self.speakers = SpeakerController(
             self.editor,
             lambda: self.document,
@@ -360,6 +366,9 @@ class MainWindow(QMainWindow):
         self.review_actions = self._create_review_actions()
         self.snippets = SnippetController(
             self, self.editor, self.main_toolbar.snippets_menu, self._on_settings
+        )
+        self.highlights_menu = HighlightsMenu(
+            self.main_toolbar.highlights_menu, (self.phrases,)
         )
         self.shortcut_actions = self._collect_shortcut_actions()
         self.tutorials = TutorialController(self, settings_store, self)
@@ -518,8 +527,8 @@ class MainWindow(QMainWindow):
         self.open_action = bar.open_action
         self.save_action = bar.save_action
         self.save_as_action = bar.save_as_action
-        self.import_docx_action = bar.import_docx_action
-        self.compare_action = bar.compare_action
+        self.import_docx_action = bar.open_menu.import_docx_action
+        self.compare_action = bar.open_menu.compare_action
         self.corpus_action = bar.corpus_action
         self.main_toolbar = bar
 
@@ -565,7 +574,7 @@ class MainWindow(QMainWindow):
             self.show_status,
         )
         self.packs.accept_drops_on(self.editor.viewport())
-        self.main_toolbar.add_open_actions([self.packs.open_action])
+        self.main_toolbar.open_menu.add_actions([self.packs.open_action])
         self.main_toolbar.add_save_actions(self.snapshots.actions)
         self.main_toolbar.add_export_actions(
             [self.progress.stats_action, self.packs.export_action]

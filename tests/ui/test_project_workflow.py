@@ -243,8 +243,8 @@ class TestSaveAndOpen:
     ) -> None:
         missing = str(tmp_path / "zniknął.transkr")
         window.settings_store.add_recent_project(missing)
-        window.main_toolbar.refresh_recent_menu()
-        names = [a.text() for a in window.main_toolbar.open_menu.actions()]
+        window.main_toolbar.open_menu.refresh()
+        names = [a.text() for a in window.main_toolbar.open_menu.menu.actions()]
         assert "zniknął.transkr" in names
         assert not window.session.open_project(missing)
         assert window.settings_store.recent_projects() == []

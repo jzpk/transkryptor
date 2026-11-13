@@ -39,6 +39,8 @@ class SearchBar(QWidget):
     replace_requested = Signal()
     replace_all_requested = Signal()
     close_requested = Signal()
+    # Trwałe podświetlenie bieżącej frazy: (tekst, ``SearchOptions``).
+    highlight_requested = Signal(str, object)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -81,6 +83,11 @@ class SearchBar(QWidget):
         self.replace_button = QPushButton(tr("search.replace"))
         self.replace_all_button = QPushButton(tr("search.replace_all"))
         self.replace_all_button.setToolTip(tr("search.replace_all.tooltip"))
+        self.highlight_button = QPushButton(tr("search.highlight"))
+        self.highlight_button.setObjectName("search_highlight_button")
+        icons.set_icon(self.highlight_button, "highlighter", "text", "text_muted")
+        self.highlight_button.setToolTip(tr("search.highlight.tooltip"))
+        self.highlight_button.setEnabled(False)
         self.close_button = QToolButton()
         icons.set_icon(self.close_button, "close", "text_muted")
         self.close_button.setToolTip(_tooltip(tr("search.close"), "Esc"))
@@ -98,12 +105,13 @@ class SearchBar(QWidget):
         layout.addWidget(self.count_label, 0, 5)
         layout.addWidget(self.previous_button, 0, 6)
         layout.addWidget(self.next_button, 0, 7)
-        layout.addWidget(self.close_button, 0, 8)
+        layout.addWidget(self.highlight_button, 0, 8)
+        layout.addWidget(self.close_button, 0, 9)
         layout.addWidget(self.replace_edit, 1, 0)
         layout.addWidget(self.preview_label, 1, 1, 1, 5)
         layout.addWidget(self.replace_button, 1, 6)
         layout.addWidget(self.replace_all_button, 1, 7)
-        layout.addWidget(self.error_label, 2, 0, 1, 9)
+        layout.addWidget(self.error_label, 2, 0, 1, 10)
         layout.setColumnStretch(0, 1)
         self._replace_row = (
             self.replace_edit,
@@ -119,6 +127,12 @@ class SearchBar(QWidget):
         self.addAction(close_action)
 
         self.find_edit.textChanged.connect(self.query_changed)
+        self.find_edit.textChanged.connect(
+            lambda text: self.highlight_button.setEnabled(bool(text))
+        )
+        self.highlight_button.clicked.connect(
+            lambda: self.highlight_requested.emit(self.find_edit.text(), self.options())
+        )
         for check in (
             self.case_check,
             self.whole_words_check,

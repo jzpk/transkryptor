@@ -1,9 +1,10 @@
 """Pasek narzędzi okna głównego: notacja, ASR, aktualizacje, ustawienia, sesja.
 
 Sekcja sesji: nowy dokument, projekt (otwórz z listą ostatnich i importem
-DOCX, zapisz / zapisz jako), eksport DOCX (zwykły i anonimizowany), zamknij.
-Kontrolery dokładają do menu „Otwórz”, „Zapisz” i eksportu własne polecenia
-(``add_open_actions``, ``add_save_actions``, ``add_export_actions``).
+DOCX - ``ui/open_menu.py``, zapisz / zapisz jako), eksport DOCX (zwykły
+i anonimizowany), zamknij. Kontrolery dokładają do menu „Otwórz”, „Zapisz”
+i eksportu własne polecenia (``open_menu.add_actions``, ``add_save_actions``,
+``add_export_actions``).
 Części paska (pozycja chowana do menu, akcje ze skrótami) są
 w ``ui/toolbar_parts.py``.
 
@@ -24,7 +25,6 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, replace
 from functools import partial
-from pathlib import Path
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QCursor, QKeySequence
@@ -39,6 +39,7 @@ from PySide6.QtWidgets import (
 from transkryptor.i18n import tr
 from transkryptor.ui import icons
 from transkryptor.ui.markers import MARKERS, SUPERSCRIPT_SHORTCUT
+from transkryptor.ui.open_menu import OpenMenu, OpenMenuHandlers
 from transkryptor.ui.shortcuts import (
     CLOSE_SHORTCUT,
     CORPUS_SHORTCUT,
@@ -92,6 +93,7 @@ class ToolbarHandlers:
 NOTATION_SECTION = "notation"
 COLLAPSE_ORDER = (
     "snippets",
+    "highlights",
     "corpus",
     *(f"marker:{marker.key}" for marker in reversed(MARKERS)),
     "superscript",
@@ -190,20 +192,12 @@ class MainToolbar:
             self.marker_actions[marker.key] = action
 
         # Wstawki użytkownika (propozycja 21): menu wypełnia ``SnippetController``.
-        # Przycisk od razu rozwija menu; schowana akcja w „Więcej” otwiera je
-        # przy kursorze.
-        self.snippets_menu = QMenu(tr("toolbar.snippets"), window)
-        self.snippets_action = QAction(tr("toolbar.snippets"), window)
-        self.snippets_action.setToolTip(tr("toolbar.snippets.tooltip"))
-        self.snippets_action.triggered.connect(
-            lambda _checked=False: self.snippets_menu.popup(QCursor.pos())
-        )
-        snippets_handle = self._add(self.snippets_action, menu=self.snippets_menu)
-        self._buttons[self.snippets_action].setPopupMode(
-            QToolButton.ToolButtonPopupMode.InstantPopup
-        )
-        self._slots["snippets"] = Slot(
-            NOTATION_SECTION, self.snippets_action, (snippets_handle,)
+        self.snippets_menu, self.snippets_action = self._menu_slot(
+            window,
+            "snippets",
+            NOTATION_SECTION,
+            tr("toolbar.snippets"),
+            tr("toolbar.snippets.tooltip"),
         )
 
         # Menu schowanych znaczników stoi tuż za nimi - przed „Szkic ASR”.
@@ -239,6 +233,16 @@ class MainToolbar:
         comments_toggle.setToolTip(tr("toolbar.comments.tooltip"))
         self._slots["comments"] = Slot(
             "tools", comments_toggle, (self._add(comments_toggle),)
+        )
+
+        # Podświetlenia fraz: menu wypełnia ``HighlightsMenu``.
+        self.highlights_menu, self.highlights_action = self._menu_slot(
+            window,
+            "highlights",
+            "tools",
+            tr("toolbar.highlights"),
+            tr("toolbar.highlights.tooltip"),
+            icon="highlighter",
         )
 
         # Wyszukiwanie, słownik form i katalog metryczek folderu projektów.
@@ -284,10 +288,6 @@ class MainToolbar:
             "session", self.new_action, (self._add(self.new_action, icon_only=True),)
         )
 
-        self._recent_provider = handlers.recent_projects
-        # Dodatkowe polecenia menu „Otwórz” (``add_open_actions``).
-        self._open_extras: list[QAction] = []
-        self._open_recent = handlers.open_recent
         self.open_action = window_action(
             window,
             tr("toolbar.open"),
@@ -296,29 +296,23 @@ class MainToolbar:
             tr("toolbar.open.tooltip"),
             handlers.open_project,
         )
-        self.import_docx_action = QAction(tr("toolbar.import_docx"), window)
-        self.import_docx_action.setToolTip(tr("toolbar.import_docx.tooltip"))
-        self.import_docx_action.triggered.connect(
-            lambda _checked=False: handlers.import_docx()
+        self.open_menu = OpenMenu(
+            window,
+            OpenMenuHandlers(
+                recent_projects=handlers.recent_projects,
+                open_recent=handlers.open_recent,
+                import_docx=handlers.import_docx,
+                compare=handlers.compare,
+                clear_recent=handlers.clear_recent,
+            ),
         )
-        self.compare_action = QAction(tr("toolbar.compare"), window)
-        icons.set_icon(self.compare_action, "compare", "text", "text_muted")
-        self.compare_action.setToolTip(tr("toolbar.compare.tooltip"))
-        self.compare_action.triggered.connect(lambda _checked=False: handlers.compare())
-        self.clear_recent_action = QAction(tr("toolbar.clear_recent"), window)
-        self.clear_recent_action.triggered.connect(
-            lambda _checked=False: handlers.clear_recent()
-        )
-        # Tytuł menu widać, gdy jest podmenu „Więcej poleceń”.
-        self.open_menu = QMenu(tr("toolbar.recent"), window)
-        self.open_menu.aboutToShow.connect(self.refresh_recent_menu)
+        menu = self.open_menu.menu
         self._slots["open"] = Slot(
             "session",
             self.open_action,
-            (self._add(self.open_action, icon_only=True, menu=self.open_menu),),
-            (self.open_menu,),
+            (self._add(self.open_action, icon_only=True, menu=menu),),
+            (menu,),
         )
-        self.refresh_recent_menu()
 
         self.save_action = window_action(
             window,
@@ -427,33 +421,6 @@ class MainToolbar:
             else:
                 self._more_handle.setVisible(True)
 
-    def refresh_recent_menu(self) -> None:
-        """Menu „Otwórz”: ostatnie projekty, import DOCX, porównanie, czyszczenie."""
-        menu = self.open_menu
-        menu.clear()
-        recent = self._recent_provider()
-        for path in recent:
-            action = menu.addAction(Path(path).name)
-            action.setToolTip(path)
-            action.setStatusTip(path)
-            action.triggered.connect(
-                lambda _checked=False, chosen=path: self._open_recent(chosen)
-            )
-        if not recent:
-            placeholder = menu.addAction(tr("toolbar.recent.empty"))
-            placeholder.setEnabled(False)
-        menu.addSeparator()
-        menu.addAction(self.import_docx_action)
-        menu.addActions(self._open_extras)
-        menu.addAction(self.compare_action)
-        menu.addAction(self.clear_recent_action)
-        self.clear_recent_action.setEnabled(bool(recent))
-
-    def add_open_actions(self, actions: Sequence[QAction]) -> None:
-        """Polecenia w menu „Otwórz” (za importem DOCX)."""
-        self._open_extras.extend(actions)
-        self.refresh_recent_menu()
-
     def add_save_actions(self, actions: Sequence[QAction]) -> None:
         """Polecenia w menu „Zapisz” (także w menu „Więcej poleceń”)."""
         self.save_menu.addSeparator()
@@ -481,6 +448,30 @@ class MainToolbar:
                     menu.addMenu(extra)
                 else:
                     menu.addAction(extra)
+
+    def _menu_slot(
+        self,
+        window: QMainWindow,
+        key: str,
+        section: str,
+        label: str,
+        tooltip: str,
+        icon: str | None = None,
+    ) -> tuple[QMenu, QAction]:
+        """Przycisk, który od razu rozwija menu wypełniane przez kontroler.
+
+        Schowana akcja w „Więcej poleceń” otwiera to menu przy kursorze.
+        """
+        menu = QMenu(label, window)
+        action = QAction(label, window)
+        if icon is not None:
+            icons.set_icon(action, icon, "text", "text_muted")
+        action.setToolTip(tooltip)
+        action.triggered.connect(lambda _checked=False: menu.popup(QCursor.pos()))
+        handle = self._add(action, menu=menu)
+        self._buttons[action].setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        self._slots[key] = Slot(section, action, (handle,))
+        return menu, action
 
     def _add(
         self, action: QAction, *, icon_only: bool = False, menu: QMenu | None = None

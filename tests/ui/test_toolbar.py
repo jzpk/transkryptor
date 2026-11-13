@@ -83,7 +83,7 @@ def test_menu_keeps_dropdown_commands(window) -> None:
     texts = menu_texts(window)
     assert len(window.main_toolbar.collapsed_actions()) == len(COLLAPSE_ORDER)
     assert window.save_as_action.text() in texts
-    assert window.main_toolbar.open_menu.title() in texts
+    assert window.main_toolbar.open_menu.menu.title() in texts
 
 
 def test_widening_restores_buttons(qtbot, window) -> None:
