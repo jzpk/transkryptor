@@ -24,6 +24,7 @@ from transkryptor.notation.suggestions import default_rules, rule_infos
 from transkryptor.settings import AsrSettings, Settings
 from transkryptor.ui.asr_panel import AsrPanel
 from transkryptor.ui.asr_review_section import APPLIED_MARK, PENDING_MARK
+from transkryptor.ui.asr_widgets import Collapsible
 from transkryptor.ui.diarization_box import DiarizationBox
 from transkryptor.ui.loading_overlay import loading_messages
 from transkryptor.ui.main_window import MainWindow
@@ -1057,3 +1058,59 @@ class TestDiarizationOption:
         assert panel.transcription.transcribe_status_label.text() == tr(
             "asr.diarizing.percent", percent=95
         )
+
+
+class TestDraftStepLayout:
+    """Zgł. #57: dane nagrania w kroku „Szkic”, rzadsze opcje zwinięte."""
+
+    def test_recording_fields_edit_the_metadata(self, window_with_asr) -> None:
+        window = window_with_asr
+        recording = window.asr_panel.recording
+        place = recording.edits["place"]
+        place.setText("Ocieszyn")
+        place.textEdited.emit("Ocieszyn")
+        recording.edits["informant_gender"].setText("kobieta")
+        recording.edits["informant_gender"].textEdited.emit("kobieta")
+        assert window.metadata_form.value("place") == "Ocieszyn"
+        assert window.metadata_form.value("informant_gender") == "kobieta"
+        assert window.document.metadata["informant_gender"] == "kobieta"
+        assert window.asr_panel.asr_context()[0] == "Ocieszyn"
+
+        window.metadata_form.set_value("district", "gm. Oborniki")
+        assert recording.edits["district"].text() == "gm. Oborniki"
+        window.metadata_form.set_values({"informant_birth_year": "1954"})
+        assert recording.edits["informant_birth_year"].text() == "1954"
+        assert place.text() == ""
+
+    def test_rare_options_segments_and_review_start_collapsed(self, panel) -> None:
+        transcription = panel.transcription
+        assert panel.recording.isVisibleTo(panel)
+        assert transcription.questionnaire_box.isVisibleTo(panel)
+        for widget in (
+            transcription.context_edit,
+            transcription.vocabulary_edit,
+            transcription.clip_only_check,
+            transcription.fragment_button,
+            transcription.segments_list,
+            panel.review.suggestions_list,
+        ):
+            assert not widget.isVisibleTo(panel)
+        transcription.more_options.toggle.click()
+        assert transcription.context_edit.isVisibleTo(panel)
+        assert transcription.fragment_button.isVisibleTo(panel)
+
+    def test_collapsed_titles_show_counts(self, panel) -> None:
+        segments = panel.findChild(Collapsible, "asr_segments")
+        review = panel.findChild(Collapsible, "asr_review")
+        panel.restore_result(
+            TranscriptionResult(
+                "a b",
+                "pl",
+                (SegmentResult(0.0, 1.0, "a", 0.9), SegmentResult(1.0, 2.0, "b", 0.4)),
+            )
+        )
+        assert segments.toggle.text() == f"{tr('asr.segments')} (2)"
+        panel.set_review_items([])
+        assert review.toggle.text() == tr("asr.review")
+        panel.restore_result(None)
+        assert segments.toggle.text() == tr("asr.segments")

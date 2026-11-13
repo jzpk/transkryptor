@@ -1,5 +1,9 @@
 """Krok „Szkic” panelu ASR: kontekst, słownik, transkrypcja i segmenty.
 
+Krok zaczyna się od danych nagrania (pole przekazane przez panel), potem
+kwestionariusz, mówcy i transkrypcja; kontekst, słownik i fragment A-B są
+w zwiniętych „Więcej opcjach”, a segmenty - w zwiniętej liście pod krokami.
+
 Sekcja zbiera kontekst nagrania i słownik projektu, które trafiają do
 Whispera razem ze słownikiem globalnym z ustawień (REQ-21), uruchamia
 transkrypcję całego nagrania albo fragmentu A-B w wątku ``TranscribeThread``
@@ -29,7 +33,6 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
-    QVBoxLayout,
     QWidget,
 )
 
@@ -62,7 +65,7 @@ from transkryptor.ui.asr_speakers_box import (
     SpeakersBox,
 )
 from transkryptor.ui.asr_transcribe_thread import TranscribeThread
-from transkryptor.ui.asr_widgets import AutoHideLabel, section_label, step
+from transkryptor.ui.asr_widgets import AutoHideLabel, Collapsible, step
 from transkryptor.ui.messages import show_error
 from transkryptor.ui.theme import set_props, tokens
 
@@ -214,42 +217,53 @@ class TranscriptionSection(QObject):
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff
         )
 
-    def build_step(self) -> QWidget:
-        """Krok 3 panelu: kontekst, słownik, mówcy i przyciski transkrypcji."""
+    def build_step(self, recording: QWidget) -> QWidget:
+        """Krok 3 panelu: dane nagrania, kwestionariusz, mówcy i transkrypcja.
+
+        Kontekst, słownik i fragment A-B są w zwiniętych „Więcej opcjach” -
+        zwykle wystarczają dane nagrania i kwestionariusz (zgł. #57).
+        """
         transcribe_row = QHBoxLayout()
         transcribe_row.addWidget(self.transcribe_button, stretch=1)
         transcribe_row.addWidget(self.cancel_transcribe_button)
         context_header = QHBoxLayout()
         context_header.addWidget(QLabel(tr("asr.context")), stretch=1)
         context_header.addWidget(self.context_counter)
-        return step(
-            "3",
-            tr("asr.step.draft"),
+        self.more_options = Collapsible(
+            "asr_more",
+            tr("asr.more"),
             [
                 context_header,
                 self.context_edit,
                 QLabel(tr("asr.vocabulary")),
                 self.vocabulary_edit,
                 self.vocabulary_hint,
+                self.clip_only_check,
+                self.fragment_button,
+            ],
+        )
+        return step(
+            "3",
+            tr("asr.step.draft"),
+            [
+                QLabel(tr("asr.recording")),
+                recording,
                 QLabel(tr("asr.questionnaire")),
                 self.questionnaire_box,
                 self.speakers_box,
                 self.qa_layout_check,
                 transcribe_row,
-                self.clip_only_check,
-                self.fragment_button,
                 self.transcribe_status_label,
                 self.device_label,
                 self.reinsert_draft_button,
+                self.more_options,
             ],
         )
 
-    def build_segments_box(self) -> QVBoxLayout:
-        """Lista segmentów ostatniego szkicu pod krokami panelu."""
-        box = QVBoxLayout()
-        box.setSpacing(6)
-        box.addWidget(section_label(tr("asr.segments")))
-        box.addWidget(self.segments_list, stretch=1)
+    def build_segments_box(self) -> Collapsible:
+        """Zwinięta lista segmentów ostatniego szkicu pod krokami panelu."""
+        box = Collapsible("asr_segments", tr("asr.segments"), [self.segments_list])
+        box.count_rows(self.segments_list.model())
         return box
 
     # --- ustawienia ----------------------------------------------------------

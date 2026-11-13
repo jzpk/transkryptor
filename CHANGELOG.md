@@ -7,6 +7,16 @@ Pusta sekcja blokuje wydanie.
 
 ## Nieopublikowane
 
+- **Prostszy krok „Szkic z nagrania” w panelu Szkic ASR:** krok zaczyna
+  się od danych nagrania - miejscowości, gminy/powiatu, roku urodzenia
+  i płci informatora. To te same pola co w metryczce (zmiana w jednym
+  miejscu widać w drugim), a miejsce nagrania podpowiada modelowi nazwy
+  własne. Metryczka ma nowe pole **Płeć informatora** (dane osobowe -
+  pomijane w eksporcie anonimizowanym). Kontekst nagrania, słownik
+  projektu i rozpoznawanie fragmentu A-B są w zwiniętych **Więcej
+  opcjach**, a listy **Segmenty i pewność** oraz **Zmiany i propozycje do
+  przeglądu** są zwinięte - liczba pozycji stoi w ich tytule.
+
 - **Rozmówcy w panelu Szkic ASR:** w kroku „Szkic z nagrania” widać
   zawsze, kim są rozmówcy nagrania (np. B - Badacz; I - Informator),
   a przycisk **Mówcy…** pozwala poprawić ich listę jeszcze przed

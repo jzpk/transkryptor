@@ -14,7 +14,7 @@ from transkryptor.document.metadata import (
 
 def test_default_fields_mark_informant_data_as_personal() -> None:
     personal = {field.key for field in DEFAULT_FIELDS if field.personal}
-    assert personal == {"informant", "informant_birth_year"}
+    assert personal == {"informant", "informant_birth_year", "informant_gender"}
     assert DEFAULT_FIELDS[0].key == SIGNATURE
 
 

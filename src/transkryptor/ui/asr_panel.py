@@ -15,7 +15,9 @@ Panel jest cienkim kontenerem trzech sekcji, które układa w kolejne kroki:
 - ``review`` (:class:`ReviewSection`) - krok „Reguły” i lista przeglądu
   zastosowanych zmian i propozycji (REQ-16);
 - ``transcription`` (:class:`TranscriptionSection`) - krok „Szkic”:
-  kontekst i słownik (REQ-21), transkrypcja i lista segmentów.
+  kontekst i słownik (REQ-21), transkrypcja i lista segmentów;
+- ``recording`` (:class:`RecordingFieldsBox`) - dane nagrania z metryczki
+  na początku kroku „Szkic” (zmiany wracają sygnałem ``metadata_edited``).
 
 Sygnały i metody publiczne panelu przekazują dalej sygnały i metody sekcji,
 więc reszta interfejsu nie zależy od podziału na sekcje.
@@ -23,7 +25,7 @@ więc reszta interfejsu nie zależy od podziału na sekcje.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from pathlib import Path
 
 from PySide6.QtCore import Qt, Signal
@@ -35,6 +37,7 @@ from transkryptor.asr.models import AsrModelInfo
 from transkryptor.notation.suggestions import RuleInfo, Suggestion
 from transkryptor.settings import AsrSettings
 from transkryptor.ui.asr_model_section import ModelSection
+from transkryptor.ui.asr_recording_box import RecordingFieldsBox
 from transkryptor.ui.asr_review_section import ReviewSection
 from transkryptor.ui.asr_transcription_section import TranscriptionSection
 from transkryptor.ui.asr_widgets import divider
@@ -60,6 +63,7 @@ class AsrPanel(QWidget):
     model_changed = Signal(str)  # klucz modelu wybranego przez użytkownika
     speakers_changed = Signal(int)  # liczba mówców wybrana w panelu; 0 - auto
     speakers_edit_requested = Signal()  # „Mówcy…” - edycja listy mówców
+    metadata_edited = Signal(str, str)  # pole metryczki z kroku „Szkic”, wartość
     qa_layout_changed = Signal(bool)  # układ „pytanie - odpowiedź” w panelu
     context_changed = Signal()  # kontekst nagrania lub słownik projektu
 
@@ -78,6 +82,7 @@ class AsrPanel(QWidget):
         self.transcription = TranscriptionSection(
             self.models, self, audio_path_provider, transcribe_impl, clip_provider
         )
+        self.recording = RecordingFieldsBox()
         self._build_layout()
         self._forward_signals()
         self.models.status_changed.connect(self._on_model_status_changed)
@@ -93,13 +98,27 @@ class AsrPanel(QWidget):
         for name, widget in (
             ("asr_model_step", self.models.build_step()),
             ("asr_rules_step", self.review.build_rules_step()),
-            ("asr_transcription_step", self.transcription.build_step()),
+            (
+                "asr_transcription_step",
+                self.transcription.build_step(self.recording),
+            ),
         ):
             widget.setObjectName(name)
             layout.addWidget(widget)
         layout.addWidget(divider())
-        layout.addLayout(self.transcription.build_segments_box(), stretch=2)
-        layout.addLayout(self.review.build_review_box(), stretch=3)
+        # Segmenty i przegląd są zwinięte (zgł. #57); rozwinięte dzielą
+        # wolną wysokość, a zwinięte oddają ją odstępowi na końcu.
+        for box, stretch in (
+            (self.transcription.build_segments_box(), 2),
+            (self.review.build_review_box(), 3),
+        ):
+            layout.addWidget(box)
+            box.expanded_changed.connect(
+                lambda expanded, box=box, stretch=stretch: layout.setStretchFactor(
+                    box, stretch if expanded else 0
+                )
+            )
+        layout.addStretch(1)
 
         # Przewijanie na niskich ekranach; panel nie wymusza wysokości okna.
         scroll = QScrollArea()
@@ -114,6 +133,7 @@ class AsrPanel(QWidget):
 
     def _forward_signals(self) -> None:
         self.models.model_changed.connect(self.model_changed)
+        self.recording.value_edited.connect(self.metadata_edited)
         transcription = self.transcription
         transcription.draft_ready.connect(self.draft_ready)
         transcription.transcription_started.connect(self.transcription_started)
@@ -198,6 +218,10 @@ class AsrPanel(QWidget):
     def set_speakers_legend(self, text: str) -> None:
         """Legenda mówców dokumentu w kroku „Szkic” (``B - Badacz; …``)."""
         self.transcription.set_speakers_legend(text)
+
+    def set_metadata_values(self, values: Mapping[str, str]) -> None:
+        """Odświeża dane nagrania w kroku „Szkic” wartościami metryczki."""
+        self.recording.set_values(values)
 
     def set_context_default(self, text: str) -> None:
         self.transcription.set_context_default(text)

@@ -624,6 +624,11 @@ class MainWindow(QMainWindow):
         self.author_edit.textChanged.connect(self._on_metadata_changed)
         self.date_edit.dateChanged.connect(self._on_metadata_changed)
         self.metadata_form.changed.connect(self._on_metadata_changed)
+        # Dane nagrania w panelu ASR to widok pól metryczki (zgł. #57).
+        self.metadata_form.values_changed.connect(
+            lambda: self.asr_panel.set_metadata_values(self.metadata_form.values())
+        )
+        self.asr_panel.metadata_edited.connect(self.metadata_form.set_value)
         self.player_bar.import_requested.connect(self._on_import_audio)
         self.player_bar.sound_changed.connect(self._on_sound_changed)
         self.player_bar.media_available_changed.connect(

@@ -30,7 +30,7 @@ from transkryptor.notation.suggestions import (
     rule_infos,
 )
 from transkryptor.ui import icons
-from transkryptor.ui.asr_widgets import section_label, step
+from transkryptor.ui.asr_widgets import Collapsible, step
 from transkryptor.ui.theme import set_props, tokens
 
 APPLIED_MARK = "✓"
@@ -50,6 +50,7 @@ class ReviewSection(QObject):
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
         self._review_applied: list[bool] = []
+        self._review_box: Collapsible | None = None
         self.rule_checkboxes: dict[str, QCheckBox] = {}
         self._rules_layout = QVBoxLayout()
         self._rules_layout.setSpacing(2)
@@ -106,18 +107,19 @@ class ReviewSection(QObject):
         """Krok 2 panelu: podsumowanie reguł, po rozwinięciu - lista."""
         return step("2", tr("asr.step.rules"), [self.rules_toggle, self.rules_details])
 
-    def build_review_box(self) -> QVBoxLayout:
-        """Lista przeglądu z przyciskami pod listą segmentów."""
+    def build_review_box(self) -> Collapsible:
+        """Zwinięta lista przeglądu z przyciskami pod listą segmentów.
+
+        Tytuł podaje liczbę pozycji, więc widać ją także po zwinięciu.
+        """
         review_row = QHBoxLayout()
         review_row.addWidget(self.apply_suggestion_button)
         review_row.addStretch(1)
         review_row.addWidget(self.finish_review_button)
-        box = QVBoxLayout()
-        box.setSpacing(6)
-        box.addWidget(section_label(tr("asr.review")))
-        box.addWidget(self.suggestions_list, stretch=1)
-        box.addLayout(review_row)
-        return box
+        self._review_box = Collapsible(
+            "asr_review", tr("asr.review"), [self.suggestions_list, review_row]
+        )
+        return self._review_box
 
     # --- reguły --------------------------------------------------------------
 
@@ -193,12 +195,18 @@ class ReviewSection(QObject):
             self.suggestions_list.addItem(item)
         self.finish_review_button.setEnabled(bool(items))
         self._on_review_row_changed(self.suggestions_list.currentRow())
+        self._update_review_count()
 
     def clear_review(self) -> None:
         self._review_applied = []
         self.suggestions_list.clear()
         self.finish_review_button.setEnabled(False)
         self.apply_suggestion_button.setEnabled(False)
+        self._update_review_count()
+
+    def _update_review_count(self) -> None:
+        if self._review_box is not None:
+            self._review_box.set_count(len(self._review_applied))
 
     def _pending(self, index: int) -> bool:
         return (

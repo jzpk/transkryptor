@@ -22,6 +22,8 @@ from transkryptor.i18n import all_translations, tr
 SIGNATURE = "signature"
 PLACE = "place"
 DISTRICT = "district"
+BIRTH_YEAR = "informant_birth_year"
+GENDER = "informant_gender"
 
 
 @dataclass(frozen=True)
@@ -65,7 +67,8 @@ DEFAULT_FIELDS: tuple[MetadataField, ...] = (
     MetadataField(PLACE, "Miejscowość"),
     MetadataField(DISTRICT, "Gmina/powiat"),
     MetadataField("informant", "Informator (kod)", personal=True),
-    MetadataField("informant_birth_year", "Rok urodzenia informatora", personal=True),
+    MetadataField(BIRTH_YEAR, "Rok urodzenia informatora", personal=True),
+    MetadataField(GENDER, "Płeć informatora", personal=True),
     MetadataField("recording_date", "Data nagrania"),
     MetadataField("researcher", "Badacz"),
     MetadataField("notes", "Uwagi"),

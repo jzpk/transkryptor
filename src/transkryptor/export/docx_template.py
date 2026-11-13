@@ -53,6 +53,7 @@ FIELD_ALIASES: dict[str, tuple[str, ...]] = {
     "district": ("gmina_powiat", "gmina", "powiat"),
     "informant": ("informator",),
     "informant_birth_year": ("rok_urodzenia",),
+    "informant_gender": ("plec",),
     "recording_date": ("data_nagrania",),
     "researcher": ("badacz",),
     "notes": ("uwagi",),

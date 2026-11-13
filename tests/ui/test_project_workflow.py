@@ -564,7 +564,7 @@ class TestMetadataForm:
         window.metadata_form.set_value("place", "Ocieszyn")
         assert window.document.metadata == {"place": "Ocieszyn"}
         assert window.windowTitle().endswith("*")
-        assert "(1 z 8)" in window.metadata_form.toggle.text()
+        assert "(1 z 9)" in window.metadata_form.toggle.text()
 
     def test_signature_hint_does_not_overwrite_or_dirty(
         self, qtbot, window, audio, tmp_path, monkeypatch
@@ -588,7 +588,7 @@ class TestMetadataForm:
         assert settings.metadata.fields[-1].label == "Numer taśmy"
         assert settings.metadata.fields[-1].personal
         window.settings_store.save(settings)
-        assert len(window.metadata_form.edits) == 9
+        assert len(window.metadata_form.edits) == len(DEFAULT_FIELDS) + 1
 
     def test_anonymized_export_from_toolbar(
         self, window, tmp_path, monkeypatch

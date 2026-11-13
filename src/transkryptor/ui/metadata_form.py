@@ -37,7 +37,9 @@ COLUMNS = 2
 class MetadataForm(QWidget):
     """Przycisk zwijania z podsumowaniem i formularz pól metryczki."""
 
-    changed = Signal()
+    changed = Signal()  # zmiana wpisana przez użytkownika
+    # Wartości pól są inne - po zmianie użytkownika i po wczytaniu projektu.
+    values_changed = Signal()
     speakers_edit_requested = Signal()
 
     def __init__(self, fields: Iterable[MetadataField], parent=None) -> None:
@@ -127,6 +129,7 @@ class MetadataForm(QWidget):
             edit.setText(values.get(key, ""))
             edit.blockSignals(False)
         self._update_summary()
+        self.values_changed.emit()
         if emit:
             self.changed.emit()
 
@@ -157,6 +160,7 @@ class MetadataForm(QWidget):
 
     def _on_edited(self) -> None:
         self._update_summary()
+        self.values_changed.emit()
         self.changed.emit()
 
     def _on_toggled(self, expanded: bool) -> None:
