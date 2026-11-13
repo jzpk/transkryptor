@@ -360,15 +360,19 @@
   }
 
   // Stan zgłoszenia na stronie statusu. Zamknięte jako „not planned” albo
-  // duplikat są odrzucone, pozostałe zamknięte - zrobione. Otwarte są
-  // „w toku”, gdy mają etykietę ISSUE_PROGRESS_LABELS albo przypisaną osobę.
-  // Kolejność kluczy to kolejność na liście: najpierw sprawy w toku i otwarte.
+  // duplikat są odrzucone, pozostałe zamknięte - zrobione: wydane, gdy mają
+  // etykietę wersji (nadaje ją workflow wydania), inaczej niewydane. Otwarte
+  // są „w toku”, gdy mają etykietę ISSUE_PROGRESS_LABELS albo przypisaną
+  // osobę. Kolejność kluczy to kolejność na liście: najpierw sprawy w toku
+  // i otwarte. Do napisu wydanych dochodzi numer wersji.
   var ISSUE_STATES = {
     progress: "W toku",
     open: "Otwarte",
-    done: "Zrobione",
+    unreleased: "Zrobione, niewydane",
+    released: "Wydane",
     rejected: "Odrzucone",
   };
+  var ISSUE_VERSION_LABEL = /^v?(\d+)\.(\d+)\.(\d+)$/;
   var ISSUE_PROGRESS_LABELS = ["w-toku", "in progress"];
   var ISSUE_KINDS = { bug: "Błąd", enhancement: "Pomysł" };
   var ISSUES_FAILED =
@@ -381,12 +385,34 @@
     });
   }
 
+  // Najwyższa wersja z etykiet zgłoszenia (bez „v”) albo null.
+  function issueRelease(issue) {
+    var best = null;
+    labelNames(issue).forEach(function (name) {
+      var match = ISSUE_VERSION_LABEL.exec(name);
+      if (!match) {
+        return;
+      }
+      var parts = match.slice(1).map(Number);
+      var newer = best
+        ? parts[0] - best[0] || parts[1] - best[1] || parts[2] - best[2]
+        : 1;
+      if (newer > 0) {
+        best = parts;
+      }
+    });
+    return best && best.join(".");
+  }
+
   function issueState(issue) {
     if (issue.state === "closed") {
-      return issue.state_reason === "not_planned" ||
+      if (
+        issue.state_reason === "not_planned" ||
         issue.state_reason === "duplicate"
-        ? "rejected"
-        : "done";
+      ) {
+        return "rejected";
+      }
+      return issueRelease(issue) ? "released" : "unreleased";
     }
     var labels = labelNames(issue);
     var inProgress = ISSUE_PROGRESS_LABELS.some(function (name) {
@@ -411,7 +437,16 @@
   function issueItem(issue) {
     var state = issueState(issue);
     var item = element("li", "issue");
-    var badge = element("span", "issue-state", ISSUE_STATES[state]);
+    var badge;
+    if (state === "released") {
+      // Wersja prowadzi do jej sekcji w historii zmian na stronie głównej.
+      var version = issueRelease(issue);
+      badge = element("a", "issue-state", ISSUE_STATES[state] + " " + version);
+      badge.href = "index.html#v" + version;
+      badge.title = "Historia zmian wersji " + version;
+    } else {
+      badge = element("span", "issue-state", ISSUE_STATES[state]);
+    }
     badge.setAttribute("data-state", state);
     item.appendChild(badge);
 
@@ -435,9 +470,10 @@
   // jest domyślny.
   var ISSUE_FILTERS = {
     aktywne: ["progress", "open"],
-    zrobione: ["done"],
+    zrobione: ["unreleased", "released"],
+    niewydane: ["unreleased"],
     odrzucone: ["rejected"],
-    wszystkie: ["progress", "open", "done", "rejected"],
+    wszystkie: ["progress", "open", "unreleased", "released", "rejected"],
   };
   var ISSUES_PER_PAGE = 20;
   // Bez tokenu API pozwala na 60 zapytań na godzinę z jednego adresu, więc

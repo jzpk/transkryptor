@@ -7,6 +7,14 @@ Pusta sekcja blokuje wydanie.
 
 ## Nieopublikowane
 
+- **Wersja wydania na stronie statusu zgłoszeń:** zrobione zgłoszenie
+  pokazuje na [Status zgłoszeń](https://transkryptorapp.pl/zgloszenia.html),
+  w której wersji trafiło do programu (np. **Wydane 0.8.0** - kliknięcie
+  otwiera historię zmian tej wersji), albo **Zrobione, niewydane**, gdy
+  czeka na najbliższe wydanie. Nowy filtr **Czeka na wydanie** pokazuje
+  same gotowe, jeszcze niewydane zgłoszenia. Wydanie programu samo nadaje
+  zgłoszeniom na GitHubie etykietę z numerem wersji.
+
 ## 0.8.0 - 2026-11-13
 
 - **Mapa pokrycia transkrypcji na fali:** pod falą dźwiękową pasek

@@ -1047,7 +1047,7 @@ button.button:disabled {
 
 .issue {
   display: grid;
-  grid-template-columns: 8.5em minmax(0, 1fr) auto;
+  grid-template-columns: 10.5em minmax(0, 1fr) auto;
   gap: 12px;
   align-items: baseline;
   padding: 12px 16px;
@@ -1083,8 +1083,22 @@ button.button:disabled {
   background: var(--accent-soft);
 }
 
-.issue-state[data-state="done"] {
+.issue-state[data-state="released"],
+.issue-state[data-state="unreleased"] {
   color: var(--success);
+}
+
+.issue-state[data-state="unreleased"] {
+  border-style: dashed;
+}
+
+a.issue-state {
+  text-decoration: none;
+}
+
+a.issue-state:hover,
+a.issue-state:focus-visible {
+  background: var(--accent-soft);
 }
 
 .issue-state[data-state="rejected"] {

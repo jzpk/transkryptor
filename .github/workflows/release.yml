@@ -5,7 +5,8 @@
 # podbija wersję w pyproject.toml, uv.lock i src/transkryptor/__init__.py,
 # nadaje sekcji „Nieopublikowane” w CHANGELOG.md numer wersji (pusta sekcja
 # przerywa wydanie), commituje i nadaje tag vX.Y.Z, po czym ten sam przebieg
-# buduje oba artefakty z taga i publikuje wydanie. Commit wydania ma w opisie
+# buduje oba artefakty z taga i publikuje wydanie, a zgłoszeniom zrobionym
+# przed publikacją nadaje etykietę wersji. Commit wydania ma w opisie
 # [skip ci]: jego push nie uruchamia ponownie CI ani tego workflow - kod
 # przeszedł już testy (jednostkowe w CI, e2e na początku przebiegu), a commit
 # zmienia tylko numer wersji i nagłówek changeloga. Zainstalowane aplikacje
@@ -507,6 +508,32 @@ jobs:
             --notes-file dist/RELEASE-NOTES.md \
             dist/*.AppImage dist/*-setup.exe dist/SHA256SUMS.txt \
             dist/SHA256SUMS.txt.minisig dist/RELEASE-NOTES.md
+
+  # Etykieta z numerem wersji dla zgłoszeń zamkniętych jako zrobione przed
+  # publikacją - strona statusu zgłoszeń pokazuje z niej, w której wersji
+  # zmiana trafiła do programu. Błąd tutaj nie cofa wydania; job można
+  # uruchomić ponownie (już oznaczone zgłoszenia zostają bez zmian).
+  etykiety:
+    name: Etykiety wersji w zgłoszeniach
+    needs: [wersja, publikacja]
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.wersja.outputs.tag }}
+          persist-credentials: false
+
+      - name: Etykiety wersji
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.wersja.outputs.tag }}
+          VERSION: ${{ needs.wersja.outputs.version }}
+        run: |
+          CUTOFF="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json publishedAt -q .publishedAt)"
+          PYTHONPATH=src python3 -m transkryptor.packaging.issue_labels "$VERSION" --cutoff "$CUTOFF"
 
   # Strona projektu z nowymi linkami pobierania i historią zmian. Błąd tutaj
   # nie cofa wydania - stronę można wdrożyć ponownie z Actions → „Strona”.

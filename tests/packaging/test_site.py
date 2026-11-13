@@ -422,7 +422,14 @@ def test_issue_status_page_reads_the_repository_issues(
     assert 'href="https://github.com/owner/repo/issues"' in page
     assert 'href="zglos.html"' in page
     filters = re.findall(r'data-filter="([^"]+)"', page)
-    assert filters == ["aktywne", "zrobione", "odrzucone", "wszystkie"]
+    assert filters == ["aktywne", "zrobione", "niewydane", "odrzucone", "wszystkie"]
+    # Każdy przycisk filtra ma swój zestaw stanów w skrypcie strony.
+    script = (out / "site.js").read_text(encoding="utf-8")
+    for name in filters:
+        assert re.search(rf"^\s+{name}: \[", script, re.MULTILINE)
+    # Legenda opisuje oba stany zrobionych zgłoszeń.
+    assert 'data-state="released"' in page
+    assert 'data-state="unreleased"' in page
     assert "data-issues-pager" in page
     assert site.ISSUES_PAGE in (out / site.SITEMAP_FILE).read_text(encoding="utf-8")
     report = (out / "zglos.html").read_text(encoding="utf-8")

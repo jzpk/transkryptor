@@ -123,7 +123,8 @@
         <ul class="issues-legend small" aria-label="Znaczenie stanów">
           <li><span class="issue-state" data-state="open">Otwarte</span> czeka na zajęcie się nim</li>
           <li><span class="issue-state" data-state="progress">W toku</span> trwają prace</li>
-          <li><span class="issue-state" data-state="done">Zrobione</span> poprawione albo dodane</li>
+          <li><span class="issue-state" data-state="released">Wydane 0.8.0</span> jest w programie od tej wersji</li>
+          <li><span class="issue-state" data-state="unreleased">Zrobione, niewydane</span> gotowe, trafi do najbliższej wersji</li>
           <li><span class="issue-state" data-state="rejected">Odrzucone</span> nie będzie realizowane</li>
         </ul>
 
@@ -139,6 +140,9 @@
           </button>
           <button class="button compact" type="button" data-filter="zrobione">
             Zrobione
+          </button>
+          <button class="button compact" type="button" data-filter="niewydane">
+            Czeka na wydanie
           </button>
           <button class="button compact" type="button" data-filter="odrzucone">
             Odrzucone
