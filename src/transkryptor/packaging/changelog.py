@@ -1,10 +1,15 @@
 """Historia zmian: źródło sekcji „Nowości w tej wersji” w notach wydania.
 
-Zmiany widoczne dla użytkownika dopisuje się w ``CHANGELOG.md`` w sekcji
-„Nieopublikowane”, razem z kodem. Workflow wydania zamienia ją na sekcję
-wersji (``## X.Y.Z - RRRR-MM-DD``), a noty wydania przenoszą treść tej sekcji
-bez zmian. Pusta sekcja blokuje wydanie: noty bez nowości byłyby kopią
-poprzednich.
+Zmiany widoczne dla użytkownika opisuje się razem z kodem w osobnych plikach
+``changelog.d/<nazwa>.md`` (fragmentach, patrz ``transkryptor.changes``).
+Workflow wydania składa je w sekcję wersji (``## X.Y.Z - RRRR-MM-DD``) nad
+poprzednimi wersjami w ``CHANGELOG.md`` i usuwa pliki fragmentów, a noty
+wydania przenoszą treść tej sekcji bez zmian. Brak fragmentów blokuje
+wydanie: noty bez nowości byłyby kopią poprzednich.
+
+Fragmenty zamiast jednej sekcji „Nieopublikowane” pozwalają szykować
+poprawki na gałęzi ``release/X.Y`` równolegle z pracą na ``main``: scalenie
+gałęzi wydania do ``main`` usuwa tylko fragmenty wydanej poprawki.
 
 Moduł korzysta wyłącznie z biblioteki standardowej - workflow uruchamia go
 przed instalacją zależności:
@@ -20,10 +25,10 @@ import sys
 from datetime import date as date_type
 from pathlib import Path
 
+from transkryptor.changes import FRAGMENTS_DIR_NAME, fragment_files, unreleased_text
 from transkryptor.packaging.metadata import REPO_ROOT
 
 CHANGELOG_FILE = REPO_ROOT / "CHANGELOG.md"
-UNRELEASED = "Nieopublikowane"
 
 _HEADING = re.compile(r"^## (?P<title>.+?)\s*$")
 _DATE_SUFFIX = re.compile(r"\s+-\s+.*$")
@@ -53,13 +58,18 @@ def _locate(lines: list[str], title: str) -> tuple[int, int] | None:
 
 
 def section(text: str, title: str) -> str | None:
-    """Treść sekcji ``## <title>`` (wersji albo „Nieopublikowane”) lub None."""
+    """Treść sekcji ``## <title>`` (np. wersji) lub None."""
     lines = text.splitlines()
     found = _locate(lines, title)
     if found is None:
         return None
     start, end = found
     return "\n".join(lines[start + 1 : end]).strip()
+
+
+def fragments_dir(path: Path) -> Path:
+    """Katalog fragmentów obok pliku historii zmian."""
+    return Path(path).parent / FRAGMENTS_DIR_NAME
 
 
 def _read(path: Path) -> str:
@@ -73,16 +83,15 @@ def whats_new(version: str, path: Path = CHANGELOG_FILE) -> str:
     """Nowości wersji do not wydania.
 
     Bez sekcji wersji (budowanie lokalne przed wydaniem) noty dostają treść
-    „Nieopublikowane”.
+    fragmentów niewydanych zmian.
     """
-    text = _read(path)
-    content = section(text, version)
+    content = section(_read(path), version)
     if content is None:
-        content = section(text, UNRELEASED)
+        content = unreleased_text(fragments_dir(path))
     if not content:
         raise ChangelogError(
-            f"{path} nie opisuje zmian wersji {version}: dopisz je w sekcji "
-            f"„{UNRELEASED}”."
+            f"{path} nie opisuje zmian wersji {version}: dodaj fragment "
+            f"w {fragments_dir(path)}."
         )
     return content
 
@@ -100,27 +109,24 @@ def release(
     release_date: date_type | None = None,
     path: Path = CHANGELOG_FILE,
 ) -> None:
-    """Zamienia „Nieopublikowane” na sekcję wersji i otwiera nową, pustą."""
-    text = _read(path)
-    lines = text.splitlines()
+    """Składa fragmenty w sekcję wersji nad poprzednimi i usuwa ich pliki."""
+    lines = _read(path).splitlines()
     if _locate(lines, version) is not None:
         raise ChangelogError(f"{path} ma już sekcję wersji {version}.")
-    found = _locate(lines, UNRELEASED)
-    if found is None:
-        raise ChangelogError(f"{path} nie ma sekcji „## {UNRELEASED}”.")
-    start, end = found
-    if not "\n".join(lines[start + 1 : end]).strip():
+    directory = fragments_dir(path)
+    content = unreleased_text(directory)
+    if not content:
         raise ChangelogError(
-            f"Sekcja „{UNRELEASED}” w {path} jest pusta - opisz zmiany "
-            "przed wydaniem."
+            f"Brak fragmentów zmian w {directory} - opisz zmiany przed wydaniem."
         )
     when = release_date or date_type.today()
-    lines[start : start + 1] = [
-        f"## {UNRELEASED}",
-        "",
-        f"## {version} - {when.isoformat()}",
-    ]
-    Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8")
+    index = next(
+        (i for i, line in enumerate(lines) if _HEADING.match(line)), len(lines)
+    )
+    lines[index:index] = [f"## {version} - {when.isoformat()}", "", content, ""]
+    Path(path).write_text("\n".join(lines).rstrip("\n") + "\n", encoding="utf-8")
+    for fragment in fragment_files(directory):
+        fragment.unlink()
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -130,7 +136,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "command",
         choices=("release", "check"),
-        help="release: nadaj sekcji „Nieopublikowane” numer wersji; "
+        help="release: złóż fragmenty zmian w sekcję wersji; "
         "check: sprawdź, że wersja ma opis zmian",
     )
     parser.add_argument("version", help="wersja w postaci X.Y.Z")
@@ -154,9 +160,9 @@ def main(argv: list[str] | None = None) -> int:
 
 __all__ = [
     "CHANGELOG_FILE",
-    "UNRELEASED",
     "ChangelogError",
     "check",
+    "fragments_dir",
     "release",
     "section",
     "whats_new",

@@ -202,8 +202,10 @@ def test_finalize_covers_artifacts_collected_from_both_runners(tmp_path) -> None
     (output / "SHA256SUMS.txt").write_text("stare\n", encoding="utf-8")
 
     changelog = tmp_path / "CHANGELOG.md"
-    changelog.write_text(
-        "## Nieopublikowane\n\n- Nowość z historii.\n", encoding="utf-8"
+    changelog.write_text("# Historia zmian\n", encoding="utf-8")
+    (tmp_path / "changelog.d").mkdir()
+    (tmp_path / "changelog.d" / "news.md").write_text(
+        "- Nowość z historii.\n", encoding="utf-8"
     )
 
     code = build_module.main(
@@ -240,12 +242,12 @@ def test_finalize_without_changelog_entry_fails(tmp_path, capsys) -> None:
     for target in targets().values():
         (output / target.artifact_name).write_bytes(b"x")
     changelog = tmp_path / "CHANGELOG.md"
-    changelog.write_text("## Nieopublikowane\n", encoding="utf-8")
+    changelog.write_text("# Historia zmian\n", encoding="utf-8")
 
     code = build_module.main(
         ["--finalize", "--output-dir", str(output), "--changelog", str(changelog)]
     )
 
     assert code == 1
-    assert "Nieopublikowane" in capsys.readouterr().err
+    assert "dodaj fragment" in capsys.readouterr().err
     assert not (output / "RELEASE-NOTES.md").exists()

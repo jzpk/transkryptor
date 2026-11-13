@@ -1,17 +1,10 @@
 # Historia zmian
 
-Zmiany widoczne dla użytkownika. Nowe wpisy dopisuj w sekcji
-„Nieopublikowane” razem z kodem - workflow „Wydanie” nada jej numer wersji
-i datę, a jej treść trafi do sekcji „Nowości w tej wersji” not wydania.
-Pusta sekcja blokuje wydanie.
-
-## Nieopublikowane
-
-- **Komunikaty Qt w dzienniku programu:** ostrzeżenia i informacje
-  biblioteki Qt (np. o odtwarzaniu albo rysowaniu ikon) trafiają do pliku
-  `transkryptor.log` - ostrzeżenia z nazwą aktywnego okna, co ułatwia
-  ustalenie przyczyny zgłoszonego problemu. Informacje nie zaśmiecają już
-  konsoli.
+Zmiany widoczne dla użytkownika. Nowe wpisy dodawaj razem z kodem jako
+osobne pliki w katalogu `changelog.d/` (patrz `changelog.d/README.md`) -
+workflow „Wydanie” złoży je w sekcję z numerem wersji i datą, a jej treść
+trafi do sekcji „Nowości w tej wersji” not wydania. Brak fragmentów blokuje
+wydanie.
 
 ## 0.8.1 - 2026-11-13
 

@@ -16,10 +16,6 @@ CHANGELOG = """\
 
 Wstęp.
 
-## Nieopublikowane
-
-- Funkcja w toku.
-
 ## 0.2.4 - 2026-10-11
 
 - Nowa funkcja,
@@ -82,7 +78,6 @@ def test_build_links_downloads_of_the_latest_release(changelog_file, tmp_path) -
     assert "SHA256SUMS.txt" not in page
     changes = (out / site.CHANGES_PAGE).read_text(encoding="utf-8")
     assert 'id="v0.2.3"' in changes
-    assert "Funkcja w toku" not in changes
     assert (out / "style.css").is_file()
     assert (out / "icon.png").is_file()
     assert any((out / "img").iterdir())
@@ -95,7 +90,7 @@ def test_build_refuses_a_changelog_behind_the_program(changelog_file, tmp_path) 
 
 def test_build_refuses_a_changelog_without_releases(tmp_path) -> None:
     path = tmp_path / "CHANGELOG.md"
-    path.write_text("## Nieopublikowane\n\n- x\n", encoding="utf-8")
+    path.write_text("# Historia zmian\n\nWstęp.\n", encoding="utf-8")
     with pytest.raises(SiteError, match="wydanej"):
         site.build(tmp_path / "site", path)
 

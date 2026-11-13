@@ -2,8 +2,8 @@
 
 Strona jest statyczna i powstaje przy każdym wydaniu (workflow „Strona”
 wywoływany z „Wydania”), więc przyciski pobierania wskazują pliki najnowszego
-wydania, a historia zmian obejmuje tylko wydane wersje - sekcja
-„Nieopublikowane” nie trafia na stronę. Opis i wygląd są w katalogu
+wydania, a historia zmian obejmuje tylko wydane wersje - fragmenty
+niewydanych zmian (``changelog.d``) nie trafiają na stronę. Opis i wygląd są w katalogu
 ``pages/`` (szablony ``index.html``, ``faq.html``, ``autor.html`` i ``404.html``
 z polami ``${...}``, formularz zgłoszeń ``zglos.html``, status zgłoszeń
 ``zgloszenia.html``, arkusz stylów, skrypt strony, zrzuty ekranu, zdjęcie autora
@@ -33,7 +33,6 @@ from transkryptor.feedback import REPORT_PAGE, SITE_URL
 from transkryptor.packaging.changelog import (
     _HEADING,
     CHANGELOG_FILE,
-    UNRELEASED,
     ChangelogError,
     _heading_key,
     section,
@@ -145,8 +144,6 @@ def released_sections(text: str) -> list[Release]:
         if not match:
             continue
         version = _heading_key(match["title"])
-        if version == UNRELEASED:
-            continue
         dated = _VERSION_DATE.match(match["title"].strip())
         releases.append(
             Release(
