@@ -8,6 +8,10 @@
 # Strona pokazuje najnowsze wydanie i jego historię zmian, a nie stan main
 # (src/transkryptor/packaging/site.py). Environment github-pages musi
 # dopuszczać gałąź main i tagi v* (Settings → Environments).
+#
+# Po wdrożeniu zgłoszenia strony (etykieta webpage) zamknięte jako zrobione
+# przed początkiem budowania dostają etykietę „wdrożone” - strona statusu
+# zgłoszeń pokazuje je jako wdrożone, a nie czekające na wydanie programu.
 name: Strona
 
 on:
@@ -31,7 +35,14 @@ jobs:
   budowanie:
     name: Budowanie strony
     runs-on: ubuntu-22.04
+    outputs:
+      start: ${{ steps.start.outputs.start }}
     steps:
+      # Granica dla etykiety „wdrożone”: zgłoszenia zamknięte później mogą
+      # nie być w budowanym kodzie.
+      - id: start
+        run: echo "start=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.ref }}
@@ -72,3 +83,26 @@ jobs:
     steps:
       - id: wdrozenie
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+
+  # Błąd tutaj nie cofa wdrożenia; job można uruchomić ponownie (już
+  # oznaczone zgłoszenia zostają bez zmian). Skrypt z bieżącego commita,
+  # a nie z ref - starsze tagi go nie mają.
+  etykiety:
+    name: Etykiety wdrożonych zgłoszeń strony
+    needs: [budowanie, wdrozenie]
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Etykieta „wdrożone”
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CUTOFF: ${{ needs.budowanie.outputs.start }}
+        run: |
+          PYTHONPATH=src python3 -m transkryptor.packaging.issue_labels \
+            site --cutoff "$CUTOFF"

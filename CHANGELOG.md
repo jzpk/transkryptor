@@ -11,9 +11,12 @@ Pusta sekcja blokuje wydanie.
   pokazuje na [Status zgłoszeń](https://transkryptorapp.pl/zgloszenia.html),
   w której wersji trafiło do programu (np. **Wydane 0.8.0** - kliknięcie
   otwiera historię zmian tej wersji), albo **Zrobione, niewydane**, gdy
-  czeka na najbliższe wydanie. Nowy filtr **Czeka na wydanie** pokazuje
-  same gotowe, jeszcze niewydane zgłoszenia. Wydanie programu samo nadaje
-  zgłoszeniom na GitHubie etykietę z numerem wersji.
+  czeka na najbliższe wydanie. Zgłoszenia dotyczące strony projektu nie
+  czekają na wydanie programu: są **Wdrożone**, gdy zmiana jest już na
+  stronie, albo **Niewdrożone**. Nowy filtr **Czeka na wydanie** pokazuje
+  gotowe zgłoszenia, które jeszcze nie trafiły do programu ani na stronę.
+  Wydanie programu i wdrożenie strony same nadają zgłoszeniom na GitHubie
+  etykietę z numerem wersji albo „wdrożone”.
 
 ## 0.8.0 - 2026-11-13
 

@@ -361,7 +361,10 @@
 
   // Stan zgłoszenia na stronie statusu. Zamknięte jako „not planned” albo
   // duplikat są odrzucone, pozostałe zamknięte - zrobione: wydane, gdy mają
-  // etykietę wersji (nadaje ją workflow wydania), inaczej niewydane. Otwarte
+  // etykietę wersji (nadaje ją workflow wydania), inaczej niewydane.
+  // Zgłoszenia strony (ISSUE_WEBPAGE_LABEL) nie czekają na wydanie programu:
+  // są wdrożone, gdy mają etykietę ISSUE_DEPLOYED_LABEL (nadaje ją workflow
+  // strony), inaczej niewdrożone; etykieta wersji ma pierwszeństwo. Otwarte
   // są „w toku”, gdy mają etykietę ISSUE_PROGRESS_LABELS albo przypisaną
   // osobę. Kolejność kluczy to kolejność na liście: najpierw sprawy w toku
   // i otwarte. Do napisu wydanych dochodzi numer wersji.
@@ -369,10 +372,14 @@
     progress: "W toku",
     open: "Otwarte",
     unreleased: "Zrobione, niewydane",
+    undeployed: "Niewdrożone",
     released: "Wydane",
+    deployed: "Wdrożone",
     rejected: "Odrzucone",
   };
   var ISSUE_VERSION_LABEL = /^v?(\d+)\.(\d+)\.(\d+)$/;
+  var ISSUE_WEBPAGE_LABEL = "webpage";
+  var ISSUE_DEPLOYED_LABEL = "wdrożone";
   var ISSUE_PROGRESS_LABELS = ["w-toku", "in progress"];
   var ISSUE_KINDS = { bug: "Błąd", enhancement: "Pomysł" };
   var ISSUES_FAILED =
@@ -404,6 +411,17 @@
     return best && best.join(".");
   }
 
+  function closedState(issue) {
+    if (issueRelease(issue)) {
+      return "released";
+    }
+    var labels = labelNames(issue);
+    if (labels.indexOf(ISSUE_WEBPAGE_LABEL) < 0) {
+      return "unreleased";
+    }
+    return labels.indexOf(ISSUE_DEPLOYED_LABEL) >= 0 ? "deployed" : "undeployed";
+  }
+
   function issueState(issue) {
     if (issue.state === "closed") {
       if (
@@ -412,7 +430,7 @@
       ) {
         return "rejected";
       }
-      return issueRelease(issue) ? "released" : "unreleased";
+      return closedState(issue);
     }
     var labels = labelNames(issue);
     var inProgress = ISSUE_PROGRESS_LABELS.some(function (name) {
@@ -470,10 +488,10 @@
   // jest domyślny.
   var ISSUE_FILTERS = {
     aktywne: ["progress", "open"],
-    zrobione: ["unreleased", "released"],
-    niewydane: ["unreleased"],
+    zrobione: ["unreleased", "undeployed", "released", "deployed"],
+    niewydane: ["unreleased", "undeployed"],
     odrzucone: ["rejected"],
-    wszystkie: ["progress", "open", "unreleased", "released", "rejected"],
+    wszystkie: Object.keys(ISSUE_STATES),
   };
   var ISSUES_PER_PAGE = 20;
   // Bez tokenu API pozwala na 60 zapytań na godzinę z jednego adresu, więc

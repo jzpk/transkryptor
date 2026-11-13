@@ -6,7 +6,8 @@
 # nadaje sekcji „Nieopublikowane” w CHANGELOG.md numer wersji (pusta sekcja
 # przerywa wydanie), commituje i nadaje tag vX.Y.Z, po czym ten sam przebieg
 # buduje oba artefakty z taga i publikuje wydanie, a zgłoszeniom zrobionym
-# przed publikacją nadaje etykietę wersji. Commit wydania ma w opisie
+# przed publikacją nadaje etykietę wersji (poza zgłoszeniami strony
+# z etykietą webpage). Commit wydania ma w opisie
 # [skip ci]: jego push nie uruchamia ponownie CI ani tego workflow - kod
 # przeszedł już testy (jednostkowe w CI, e2e na początku przebiegu), a commit
 # zmienia tylko numer wersji i nagłówek changeloga. Zainstalowane aplikacje
@@ -511,8 +512,10 @@ jobs:
 
   # Etykieta z numerem wersji dla zgłoszeń zamkniętych jako zrobione przed
   # publikacją - strona statusu zgłoszeń pokazuje z niej, w której wersji
-  # zmiana trafiła do programu. Błąd tutaj nie cofa wydania; job można
-  # uruchomić ponownie (już oznaczone zgłoszenia zostają bez zmian).
+  # zmiana trafiła do programu. Zgłoszenia strony (etykieta webpage) nie
+  # czekają na wydanie: etykietę „wdrożone” nadaje im workflow „Strona”.
+  # Błąd tutaj nie cofa wydania; job można uruchomić ponownie (już
+  # oznaczone zgłoszenia zostają bez zmian).
   etykiety:
     name: Etykiety wersji w zgłoszeniach
     needs: [wersja, publikacja]
@@ -533,7 +536,8 @@ jobs:
           VERSION: ${{ needs.wersja.outputs.version }}
         run: |
           CUTOFF="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json publishedAt -q .publishedAt)"
-          PYTHONPATH=src python3 -m transkryptor.packaging.issue_labels "$VERSION" --cutoff "$CUTOFF"
+          PYTHONPATH=src python3 -m transkryptor.packaging.issue_labels \
+            release "$VERSION" --cutoff "$CUTOFF"
 
   # Strona projektu z nowymi linkami pobierania i historią zmian. Błąd tutaj
   # nie cofa wydania - stronę można wdrożyć ponownie z Actions → „Strona”.
@@ -544,6 +548,8 @@ jobs:
       contents: read
       pages: write
       id-token: write
+      # Job „etykiety” workflow strony oznacza wdrożone zgłoszenia strony.
+      issues: write
     uses: ./.github/workflows/pages.yml
     with:
       ref: ${{ needs.wersja.outputs.tag }}

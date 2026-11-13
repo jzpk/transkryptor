@@ -1084,11 +1084,14 @@ button.button:disabled {
 }
 
 .issue-state[data-state="released"],
-.issue-state[data-state="unreleased"] {
+.issue-state[data-state="unreleased"],
+.issue-state[data-state="deployed"],
+.issue-state[data-state="undeployed"] {
   color: var(--success);
 }
 
-.issue-state[data-state="unreleased"] {
+.issue-state[data-state="unreleased"],
+.issue-state[data-state="undeployed"] {
   border-style: dashed;
 }
 
