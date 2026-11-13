@@ -89,6 +89,7 @@ from transkryptor.ui.player_bar import PlayerBar
 from transkryptor.ui.player_controller import PlayerController
 from transkryptor.ui.pos_highlights import PosHighlighter
 from transkryptor.ui.readiness_dialog import ReadinessController
+from transkryptor.ui.recheck_controller import RecheckController
 from transkryptor.ui.review import (
     ReviewController,
     ask_draft_placement,
@@ -388,6 +389,16 @@ class MainWindow(QMainWindow):
             self.session.autosave,
             self._set_ui_locked,
             self,
+        )
+        self.recheck = RecheckController(
+            self.editor,
+            self.review,
+            self.asr_panel,
+            lambda: self.document,
+            self.session.flush_editor,
+            lambda: settings_store.current.asr,
+            self.learning.refresh,
+            self.show_status,
         )
         self._connect_signals()
         self._apply_settings(settings_store.current)

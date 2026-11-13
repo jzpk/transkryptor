@@ -1,7 +1,9 @@
 """Reguły fonetyczne i przegląd propozycji w panelu szkicu ASR.
 
 Krok „Reguły” to lista reguł z pewnością; zaznaczone stosuje automatycznie
-główne okno (REQ-15). Lista przeglądu pokazuje zmiany zastosowane
+główne okno (REQ-15). Przycisk „Sprawdź tekst” prosi o propozycje reguł
+i zapisu szkicu dla tekstu, który już jest w edytorze (zgł. #62,
+``RecheckController``). Lista przeglądu pokazuje zmiany zastosowane
 automatycznie i pozostałe propozycje (REQ-16); wybór i zastosowanie
 pozycji sekcja zgłasza sygnałami, a tekst zmienia ``ReviewController``.
 """
@@ -46,6 +48,7 @@ class ReviewSection(QObject):
     review_item_activated = Signal(int)  # indeks pozycji listy przeglądu
     review_item_apply_requested = Signal(int)
     review_finish_requested = Signal()
+    recheck_requested = Signal()  # „Sprawdź tekst” - gotowa transkrypcja
 
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -75,6 +78,11 @@ class ReviewSection(QObject):
         details_layout.addLayout(self._rules_layout)
         self.rules_details.setVisible(False)
 
+        self.recheck_button = QPushButton(tr("asr.recheck"))
+        self.recheck_button.setObjectName("asr_recheck_button")
+        self.recheck_button.setToolTip(tr("asr.recheck.tooltip"))
+        icons.set_icon(self.recheck_button, "list_check", "text", "text_muted")
+
         self.suggestions_list = QListWidget()
         self.suggestions_list.setObjectName("asr_review_list")
         self.suggestions_list.setToolTip(
@@ -101,11 +109,22 @@ class ReviewSection(QObject):
         )
         self.apply_suggestion_button.clicked.connect(self._on_apply_clicked)
         self.finish_review_button.clicked.connect(self.review_finish_requested.emit)
+        self.recheck_button.clicked.connect(self.recheck_requested.emit)
         self.set_rules(rule_infos(default_rules()))
 
     def build_rules_step(self) -> QWidget:
-        """Krok 2 panelu: podsumowanie reguł, po rozwinięciu - lista."""
-        return step("2", tr("asr.step.rules"), [self.rules_toggle, self.rules_details])
+        """Krok 2 panelu: podsumowanie reguł, po rozwinięciu - lista.
+
+        Pod nimi „Sprawdź tekst” - te same reguły dla gotowej transkrypcji.
+        """
+        recheck_row = QHBoxLayout()
+        recheck_row.addWidget(self.recheck_button)
+        recheck_row.addStretch(1)
+        return step(
+            "2",
+            tr("asr.step.rules"),
+            [self.rules_toggle, self.rules_details, recheck_row],
+        )
 
     def build_review_box(self) -> Collapsible:
         """Zwinięta lista przeglądu z przyciskami pod listą segmentów.
@@ -196,6 +215,11 @@ class ReviewSection(QObject):
         self.finish_review_button.setEnabled(bool(items))
         self._on_review_row_changed(self.suggestions_list.currentRow())
         self._update_review_count()
+
+    def show_review(self) -> None:
+        """Rozwija listę przeglądu (np. po sprawdzeniu gotowego tekstu)."""
+        if self._review_box is not None:
+            self._review_box.set_expanded(True)
 
     def clear_review(self) -> None:
         self._review_applied = []
