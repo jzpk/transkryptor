@@ -524,7 +524,7 @@
   "loading.message.48": "Giving names their capital letters…",
   "loading.message.49": "Chasing a runaway train of thought…",
   "loading.message.50": "Explaining to the model that “kurczę” isn't poultry…",
-  "loading.eta_pending": "Estimating the remaining time…",
+  "loading.eta_pending": "Loading the model and the recording - the remaining time will appear after the first recognized passages…",
   "loading.eta.soon": "Almost there…",
   "loading.eta.under_minute": "Less than a minute left",
   "loading.eta.minutes": "About {minutes} min left",

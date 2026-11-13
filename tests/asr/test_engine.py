@@ -450,7 +450,7 @@ class TestChunking:
         assert info.duration == pytest.approx(25.0)
         assert model.calls == []  # model pracuje leniwie, fragment po fragmencie
 
-        segments = list(raw_segments)
+        segments = [s for s in raw_segments if hasattr(s, "text")]
         lengths = [length for length, _ in model.calls]
         assert len(segments) == len(lengths) >= 3
         assert sum(lengths) == len(samples)
@@ -608,7 +608,7 @@ class TestClip:
         raw_segments, info = backend.transcribe(
             "nagranie.mp3", language="pl", vad_filter=True
         )
-        segments = list(raw_segments)
+        segments = [s for s in raw_segments if hasattr(s, "text")]
         assert [length for length, _ in model.calls] == [int(self.RATE * 5.5)]
         assert model.calls[0][1]["vad_filter"] is True
         assert segments[0].start == pytest.approx(11.0)
@@ -630,4 +630,27 @@ class TestClip:
         )
         assert result.segments[0].start_s == pytest.approx(21.0)
         assert result.segments[0].end_s == pytest.approx(22.0)
-        assert progress == [pytest.approx(0.5)]
+        # Po segmencie i po końcu fragmentu.
+        assert progress == [pytest.approx(0.5), pytest.approx(1.0)]
+
+    def test_silent_chunks_still_advance_progress(self, tmp_path, monkeypatch) -> None:
+        """Zgłoszenie #38: fragment bez mowy nie zatrzymuje postępu."""
+
+        class SilentModel:
+            def transcribe(self, samples, **kwargs):
+                return iter([]), SimpleNamespace(language=kwargs["language"])
+
+        samples = np.ones(self.RATE * 900, dtype=np.float32)
+        monkeypatch.setattr(engine_module, "_decode_audio", lambda path: samples)
+        progress: list[float] = []
+        result = transcribe(
+            make_audio(tmp_path),
+            make_model_dir(tmp_path),
+            backend_factory=lambda path, device: SilentModel(),
+            options=DecodingOptions(clip=(0.0, 900.0)),
+            on_progress=progress.append,
+        )
+        assert result.segments == ()
+        assert len(progress) >= 3
+        assert progress == sorted(progress)
+        assert progress[-1] == pytest.approx(1.0)

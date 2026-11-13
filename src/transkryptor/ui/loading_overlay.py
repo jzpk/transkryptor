@@ -37,8 +37,9 @@ MESSAGE_INTERVAL_MS = 12_000
 SPINNER_INTERVAL_MS = 33
 SPINNER_STEP_DEG = 12  # 360°/s jak przy 60 klatkach i kroku 6°
 ETA_TICK_MS = 1_000
-# Szacunek pokazujemy dopiero po tylu sekundach od pierwszego postępu -
-# wcześniej tempo jest zbyt chwiejne, by cokolwiek obiecywać.
+# Dokładny szacunek liczymy z tempa po tylu sekundach od pierwszego postępu.
+# Do tego czasu pokazujemy szacunek wstępny z tempa od startu - z zapasem,
+# bo obejmuje wczytanie modelu i nagrania (zgłoszenie #38).
 ETA_MIN_SAMPLE_S = 10.0
 LOADING_MESSAGE_COUNT = 50
 
@@ -197,6 +198,7 @@ class LoadingOverlay(QWidget):
         # Tempo liczymy od pierwszej próbki, a nie od startu, żeby ładowanie
         # modelu nie zawyżało szacunku.
         self._first_sample: tuple[float, float] | None = None
+        self._started = 0.0
         self._eta_deadline: float | None = None
         self._messages = list(loading_messages() if messages is None else messages)
         self._queue: list[str] = []
@@ -266,6 +268,7 @@ class LoadingOverlay(QWidget):
         self.cancel_button.setEnabled(True)
         self.spinner.set_progress(None)
         self._first_sample = None
+        self._started = self._clock()
         self._eta_deadline = None
         self.eta_label.setText(tr("loading.eta_pending"))
         self._queue = []
@@ -291,6 +294,11 @@ class LoadingOverlay(QWidget):
         now = self._clock()
         if self._first_sample is None:
             self._first_sample = (now, fraction)
+            if fraction > 0:
+                self._eta_deadline = (
+                    now + (1.0 - fraction) * (now - self._started) / fraction
+                )
+                self._refresh_eta()
             return
         first_time, first_fraction = self._first_sample
         elapsed = now - first_time

@@ -420,10 +420,22 @@ def _collect_segments(
     """Zamienia segmenty backendu na ``SegmentResult`` z postępem i anulowaniem."""
     origin, duration = span
     progress = 0.0
+
+    def report(end_s: float) -> None:
+        nonlocal progress
+        if on_progress is not None and duration > 0:
+            # Segmenty idą chronologicznie, ale max() chroni przed cofaniem.
+            progress = max(progress, min(1.0, (end_s - origin) / duration))
+            on_progress(progress)
+
     segments: list[SegmentResult] = []
     for raw in _guarded(raw_segments):
         if cancel():
             raise TranscriptionCancelled()
+        if isinstance(raw, _ChunkDone):
+            # Kawałek bez mowy (cisza, muzyka) też posuwa postęp (zgł. #38).
+            report(raw.end)
+            continue
         segment = SegmentResult(
             start_s=float(raw.start),
             end_s=float(raw.end),
@@ -434,10 +446,7 @@ def _collect_segments(
         segments.append(segment)
         if on_segment is not None:
             on_segment(segment)
-        if on_progress is not None and duration > 0:
-            # Segmenty idą chronologicznie, ale max() chroni przed cofaniem.
-            progress = max(progress, min(1.0, (segment.end_s - origin) / duration))
-            on_progress(progress)
+        report(segment.end_s)
     return segments
 
 
@@ -652,13 +661,22 @@ class _ShiftedSegment:
     words: tuple[_ShiftedWord, ...] = ()
 
 
+@dataclass(frozen=True)
+class _ChunkDone:
+    """Znacznik końca fragmentu w strumieniu segmentów (sekundy nagrania)."""
+
+    end: float
+
+
 class ChunkedWhisperBackend:
     """Backend zgodny z :class:`Backend`, transkrybujący nagranie fragmentami.
 
     Nagranie jest dekodowane raz (ok. 0,25 GB na godzinę), a model dostaje
     kolejne fragmenty jako tablice próbek; czasy segmentów są przesuwane
     o początek fragmentu. ``clip`` (sekundy od-do) ogranicza pracę do
-    jednego zakresu nagrania.
+    jednego zakresu nagrania. Po każdym fragmencie strumień zawiera znacznik
+    ``_ChunkDone`` - :func:`transcribe` liczy z niego postęp także wtedy,
+    gdy fragment nie zawiera mowy.
     """
 
     def __init__(
@@ -697,7 +715,7 @@ class ChunkedWhisperBackend:
         language: str,
         vad_filter: bool,
         extra: dict[str, Any],
-    ) -> Iterator[_ShiftedSegment]:
+    ) -> Iterator[_ShiftedSegment | _ChunkDone]:
         for start, end in bounds:
             offset = start / SAMPLE_RATE
             raw_segments, _info = self._model.transcribe(
@@ -714,6 +732,7 @@ class ChunkedWhisperBackend:
                         for w in _words(raw, offset)
                     ),
                 )
+            yield _ChunkDone(end / SAMPLE_RATE)
 
 
 def _decode_audio(audio: str) -> npt.NDArray[np.float32]:

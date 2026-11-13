@@ -153,6 +153,13 @@ Pusta sekcja blokuje wydanie.
   Jej dopasowania pojawiają się na liście przeglądu jako propozycje do
   zatwierdzenia; kto chce stosować ją automatycznie, zaznacza ją w kroku
   **Reguły zapisu fonetycznego**.
+- **Postęp transkrypcji fragmentu A-B:** okno „Trwa transkrypcja” nie
+  stoi już długo na „Szacowanie pozostałego czasu”. Pozostały czas pojawia
+  się od razu po pierwszych rozpoznanych fragmentach (najpierw szacunek
+  z zapasem, potem dokładniejszy), a przed nimi okno wyjaśnia, że trwa
+  wczytywanie modelu i nagrania. Postęp rośnie także na odcinkach bez
+  mowy (cisza, muzyka) - dotyczy to fragmentu A-B i transkrypcji długich
+  nagrań fragmentami.
 
 ## 0.7.0 - 2026-10-26
 

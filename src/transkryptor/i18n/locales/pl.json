@@ -524,7 +524,7 @@
   "loading.message.48": "Dobieranie wielkich liter do imion…",
   "loading.message.49": "Gonienie uciekającego wątku…",
   "loading.message.50": "Tłumaczenie modelowi, że „kurczę” to nie drób…",
-  "loading.eta_pending": "Szacowanie pozostałego czasu…",
+  "loading.eta_pending": "Wczytywanie modelu i nagrania - pozostały czas pojawi się po pierwszych rozpoznanych fragmentach…",
   "loading.eta.soon": "Jeszcze chwila…",
   "loading.eta.under_minute": "Pozostało mniej niż minuta",
   "loading.eta.minutes": "Pozostało ok. {minutes} min",
