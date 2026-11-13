@@ -7,6 +7,9 @@ Pusta sekcja blokuje wydanie.
 
 ## Nieopublikowane
 
+- **Panel Szkic ASR nie jest ucinany z prawej:** najwęższy panel
+  dopasowuje się do treści (także przy większej czcionce systemu), długie
+  podpisy pól łamią się na dwa wiersze, a lista modeli nie poszerza panelu.
 - **Prostszy krok „Szkic z nagrania” w panelu Szkic ASR:** krok zaczyna
   się od danych nagrania - miejscowości, gminy/powiatu, roku urodzenia
   i płci informatora. To te same pola co w metryczce (zmiana w jednym

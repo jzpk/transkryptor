@@ -28,7 +28,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from pathlib import Path
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtWidgets import QFrame, QScrollArea, QVBoxLayout, QWidget
 
 from transkryptor.asr.engine import DecodingOptions, TranscriptionResult
@@ -41,6 +41,9 @@ from transkryptor.ui.asr_recording_box import RecordingFieldsBox
 from transkryptor.ui.asr_review_section import ReviewSection
 from transkryptor.ui.asr_transcription_section import TranscriptionSection
 from transkryptor.ui.asr_widgets import divider
+
+# Najmniejsza szerokość panelu, gdy treść mieści się w węższym.
+MIN_WIDTH = 360
 
 
 class AsrPanel(QWidget):
@@ -121,7 +124,7 @@ class AsrPanel(QWidget):
         layout.addStretch(1)
 
         # Przewijanie na niskich ekranach; panel nie wymusza wysokości okna.
-        scroll = QScrollArea()
+        scroll = _PanelScroll()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -129,7 +132,6 @@ class AsrPanel(QWidget):
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
         outer.addWidget(scroll)
-        self.setMinimumWidth(360)
 
     def _forward_signals(self) -> None:
         self.models.model_changed.connect(self.model_changed)
@@ -271,3 +273,24 @@ class AsrPanel(QWidget):
 
     def clear_review(self) -> None:
         self.review.clear_review()
+
+
+class _PanelScroll(QScrollArea):
+    """Przewijanie w pionie; dok nie bywa węższy niż treść panelu.
+
+    Bez poziomego paska treść szersza niż widok byłaby ucięta z prawej -
+    najmniejsza szerokość to najmniejsza szerokość treści z paskiem
+    pionowym (liczona na bieżąco, więc uwzględnia czcionki motywu).
+    """
+
+    def minimumSizeHint(self) -> QSize:  # API Qt
+        hint = super().minimumSizeHint()
+        content = self.widget()
+        if content is None:
+            return hint
+        width = (
+            content.minimumSizeHint().width()
+            + self.verticalScrollBar().sizeHint().width()
+            + 2 * self.frameWidth()
+        )
+        return QSize(max(hint.width(), width, MIN_WIDTH), hint.height())

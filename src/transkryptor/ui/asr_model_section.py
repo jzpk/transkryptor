@@ -94,6 +94,11 @@ class ModelSection(QObject):
 
         self.model_combo = QComboBox()
         self.model_combo.setToolTip(tr("asr.model.choose.tooltip"))
+        # Długie nazwy modeli nie poszerzają panelu - lista rozwija się szerzej.
+        self.model_combo.setSizeAdjustPolicy(
+            QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
+        )
+        self.model_combo.setMinimumContentsLength(12)
         for model in MODELS:
             self.model_combo.addItem(model.display_name, model.key)
         self.info_label = QLabel()

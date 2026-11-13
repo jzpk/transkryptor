@@ -242,6 +242,7 @@ class TranscriptionSection(QObject):
                 self.fragment_button,
             ],
         )
+        self.more_options.toggle.setToolTip(tr("asr.more.tooltip"))
         return step(
             "3",
             tr("asr.step.draft"),

@@ -41,7 +41,8 @@ class RecordingFieldsBox(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setHorizontalSpacing(8)
         layout.setVerticalSpacing(6)
-        layout.setColumnStretch(1, 1)
+        layout.setColumnStretch(0, 2)
+        layout.setColumnStretch(1, 3)
         self.edits: dict[str, QLineEdit] = {}
         for row, key in enumerate(FIELD_KEYS):
             edit = QLineEdit()
@@ -52,6 +53,7 @@ class RecordingFieldsBox(QWidget):
                 lambda text, key=key: self.value_edited.emit(key, text)
             )
             caption = QLabel(f"{labels[key]}:")
+            caption.setWordWrap(True)  # wąski panel nie ucina pól (#57)
             caption.setBuddy(edit)
             layout.addWidget(caption, row, 0)
             layout.addWidget(edit, row, 1)

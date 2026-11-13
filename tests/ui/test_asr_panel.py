@@ -5,10 +5,10 @@ from pathlib import Path
 
 import pytest
 from docx import Document as DocxDocument
-from PySide6.QtCore import QCoreApplication
+from PySide6.QtCore import QCoreApplication, Qt
 from PySide6.QtGui import QTextCursor
 from PySide6.QtTest import QSignalSpy
-from PySide6.QtWidgets import QMessageBox
+from PySide6.QtWidgets import QMessageBox, QScrollArea
 
 from transkryptor.asr.engine import (
     VERBATIM_PROMPT,
@@ -1114,3 +1114,15 @@ class TestDraftStepLayout:
         assert review.toggle.text() == tr("asr.review")
         panel.restore_result(None)
         assert segments.toggle.text() == tr("asr.segments")
+
+    def test_narrowest_dock_does_not_clip_panel(self, window_with_asr) -> None:
+        """Treść panelu mieści się w najwęższym doku (bez ucinania z prawej)."""
+        window = window_with_asr
+        window.resize(1100, 800)
+        window.show()
+        window.asr_dock.show()
+        window.resizeDocks([window.asr_dock], [50], Qt.Orientation.Horizontal)
+        QCoreApplication.processEvents()
+        scroll = window.asr_panel.findChild(QScrollArea)
+        content = scroll.widget()
+        assert content.minimumSizeHint().width() <= scroll.viewport().width()
