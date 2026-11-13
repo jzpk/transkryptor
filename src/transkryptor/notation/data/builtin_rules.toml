@@ -7,9 +7,11 @@
 # auto_apply = true zaznacza regułę w panelu ASR (stosowana od razu po
 # wstawieniu szkicu); pozostałe dają tylko propozycje.
 #
-# Pierwsze pięć reguł odpowiada regułom z wersji 0.4.0. Szósta (wygłosowe
-# „ę” → „e”) też jest domyślnie zaznaczona. Pewności kolejnych są
-# orientacyjne - kalibracja na korpusie w fazie 15.
+# Pierwsze pięć reguł odpowiada regułom z wersji 0.4.0. Labializacja
+# początkowego „o-” daje tylko propozycje - stosowana automatycznie
+# zmieniała prawie każde słowo na „o-”. Szósta (wygłosowe „ę” → „e”) jest
+# domyślnie zaznaczona. Pewności kolejnych są orientacyjne - kalibracja na
+# korpusie w fazie 15.
 
 [[rule]]
 code = "SUG-NAS-A-FINAL"
@@ -59,7 +61,6 @@ pattern = '^o(?=.)'
 replacement = '^uo'
 confidence = 0.3
 example = "od"
-auto_apply = true
 
 [[rule]]
 code = "SUG-NAS-E-FINAL"

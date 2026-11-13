@@ -120,6 +120,12 @@ class TestBuiltinRules:
         ]
         assert new and not any(rule.auto_apply for rule in new)
 
+    def test_initial_labialization_is_only_proposed(self) -> None:
+        """Zgłoszenie #40: „ᵘo-” na początku słowa nie jest stosowane samo."""
+        (rule,) = [r for r in default_rules() if r.code == "SUG-LAB-U-INIT"]
+        assert not rule.auto_apply
+        assert [s.code for s in propose("od") if s.code == "SUG-LAB-U-INIT"]
+
     def test_final_e_nasal_is_applied_automatically(self) -> None:
         """Wygłosowe „ę” w mowie to zwykle „e” (zgłoszenie #44)."""
         (rule,) = [r for r in default_rules() if r.code == "SUG-NAS-E-FINAL"]

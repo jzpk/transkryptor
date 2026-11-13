@@ -147,6 +147,12 @@ Pusta sekcja blokuje wydanie.
   jest oznaczany jako czasownik). Formy spoza słownika (gwarowe, zapis
   fonetyczny) nie są podświetlane. Samouczek **Wyszukiwanie
   i podświetlanie** opisuje nową funkcję.
+- **Labializacja w szkicu ASR tylko jako propozycja:** reguła dopisująca
+  „ᵘ” przed początkowym „o-” (od → ᵘod) nie jest już domyślnie zaznaczona
+  w panelu ASR, bo zmieniała prawie każde słowo zaczynające się na „o”.
+  Jej dopasowania pojawiają się na liście przeglądu jako propozycje do
+  zatwierdzenia; kto chce stosować ją automatycznie, zaznacza ją w kroku
+  **Reguły zapisu fonetycznego**.
 
 ## 0.7.0 - 2026-10-26
 

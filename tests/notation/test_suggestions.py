@@ -74,14 +74,14 @@ class TestRuleCatalogue:
         from transkryptor.notation.suggestions import default_rules, rule_infos
 
         rules = rule_infos(default_rules())
-        # Reguły z wersji 0.4.0 i wygłosowe „ę” są stosowane automatycznie;
-        # pozostałe reguły wbudowane (faza 10) dają domyślnie tylko propozycje.
+        # Reguły nosowości (także wygłosowe „ę”) są stosowane automatycznie;
+        # labializacja „o-” (zgłoszenie #40) i pozostałe reguły wbudowane
+        # dają domyślnie tylko propozycje.
         assert {rule.code for rule in rules if rule.auto_apply} == {
             "SUG-NAS-A-FINAL",
             "SUG-NAS-E-DENT",
             "SUG-NAS-E-LAB",
             "SUG-NAS-A-LAB",
-            "SUG-LAB-U-INIT",
             "SUG-NAS-E-FINAL",
         }
         assert all(rule.label and 0 < rule.confidence <= 1 for rule in rules)

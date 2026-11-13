@@ -438,7 +438,8 @@ class TestAutomaticRules:
         window = window_with_asr
         window._ask_draft_placement = lambda: DRAFT_REPLACE
         window.asr.insert_draft(self.TEXT)
-        assert window.editor.toPlainText() == "uod som"
+        # Domyślne reguły: nosowość tak, labializacja „o-” nie (zgłoszenie #40).
+        assert window.editor.toPlainText() == "od som"
         window.editor.document().undo()
         assert window.editor.toPlainText() == self.TEXT
         window.editor.document().undo()

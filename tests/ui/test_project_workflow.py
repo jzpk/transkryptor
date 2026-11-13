@@ -186,8 +186,8 @@ class TestSaveAndOpen:
         # Ponowne wstawienie szkicu bez powtarzania ASR (REQ-14).
         reopened._ask_draft_placement = lambda: DRAFT_REPLACE
         reopened.asr_panel.transcription.reinsert_draft_button.click()
-        # Reguły wybrane w panelu nowego okna (domyślnie wszystkie).
-        assert reopened.editor.toPlainText() == "[00:00] uod som"
+        # Reguły wybrane w panelu nowego okna (domyślne, bez labializacji).
+        assert reopened.editor.toPlainText() == "[00:00] od som"
         assert len(asr_calls) == 1
 
     def test_asr_context_is_saved_in_project(
