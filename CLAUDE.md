@@ -122,9 +122,10 @@ Wykonaj kolejno, zanim zgłosisz, że praca jest skończona:
    coś nie przechodzi, napraw to albo jasno zgłoś, co i dlaczego. Gdy
    zmiana formatu wyjścia jest zamierzona, odśwież wzorce
    (`--update-golden`) i sprawdź ich różnicę w `git diff`.
-4. **Changelog:** dopisz zmiany widoczne dla użytkownika w sekcji
-   `## Nieopublikowane` w `CHANGELOG.md` (po polsku, w stylu
-   istniejących wpisów). Zmiany wyłącznie wewnętrzne (testy, CI,
+4. **Changelog:** opisz zmiany widoczne dla użytkownika w nowym pliku
+   `changelog.d/<nazwa>.md` (po polsku, w stylu wpisów `CHANGELOG.md`,
+   zasady w `changelog.d/README.md`). `CHANGELOG.md` zmienia tylko
+   workflow wydania. Zmiany wyłącznie wewnętrzne (testy, CI,
    refaktoryzacja, instrukcje) oraz zmiany strony projektu nie trafiają do changeloga - tylko zmiany samej aplikacji.
 5. **Commit:** utwórz lokalny commit. Opis commita **po angielsku**, w trybie
    rozkazującym, z prefiksem typu zmiany (Conventional Commits):
@@ -140,17 +141,38 @@ Wykonaj kolejno, zanim zgłosisz, że praca jest skończona:
 
    Przykład: `fix: keep toolbar buttons reachable in narrow windows`.
 
-6. **Scalenie (tylko tryb równoległy, patrz niżej):** uruchom
-   `./integrate.sh` i doprowadź do kodu wyjścia 0.
+6. **Scalenie:** w trybie równoległym uruchom `./integrate.sh` (albo
+   `./integrate.sh release/X.Y` dla poprawki do wydanej serii) i doprowadź
+   do kodu wyjścia 0. W trybie jednego agenta na `release/X.Y` uruchom
+   `./merge-forward.sh X.Y`; na `main` krok pomijasz.
 
 **Nigdy nie wykonuj `git push`.** Wysyłkę na remote robi użytkownik.
+
+## Gałęzie wydań: main i release/X.Y
+
+- `main` to rozwój następnej wersji minor/major (np. 0.9.0).
+- `release/X.Y` to poprawki wydanej serii (0.8.2, 0.8.3, ...); z niej
+  wychodzą wydania `patch`. Gałąź zakłada workflow „Wydanie” przy wydaniu
+  minor/major z `main`.
+- Wybór gałęzi: zgłoszenie z milestone'em serii (np. `0.8.2`, `0.8.x`)
+  robisz na `release/0.8`; pozostałe na `main`. W razie wątpliwości zapytaj
+  użytkownika.
+- Scalamy tylko w przód: `release/X.Y` → `main` (`./merge-forward.sh X.Y`,
+  wywoływany też przez `./integrate.sh release/X.Y`). Nigdy nie scalaj
+  `main` do `release/X.Y` ani nie przenoś na nią commitów z `main`
+  (cherry-pick) - wydanie poprawkowe nie może zawierać zmian następnej
+  wersji. Poprawkę potrzebną w obu miejscach rób na `release/X.Y`.
+- Poprawkę na `release/X.Y` piszesz względem kodu tej serii; konflikt przy
+  scalaniu do `main` rozwiązuje się raz, w katalogu scalenia podanym przez
+  `merge-forward.sh`.
 
 ## Tryb pracy: jeden agent albo kilku równolegle
 
 Na początku zadania ustal tryb poleceniem `git rev-parse --show-toplevel`:
 
 - **Tryb jednego agenta** - jesteś w głównym katalogu repozytorium na
-  gałęzi `main`. Commitujesz bezpośrednio na `main`; krok 6 pomijasz.
+  gałęzi `main` albo `release/X.Y`. Commitujesz bezpośrednio na nią; na
+  `release/X.Y` po commicie scalasz ją do `main` (`./merge-forward.sh X.Y`).
 - **Tryb równoległy** - jesteś w worktree pod `.claude/worktrees/<nazwa>`
   na własnej gałęzi. Równolegle mogą pracować inni agenci, każdy w swoim
   worktree. Obowiązują wtedy zasady poniżej.
@@ -166,15 +188,24 @@ Na początku zadania ustal tryb poleceniem `git rev-parse --show-toplevel`:
 - Nigdy nie używaj poleceń, które mogą zniszczyć cudzą pracę: `git reset
 --hard` poza własną gałęzią, `git clean`, `git stash`, `git checkout -- .`
   w cudzym katalogu, `git worktree remove`, `git branch -D` na cudzych
-  gałęziach. `main` zmieniaj wyłącznie przez `./integrate.sh`.
-- Scalanie do `main` robisz sam przez `./integrate.sh` (rebase na `main`,
-  sprawdzenia, fast-forward pod blokadą). Kody wyjścia:
-  - `0` - gotowe, zmiany są w `main`;
+  gałęziach. `main` i `release/X.Y` zmieniaj wyłącznie przez
+  `./integrate.sh` i `./merge-forward.sh`.
+- Poprawkę do wydanej serii zaczynasz od worktree na gałęzi z
+  `release/X.Y` (`git worktree add -b <nazwa> <katalog> release/X.Y`, jeśli
+  środowisko nie założyło go tak samo) i scalasz przez
+  `./integrate.sh release/X.Y`.
+- Scalanie robisz sam przez `./integrate.sh [release/X.Y]` (rebase na
+  celu, sprawdzenia, fast-forward pod blokadą, przy `release/X.Y` także
+  scalenie do `main`). Kody wyjścia:
+  - `0` - gotowe, zmiany są w celu (i w `main`);
   - `1` - popraw błędy lint/typów/testów, zacommituj, uruchom ponownie;
   - `3` - konflikt przy rebase: rozwiąż go, zachowując sens obu stron
-    (w `CHANGELOG.md` i plikach `i18n/locales/*.json` zwykle zostają wpisy
-    z obu stron), `git add`, `git rebase --continue`, uruchom ponownie;
-  - `4` - główny katalog ma niezacommitowane zmiany: nie ruszaj ich,
-    zgłoś użytkownikowi, że scalenie czeka;
-  - `5` - `main` przesunął się w trakcie (scalił inny agent): uruchom ponownie.
+    (w plikach `i18n/locales/*.json` zwykle zostają wpisy z obu stron),
+    `git add`, `git rebase --continue`, uruchom ponownie; konflikt przy
+    scalaniu do `main`: rozwiąż go w katalogu z komunikatu, `git add`,
+    `git commit --no-edit`, uruchom `./merge-forward.sh X.Y`;
+  - `4` - katalog z wybraną gałęzią docelową (zwykle główny) ma
+    niezacommitowane zmiany: nie ruszaj ich, zgłoś użytkownikowi, że
+    scalenie czeka;
+  - `5` - cel przesunął się w trakcie (scalił inny agent): uruchom ponownie.
 - Zadanie jest skończone dopiero po udanym `./integrate.sh`.
