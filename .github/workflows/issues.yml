@@ -1,0 +1,30 @@
+# Porządek etykiet zgłoszeń: zamknięte zgłoszenie nie jest już „w toku”.
+#
+# Etykietę „in progress” nadaje agent albo osoba, która zaczyna pracę nad
+# zgłoszeniem (CLAUDE.md). Przy zamknięciu - jako zrobione, odrzucone czy
+# duplikat - workflow ją zdejmuje. Ponowne otwarcie jej nie przywraca.
+name: Zgłoszenia
+
+on:
+  issues:
+    types:
+      - closed
+
+permissions:
+  contents: read
+
+jobs:
+  w-toku:
+    name: Zdjęcie etykiety „in progress”
+    if: contains(github.event.issue.labels.*.name, 'in progress')
+    runs-on: ubuntu-22.04
+    permissions:
+      issues: write
+    steps:
+      - name: Usunięcie etykiety
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NUMBER: ${{ github.event.issue.number }}
+        run: |
+          gh issue edit "$NUMBER" --repo "$GITHUB_REPOSITORY" \
+            --remove-label "in progress"

@@ -92,6 +92,20 @@ któryś limit, najpierw wydziel część kodu, potem dopisuj funkcję.
 - Nie maskuj kodu wyjścia testów potokiem (`pytest ... | tail` zawsze
   zwraca 0) - sprawdzaj wynik `pytest` przed commitem.
 
+## Praca nad zgłoszeniami (GitHub Issues)
+
+Gdy zaczynasz pracę nad zgłoszeniem, od razu nadaj mu etykietę
+`in progress`, zanim zmienisz kod:
+
+```sh
+gh issue edit <numer> --add-label "in progress"
+```
+
+Strona statusu zgłoszeń (`pages/site.js`) pokazuje je wtedy jako „W toku”.
+Etykiety nie zdejmuj ręcznie przy zamknięciu - robi to workflow
+`.github/workflows/issues.yml`. Jeśli porzucasz zgłoszenie bez zamknięcia,
+usuń ją (`--remove-label "in progress"`).
+
 ## Na koniec każdego zadania zmieniającego kod
 
 Wykonaj kolejno, zanim zgłosisz, że praca jest skończona:
