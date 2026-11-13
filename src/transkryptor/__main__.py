@@ -221,8 +221,12 @@ def main(argv: list[str] | None = None) -> int:
     start_diagnostics()
     from PySide6.QtCore import QTimer
 
+    from transkryptor.ui import qt_messages
     from transkryptor.ui.application import Application
     from transkryptor.ui.theme import apply_theme
+
+    # Komunikaty Qt (także z tworzenia aplikacji) trafiają do dziennika.
+    qt_messages.install()
 
     app = Application(sys.argv[:1])
     app.setApplicationName("transkryptor")
