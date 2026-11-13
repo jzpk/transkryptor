@@ -220,7 +220,11 @@ def test_signing_job_uses_the_application_trusted_comment() -> None:
 
 
 def test_checkouts_do_not_persist_tokens_outside_the_release_push() -> None:
-    """Token zostaje w .git/config tylko w jobie, który pushuje commit wydania."""
+    """Token zostaje w .git/config tylko w jobach, które pushują.
+
+    ``wersja`` pushuje commit wydania i tag, ``scalenie`` - scalenie gałęzi
+    wydania do main (sam git, bez kodu repozytorium).
+    """
     for workflow in WORKFLOW.parent.glob("*.yml"):
         text = workflow.read_text(encoding="utf-8")
         for match in re.finditer(r"^  ([\w-]+):\n", text, re.M):
@@ -228,7 +232,7 @@ def test_checkouts_do_not_persist_tokens_outside_the_release_push() -> None:
             if "actions/checkout" not in job:
                 continue
             step = job.split("actions/checkout", 1)[1].split("- name:", 1)[0]
-            if workflow == WORKFLOW and match.group(1) == "wersja":
+            if workflow == WORKFLOW and match.group(1) in ("wersja", "scalenie"):
                 assert "secrets.RELEASE_PAT" in step
                 continue
             assert (

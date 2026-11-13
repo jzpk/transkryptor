@@ -1,13 +1,20 @@
 # Wydanie: podbicie wersji, budowanie artefaktów i publikacja GitHub Release.
 #
-# Zwykła droga: Actions → „Wydanie” → Run workflow (gałąź main) i wybór części
-# wersji do podbicia (patch/minor/major). Workflow po zielonych testach e2e
+# Zwykła droga: Actions → „Wydanie” → Run workflow, wybór gałęzi i części
+# wersji do podbicia:
+# - gałąź release/X.Y + patch - poprawka wydanej serii (0.8.2, 0.8.3, ...),
+# - gałąź main + minor/major - następna wersja (0.9.0); ten sam push zakłada
+#   gałąź release/X.Y nowej serii na commicie wydania.
+# Reguły (np. patch z main tylko, dopóki nie ma release/X.Y) sprawdza
+# src/transkryptor/packaging/branches.py. Workflow po zielonych testach e2e
 # podbija wersję w pyproject.toml, uv.lock i src/transkryptor/__init__.py,
-# nadaje sekcji „Nieopublikowane” w CHANGELOG.md numer wersji (pusta sekcja
-# przerywa wydanie), commituje i nadaje tag vX.Y.Z, po czym ten sam przebieg
-# buduje oba artefakty z taga i publikuje wydanie, a zgłoszeniom zrobionym
-# przed publikacją nadaje etykietę wersji (poza zgłoszeniami strony
-# z etykietą webpage). Commit wydania ma w opisie
+# składa fragmenty changelog.d/*.md w sekcję wersji w CHANGELOG.md (brak
+# fragmentów przerywa wydanie), commituje na wybraną gałąź i nadaje tag
+# vX.Y.Z, po czym ten sam przebieg buduje oba artefakty z taga i publikuje
+# wydanie, a zgłoszeniom nadaje etykietę wersji (poza zgłoszeniami strony
+# z etykietą webpage). Wydanie z release/X.Y na koniec scala tę gałąź do
+# main (job „scalenie”), a poprawka starszej serii (np. 0.8.4 po 0.9.0) nie
+# zostaje „najnowszym wydaniem” i nie wdraża strony. Commit wydania ma w opisie
 # [skip ci]: jego push nie uruchamia ponownie CI ani tego workflow - kod
 # przeszedł już testy (jednostkowe w CI, e2e na początku przebiegu), a commit
 # zmienia tylko numer wersji i nagłówek changeloga. Zainstalowane aplikacje
@@ -125,10 +132,15 @@ jobs:
     outputs:
       version: ${{ steps.wersja.outputs.version }}
       tag: ${{ steps.wersja.outputs.tag }}
+      latest: ${{ steps.wersja.outputs.latest }}
+      # Gałąź release/X.Y, z której wyszło wydanie (pusta dla main i taga).
+      release-branch: ${{ steps.wersja.outputs.release-branch }}
     steps:
+      # Pełna historia z tagami: porównanie z poprzednimi wydaniami (latest).
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           token: ${{ secrets.RELEASE_PAT }}
+          fetch-depth: 0
 
       # Bez klucza publicznego w aplikacji żadna instalacja nie przyjmie
       # aktualizacji - wydanie zatrzymuje się przed commitem i tagiem.
@@ -138,7 +150,8 @@ jobs:
       - name: Instalacja uv
         uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
 
-      # Push przez RELEASE_PAT omija regułę wymaganych testów na main.
+      # Push przez RELEASE_PAT omija regułę wymaganych testów na main
+      # i release/*.
       # [skip ci] w opisie commita: push gałęzi i taga nie uruchamia CI ani
       # drugiego przebiegu tego workflow - budowanie i publikacja dzieją się
       # w tym przebiegu (joby linux, windows, publikacja). RELEASE_PAT to
@@ -150,10 +163,14 @@ jobs:
         env:
           BUMP: ${{ inputs.bump }}
         run: |
-          if [ "$GITHUB_REF_NAME" != "main" ]; then
-            echo "::error::Wydanie uruchamia się z gałęzi main (wybrano: $GITHUB_REF_NAME)."
-            exit 1
+          CURRENT="$(uv version --short)"
+          SERIES="$(PYTHONPATH=src python3 -m transkryptor.packaging.branches series "$CURRENT")"
+          EXISTS=""
+          if git ls-remote --exit-code --heads origin "$SERIES" > /dev/null; then
+            EXISTS="--release-branch-exists"
           fi
+          PYTHONPATH=src python3 -m transkryptor.packaging.branches check \
+            --ref "$GITHUB_REF_NAME" --bump "$BUMP" --version "$CURRENT" $EXISTS
           uv version --bump "$BUMP" --no-sync
           VERSION="$(uv version --short)"
           PYTHONPATH=src python3 -m transkryptor.packaging.changelog release "$VERSION"
@@ -162,9 +179,17 @@ jobs:
           grep -qx "__version__ = \"$VERSION\"" src/transkryptor/__init__.py
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # -A: wydanie usuwa pliki fragmentów z changelog.d.
+          git add -A CHANGELOG.md changelog.d
           git commit -am "Wydanie v$VERSION" -m "[skip ci]"
           git tag -a "v$VERSION" -m "Transkryptor $VERSION"
-          git push --atomic origin "HEAD:main" "v$VERSION"
+          REFS="HEAD:$GITHUB_REF_NAME v$VERSION"
+          if [ "$GITHUB_REF_NAME" = "main" ] && [ "$BUMP" != "patch" ]; then
+            NEW_SERIES="$(PYTHONPATH=src python3 -m transkryptor.packaging.branches series "$VERSION")"
+            REFS="$REFS HEAD:refs/heads/$NEW_SERIES"
+          fi
+          # shellcheck disable=SC2086 # REFS to lista refów rozdzielona spacjami
+          git push --atomic origin $REFS
 
       - name: Zgodność wersji z tagiem
         id: wersja
@@ -182,8 +207,17 @@ jobs:
           # Noty wydania biorą nowości z sekcji tej wersji; jej brak ma
           # zatrzymać wydanie przed budowaniem, a nie przy publikacji.
           PYTHONPATH=src python3 -m transkryptor.packaging.changelog check "$VERSION"
+          # shellcheck disable=SC2046 # każdy tag osobnym argumentem
+          LATEST="$(PYTHONPATH=src python3 -m transkryptor.packaging.branches \
+            latest "$VERSION" $(git tag --list 'v*'))"
+          BRANCH=""
+          case "$GITHUB_EVENT_NAME:$GITHUB_REF_NAME" in
+            workflow_dispatch:release/*) BRANCH="$GITHUB_REF_NAME" ;;
+          esac
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "latest=$LATEST" >> "$GITHUB_OUTPUT"
+          echo "release-branch=$BRANCH" >> "$GITHUB_OUTPUT"
 
   linux:
     name: AppImage (Linux)
@@ -500,19 +534,22 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.wersja.outputs.tag }}
           VERSION: ${{ needs.wersja.outputs.version }}
+          LATEST: ${{ needs.wersja.outputs.latest }}
         run: |
           gh release create "$TAG" \
             --repo "$GITHUB_REPOSITORY" \
             --verify-tag \
-            --latest \
+            "--latest=$LATEST" \
             --title "Transkryptor $VERSION" \
             --notes-file dist/RELEASE-NOTES.md \
             dist/*.AppImage dist/*-setup.exe dist/SHA256SUMS.txt \
             dist/SHA256SUMS.txt.minisig dist/RELEASE-NOTES.md
 
-  # Etykieta z numerem wersji dla zgłoszeń zamkniętych jako zrobione przed
-  # publikacją - strona statusu zgłoszeń pokazuje z niej, w której wersji
-  # zmiana trafiła do programu. Zgłoszenia strony (etykieta webpage) nie
+  # Etykieta z numerem wersji - strona statusu zgłoszeń pokazuje z niej,
+  # w której wersji zmiana trafiła do programu. Wydanie z main: zgłoszenia
+  # zamknięte jako zrobione przed publikacją. Wydanie z release/X.Y:
+  # zgłoszenia zamykane („Closes #N”) w commitach od poprzedniego taga tej
+  # gałęzi - granica czasowa objęłaby też zgłoszenia zrobione tylko na main. Zgłoszenia strony (etykieta webpage) nie
   # czekają na wydanie: etykietę „Deployed” nadaje im workflow „Strona”.
   # Błąd tutaj nie cofa wydania; job można uruchomić ponownie (już
   # oznaczone zgłoszenia zostają bez zmian).
@@ -528,22 +565,64 @@ jobs:
         with:
           ref: ${{ needs.wersja.outputs.tag }}
           persist-credentials: false
+          fetch-depth: 0
 
       - name: Etykiety wersji
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.wersja.outputs.tag }}
           VERSION: ${{ needs.wersja.outputs.version }}
+          RELEASE_BRANCH: ${{ needs.wersja.outputs.release-branch }}
         run: |
-          CUTOFF="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json publishedAt -q .publishedAt)"
-          PYTHONPATH=src python3 -m transkryptor.packaging.issue_labels \
-            release "$VERSION" --cutoff "$CUTOFF"
+          if [ -n "$RELEASE_BRANCH" ]; then
+            PREVIOUS="$(git describe --tags --abbrev=0 --match 'v*' "$TAG^")"
+            git log --format=%B "$PREVIOUS..$TAG" > "$RUNNER_TEMP/commits.txt"
+            PYTHONPATH=src python3 -m transkryptor.packaging.issue_labels \
+              release "$VERSION" --messages "$RUNNER_TEMP/commits.txt"
+          else
+            CUTOFF="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json publishedAt -q .publishedAt)"
+            PYTHONPATH=src python3 -m transkryptor.packaging.issue_labels \
+              release "$VERSION" --cutoff "$CUTOFF"
+          fi
+
+  # Scalenie w przód: poprawka wydana z release/X.Y trafia też do main
+  # (commit wydania z nową wersją i usuniętymi fragmentami changeloga).
+  # Scalenie bez [skip ci] - CI sprawdza wynik na main. Konflikt nie cofa
+  # wydania: scala się wtedy lokalnie (./merge-forward.sh X.Y) i pushuje.
+  scalenie:
+    name: Scalenie gałęzi wydania do main
+    needs: [wersja, publikacja]
+    if: needs.wersja.outputs.release-branch != ''
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          token: ${{ secrets.RELEASE_PAT }}
+          fetch-depth: 0
+
+      - name: Scalenie i push
+        env:
+          BRANCH: ${{ needs.wersja.outputs.release-branch }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if ! git merge --no-ff "origin/$BRANCH" -m "chore: merge $BRANCH into main"; then
+            git merge --abort
+            echo "::error::Konflikt przy scalaniu $BRANCH do main - wydanie jest opublikowane; scal lokalnie: ./merge-forward.sh ${BRANCH#release/}"
+            exit 1
+          fi
+          git push origin HEAD:main
 
   # Strona projektu z nowymi linkami pobierania i historią zmian. Błąd tutaj
   # nie cofa wydania - stronę można wdrożyć ponownie z Actions → „Strona”.
   strona:
     name: Strona projektu
     needs: [wersja, publikacja]
+    # Poprawka starszej serii nie zmienia strony najnowszego wydania.
+    if: needs.wersja.outputs.latest == 'true'
     permissions:
       contents: read
       pages: write

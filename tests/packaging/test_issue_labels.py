@@ -13,6 +13,7 @@ from transkryptor.packaging.issue_labels import (
     issues_to_label,
     label_issues,
     main,
+    referenced_issues,
     release_target,
 )
 
@@ -42,6 +43,9 @@ class FakeTracker:
 
     def closed_issues(self):
         return iter(self.issues)
+
+    def issue(self, number):
+        return next((item for item in self.issues if item["number"] == number), None)
 
     def ensure_label(self, name, description):
         self.created.append((name, description))
@@ -144,3 +148,44 @@ def test_deployed_label_is_matched_regardless_of_case() -> None:
     assert not SITE_TARGET.applies_to(["webpage", DEPLOYED_LABEL.lower()])
     assert not SITE_TARGET.applies_to(["Webpage", DEPLOYED_LABEL])
     assert SITE_TARGET.applies_to(["webpage"])
+
+
+def test_closing_references_are_read_from_commit_messages() -> None:
+    messages = (
+        "fix: keep the panel visible\n\nCloses #57\n\n"
+        "feat: add a thing (#61)\n\nFixes: #12, resolves #3 and closed #57\n"
+        "see #99, prefix#5\n"
+    )
+    assert referenced_issues(messages) == [3, 12, 57]
+
+
+def test_patch_release_labels_only_issues_named_in_its_commits(tmp_path) -> None:
+    tracker = FakeTracker(
+        [
+            issue(1, state="open", closed_at=None, reason=None),  # zamknie scalenie
+            issue(2),
+            issue(3, "0.8.1"),  # już wydane
+            issue(4, "webpage"),
+            issue(5, reason="not_planned"),
+            issue(6, pull_request={"url": "x"}),
+            issue(7),  # zrobione tylko na main - brak w commitach
+        ]
+    )
+    messages = tmp_path / "commits.txt"
+    messages.write_text(
+        "Closes #1\nCloses #2\nCloses #3\nCloses #4\nCloses #5\nCloses #6\n"
+        "Closes #404\n",
+        encoding="utf-8",
+    )
+    assert main(["release", "0.8.2", "--messages", str(messages)], tracker) == 0
+    assert tracker.added == [(1, "0.8.2"), (2, "0.8.2")]
+
+
+def test_release_needs_cutoff_or_messages() -> None:
+    with pytest.raises(SystemExit):
+        main(["release", "0.8.2"], FakeTracker([]))
+    with pytest.raises(SystemExit):
+        main(
+            ["release", "0.8.2", "--cutoff", "2026-11-20", "--messages", "x"],
+            FakeTracker([]),
+        )

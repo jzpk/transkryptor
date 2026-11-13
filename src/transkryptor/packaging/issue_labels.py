@@ -16,6 +16,13 @@ w kodzie najbliższego wydania albo wdrożenia. Strona statusu zgłoszeń
 (``pages/site.js``) pokazuje wersję albo „Wdrożone”, a zrobione zgłoszenie
 bez etykiety - jako niewydane albo niewdrożone.
 
+Wydanie poprawkowe z gałęzi ``release/X.Y`` nie może brać granicy czasowej:
+zgłoszenia zrobione w tym czasie tylko na ``main`` (następna wersja minor)
+dostałyby numer poprawki. Wtedy workflow podaje opisy commitów z zakresu
+``vPOPRZEDNIA..vX.Y.Z`` (``--messages``), a etykietę dostają zgłoszenia
+wskazane w nich przez ``Closes/Fixes/Resolves #N`` - także jeszcze otwarte,
+bo zamyka je dopiero scalenie gałęzi wydania do ``main``.
+
 Granicą (``--cutoff``) jest chwila publikacji wydania albo początek
 wdrożenia strony, a nie data commita: commit bywa starszy niż zamknięcie
 zgłoszenia przy pushu. Zgłoszenie zamknięte w trakcie budowania dostanie
@@ -28,6 +35,8 @@ bez instalacji zależności. Repozytorium i token biorą się ze zmiennych
 
     PYTHONPATH=src python3 -m transkryptor.packaging.issue_labels \\
         release 0.8.0 --cutoff 2026-11-20T12:00:00Z
+    PYTHONPATH=src python3 -m transkryptor.packaging.issue_labels \\
+        release 0.8.2 --messages commits.txt
     PYTHONPATH=src python3 -m transkryptor.packaging.issue_labels \\
         site --cutoff 2026-11-21T08:00:00Z
 """
@@ -44,6 +53,7 @@ import urllib.request
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Protocol
 
 VERSION_LABEL_RE = re.compile(r"^v?\d+\.\d+\.\d+$")
@@ -55,6 +65,9 @@ LABEL_COLOR = "2da44e"
 API_URL = "https://api.github.com"
 
 _NEXT_LINK = re.compile(r'<([^>]+)>;\s*rel="next"')
+_CLOSING_REFERENCE = re.compile(
+    r"\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s*:?\s+#(\d+)\b", re.IGNORECASE
+)
 
 Issue = dict[str, Any]
 
@@ -95,6 +108,8 @@ class IssueTracker(Protocol):
     """Operacje na zgłoszeniach repozytorium potrzebne do nadania etykiet."""
 
     def closed_issues(self) -> Iterable[Issue]: ...
+
+    def issue(self, number: int) -> Issue | None: ...
 
     def ensure_label(self, name: str, description: str) -> None: ...
 
@@ -141,6 +156,18 @@ def issues_to_label(
     )
 
 
+def referenced_issues(messages: str) -> list[int]:
+    """Numery zgłoszeń zamykanych w opisach commitów (``Closes #12``)."""
+    return sorted({int(match) for match in _CLOSING_REFERENCE.findall(messages)})
+
+
+def _labelable_reference(issue: Issue, target: Target) -> bool:
+    """Zgłoszenie (nie PR) wskazane w commicie, nieodrzucone, bez etykiety."""
+    if issue.get("pull_request") or issue.get("state_reason") == "not_planned":
+        return False
+    return target.applies_to(_label_names(issue))
+
+
 class GitHubIssues:
     """Zgłoszenia repozytorium przez REST API GitHuba."""
 
@@ -178,6 +205,16 @@ class GitHubIssues:
             match = _NEXT_LINK.search(link)
             url = match.group(1) if match else None
 
+    def issue(self, number: int) -> Issue | None:
+        try:
+            found, _ = self._request("GET", f"{self._base}/issues/{number}")
+        except urllib.error.HTTPError as error:
+            # 404/410: numer z opisu commita nie jest zgłoszeniem tego repo.
+            if error.code in (404, 410):
+                return None
+            raise
+        return found if isinstance(found, dict) else None
+
     def ensure_label(self, name: str, description: str) -> None:
         body = {"name": name, "color": LABEL_COLOR, "description": description}
         try:
@@ -198,6 +235,24 @@ def label_issues(
 ) -> list[int]:
     """Nadaje etykietę ``target`` zgłoszeniom zrobionym przed ``cutoff``."""
     numbers = issues_to_label(tracker.closed_issues(), target, cutoff)
+    return _apply(tracker, target, numbers, dry_run=dry_run)
+
+
+def label_referenced_issues(
+    tracker: IssueTracker, target: Target, messages: str, *, dry_run: bool = False
+) -> list[int]:
+    """Nadaje etykietę ``target`` zgłoszeniom zamykanym w opisach commitów."""
+    numbers = []
+    for number in referenced_issues(messages):
+        found = tracker.issue(number)
+        if found is not None and _labelable_reference(found, target):
+            numbers.append(number)
+    return _apply(tracker, target, numbers, dry_run=dry_run)
+
+
+def _apply(
+    tracker: IssueTracker, target: Target, numbers: list[int], *, dry_run: bool
+) -> list[int]:
     if numbers and not dry_run:
         tracker.ensure_label(target.label, target.description)
         for number in numbers:
@@ -215,13 +270,20 @@ def _parser() -> argparse.ArgumentParser:
     release = modes.add_parser("release", help="etykieta wersji programu")
     release.add_argument("version", help="wersja w postaci X.Y.Z")
     site = modes.add_parser("site", help=f"etykieta „{DEPLOYED_LABEL}” zgłoszeń strony")
-    for mode in (release, site):
-        mode.add_argument(
+    release_scope = release.add_mutually_exclusive_group(required=True)
+    release_scope.add_argument(
+        "--messages",
+        type=Path,
+        help="plik z opisami commitów wydania (wydanie z gałęzi release/X.Y)",
+    )
+    for scope in (release_scope, site):
+        scope.add_argument(
             "--cutoff",
-            required=True,
+            required=scope is site,
             type=_parse_time,
             help="publikacja wydania albo początek wdrożenia strony (ISO 8601)",
         )
+    for mode in (release, site):
         mode.add_argument(
             "--dry-run", action="store_true", help="tylko wypisz, nic nie zmieniaj"
         )
@@ -240,10 +302,18 @@ def main(argv: list[str] | None = None, tracker: IssueTracker | None = None) -> 
     args = _parser().parse_args(argv)
     try:
         target = release_target(args.version) if args.mode == "release" else SITE_TARGET
-        numbers = label_issues(
-            tracker or _tracker_from_env(), target, args.cutoff, dry_run=args.dry_run
-        )
-    except (LabelError, urllib.error.URLError) as error:
+        tracker = tracker or _tracker_from_env()
+        messages: Path | None = getattr(args, "messages", None)
+        if messages is not None:
+            numbers = label_referenced_issues(
+                tracker,
+                target,
+                messages.read_text(encoding="utf-8"),
+                dry_run=args.dry_run,
+            )
+        else:
+            numbers = label_issues(tracker, target, args.cutoff, dry_run=args.dry_run)
+    except (LabelError, OSError) as error:  # URLError to podklasa OSError
         print(f"::error::{error}", file=sys.stderr)
         return 1
     verb = "Do oznaczenia" if args.dry_run else "Oznaczone"
@@ -263,7 +333,9 @@ __all__ = [
     "is_version_label",
     "issues_to_label",
     "label_issues",
+    "label_referenced_issues",
     "main",
+    "referenced_issues",
     "release_target",
 ]
 
