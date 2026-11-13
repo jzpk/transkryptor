@@ -17,6 +17,7 @@ from transkryptor.asr.engine import (
 )
 from transkryptor.asr.manager import DownloadCancelled, ModelManager
 from transkryptor.asr.models import DIARIZATION_MODEL, WHISPER_SMALL, AsrModelInfo
+from transkryptor.document.speakers import INFORMANT, RESEARCHER, Speaker
 from transkryptor.export.docx_export import export_docx
 from transkryptor.i18n import tr
 from transkryptor.notation.suggestions import default_rules, rule_infos
@@ -28,6 +29,7 @@ from transkryptor.ui.loading_overlay import loading_messages
 from transkryptor.ui.main_window import MainWindow
 from transkryptor.ui.review import DRAFT_APPEND, DRAFT_REPLACE
 from transkryptor.ui.settings_dialog import SettingsDialog
+from transkryptor.ui.speakers_dialog import SpeakersDialog
 
 
 def fake_downloader(
@@ -985,18 +987,45 @@ class TestDiarizationOption:
         )
         assert not panel.decoding_options().diarize
 
-    def test_panel_speaker_count_shown_only_with_diarization(
-        self, panel, manager
-    ) -> None:
+    def test_panel_speakers_always_shown_with_count_state(self, panel, manager) -> None:
+        """Zgł. #56: rozmówcy są widoczne także bez modelu mówców."""
         root = str(manager.models_root)
+        box = panel.transcription.speakers_box
         panel.set_asr_settings(AsrSettings(diarize=True, models_root=root))
-        assert not panel.transcription.speakers_row.isVisibleTo(panel)  # brak modelu
+        assert box.isVisibleTo(panel)
+        assert not box.count_combo.isEnabled()  # brak modelu
+        assert box.count_hint.text() == tr("asr.speakers.count.no_model")
         manager.with_model(DIARIZATION_MODEL).download()
         panel.refresh_model_status()
-        assert panel.transcription.speakers_row.isVisibleTo(panel)
-        assert panel.transcription.speakers_combo.currentData() == 2
+        assert box.count_combo.isEnabled()
+        assert box.count_hint.text() == ""
+        assert box.count() == 2
         panel.set_asr_settings(AsrSettings(diarize=False, models_root=root))
-        assert not panel.transcription.speakers_row.isVisibleTo(panel)
+        assert box.isVisibleTo(panel)
+        assert not box.count_combo.isEnabled()
+        assert box.count_hint.text() == tr("asr.speakers.count.off")
+        panel.set_asr_settings(AsrSettings(qa_layout=True, models_root=root))
+        assert not box.count_combo.isEnabled()
+        assert box.count_hint.text() == tr("asr.speakers.count.qa")
+
+    def test_panel_shows_document_speakers_and_opens_editor(
+        self, window_with_asr, monkeypatch
+    ) -> None:
+        window = window_with_asr
+        box = window.asr_panel.transcription.speakers_box
+        window.speakers.apply_speakers(
+            [Speaker("B", "Badacz", RESEARCHER), Speaker("I", "Informator", INFORMANT)]
+        )
+        assert box.legend_label.text() == "B - Badacz; I - Informator"
+        opened: list[bool] = []
+
+        def fake_exec(dialog: SpeakersDialog) -> int:
+            opened.append(True)
+            return SpeakersDialog.DialogCode.Rejected
+
+        monkeypatch.setattr(SpeakersDialog, "exec", fake_exec)
+        box.edit_button.click()
+        assert opened == [True]
 
     def test_panel_speaker_count_follows_settings_and_emits(
         self, panel, manager
@@ -1005,11 +1034,10 @@ class TestDiarizationOption:
         root = str(manager.models_root)
         spy = QSignalSpy(panel.speakers_changed)
         panel.set_asr_settings(AsrSettings(diarize_speakers=5, models_root=root))
-        assert panel.transcription.speakers_combo.currentData() == 5
+        assert panel.transcription.speakers_box.count() == 5
         assert spy.count() == 0  # zmiana z ustawień nie wraca sygnałem
-        panel.transcription.speakers_combo.setCurrentIndex(
-            panel.transcription.speakers_combo.findData(0)
-        )
+        combo = panel.transcription.speakers_box.count_combo
+        combo.setCurrentIndex(combo.findData(0))
         assert spy.count() == 1 and spy.at(0) == [0]
         assert panel.decoding_options().speakers is None
 
@@ -1019,9 +1047,8 @@ class TestDiarizationOption:
         panel = window_with_asr.asr_panel
         manager.with_model(DIARIZATION_MODEL).download()
         panel.refresh_model_status()
-        panel.transcription.speakers_combo.setCurrentIndex(
-            panel.transcription.speakers_combo.findData(4)
-        )
+        combo = panel.transcription.speakers_box.count_combo
+        combo.setCurrentIndex(combo.findData(4))
         assert window_with_asr.settings_store.current.asr.diarize_speakers == 4
 
     def test_status_shows_speaker_phase(self, panel) -> None:

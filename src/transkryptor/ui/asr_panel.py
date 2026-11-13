@@ -59,6 +59,7 @@ class AsrPanel(QWidget):
     result_changed = Signal()  # nowy albo odtworzony wynik ASR całego nagrania
     model_changed = Signal(str)  # klucz modelu wybranego przez użytkownika
     speakers_changed = Signal(int)  # liczba mówców wybrana w panelu; 0 - auto
+    speakers_edit_requested = Signal()  # „Mówcy…” - edycja listy mówców
     qa_layout_changed = Signal(bool)  # układ „pytanie - odpowiedź” w panelu
     context_changed = Signal()  # kontekst nagrania lub słownik projektu
 
@@ -122,6 +123,7 @@ class AsrPanel(QWidget):
         transcription.fragment_ready.connect(self.fragment_ready)
         transcription.result_changed.connect(self.result_changed)
         transcription.speakers_changed.connect(self.speakers_changed)
+        transcription.speakers_edit_requested.connect(self.speakers_edit_requested)
         transcription.qa_layout_changed.connect(self.qa_layout_changed)
         transcription.context_changed.connect(self.context_changed)
         self.review.review_item_activated.connect(self.review_item_activated)
@@ -132,7 +134,7 @@ class AsrPanel(QWidget):
 
     def _on_model_status_changed(self) -> None:
         self.transcription.update_availability()
-        self.transcription.update_speakers_row()
+        self.transcription.update_speakers()
 
     # --- model ---------------------------------------------------------------
 
@@ -192,6 +194,10 @@ class AsrPanel(QWidget):
     def set_questionnaire(self, questions: tuple[str, ...]) -> None:
         """Odtwarza kwestionariusz projektu bez zgłaszania zmiany."""
         self.transcription.questionnaire_box.set_questions(questions)
+
+    def set_speakers_legend(self, text: str) -> None:
+        """Legenda mówców dokumentu w kroku „Szkic” (``B - Badacz; …``)."""
+        self.transcription.set_speakers_legend(text)
 
     def set_context_default(self, text: str) -> None:
         self.transcription.set_context_default(text)

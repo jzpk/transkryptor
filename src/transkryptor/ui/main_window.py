@@ -644,6 +644,8 @@ class MainWindow(QMainWindow):
         self.asr_panel.context_changed.connect(self._on_asr_context_changed)
         self.sync.timestamps_edited.connect(self.session.project_data_changed)
         self.speakers.speakers_changed.connect(self._on_speakers_changed)
+        self.speakers.legend_changed.connect(self.asr_panel.set_speakers_legend)
+        self.asr_panel.speakers_edit_requested.connect(self.speakers.edit_speakers)
         self.sync.anchors_changed.connect(self.waveform.refresh_markers)
         self.verification.edited.connect(self.session.project_data_changed)
         self.verification.ranges_changed.connect(

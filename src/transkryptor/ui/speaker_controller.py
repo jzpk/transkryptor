@@ -35,6 +35,8 @@ class SpeakerController(QObject):
 
     # Lista mówców się zmieniła (tytuł okna, walidacja, licznik słów).
     speakers_changed = Signal()
+    # Legenda mówców po odświeżeniu (``B - Badacz; I - Informator``).
+    legend_changed = Signal(str)
 
     def __init__(
         self,
@@ -164,5 +166,7 @@ class SpeakerController(QObject):
 
     def refresh(self) -> None:
         """Legenda w metryczce i kolumna etykiet po zmianie dokumentu."""
-        self._form.set_speakers_summary(legend(self._document().speakers))
+        text = legend(self._document().speakers)
+        self._form.set_speakers_summary(text)
         self._editor.refresh_speakers()
+        self.legend_changed.emit(text)

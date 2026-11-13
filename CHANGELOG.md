@@ -7,6 +7,13 @@ Pusta sekcja blokuje wydanie.
 
 ## Nieopublikowane
 
+- **Rozmówcy w panelu Szkic ASR:** w kroku „Szkic z nagrania” widać
+  zawsze, kim są rozmówcy nagrania (np. B - Badacz; I - Informator),
+  a przycisk **Mówcy…** pozwala poprawić ich listę jeszcze przed
+  transkrypcją. Pole **Liczba mówców** nie znika, gdy nie da się go użyć -
+  podpis wyjaśnia, że trzeba włączyć podział na mówców albo pobrać model
+  mówców, a w układzie pytanie - odpowiedź szkic dzieli się na B i I.
+
 - **Więcej miejsca na transkrypcję:** listę ostrzeżeń zapisu można zwinąć
   strzałką przy nagłówku - zostaje sam nagłówek z licznikiem, a edytor
   zajmuje zwolnione miejsce. Program pamięta zwinięcie. Przełącznik

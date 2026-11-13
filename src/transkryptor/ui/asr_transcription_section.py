@@ -21,7 +21,6 @@ from PySide6.QtCore import QObject, Qt, Signal
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QCheckBox,
-    QComboBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -35,7 +34,6 @@ from PySide6.QtWidgets import (
 )
 
 from transkryptor import diagnostics
-from transkryptor.asr.diarization import MAX_SPEAKERS
 from transkryptor.asr.engine import (
     DIARIZED_ASR_SHARE,
     PROMPT_MAX_CHARS,
@@ -56,6 +54,13 @@ from transkryptor.settings import AsrSettings, split_vocabulary
 from transkryptor.ui import icons
 from transkryptor.ui.asr_model_section import ModelSection
 from transkryptor.ui.asr_questionnaire import QuestionnaireBox
+from transkryptor.ui.asr_speakers_box import (
+    COUNT_ACTIVE,
+    COUNT_DIARIZE_OFF,
+    COUNT_NO_MODEL,
+    COUNT_QA_LAYOUT,
+    SpeakersBox,
+)
 from transkryptor.ui.asr_transcribe_thread import TranscribeThread
 from transkryptor.ui.asr_widgets import AutoHideLabel, section_label, step
 from transkryptor.ui.messages import show_error
@@ -84,6 +89,7 @@ class TranscriptionSection(QObject):
     fragment_ready = Signal(object)
     result_changed = Signal()  # nowy albo odtworzony wynik ASR całego nagrania
     speakers_changed = Signal(int)  # liczba mówców wybrana w panelu; 0 - auto
+    speakers_edit_requested = Signal()  # „Mówcy…” - edycja listy mówców
     qa_layout_changed = Signal(bool)  # układ „pytanie - odpowiedź” w panelu
     context_changed = Signal()  # kontekst nagrania lub słownik projektu
 
@@ -134,7 +140,8 @@ class TranscriptionSection(QObject):
         self._build_transcribe_widgets()
         self.context_edit.textChanged.connect(self._on_context_edited)
         self.vocabulary_edit.textChanged.connect(self._on_context_edited)
-        self.speakers_combo.currentIndexChanged.connect(self._on_speakers_selected)
+        self.speakers_box.count_changed.connect(self._on_speakers_selected)
+        self.speakers_box.edit_requested.connect(self.speakers_edit_requested)
         self.transcribe_button.clicked.connect(self._on_transcribe_clicked)
         self.clip_only_check.toggled.connect(self._update_transcribe_label)
         self.fragment_button.clicked.connect(self._on_fragment_clicked)
@@ -166,21 +173,9 @@ class TranscriptionSection(QObject):
         set_props(self.vocabulary_hint, role="muted")
         self.questionnaire_box = QuestionnaireBox()
         self.questionnaire_box.changed.connect(self.context_changed)
-        # Liczba mówców - widoczna, gdy podział na mówców jest włączony
-        # i model pobrany; zmiana trafia do ustawień (jak wybór modelu).
-        self.speakers_combo = QComboBox()
-        self.speakers_combo.addItem(tr("settings.asr.diarize.speakers.auto"), 0)
-        for count in range(2, MAX_SPEAKERS + 1):
-            self.speakers_combo.addItem(str(count), count)
-        self.speakers_combo.setToolTip(tr("settings.asr.diarize.speakers.tooltip"))
-        speakers_label = QLabel(tr("settings.asr.diarize.speakers"))
-        speakers_label.setBuddy(self.speakers_combo)
-        self.speakers_row = QWidget()
-        speakers_layout = QHBoxLayout(self.speakers_row)
-        speakers_layout.setContentsMargins(0, 0, 0, 0)
-        speakers_layout.addWidget(speakers_label)
-        speakers_layout.addWidget(self.speakers_combo)
-        speakers_layout.addStretch(1)
+        # Rozmówcy i liczba mówców - widoczne zawsze (zgł. #56); zmiana
+        # liczby trafia do ustawień (jak wybór modelu).
+        self.speakers_box = SpeakersBox()
         self.qa_layout_check = QCheckBox(tr("asr.qa_layout"))
         self.qa_layout_check.setObjectName("asr_qa_layout_check")
         self.qa_layout_check.setToolTip(tr("asr.qa_layout.tooltip"))
@@ -238,7 +233,7 @@ class TranscriptionSection(QObject):
                 self.vocabulary_hint,
                 QLabel(tr("asr.questionnaire")),
                 self.questionnaire_box,
-                self.speakers_row,
+                self.speakers_box,
                 self.qa_layout_check,
                 transcribe_row,
                 self.clip_only_check,
@@ -273,27 +268,32 @@ class TranscriptionSection(QObject):
         self.qa_layout_check.blockSignals(False)
         self._global_vocabulary = settings.vocabulary_words
         self._update_vocabulary_hint()
-        self.update_speakers_row()
+        self.update_speakers()
 
-    def update_speakers_row(self) -> None:
-        """Liczba mówców w panelu: widoczna przy podziale na mówców."""
-        self.speakers_row.setVisible(
-            self._diarize and not self._qa_layout and self._models.diarization_ready()
-        )
-        index = self.speakers_combo.findData(self._diarize_speakers)
-        self.speakers_combo.blockSignals(True)
-        self.speakers_combo.setCurrentIndex(max(index, 0))
-        self.speakers_combo.blockSignals(False)
+    def update_speakers(self) -> None:
+        """Liczba mówców: aktywna tylko, gdy podział na mówców zadziała."""
+        if self._qa_layout:
+            reason = COUNT_QA_LAYOUT
+        elif not self._diarize:
+            reason = COUNT_DIARIZE_OFF
+        elif not self._models.diarization_ready():
+            reason = COUNT_NO_MODEL
+        else:
+            reason = COUNT_ACTIVE
+        self.speakers_box.set_count_state(reason)
+        self.speakers_box.set_count(self._diarize_speakers)
 
-    def _on_speakers_selected(self, index: int) -> None:
-        if index < 0:
-            return
-        self._diarize_speakers = int(self.speakers_combo.itemData(index))
-        self.speakers_changed.emit(self._diarize_speakers)
+    def set_speakers_legend(self, text: str) -> None:
+        """Legenda mówców dokumentu pokazywana przy liczbie mówców."""
+        self.speakers_box.set_legend(text)
+
+    def _on_speakers_selected(self, count: int) -> None:
+        self._diarize_speakers = count
+        self.speakers_changed.emit(count)
 
     def _on_qa_layout_toggled(self, checked: bool) -> None:
         self._qa_layout = checked
-        self.update_speakers_row()
+        self.update_speakers()
         self.qa_layout_changed.emit(checked)
 
     def set_segment_preroll_ms(self, preroll_ms: int) -> None:
