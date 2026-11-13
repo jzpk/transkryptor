@@ -1,6 +1,6 @@
 /* Strona projektu Transkryptor. Kolory jak w aplikacji (akcent #4f5bd5).
    Motyw domyślnie według ustawień przeglądarki; przycisk w pasku górnym
-   (theme.js) ustawia data-theme="light" albo "dark" na <html>.
+   (site.js) ustawia data-theme="light" albo "dark" na <html>.
    Bez zewnętrznych zasobów. */
 
 :root {
@@ -15,6 +15,16 @@
   --accent-soft: #eceefc;
   --danger: #b3261e;
   --success: #1e7a3c;
+  /* Stany zgłoszeń: zielone - już u użytkowników (program i strona),
+     żółte - zrobione, czekają na wydanie albo wdrożenie. */
+  --state-released: #1e7a3c;
+  --state-released-bg: #e4f4e9;
+  --state-deployed: #0b7465;
+  --state-deployed-bg: #ddf3ef;
+  --state-unreleased: #7a5a00;
+  --state-unreleased-bg: #fdf1c7;
+  --state-undeployed: #94500a;
+  --state-undeployed-bg: #fde7cf;
   --code-bg: #f0f1f7;
   --shadow: 0 1px 2px rgb(20 22 40 / 6%), 0 8px 24px rgb(20 22 40 / 8%);
   --letters-opacity: 0.22;
@@ -41,6 +51,14 @@
     --accent-soft: #262a45;
   --danger: #ff8a80;
   --success: #7dd69a;
+    --state-released: #7dd69a;
+    --state-released-bg: rgb(125 214 154 / 12%);
+    --state-deployed: #5fd8c6;
+    --state-deployed-bg: rgb(95 216 198 / 12%);
+    --state-unreleased: #f2cc5a;
+    --state-unreleased-bg: rgb(242 204 90 / 12%);
+    --state-undeployed: #f7a95e;
+    --state-undeployed-bg: rgb(247 169 94 / 12%);
     --code-bg: #262836;
     --shadow: 0 1px 2px rgb(0 0 0 / 30%), 0 8px 24px rgb(0 0 0 / 35%);
     --letters-opacity: 0.16;
@@ -59,6 +77,14 @@
   --accent-soft: #262a45;
   --danger: #ff8a80;
   --success: #7dd69a;
+  --state-released: #7dd69a;
+  --state-released-bg: rgb(125 214 154 / 12%);
+  --state-deployed: #5fd8c6;
+  --state-deployed-bg: rgb(95 216 198 / 12%);
+  --state-unreleased: #f2cc5a;
+  --state-unreleased-bg: rgb(242 204 90 / 12%);
+  --state-undeployed: #f7a95e;
+  --state-undeployed-bg: rgb(247 169 94 / 12%);
   --code-bg: #262836;
   --shadow: 0 1px 2px rgb(0 0 0 / 30%), 0 8px 24px rgb(0 0 0 / 35%);
   --letters-opacity: 0.16;
@@ -433,7 +459,8 @@ main {
     .author-chip,
     .motion-switch,
     .release summary,
-    .faq-item summary
+    .faq-item summary,
+    .issues-legend summary
   ):focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
@@ -1009,17 +1036,40 @@ button.button:disabled {
 
 /* Status zgłoszeń */
 
+/* Legenda: zwijana lista w jednej kolumnie; site.js ukrywa stany spoza
+   wybranego filtra. */
 .issues-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 20px;
-  margin: 24px 0 16px;
+  margin: 0 0 16px;
+}
+
+.issues-legend summary {
+  width: fit-content;
+  color: var(--muted);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.issues-legend ul {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 8px 12px;
+  align-items: baseline;
+  margin: 10px 0 0;
   padding: 0;
   list-style: none;
 }
 
+/* Etykieta i opis każdego wpisu są komórkami wspólnej siatki listy. */
+.issues-legend li {
+  display: contents;
+}
+
+.issues-legend li[hidden] {
+  display: none;
+}
+
 .issues-legend .issue-state {
-  margin-right: 6px;
+  justify-self: start;
 }
 
 .issues-filters,
@@ -1108,11 +1158,24 @@ button.button:disabled {
   background: var(--accent-soft);
 }
 
-.issue-state[data-state="released"],
-.issue-state[data-state="unreleased"],
-.issue-state[data-state="deployed"],
+.issue-state[data-state="released"] {
+  color: var(--state-released);
+  background: var(--state-released-bg);
+}
+
+.issue-state[data-state="deployed"] {
+  color: var(--state-deployed);
+  background: var(--state-deployed-bg);
+}
+
+.issue-state[data-state="unreleased"] {
+  color: var(--state-unreleased);
+  background: var(--state-unreleased-bg);
+}
+
 .issue-state[data-state="undeployed"] {
-  color: var(--success);
+  color: var(--state-undeployed);
+  background: var(--state-undeployed-bg);
 }
 
 .issue-state[data-state="unreleased"],
@@ -1126,7 +1189,7 @@ a.issue-state {
 
 a.issue-state:hover,
 a.issue-state:focus-visible {
-  background: var(--accent-soft);
+  text-decoration: underline;
 }
 
 .issue-state[data-state="rejected"] {
@@ -1141,6 +1204,11 @@ a.issue-state:focus-visible {
 @media (max-width: 560px) {
   .issue {
     grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .issues-legend ul {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
   }
 
   .issue .issue-state {
@@ -1222,6 +1290,10 @@ a.issue-state:focus-visible {
 
 .footer p {
   margin: 4px 0 0;
+}
+
+.footer-prefs {
+  margin-top: 12px;
 }
 
 .footer-links {
@@ -1313,20 +1385,9 @@ a.issue-state:focus-visible {
   }
 }
 
-/* Na telefonie odnośniki GitHub i LinkedIn zostają tylko w stopce, żeby
-   przełączniki zmieściły się w jednym wierszu z nazwą. */
 @media (max-width: 520px) {
-  .topbar .social {
-    display: none;
-  }
-
   .topbar-inner {
     gap: 8px;
-  }
-
-  .motion-switch {
-    gap: 6px;
-    padding: 0 10px 0 6px;
   }
 
   .nav {

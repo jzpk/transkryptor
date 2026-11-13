@@ -53,20 +53,6 @@
         </nav>
         <div class="prefs">
           <button
-            class="motion-switch"
-            type="button"
-            role="switch"
-            aria-checked="true"
-            aria-label="Animacja liter w tle"
-            title="Animacja liter w tle"
-            hidden
-          >
-            <span class="motion-switch-track" aria-hidden="true"></span>
-            <span class="motion-switch-label" aria-hidden="true"
-              >animati<b class="motion-on">ON</b><b class="motion-off">OFF</b></span
-            >
-          </button>
-          <button
             class="icon-button theme-toggle"
             type="button"
             title="Zmień motyw"
@@ -81,24 +67,6 @@
             </svg>
           </button>
         </div>
-        <div class="social">
-          <a
-            class="icon-button"
-            href="${repo_url}"
-            title="Kod źródłowy"
-            aria-label="Kod źródłowy"
-          >
-            <svg aria-hidden="true"><use href="img/ikony.svg#github" /></svg
-          ></a>
-          <a
-            class="icon-button"
-            href="${linkedin_url}"
-            title="${author_name} na LinkedIn"
-            aria-label="${author_name} na LinkedIn"
-          >
-            <svg aria-hidden="true"><use href="img/ikony.svg#linkedin" /></svg
-          ></a>
-        </div>
       </div>
     </header>
 
@@ -112,16 +80,6 @@
         <p class="actions">
           <a class="button primary" href="zglos.html">Zgłoś problem lub pomysł</a>
         </p>
-
-        <ul class="issues-legend small" aria-label="Znaczenie stanów">
-          <li><span class="issue-state" data-state="open">Otwarte</span> czeka na zajęcie się nim</li>
-          <li><span class="issue-state" data-state="progress">W toku</span> trwają prace</li>
-          <li><span class="issue-state" data-state="released">Wydane 0.8.0</span> jest w programie od tej wersji</li>
-          <li><span class="issue-state" data-state="unreleased">Zrobione, niewydane</span> gotowe, trafi do najbliższej wersji</li>
-          <li><span class="issue-state" data-state="deployed">Wdrożone</span> zmiana strony jest już online</li>
-          <li><span class="issue-state" data-state="undeployed">Niewdrożone</span> zmiana strony gotowa, czeka na wdrożenie</li>
-          <li><span class="issue-state" data-state="rejected">Odrzucone</span> nie będzie realizowane</li>
-        </ul>
 
         <div
           class="issues-filters"
@@ -146,6 +104,19 @@
             Wszystkie
           </button>
         </div>
+
+        <details class="issues-legend small" data-issues-legend open>
+          <summary>Znaczenie stanów</summary>
+          <ul aria-label="Znaczenie stanów">
+            <li><span class="issue-state" data-state="open">Otwarte</span> czeka na zajęcie się nim</li>
+            <li><span class="issue-state" data-state="progress">W toku</span> trwają prace</li>
+            <li><span class="issue-state" data-state="released">Wydane 0.8.0</span> jest w programie od tej wersji</li>
+            <li><span class="issue-state" data-state="unreleased">Zrobione, niewydane</span> gotowe, trafi do najbliższej wersji</li>
+            <li><span class="issue-state" data-state="deployed">Wdrożone</span> zmiana strony jest już online</li>
+            <li><span class="issue-state" data-state="undeployed">Niewdrożone</span> zmiana strony gotowa, czeka na wdrożenie</li>
+            <li><span class="issue-state" data-state="rejected">Odrzucone</span> nie będzie realizowane</li>
+          </ul>
+        </details>
 
         <div
           class="issues-list"
@@ -176,6 +147,22 @@
             ><img src="img/ikona-56.png" alt="" width="24" height="24" />${app_name}</a
           >
           <p>Wolne oprogramowanie na licencji GPL-3.0-or-later.</p>
+          <div class="footer-prefs">
+            <button
+              class="motion-switch"
+              type="button"
+              role="switch"
+              aria-checked="true"
+              aria-label="Animacja liter w tle"
+              title="Animacja liter w tle"
+              hidden
+            >
+              <span class="motion-switch-track" aria-hidden="true"></span>
+              <span class="motion-switch-label" aria-hidden="true"
+                >animati<b class="motion-on">ON</b><b class="motion-off">OFF</b></span
+              >
+            </button>
+          </div>
         </div>
         <nav class="footer-links" aria-label="Odnośniki">
           ${footer_links}

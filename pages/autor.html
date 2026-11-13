@@ -49,20 +49,6 @@
         </nav>
         <div class="prefs">
           <button
-            class="motion-switch"
-            type="button"
-            role="switch"
-            aria-checked="true"
-            aria-label="Animacja liter w tle"
-            title="Animacja liter w tle"
-            hidden
-          >
-            <span class="motion-switch-track" aria-hidden="true"></span>
-            <span class="motion-switch-label" aria-hidden="true"
-              >animati<b class="motion-on">ON</b><b class="motion-off">OFF</b></span
-            >
-          </button>
-          <button
             class="icon-button theme-toggle"
             type="button"
             title="Zmień motyw"
@@ -76,24 +62,6 @@
               <use href="img/ikony.svg#slonce" />
             </svg>
           </button>
-        </div>
-        <div class="social">
-          <a
-            class="icon-button"
-            href="${repo_url}"
-            title="Kod źródłowy"
-            aria-label="Kod źródłowy"
-          >
-            <svg aria-hidden="true"><use href="img/ikony.svg#github" /></svg
-          ></a>
-          <a
-            class="icon-button"
-            href="${linkedin_url}"
-            title="${author_name} na LinkedIn"
-            aria-label="${author_name} na LinkedIn"
-          >
-            <svg aria-hidden="true"><use href="img/ikony.svg#linkedin" /></svg
-          ></a>
         </div>
       </div>
     </header>
@@ -161,6 +129,22 @@
             ><img src="img/ikona-56.png" alt="" width="24" height="24" />${app_name}</a
           >
           <p>Wolne oprogramowanie na licencji GPL-3.0-or-later.</p>
+          <div class="footer-prefs">
+            <button
+              class="motion-switch"
+              type="button"
+              role="switch"
+              aria-checked="true"
+              aria-label="Animacja liter w tle"
+              title="Animacja liter w tle"
+              hidden
+            >
+              <span class="motion-switch-track" aria-hidden="true"></span>
+              <span class="motion-switch-label" aria-hidden="true"
+                >animati<b class="motion-on">ON</b><b class="motion-off">OFF</b></span
+              >
+            </button>
+          </div>
         </div>
         <nav class="footer-links" aria-label="Odnośniki">
           ${footer_links}

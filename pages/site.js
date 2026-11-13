@@ -15,7 +15,8 @@
 //   Workera albo bez skryptów zostaje odnośnik do zgłoszeń na GitHubie.
 // - Status zgłoszeń (zgloszenia.html): pobiera zgłoszenia z API GitHuba
 //   i pokazuje ich stan z filtrami i podziałem na strony (?pokaz=&strona=
-//   w adresie). Po błędzie zostaje odnośnik do GitHuba.
+//   w adresie); legenda opisuje stany z wybranego filtra. Po błędzie
+//   zostaje odnośnik do GitHuba.
 (function () {
   "use strict";
 
@@ -631,6 +632,12 @@
         }).length;
         button.textContent = button.getAttribute("data-label") + " (" + count + ")";
         button.setAttribute("aria-pressed", name === filter ? "true" : "false");
+      });
+
+      // Legenda opisuje tylko stany widoczne w bieżącym filtrze.
+      each("[data-issues-legend] li", function (item) {
+        var state = item.querySelector("[data-state]").getAttribute("data-state");
+        item.hidden = ISSUE_FILTERS[filter].indexOf(state) < 0;
       });
 
       container.textContent = "";

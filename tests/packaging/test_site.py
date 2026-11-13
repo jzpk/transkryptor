@@ -131,9 +131,14 @@ def test_build_adds_the_display_switches_to_every_page(
     for name in site.TEMPLATE_FILES:
         page = (out / name).read_text(encoding="utf-8")
         assert re.search(r'<script src="/?site.js"></script>', page)
-        assert 'class="icon-button theme-toggle"' in page
-        assert 'class="motion-switch"' in page
-        assert 'role="switch"' in page
+        # Pasek górny ma tylko menu i motyw; animacja i odnośniki są w stopce.
+        header, footer = page.split("</header>")
+        assert 'class="icon-button theme-toggle"' in header
+        assert 'class="motion-switch"' in footer
+        assert 'role="switch"' in footer
+        assert "ikony.svg#github" not in header
+        assert "ikony.svg#linkedin" not in header
+        assert "ikony.svg#github" in footer
 
 
 def test_every_page_links_the_faq_and_has_link_previews(
@@ -464,6 +469,9 @@ def test_issue_status_page_reads_the_repository_issues(
     assert 'data-state="unreleased"' in page
     assert 'data-state="deployed"' in page
     assert 'data-state="undeployed"' in page
+    # Legendę można zwinąć, a skrypt zawęża ją do stanów z filtra.
+    assert '<details class="issues-legend small" data-issues-legend open>' in page
+    assert "[data-issues-legend] li" in script
     assert "data-issues-pager" in page
     assert site.ISSUES_PAGE in (out / site.SITEMAP_FILE).read_text(encoding="utf-8")
     report = (out / "zglos.html").read_text(encoding="utf-8")
