@@ -1,8 +1,9 @@
 """Zdarzenia panelu ASR w oknie: szkic, fragment, ustawienia i blokada.
 
 Kontroler wstawia gotowy szkic (z podziałem na mówców) i transkrypcję
-fragmentu przez ``ReviewController``, zapamiętuje wybór modelu i liczby
-mówców w ustawieniach, przekazuje segmenty wyniku do fali dźwięku i na
+fragmentu przez ``ReviewController`` - po obróbce zapisu według ustawień
+(``DraftStyler``, np. skróty w pełnym brzmieniu). Zapamiętuje wybór
+modelu i liczby mówców w ustawieniach, przekazuje segmenty wyniku do fali dźwięku i na
 czas transkrypcji blokuje okno nakładką z postępem i anulowaniem.
 """
 
@@ -23,6 +24,7 @@ from transkryptor.document.speakers import speakers_for_clusters
 from transkryptor.ui.asr_panel import AsrPanel
 from transkryptor.ui.autosave import AutosaveController
 from transkryptor.ui.compare_controller import CompareController
+from transkryptor.ui.draft_styler import DraftStyler
 from transkryptor.ui.loading_overlay import LoadingOverlay
 from transkryptor.ui.review import ReviewController
 from transkryptor.ui.settings_store import SettingsStore
@@ -58,6 +60,7 @@ class AsrController(QObject):
         self._overlay = overlay
         self._autosave = autosave
         self._set_locked = set_locked
+        self._styler = DraftStyler(lambda: settings_store.current.asr)
 
         panel.draft_ready.connect(self.insert_draft)
         panel.fragment_ready.connect(self.insert_fragment)
@@ -78,8 +81,9 @@ class AsrController(QObject):
         """Wstawia szkic całego nagrania (pytanie o miejsce zadaje przegląd)."""
         self._compare.finish()
         if not isinstance(draft, TranscriptionResult):
-            self._review.insert_draft(draft)
+            self._review.insert_draft(self._styler.apply_text(draft))
             return
+        draft = self._styler.apply(draft)
         if not draft.diarized:
             self._review.insert_draft(draft_text(draft), draft.segments)
             return
@@ -107,6 +111,7 @@ class AsrController(QObject):
     def insert_fragment(self, result: TranscriptionResult) -> None:
         """Transkrypcja fragmentu A-B trafia w miejsce kursora."""
         self._compare.finish()
+        result = self._styler.apply(result)
         self._review.insert_fragment(result.text, result.segments)
 
     def _on_result_changed(self) -> None:

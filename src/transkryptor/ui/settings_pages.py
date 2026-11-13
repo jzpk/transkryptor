@@ -28,7 +28,6 @@ from PySide6.QtWidgets import (
     QInputDialog,
     QLabel,
     QLineEdit,
-    QPlainTextEdit,
     QPushButton,
     QScrollArea,
     QSpinBox,
@@ -38,8 +37,6 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from transkryptor.asr.manager import ModelManager
-from transkryptor.asr.models import default_models_root
 from transkryptor.document.metadata import (
     DEFAULT_FIELDS,
     DEFAULT_KEYS,
@@ -66,14 +63,11 @@ from transkryptor.settings import (
     THEME_DARK,
     THEME_LIGHT,
     THEME_SYSTEM,
-    WORD_THRESHOLD_RANGE_PCT,
     Settings,
     encode_bool_map,
     encode_shortcut_map,
     encode_snippets,
-    split_vocabulary,
 )
-from transkryptor.ui.diarization_box import DiarizationBox
 from transkryptor.ui.shortcuts import find_conflicts, shortcut_overrides
 from transkryptor.ui.shortcuts_editor import ShortcutsEditor, SnippetsEditor
 from transkryptor.ui.theme import set_props
@@ -172,8 +166,8 @@ class AppearancePage(FormPage):
         self.form.addRow(tr("settings.editor.size"), self.font_size_spin)
 
     def load(self, settings: Settings) -> None:
-        _select(self.theme_combo, settings.appearance.theme)
-        _select(self.language_combo, settings.appearance.language)
+        select_data(self.theme_combo, settings.appearance.theme)
+        select_data(self.language_combo, settings.appearance.language)
         self._update_language_hint()
         editor = settings.editor
         self.default_font_check.setChecked(not editor.font_family)
@@ -233,7 +227,7 @@ class NotationPage(FormPage):
         self.form.addRow(autocomplete_hint)
 
     def load(self, settings: Settings) -> None:
-        _select(self.ellipsis_combo, settings.notation.ellipsis_style)
+        select_data(self.ellipsis_combo, settings.notation.ellipsis_style)
         self._update_ellipsis_hint()
         self.autocomplete_check.setChecked(settings.editor.autocomplete)
 
@@ -575,8 +569,8 @@ class ExportPage(FormPage):
 
     def load(self, settings: Settings) -> None:
         self.template_edit.setText(settings.export.template_path)
-        _select(self.superscript_mode_combo, settings.export.superscript_mode)
-        _select(self.untimed_mode_combo, settings.export.untimed_mode)
+        select_data(self.superscript_mode_combo, settings.export.superscript_mode)
+        select_data(self.untimed_mode_combo, settings.export.untimed_mode)
         self.check_template()
 
     def apply(self, settings: Settings) -> Settings:
@@ -635,114 +629,16 @@ class ExportPage(FormPage):
         return check
 
 
-class AsrPage(FormPage):
-    """Katalog modeli, urządzenie, podział na mówców i słownik globalny."""
-
-    def __init__(self, model_manager: ModelManager) -> None:
-        super().__init__()
-        self.models_root_edit = QLineEdit()
-        self.models_root_edit.setReadOnly(True)
-        self.models_root_edit.setPlaceholderText(str(default_models_root()))
-        self.models_root_button = QPushButton(tr("settings.asr.models_root.choose"))
-        self.models_root_button.clicked.connect(self._choose_models_root)
-        self.models_root_default_button = QPushButton(
-            tr("settings.asr.models_root.default")
-        )
-        self.models_root_default_button.clicked.connect(self.models_root_edit.clear)
-        models_root_row = QHBoxLayout()
-        models_root_row.addWidget(self.models_root_edit, stretch=1)
-        models_root_row.addWidget(self.models_root_button)
-        models_root_row.addWidget(self.models_root_default_button)
-        self.device_combo = QComboBox()
-        for device, device_label in device_labels().items():
-            self.device_combo.addItem(device_label, device)
-        self.chunked_check = QCheckBox(tr("settings.asr.chunked"))
-        self.word_timestamps_check = QCheckBox(tr("settings.asr.word_timestamps"))
-        self.word_timestamps_check.setToolTip(
-            tr("settings.asr.word_timestamps.tooltip")
-        )
-        self.diarization_box = DiarizationBox(model_manager)
-        self.models_root_edit.textChanged.connect(
-            lambda text: self.diarization_box.set_models_root(models_root(text))
-        )
-        self.uncertain_words_check = QCheckBox(tr("settings.asr.uncertain_words"))
-        self.word_threshold_spin = QSpinBox()
-        self.word_threshold_spin.setRange(*WORD_THRESHOLD_RANGE_PCT)
-        self.word_threshold_spin.setSuffix(" %")
-        self.word_threshold_spin.setToolTip(tr("settings.asr.word_threshold.tooltip"))
-        self.uncertain_words_check.toggled.connect(self.word_threshold_spin.setEnabled)
-        self.vocabulary_edit = QPlainTextEdit()
-        self.vocabulary_edit.setPlaceholderText(
-            tr("settings.asr.vocabulary.placeholder")
-        )
-        self.vocabulary_edit.setTabChangesFocus(True)
-        self.form.addRow(tr("settings.asr.models_root"), models_root_row)
-        self.form.addRow(_hint(tr("settings.asr.models_root.hint")))
-        self.form.addRow(tr("settings.asr.device"), self.device_combo)
-        self.form.addRow(_hint(tr("settings.asr.device.hint")))
-        self.form.addRow(self.chunked_check)
-        self.form.addRow(_hint(tr("settings.asr.chunked.hint")))
-        self.form.addRow(self.word_timestamps_check)
-        self.form.addRow(self.diarization_box)
-        self.form.addRow(self.uncertain_words_check)
-        self.form.addRow(tr("settings.asr.word_threshold"), self.word_threshold_spin)
-        self.form.addRow(tr("settings.asr.vocabulary"), self.vocabulary_edit)
-        self.form.addRow(_hint(tr("settings.asr.vocabulary.hint")))
-
-    def load(self, settings: Settings) -> None:
-        asr = settings.asr
-        self.models_root_edit.setText(asr.models_root)
-        _select(self.device_combo, asr.device)
-        self.chunked_check.setChecked(asr.chunked)
-        self.word_timestamps_check.setChecked(asr.word_timestamps)
-        self.diarization_box.set_value(asr.diarize)
-        self.diarization_box.set_speakers(asr.diarize_speakers)
-        self.uncertain_words_check.setChecked(asr.show_uncertain_words)
-        self.word_threshold_spin.setValue(asr.word_threshold_pct)
-        self.word_threshold_spin.setEnabled(asr.show_uncertain_words)
-        self.vocabulary_edit.setPlainText(asr.vocabulary)
-
-    def apply(self, settings: Settings) -> Settings:
-        # Model wybiera się w panelu ASR - strona tylko go przenosi dalej.
-        return replace(
-            settings,
-            asr=replace(
-                settings.asr,
-                models_root=self.models_root_edit.text().strip(),
-                device=str(self.device_combo.currentData()),
-                vocabulary="\n".join(
-                    split_vocabulary(self.vocabulary_edit.toPlainText())
-                ),
-                chunked=self.chunked_check.isChecked(),
-                word_timestamps=self.word_timestamps_check.isChecked(),
-                diarize=self.diarization_box.value(),
-                diarize_speakers=self.diarization_box.speakers(),
-                show_uncertain_words=self.uncertain_words_check.isChecked(),
-                word_threshold_pct=self.word_threshold_spin.value(),
-            ),
-        )
-
-    def _choose_models_root(self) -> None:
-        start = self.models_root_edit.text() or str(default_models_root())
-        directory = QFileDialog.getExistingDirectory(
-            self, tr("settings.asr.models_root.dialog"), start
-        )
-        if directory:
-            self.models_root_edit.setText(directory)
-
-
-def models_root(text: str) -> Path | None:
-    return Path(text.strip()) if text.strip() else None
-
-
-def _hint(text: str) -> QLabel:
+def hint_label(text: str) -> QLabel:
+    """Szary opis pod polem formularza."""
     label = QLabel(text)
     label.setWordWrap(True)
     set_props(label, role="muted")
     return label
 
 
-def _select(combo: QComboBox, value: object) -> None:
+def select_data(combo: QComboBox, value: object) -> None:
+    """Wybiera pozycję o danych ``value`` (nieznana - pierwsza)."""
     combo.setCurrentIndex(max(combo.findData(value), 0))
 
 

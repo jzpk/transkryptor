@@ -196,6 +196,7 @@ TUTORIALS: tuple[Tutorial, ...] = (
                 "asr_panel",
                 shortcuts=(("uncertain", NEXT_UNCERTAIN_ID),),
             ),
+            _step("style", "toolbar_settings", MORE),
         ),
     ),
     Tutorial(

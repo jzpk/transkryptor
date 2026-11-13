@@ -160,6 +160,12 @@ Pusta sekcja blokuje wydanie.
   wczytywanie modelu i nagrania. Postęp rośnie także na odcinkach bez
   mowy (cisza, muzyka) - dotyczy to fragmentu A-B i transkrypcji długich
   nagrań fragmentami.
+- **Skróty w szkicu ASR w pełnym brzmieniu:** skróty, które wstawia model
+  (np., tzw., m.in., itp., itd., tj., tzn., wg, a „ok.” przed liczbą),
+  trafiają do szkicu tak, jak zostały wypowiedziane: „na przykład”, „między
+  innymi”, „i tak dalej”. „tzw.” jest odmieniane zgodnie z następnym słowem
+  („tak zwaną myszkę”, „tak zwanego domu”). Zachowanie wyłączysz
+  w ustawieniach, na zakładce **ASR**, w nowej części **Zapis szkicu**.
 
 ## 0.7.0 - 2026-10-26
 

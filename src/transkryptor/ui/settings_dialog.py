@@ -30,9 +30,9 @@ from transkryptor.notation.rules import PhoneticRule
 from transkryptor.settings import Settings
 from transkryptor.ui.log_panel import LogPanel
 from transkryptor.ui.rules_editor import RulesEditor
+from transkryptor.ui.settings_asr_page import AsrPage, models_root
 from transkryptor.ui.settings_pages import (
     AppearancePage,
-    AsrPage,
     ExportPage,
     MetadataPage,
     NotationPage,
@@ -40,7 +40,6 @@ from transkryptor.ui.settings_pages import (
     SettingsPage,
     ShortcutPages,
     ValidatorPage,
-    models_root,
 )
 from transkryptor.ui.settings_player_page import PlayerPage
 from transkryptor.ui.shortcuts_editor import ShortcutsEditor, SnippetsEditor

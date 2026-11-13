@@ -14,7 +14,7 @@ from transkryptor.settings import (
     SKIP_RANGE_MS,
     Settings,
 )
-from transkryptor.ui.settings_pages import FormPage
+from transkryptor.ui.settings_pages import FormPage, select_data
 
 
 def seconds_spin(range_ms: tuple[int, int]) -> QDoubleSpinBox:
@@ -29,10 +29,6 @@ def seconds_spin(range_ms: tuple[int, int]) -> QDoubleSpinBox:
 
 def to_ms(spin: QDoubleSpinBox) -> int:
     return round(spin.value() * 1000)
-
-
-def _select(combo: QComboBox, value: object) -> None:
-    combo.setCurrentIndex(max(combo.findData(value), 0))
 
 
 class PlayerPage(FormPage):
@@ -80,8 +76,8 @@ class PlayerPage(FormPage):
         self.auto_rewind_spin.setEnabled(player.auto_rewind_enabled)
         self.preroll_spin.setValue(player.segment_preroll_ms / 1000)
         self.follow_playback_check.setChecked(player.follow_playback)
-        _select(self.spectrogram_range_combo, player.spectrogram_max_hz)
-        _select(self.spectrogram_window_combo, player.spectrogram_window)
+        select_data(self.spectrogram_range_combo, player.spectrogram_max_hz)
+        select_data(self.spectrogram_window_combo, player.spectrogram_window)
 
     def apply(self, settings: Settings) -> Settings:
         # Pola spoza okna (zwinięcie fali, menu „Dźwięk”) zostają bez zmian.

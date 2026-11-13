@@ -331,6 +331,8 @@ class AsrSettings:
     diarize_speakers: int = 2
     show_uncertain_words: bool = True
     word_threshold_pct: int = 40
+    # Zapis szkicu: skróty Whispera („np.”, „tzw.”) w pełnym brzmieniu.
+    expand_abbreviations: bool = True
 
     @property
     def word_threshold(self) -> float:
@@ -455,6 +457,7 @@ _FIELDS: tuple[_Field, ...] = (
     _Field("asr", "diarize_speakers", int, *DIARIZE_SPEAKERS_RANGE),
     _Field("asr", "show_uncertain_words", bool),
     _Field("asr", "word_threshold_pct", int, *WORD_THRESHOLD_RANGE_PCT),
+    _Field("asr", "expand_abbreviations", bool),
     _Field("review", "comment_author", str),
     _Field("tutorial", "show_on_start", bool),
 )
