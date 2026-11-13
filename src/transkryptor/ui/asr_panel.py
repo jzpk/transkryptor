@@ -59,6 +59,7 @@ class AsrPanel(QWidget):
     result_changed = Signal()  # nowy albo odtworzony wynik ASR całego nagrania
     model_changed = Signal(str)  # klucz modelu wybranego przez użytkownika
     speakers_changed = Signal(int)  # liczba mówców wybrana w panelu; 0 - auto
+    qa_layout_changed = Signal(bool)  # układ „pytanie - odpowiedź” w panelu
     context_changed = Signal()  # kontekst nagrania lub słownik projektu
 
     def __init__(
@@ -121,6 +122,7 @@ class AsrPanel(QWidget):
         transcription.fragment_ready.connect(self.fragment_ready)
         transcription.result_changed.connect(self.result_changed)
         transcription.speakers_changed.connect(self.speakers_changed)
+        transcription.qa_layout_changed.connect(self.qa_layout_changed)
         transcription.context_changed.connect(self.context_changed)
         self.review.review_item_activated.connect(self.review_item_activated)
         self.review.review_item_apply_requested.connect(

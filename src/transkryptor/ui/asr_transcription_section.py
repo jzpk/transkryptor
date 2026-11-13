@@ -17,7 +17,7 @@ from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
 
-from PySide6.QtCore import QObject, Qt, QThread, Signal
+from PySide6.QtCore import QObject, Qt, Signal
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -35,7 +35,6 @@ from PySide6.QtWidgets import (
 )
 
 from transkryptor import diagnostics
-from transkryptor.asr import engine
 from transkryptor.asr.diarization import MAX_SPEAKERS
 from transkryptor.asr.engine import (
     DIARIZED_ASR_SHARE,
@@ -56,6 +55,7 @@ from transkryptor.i18n import tr
 from transkryptor.settings import AsrSettings, split_vocabulary
 from transkryptor.ui import icons
 from transkryptor.ui.asr_model_section import ModelSection
+from transkryptor.ui.asr_transcribe_thread import TranscribeThread
 from transkryptor.ui.asr_widgets import AutoHideLabel, section_label, step
 from transkryptor.ui.messages import show_error
 from transkryptor.ui.theme import set_props, tokens
@@ -66,62 +66,6 @@ logger = logging.getLogger(__name__)
 LOW_CONFIDENCE = 0.6
 # Czasy po VAD bywają przesunięte o ułamki sekundy - start nieco wcześniej.
 DEFAULT_SEGMENT_PREROLL_MS = 500
-
-
-class TranscribeThread(QThread):
-    """Transkrypcja w tle; anulowanie sprawdzane między segmentami."""
-
-    segment_ready = Signal(object)  # SegmentResult
-    progressed = Signal(float)  # ułamek nagrania 0.0-1.0
-    succeeded = Signal(object)  # TranscriptionResult
-    failed = Signal(object)  # AppError
-    cancelled = Signal()
-
-    def __init__(
-        self,
-        audio_path: Path,
-        model_dir: Path,
-        transcribe_impl: Callable[..., TranscriptionResult] = engine.transcribe,
-        parent=None,
-        *,
-        model: AsrModelInfo | None = None,
-        options: DecodingOptions | None = None,
-    ) -> None:
-        super().__init__(parent)
-        self._audio_path = audio_path
-        self._model_dir = model_dir
-        self._transcribe_impl = transcribe_impl
-        self._model = model
-        self._options = options
-        self._cancel_requested = False
-
-    def cancel(self) -> None:
-        self._cancel_requested = True
-
-    def run(self) -> None:
-        try:
-            result = self._transcribe_impl(
-                self._audio_path,
-                self._model_dir,
-                should_cancel=lambda: self._cancel_requested,
-                on_segment=lambda segment: self.segment_ready.emit(segment),
-                on_progress=lambda fraction: self.progressed.emit(fraction),
-                **self._extra_arguments(),
-            )
-        except engine.TranscriptionCancelled:
-            self.cancelled.emit()
-        except AppError as error:
-            self.failed.emit(error)
-        else:
-            self.succeeded.emit(result)
-
-    def _extra_arguments(self) -> dict[str, object]:
-        extra: dict[str, object] = {}
-        if self._model is not None:
-            extra["model"] = self._model
-        if self._options is not None:
-            extra["options"] = self._options
-        return extra
 
 
 class TranscriptionSection(QObject):
@@ -139,6 +83,7 @@ class TranscriptionSection(QObject):
     fragment_ready = Signal(object)
     result_changed = Signal()  # nowy albo odtworzony wynik ASR całego nagrania
     speakers_changed = Signal(int)  # liczba mówców wybrana w panelu; 0 - auto
+    qa_layout_changed = Signal(bool)  # układ „pytanie - odpowiedź” w panelu
     context_changed = Signal()  # kontekst nagrania lub słownik projektu
 
     def __init__(
@@ -178,6 +123,7 @@ class TranscriptionSection(QObject):
         self._verbatim = True
         self._diarize = True
         self._diarize_speakers = 0
+        self._qa_layout = False
         self._diarizing = False
         self._global_vocabulary: tuple[str, ...] = ()
         self._context_default = ""
@@ -232,6 +178,10 @@ class TranscriptionSection(QObject):
         speakers_layout.addWidget(speakers_label)
         speakers_layout.addWidget(self.speakers_combo)
         speakers_layout.addStretch(1)
+        self.qa_layout_check = QCheckBox(tr("asr.qa_layout"))
+        self.qa_layout_check.setObjectName("asr_qa_layout_check")
+        self.qa_layout_check.setToolTip(tr("asr.qa_layout.tooltip"))
+        self.qa_layout_check.toggled.connect(self._on_qa_layout_toggled)
 
     def _build_transcribe_widgets(self) -> None:
         self.device_label = AutoHideLabel()
@@ -284,6 +234,7 @@ class TranscriptionSection(QObject):
                 self.vocabulary_edit,
                 self.vocabulary_hint,
                 self.speakers_row,
+                self.qa_layout_check,
                 transcribe_row,
                 self.clip_only_check,
                 self.fragment_button,
@@ -311,13 +262,19 @@ class TranscriptionSection(QObject):
         self._verbatim = settings.verbatim
         self._diarize = settings.diarize
         self._diarize_speakers = settings.diarize_speakers
+        self._qa_layout = settings.qa_layout
+        self.qa_layout_check.blockSignals(True)
+        self.qa_layout_check.setChecked(settings.qa_layout)
+        self.qa_layout_check.blockSignals(False)
         self._global_vocabulary = settings.vocabulary_words
         self._update_vocabulary_hint()
         self.update_speakers_row()
 
     def update_speakers_row(self) -> None:
         """Liczba mówców w panelu: widoczna przy podziale na mówców."""
-        self.speakers_row.setVisible(self._diarize and self._models.diarization_ready())
+        self.speakers_row.setVisible(
+            self._diarize and not self._qa_layout and self._models.diarization_ready()
+        )
         index = self.speakers_combo.findData(self._diarize_speakers)
         self.speakers_combo.blockSignals(True)
         self.speakers_combo.setCurrentIndex(max(index, 0))
@@ -328,6 +285,11 @@ class TranscriptionSection(QObject):
             return
         self._diarize_speakers = int(self.speakers_combo.itemData(index))
         self.speakers_changed.emit(self._diarize_speakers)
+
+    def _on_qa_layout_toggled(self, checked: bool) -> None:
+        self._qa_layout = checked
+        self.update_speakers_row()
+        self.qa_layout_changed.emit(checked)
 
     def set_segment_preroll_ms(self, preroll_ms: int) -> None:
         """Ile przed początkiem segmentu startuje odsłuch (z ustawień)."""
@@ -380,7 +342,8 @@ class TranscriptionSection(QObject):
         """
         prompt, vocabulary = self.asr_context()
         diarization = self._models.manager.with_model(DIARIZATION_MODEL)
-        diarize = self._diarize and diarization.is_downloaded()
+        # Układ „pytanie - odpowiedź” zastępuje podział według głosu.
+        diarize = self._diarize and not self._qa_layout and diarization.is_downloaded()
         return DecodingOptions(
             device=self._device,
             initial_prompt=compose_prompt(prompt, verbatim=self._verbatim),

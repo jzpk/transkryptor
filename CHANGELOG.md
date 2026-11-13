@@ -185,6 +185,15 @@ Pusta sekcja blokuje wydanie.
   w ramach opcji **Zapis dosłowny: powtórzenia i „nie?”** na zakładce
   **ASR**. Program odróżnia też takie „nie?”, „co nie?” i „prawda?” od
   prawdziwych pytań.
+- **Układ pytanie - odpowiedź w szkicu ASR:** nowe pole **Układ pytanie -
+  odpowiedź** w kroku **Szkic z nagrania** panelu ASR dzieli szkic na
+  zdania: każde zdanie ze znakiem zapytania trafia do osobnego wersu
+  badacza (B), a odpowiedź - do wersu informatora (I), każdy ze
+  znacznikiem czasu. Tak układają się też pytania metryczki nagrywane na
+  początku wywiadu („Imię i nazwisko?”, „Rok i miejsce urodzenia?”).
+  Fatyczne „nie?” na końcu odpowiedzi nie jest traktowane jako pytanie.
+  Układ zastępuje podział na mówców według głosu, więc transkrypcja jest
+  przy nim szybsza. Samouczek **Szkic ASR** opisuje nową opcję.
 
 ## 0.7.0 - 2026-10-26
 

@@ -338,6 +338,9 @@ class AsrSettings:
     # Zapis dosłowny: przykład stylu w prompcie Whispera - powtórzenia
     # i fatyczne „nie?” zostają w szkicu.
     verbatim: bool = True
+    # Układ „pytanie - odpowiedź”: zdania ze znakiem zapytania - badacz,
+    # pozostałe - informator (zamiast podziału na mówców według głosu).
+    qa_layout: bool = False
 
     @property
     def word_threshold(self) -> float:
@@ -465,6 +468,7 @@ _FIELDS: tuple[_Field, ...] = (
     _Field("asr", "expand_abbreviations", bool),
     _Field("asr", "lowercase_plain", bool),
     _Field("asr", "verbatim", bool),
+    _Field("asr", "qa_layout", bool),
     _Field("review", "comment_author", str),
     _Field("tutorial", "show_on_start", bool),
 )

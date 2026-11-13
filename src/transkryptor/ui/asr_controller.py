@@ -19,6 +19,7 @@ from transkryptor.asr.engine import (
     draft_line_speakers,
     draft_text,
 )
+from transkryptor.asr.qa_layout import question_answer_layout
 from transkryptor.document.model import Document
 from transkryptor.document.speakers import speakers_for_clusters
 from transkryptor.ui.asr_panel import AsrPanel
@@ -67,6 +68,7 @@ class AsrController(QObject):
         panel.result_changed.connect(self._on_result_changed)
         panel.model_changed.connect(self._on_model_changed)
         panel.speakers_changed.connect(self._on_speakers_changed)
+        panel.qa_layout_changed.connect(self._on_qa_layout_changed)
         panel.review_item_activated.connect(review.activate)
         panel.review_item_apply_requested.connect(review.apply)
         panel.review_finish_requested.connect(review.finish)
@@ -83,6 +85,8 @@ class AsrController(QObject):
         if not isinstance(draft, TranscriptionResult):
             self._review.insert_draft(self._styler.apply_text(draft))
             return
+        if self._settings_store.current.asr.qa_layout:
+            draft = question_answer_layout(draft)
         draft = self._styler.apply(draft)
         if not draft.diarized:
             self._review.insert_draft(draft_text(draft), draft.segments)
@@ -128,6 +132,14 @@ class AsrController(QObject):
         if current.asr.model_key != key:
             self._settings_store.save(
                 replace(current, asr=replace(current.asr, model_key=key))
+            )
+
+    def _on_qa_layout_changed(self, enabled: bool) -> None:
+        """Układ „pytanie - odpowiedź” z panelu jest zapamiętywany w ustawieniach."""
+        current = self._settings_store.current
+        if current.asr.qa_layout != enabled:
+            self._settings_store.save(
+                replace(current, asr=replace(current.asr, qa_layout=enabled))
             )
 
     def _on_speakers_changed(self, count: int) -> None:
