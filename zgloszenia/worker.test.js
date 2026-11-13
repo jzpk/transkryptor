@@ -69,7 +69,7 @@ test("valid report creates a labelled issue", async () => {
   assert.equal(github.init.headers.Authorization, "Bearer ghp_test");
   const sent = JSON.parse(github.init.body);
   assert.equal(sent.title, "Nie zapisuje projektu");
-  assert.deepEqual(sent.labels, ["bug", "od-uzytkownika"]);
+  assert.deepEqual(sent.labels, ["bug", "reported by user"]);
   assert.match(sent.body, /Klikam Zapisz/);
   assert.match(sent.body, /Wersja programu: 0\.7\.0/);
 });
@@ -78,7 +78,7 @@ test("idea gets the enhancement label", async () => {
   const fetchImpl = makeFetch();
   await handle(post({ ...VALID, kind: "idea" }), makeEnv(), fetchImpl);
   const github = fetchImpl.calls.find((call) => call.url.includes("api.github.com"));
-  assert.deepEqual(JSON.parse(github.init.body).labels, ["enhancement", "od-uzytkownika"]);
+  assert.deepEqual(JSON.parse(github.init.body).labels, ["enhancement", "reported by user"]);
 });
 
 test("preflight is answered only for the project site", async () => {

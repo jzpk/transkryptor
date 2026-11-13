@@ -18,7 +18,7 @@ const TURNSTILE_VERIFY_URL =
 export const LABELS = {
   bug: "bug",
   idea: "enhancement",
-  source: "od-uzytkownika",
+  source: "reported by user",
 };
 
 export const LIMITS = {
