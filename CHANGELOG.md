@@ -166,6 +166,12 @@ Pusta sekcja blokuje wydanie.
   innymi”, „i tak dalej”. „tzw.” jest odmieniane zgodnie z następnym słowem
   („tak zwaną myszkę”, „tak zwanego domu”). Zachowanie wyłączysz
   w ustawieniach, na zakładce **ASR**, w nowej części **Zapis szkicu**.
+- **Szkic ASR zapisany jak mowa:** szkic trafia do edytora małymi
+  literami, bez przecinków, kropek, średników i dwukropków - zostają znaki
+  zapytania, wykrzykniki i wielokropki. Nazwy własne (np. „Poznań”,
+  „Kasia”, nazwy wsi spoza słownika) zachowują wielką literę, podobnie jak
+  skrótowce („PRL”). Opcję **Małe litery, bez przecinków i kropek**
+  wyłączysz w ustawieniach, na zakładce **ASR**, w części **Zapis szkicu**.
 
 ## 0.7.0 - 2026-10-26
 

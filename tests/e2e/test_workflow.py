@@ -89,9 +89,10 @@ def test_full_workflow(qtbot, window, add_window, tmp_path, monkeypatch) -> None
     )
     assert window.asr_panel.transcription.segments_list.count() == len(SEGMENTS)
 
-    # 3. Szkic w stylu wielokropka z ustawień (domyślnie „…”), reguła zastosowana.
+    # 3. Szkic w stylu wielokropka z ustawień (domyślnie „…”), reguła zastosowana,
+    # zapis mowy: małe litery, bez kropek (zgłoszenie #37).
     assert window.editor.toPlainText() == (
-        "[00:00] od tego czasu … będzie jeż… kam… som. A będzie lepiej."
+        "[00:00] od tego czasu … będzie jeż… kam… som a będzie lepiej"
     )
     assert superscripts(window) == ["m"]
 
@@ -113,7 +114,7 @@ def test_full_workflow(qtbot, window, add_window, tmp_path, monkeypatch) -> None
     window.search_bar.replace_edit.setText("be^ndzie")
     window.search_bar.replace_all_button.click()
     assert window.editor.toPlainText() == (
-        "[00:00] uod tego czasu … bendzie jeż… kam… som. A bendzie lepiej."
+        "[00:00] uod tego czasu … bendzie jeż… kam… som a bendzie lepiej"
     )
     assert superscripts(window) == ["u", "n", "m", "n"]
     window.search.close()
@@ -127,7 +128,7 @@ def test_full_workflow(qtbot, window, add_window, tmp_path, monkeypatch) -> None
     assert window.warnings_panel.warning_count() == 1  # VAL-05
     window.unify_ellipses_action.trigger()
     expected = (
-        "[00:00] uod tego czasu … bendzie jeż… kam… som. A bendzie lepiej. I tak … no."
+        "[00:00] uod tego czasu … bendzie jeż… kam… som a bendzie lepiej I tak … no."
     )
     assert window.editor.toPlainText() == expected
     assert window.warnings_panel.warning_count() == 0

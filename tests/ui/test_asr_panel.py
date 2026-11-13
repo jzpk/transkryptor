@@ -193,7 +193,7 @@ class TestTranscriptionFlow:
         run_transcription(window)
         assert not hasattr(window.asr_panel, "hypothesis_view")
         assert window.asr_panel.transcription.segments_list.count() == 1
-        assert window.editor.toPlainText() == "[00:00] som."
+        assert window.editor.toPlainText() == "[00:00] som"
         assert window.asr_panel.review.suggestions_list.count() == 1
 
     def test_cancelled_placement_keeps_text_and_allows_reinsert(
@@ -209,7 +209,7 @@ class TestTranscriptionFlow:
 
         window._ask_draft_placement = lambda: DRAFT_APPEND
         window.asr_panel.transcription.reinsert_draft_button.click()
-        assert window.editor.toPlainText() == "ręczny tekst\n[00:00] som."
+        assert window.editor.toPlainText() == "ręczny tekst\n[00:00] som"
 
     def test_transcription_can_be_cancelled(
         self, qtbot, window_with_asr, monkeypatch

@@ -218,7 +218,7 @@ def test_diarized_draft_gets_speaker_paragraphs(add_window, tmp_path) -> None:
     window.session.mark_editor_changed()
 
     assert window.document.text == (
-        "[00:00] Gdzie pani mieszka?\n[00:02] Tu, we wsi.\n[00:05] A brat?"
+        "[00:00] gdzie pani mieszka?\n[00:02] tu we wsi\n[00:05] a brat?"
     )
     # Pierwszy głos to pierwszy mówca z listy (B), drugi - I.
     assert window.document.paragraph_speakers == {0: "B", 1: "I", 2: "B"}
@@ -228,9 +228,9 @@ def test_diarized_draft_gets_speaker_paragraphs(add_window, tmp_path) -> None:
     export_docx(window.document, target)
     texts = [p.text for p in DocxDocument(str(target)).paragraphs]
     assert texts[-3:] == [
-        "B:\t[00:00] Gdzie pani mieszka?",
-        "I:\t[00:02] Tu, we wsi.",
-        "B:\t[00:05] A brat?",
+        "B:\t[00:00] gdzie pani mieszka?",
+        "I:\t[00:02] tu we wsi",
+        "B:\t[00:05] a brat?",
     ]
 
     # Wstawienie razem z mówcami to jeden krok cofania.

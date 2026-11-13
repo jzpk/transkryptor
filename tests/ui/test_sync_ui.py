@@ -24,6 +24,13 @@ SENTENCES = (
     (4.0, 6.5, " Trzecie zdanie."),
     (6.5, 9.0, " Czwarte zdanie."),
 )
+# Te zdania w szkicu: zapis mowy - małe litery, bez kropek (zgłoszenie #37).
+DRAFT_SENTENCES = [
+    "pierwsze zdanie",
+    "drugie zdanie",
+    "trzecie zdanie",
+    "czwarte zdanie",
+]
 
 
 def draft_result(segments=SENTENCES) -> TranscriptionResult:
@@ -87,16 +94,16 @@ def segment_texts(window: MainWindow) -> list[str]:
 class TestPlaybackFromText:
     def test_acc45_ctrl_click_and_active_segment(self, qtbot, window, playback) -> None:
         window.asr.insert_draft(draft_result())
-        assert segment_texts(window) == [s[2].strip() for s in SENTENCES]
+        assert segment_texts(window) == DRAFT_SENTENCES
         text = window.editor.plain_text()
-        third = text.index("Trzecie") + 3
+        third = text.index("trzecie") + 3
         ctrl_click(qtbot, window, third)
         preroll = window.settings_store.current.player.segment_preroll_ms
         assert playback == [("seek", 4000 - preroll), ("play", 0)]
 
         window.player.position_changed.emit(500)
         layer = window.editor.highlight_layer(ACTIVE_LAYER)
-        assert [s.cursor.selectedText() for s in layer] == ["Pierwsze zdanie."]
+        assert [s.cursor.selectedText() for s in layer] == ["pierwsze zdanie"]
         qtbot.wait(200)  # przerwa dłuższa niż ograniczenie częstotliwości
         window.player.position_changed.emit(7000)
         qtbot.waitUntil(
@@ -104,7 +111,7 @@ class TestPlaybackFromText:
                 s.cursor.selectedText()
                 for s in window.editor.highlight_layer(ACTIVE_LAYER)
             ]
-            == ["Czwarte zdanie."],
+            == ["czwarte zdanie"],
             timeout=2000,
         )
 
@@ -113,12 +120,12 @@ class TestPlaybackFromText:
         window.player.position_changed.emit(2500)
         window.sync.insert_timestamp()
         layer = window.editor.highlight_layer(ACTIVE_LAYER)
-        assert [s.cursor.selectedText() for s in layer] == ["Drugie zdanie."]
+        assert [s.cursor.selectedText() for s in layer] == ["drugie zdanie"]
 
     def test_play_from_cursor_shortcut_uses_segment(self, window, playback) -> None:
         window.asr.insert_draft(draft_result())
         cursor = window.editor.textCursor()
-        cursor.setPosition(window.editor.plain_text().index("Drugie") + 2)
+        cursor.setPosition(window.editor.plain_text().index("drugie") + 2)
         window.editor.setTextCursor(cursor)
         window.player_actions["play_from_cursor"].trigger()
         preroll = window.settings_store.current.player.segment_preroll_ms
@@ -140,16 +147,16 @@ class TestAnchorsSurviveEditing:
         text = editor.plain_text()
         # Usunięcie całego drugiego segmentu (ze spacją przed nim).
         cursor = QTextCursor(editor.document())
-        start = text.index(" Drugie")
+        start = text.index(" drugie")
         cursor.setPosition(start)
         cursor.setPosition(
-            start + len(" Drugie zdanie."), QTextCursor.MoveMode.KeepAnchor
+            start + len(" drugie zdanie"), QTextCursor.MoveMode.KeepAnchor
         )
         cursor.removeSelectedText()
         # Dopisanie tekstu w środku trzeciego segmentu.
         cursor.setPosition(editor.plain_text().index("zdanie", 20))
         cursor.insertText("bardzo ")
-        expected = ["Pierwsze zdanie.", "Trzecie bardzo zdanie.", "Czwarte zdanie."]
+        expected = ["pierwsze zdanie", "trzecie bardzo zdanie", "czwarte zdanie"]
         assert segment_texts(window) == expected
 
         path = tmp_path / "projekt.transkr"
@@ -173,13 +180,13 @@ class TestAnchorsSurviveEditing:
         window.asr.insert_draft(draft_result())
         monkeypatch.setattr(window, "_ask_draft_placement", lambda: "replace")
         window.asr.insert_draft(draft_result(SENTENCES[:1]))
-        assert segment_texts(window) == ["Pierwsze zdanie."]
+        assert segment_texts(window) == ["pierwsze zdanie"]
 
     def test_append_draft_keeps_offsets(self, window, monkeypatch) -> None:
         window.asr.insert_draft(draft_result(SENTENCES[:2]))
         monkeypatch.setattr(window, "_ask_draft_placement", lambda: "append")
         window.asr.insert_draft(draft_result(SENTENCES[2:]))
-        assert segment_texts(window) == [s[2].strip() for s in SENTENCES]
+        assert segment_texts(window) == DRAFT_SENTENCES
 
     def test_rule_at_segment_end_stays_in_segment(self, window) -> None:
         for code, box in window.asr_panel.review.rule_checkboxes.items():

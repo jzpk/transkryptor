@@ -1,10 +1,12 @@
-"""Zapis szkicu ASR: skróty w pełnym brzmieniu (zgłoszenie #42)."""
+"""Zapis szkicu ASR: skróty (zgłoszenie #42) i zapis mowy (zgłoszenie #37)."""
 
 import pytest
 
-from transkryptor.asr.draft_style import DraftStyle, apply_style, expand_text
+from transkryptor.asr.abbreviations import expand_text
+from transkryptor.asr.draft_style import DraftStyle, apply_style, style_text
 from transkryptor.asr.engine import SegmentResult, TranscriptionResult, WordResult
 from transkryptor.document.inflection import morfeusz_inflector
+from transkryptor.document.proper_names import morfeusz_proper_names
 
 
 @pytest.mark.parametrize(
@@ -50,3 +52,55 @@ def test_result_segments_and_words_are_expanded() -> None:
     assert styled.segments[0].text == " na przykład kot"
     assert [w.text for w in styled.segments[0].words] == [" na przykład", " kot"]
     assert apply_style(result, DraftStyle(expand_abbreviations=False)) is result
+
+
+PLAIN = DraftStyle(expand_abbreviations=False, lowercase_plain=True)
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        (" Ala ma kota, a kot ma Alę.", " ala ma kota a kot ma Alę"),
+        (" Co to? Nie wiem... Ojej!", " co to? nie wiem... ojej!"),
+        (" Było 1.5 roku; tak: krótko.", " było 1.5 roku tak krótko"),
+        (" W PRL-u. PRL był", " w PRL-u PRL był"),
+        (" „Tak” - mówi.", " „tak” - mówi"),
+    ],
+)
+def test_plain_style_lowercases_sentence_starts_and_drops_stops(text, expected) -> None:
+    assert style_text(text, PLAIN) == expected
+
+
+def test_proper_names_keep_their_capital() -> None:
+    names = morfeusz_proper_names()
+    style = replace_style(may_be_proper=names.may_be_proper)
+    text = " Poznań. Rolnik. Rok i miejsce. Kasia też. Ocieszyn."
+    assert style_text(text, style) == " Poznań rolnik rok i miejsce Kasia też Ocieszyn"
+
+
+def test_sentence_start_carries_over_segments_and_words() -> None:
+    first_words = (WordResult(0.0, 1.0, " Dom.", 0.9),)
+    second_words = (
+        WordResult(1.0, 1.5, " Tu", 0.9),
+        WordResult(1.5, 2.0, " mieszkam.", 0.9),
+    )
+    segments = (
+        SegmentResult(0.0, 1.0, " Dom.", 0.9, first_words),
+        SegmentResult(1.0, 2.0, " Tu mieszkam.", 0.9, second_words),
+    )
+    result = TranscriptionResult(
+        text="Dom. Tu mieszkam.", language="pl", segments=segments
+    )
+    styled = apply_style(result, PLAIN)
+    assert styled.text == "dom tu mieszkam"
+    assert [w.text for s in styled.segments for w in s.words] == [
+        " dom",
+        " tu",
+        " mieszkam",
+    ]
+
+
+def replace_style(**changes) -> DraftStyle:
+    from dataclasses import replace
+
+    return replace(PLAIN, **changes)

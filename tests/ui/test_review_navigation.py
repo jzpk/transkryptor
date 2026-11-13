@@ -278,7 +278,7 @@ class TestVerification:
 
         window = loaded
         window.asr.insert_draft(words_result())
-        start = window.editor.plain_text().index("Wtedy")
+        start = window.editor.plain_text().index("wtedy")
         select(window, start, start + 5)
         menu = QMenu()
         window.verification.extend_context_menu(menu, 0)
