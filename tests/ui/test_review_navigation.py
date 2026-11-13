@@ -298,13 +298,14 @@ class TestVerification:
         seek(window, monkeypatch, 30_000)
         window.verification.mark_until()
         path = tmp_path / "projekt.transkr"
-        monkeypatch.setattr(
-            QFileDialog,
-            "getSaveFileName",
-            staticmethod(lambda *a, **k: (str(path), "")),
-        )
-        assert window.session.save_project_as()
-        monkeypatch.undo()
+        # ``monkeypatch.undo()`` cofnąłby też izolację ustawień z conftest.
+        with monkeypatch.context() as patch:
+            patch.setattr(
+                QFileDialog,
+                "getSaveFileName",
+                staticmethod(lambda *a, **k: (str(path), "")),
+            )
+            assert window.session.save_project_as()
 
         other = add_window(MainWindow())
         assert other.session.open_project(path)

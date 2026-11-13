@@ -81,6 +81,10 @@ któryś limit, najpierw wydziel część kodu, potem dopisuj funkcję.
 - Nie nadawaj nazw przesłaniających wbudowane (`Warning`, `type`, `id`...).
 - `noqa` i `type: ignore` tylko z kodem reguły i krótkim powodem;
   ruff zgłasza martwe `noqa` (`RUF100`).
+- Testy nie dotykają konfiguracji ani danych dewelopera: `tests/conftest.py`
+  kieruje katalogi użytkownika i `QSettings` do katalogu tymczasowego.
+  Nie używaj `monkeypatch.undo()` (cofa też izolację z fixture'ów) -
+  poprawkę na fragment testu rób w `with monkeypatch.context()`.
 - Testy korzystają z publicznego API klas. Gdy test potrzebuje wstrzyknąć
   zależność, dodaj do klasy jawny parametr albo metodę, zamiast
   przypisywać do prywatnych atrybutów (`panel._manager = ...`).

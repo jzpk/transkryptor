@@ -142,9 +142,9 @@ class TestRealModelOffline:
     """ACC-11 na pobranym modelu. Pomijane, gdy modelu nie ma na maszynie."""
 
     def test_real_transcription_runs_with_network_blocked(
-        self, tmp_path, no_network
+        self, tmp_path, no_network, real_models_root
     ) -> None:
-        manager = ModelManager()
+        manager = ModelManager(models_root=real_models_root)
         if not manager.is_downloaded():
             pytest.skip(f"model nie jest pobrany w {manager.model_dir}")
 
