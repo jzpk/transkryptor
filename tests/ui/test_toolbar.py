@@ -24,6 +24,17 @@ def resize(qtbot, window: MainWindow, width: int) -> None:
     qtbot.wait(20)
 
 
+def wide_width(window: MainWindow) -> int:
+    """Szerokość okna, w której mieszczą się wszystkie przyciski.
+
+    Zależy od czcionek systemu (na CI są szersze niż na pulpicie), więc
+    liczymy ją z podpowiedzi rozmiaru paska z odsłoniętymi przyciskami.
+    """
+    toolbar = window.toolbar
+    toolbar.resize(10_000, toolbar.height())
+    return max(1800, toolbar.sizeHint().width() + 100)
+
+
 def texts_of(menu) -> list[str]:
     menu.aboutToShow.emit()
     return [a.text() for a in menu.actions() if not a.isSeparator()]
@@ -44,7 +55,7 @@ def qt_extension_visible(window: MainWindow) -> bool:
 
 
 def test_wide_window_shows_every_button(qtbot, window) -> None:
-    resize(qtbot, window, 1800)
+    resize(qtbot, window, wide_width(window))
     toolbar = window.main_toolbar
     assert toolbar.collapsed_actions() == []
     assert not toolbar.more_button.isVisible()
@@ -87,8 +98,9 @@ def test_menu_keeps_dropdown_commands(window) -> None:
 
 
 def test_widening_restores_buttons(qtbot, window) -> None:
+    width = wide_width(window)
     resize(qtbot, window, 700)
-    resize(qtbot, window, 1800)
+    resize(qtbot, window, width)
     assert window.main_toolbar.collapsed_actions() == []
     assert not window.main_toolbar.more_button.isVisible()
     assert not window.main_toolbar.notation_more_button.isVisible()
@@ -138,7 +150,7 @@ def test_first_collapsed_marker_goes_to_notation_menu(qtbot, window) -> None:
     toolbar = window.main_toolbar
     first_marker = next(k for k in COLLAPSE_ORDER if k.startswith("marker:"))
     marker = toolbar._slots[first_marker].action
-    for width in range(1800, 600, -10):
+    for width in range(wide_width(window), 600, -10):
         resize(qtbot, window, width)
         if marker in toolbar.collapsed_actions():
             break

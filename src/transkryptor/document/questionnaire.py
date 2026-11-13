@@ -21,7 +21,7 @@ from pathlib import Path
 import regex
 
 # Numeracja i punktory: „1.”, „1)”, „12 -”, „-”, „•”, „*”.
-_PREFIX_RE = regex.compile(r"^\s*(?:\d+[.)]?\s*[-–—]?|[-•*–—])\s*")
+_PREFIX_RE = regex.compile(r"^\s*(?:\d+[.)]?\s*[-\u2013\u2014]?|[-•*\u2013\u2014])\s*")
 _WORD_RE = regex.compile(r"\p{L}+")
 # Zdanie jest pytaniem z listy, gdy jest prawie takie samo (podobieństwo
 # napisów) albo zawiera prawie wszystkie słowa pytania i niewiele więcej -
