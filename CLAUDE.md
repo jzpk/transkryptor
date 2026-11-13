@@ -121,7 +121,7 @@ Wykonaj kolejno, zanim zgłosisz, że praca jest skończona:
 4. **Changelog:** dopisz zmiany widoczne dla użytkownika w sekcji
    `## Nieopublikowane` w `CHANGELOG.md` (po polsku, w stylu
    istniejących wpisów). Zmiany wyłącznie wewnętrzne (testy, CI,
-   refaktoryzacja, instrukcje) nie trafiają do changeloga.
+   refaktoryzacja, instrukcje) oraz zmiany strony projektu nie trafiają do changeloga - tylko zmiany samej aplikacji.
 5. **Commit:** utwórz lokalny commit. Opis commita **po angielsku**, w trybie
    rozkazującym, z prefiksem typu zmiany (Conventional Commits):
    - `feat:` - nowa funkcja widoczna dla użytkownika,
@@ -135,6 +135,7 @@ Wykonaj kolejno, zanim zgłosisz, że praca jest skończona:
    - `chore:` - pozostałe prace porządkowe.
 
    Przykład: `fix: keep toolbar buttons reachable in narrow windows`.
+
 6. **Scalenie (tylko tryb równoległy, patrz niżej):** uruchom
    `./integrate.sh` i doprowadź do kodu wyjścia 0.
 
@@ -159,7 +160,7 @@ Na początku zadania ustal tryb poleceniem `git rev-parse --show-toplevel`:
 - Trzymaj zmiany przy swoim zadaniu: bez masowego formatowania,
   przenoszenia ani refaktoryzacji niezwiązanych plików - to źródło konfliktów.
 - Nigdy nie używaj poleceń, które mogą zniszczyć cudzą pracę: `git reset
-  --hard` poza własną gałęzią, `git clean`, `git stash`, `git checkout -- .`
+--hard` poza własną gałęzią, `git clean`, `git stash`, `git checkout -- .`
   w cudzym katalogu, `git worktree remove`, `git branch -D` na cudzych
   gałęziach. `main` zmieniaj wyłącznie przez `./integrate.sh`.
 - Scalanie do `main` robisz sam przez `./integrate.sh` (rebase na `main`,

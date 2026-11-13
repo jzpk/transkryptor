@@ -7,11 +7,6 @@ Pusta sekcja blokuje wydanie.
 
 ## Nieopublikowane
 
-- **Jednowierszowy pasek strony na telefonie:** na wąskich ekranach pasek
-  górny [strony projektu](https://transkryptorapp.pl) ma jeden wiersz -
-  nazwę programu, przycisk **Pobierz**, przełącznik motywu i przycisk
-  menu, który rozwija listę pozostałych stron. Na tabletach wszystkie
-  pozycje menu mieszczą się w jednym wierszu z krótszymi nazwami.
 - **Prostsza lista na stronie statusu zgłoszeń:** lista nie pokazuje już
   numerów zgłoszeń - przerwy w numeracji wyglądały jak zgubione
   zgłoszenia. Po wysłaniu formularza strona informuje, że rejestracja
@@ -125,8 +120,7 @@ Pusta sekcja blokuje wydanie.
   komentarzy ułatwiają cykl z weryfikatorem. Rozwiązany komentarz zostaje
   w projekcie i w eksporcie DOCX, ale jego fragment nie ma tła, a skróty
   „następny/poprzedni komentarz” prowadzą tylko po otwartych.
-- **Reguły fonetyczne z poprawek:** gdy w szkicu ASR kilka razy (domyślnie
-  3) poprawisz ten sam wzorzec - np. „e” na „y” albo dopiszesz „n”
+- **Reguły fonetyczne z poprawek:** gdy w szkicu ASR kilka razy (domyślnie 3) poprawisz ten sam wzorzec - np. „e” na „y” albo dopiszesz „n”
   w indeksie górnym - w pasku stanu pojawi się **Propozycja reguły**
   z liczbą poprawek. Kliknięcie otwiera zakładkę **Reguły fonetyczne**
   w ustawieniach z gotową regułą (wzorzec, zamiennik z indeksem górnym,
