@@ -5,9 +5,11 @@ przebieg ``pytest`` (CI dla PR i main) uruchamia same testy jednostkowe
 i integracyjne, a testy e2e biegną w workflow wydania.
 
 Cały przebieg jest odcięty od konfiguracji i danych dewelopera: katalogi
-użytkownika (XDG, ``APPDATA``) i domyślne położenie ``QSettings`` wskazują
-katalog tymczasowy, zanim test utworzy jakikolwiek magazyn ustawień. To
-zabezpieczenie globalne - działa także wtedy, gdy test cofnie poprawki
+użytkownika (XDG, ``APPDATA``) i położenie ``QSettings`` wskazują katalog
+tymczasowy, a ``settings_store.default_qsettings`` - plik INI w nim (na
+Windows ustawienia programu leżą w rejestrze, którego ``QSettings.setPath``
+nie przekierowuje). Podmiana jest robiona przed testami, poza
+``monkeypatch``, więc działa także wtedy, gdy test cofnie poprawki
 fixture'ów (np. ``monkeypatch.undo()``) albo zapomni o izolacji.
 """
 
@@ -47,6 +49,8 @@ USER_DIR_VARIABLES = (
     "LOCALAPPDATA",
 )
 _sandbox: Path | None = None
+# Położenie ustawień dewelopera (plik albo klucz rejestru) sprzed izolacji.
+_real_settings_location = ""
 # Katalog modeli ASR dewelopera sprzed izolacji - tylko do odczytu w testach
 # na prawdziwym modelu (``asr_model``); nic w nim nie jest zapisywane.
 REAL_MODELS_ROOT: Path | None = None
@@ -54,8 +58,12 @@ REAL_MODELS_ROOT: Path | None = None
 
 def _isolate_user_dirs() -> Path:
     """Katalogi użytkownika i ``QSettings`` w katalogu tymczasowym."""
+    global _real_settings_location
     from PySide6.QtCore import QSettings
 
+    from transkryptor.ui import settings_store
+
+    _real_settings_location = settings_store.default_qsettings().fileName()
     root = Path(tempfile.mkdtemp(prefix="transkryptor-tests-"))
     for name in USER_DIR_VARIABLES:
         directory = root / name.lower()
@@ -65,6 +73,12 @@ def _isolate_user_dirs() -> Path:
     for settings_format in (QSettings.Format.NativeFormat, QSettings.Format.IniFormat):
         QSettings.setPath(settings_format, QSettings.Scope.UserScope, config)
         QSettings.setPath(settings_format, QSettings.Scope.SystemScope, config)
+    ini = str(root / "settings" / "transkryptor.ini")
+
+    def sandbox_qsettings() -> QSettings:
+        return QSettings(ini, QSettings.Format.IniFormat)
+
+    settings_store.default_qsettings = sandbox_qsettings
     return root
 
 
@@ -96,20 +110,13 @@ def pytest_unconfigure(config: pytest.Config) -> None:
 
 @pytest.fixture(autouse=True)
 def settings_stay_in_sandbox():
-    """Po teście domyślny magazyn ustawień nadal leży w katalogu testów."""
+    """Po teście domyślny magazyn ustawień nie wskazuje ustawień dewelopera."""
     yield
-    from PySide6.QtCore import QSettings
+    from transkryptor.ui import settings_store
 
-    from transkryptor.ui.settings_store import (
-        SETTINGS_APPLICATION,
-        SETTINGS_ORGANIZATION,
-    )
-
-    assert _sandbox is not None
-    # Ten sam magazyn co ``default_qsettings()`` w programie (bez poprawek testu).
-    real = QSettings(SETTINGS_ORGANIZATION, SETTINGS_APPLICATION)
-    location = Path(real.fileName()).resolve()
-    assert _sandbox.resolve() in location.parents, location
+    location = settings_store.default_qsettings().fileName()
+    assert _real_settings_location
+    assert os.path.normcase(location) != os.path.normcase(_real_settings_location)
 
 
 def pytest_ignore_collect(collection_path: Path, config: pytest.Config) -> bool | None:
