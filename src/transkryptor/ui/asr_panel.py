@@ -185,6 +185,14 @@ class AsrPanel(QWidget):
     def set_asr_context(self, prompt: str, vocabulary: tuple[str, ...]) -> None:
         self.transcription.set_asr_context(prompt, vocabulary)
 
+    def questionnaire(self) -> tuple[str, ...]:
+        """Pytania kwestionariusza wywiadu (zapisywane w projekcie)."""
+        return self.transcription.questionnaire_box.questions()
+
+    def set_questionnaire(self, questions: tuple[str, ...]) -> None:
+        """Odtwarza kwestionariusz projektu bez zgłaszania zmiany."""
+        self.transcription.questionnaire_box.set_questions(questions)
+
     def set_context_default(self, text: str) -> None:
         self.transcription.set_context_default(text)
 

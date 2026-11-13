@@ -194,6 +194,14 @@ Pusta sekcja blokuje wydanie.
   Fatyczne „nie?” na końcu odpowiedzi nie jest traktowane jako pytanie.
   Układ zastępuje podział na mówców według głosu, więc transkrypcja jest
   przy nim szybsza. Samouczek **Szkic ASR** opisuje nową opcję.
+- **Kwestionariusz wywiadu:** w kroku **Szkic z nagrania** panelu ASR
+  można przed transkrypcją wczytać spis pytań wywiadu z pliku .txt albo
+  .docx (jedno pytanie w wierszu; numeracja, punktory i nagłówki działów
+  pisane wielkimi literami są pomijane). Przy włączonym **Układzie
+  pytanie - odpowiedź** zdania podobne do pytań z kwestionariusza trafiają
+  do wersu badacza także wtedy, gdy model nie postawił znaku zapytania
+  (np. „Rok i miejsce urodzenia”). Kwestionariusz zapisuje się
+  w projekcie. Samouczek **Szkic ASR** opisuje nową funkcję.
 
 ## 0.7.0 - 2026-10-26
 

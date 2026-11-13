@@ -198,6 +198,9 @@ class TestSaveAndOpen:
         panel = window.asr_panel
         panel.transcription.context_edit.setText("Wywiad w Ocieszynie")
         panel.transcription.vocabulary_edit.setPlainText("Ocieszyn\nOborniki")
+        questions = tmp_path / "pytania.txt"
+        questions.write_text("Rok i miejsce urodzenia\nZajęcie\n")
+        assert panel.transcription.questionnaire_box.load(questions)
         path = tmp_path / "kontekst.transkr"
         save_dialog(monkeypatch, path)
         assert window.session.save_project()
@@ -209,6 +212,11 @@ class TestSaveAndOpen:
         assert reopened.asr_panel.asr_context() == (
             "Wywiad w Ocieszynie",
             ("Ocieszyn", "Oborniki"),
+        )
+        # Kwestionariusz wywiadu też jest częścią projektu (zgłoszenie #47).
+        assert reopened.asr_panel.questionnaire() == (
+            "Rok i miejsce urodzenia",
+            "Zajęcie",
         )
         assert not reopened.document.is_unsaved
 

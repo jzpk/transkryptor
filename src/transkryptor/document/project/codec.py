@@ -94,6 +94,7 @@ def to_dict(state: ProjectState, project_path: Path | None = None) -> dict[str, 
         "asr_context": {
             "prompt": state.asr_context.prompt,
             "vocabulary": list(state.asr_context.vocabulary),
+            "questionnaire": list(state.asr_context.questionnaire),
         },
         "ignored_warnings": [
             {"code": w.code, "start": w.start, "end": w.end, "text": w.text}
@@ -358,6 +359,8 @@ def _parse(data: dict[str, Any]) -> ProjectState:
         asr_context=AsrContext(
             prompt=_str(context.get("prompt", "")),
             vocabulary=tuple(map(_str, _list(context.get("vocabulary", [])))),
+            # Pole opcjonalne - projekty sprzed kwestionariusza go nie mają.
+            questionnaire=tuple(map(_str, _list(context.get("questionnaire", [])))),
         ),
         ignored_warnings=ignored,
         anchors=anchors,

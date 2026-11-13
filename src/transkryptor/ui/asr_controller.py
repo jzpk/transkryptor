@@ -19,8 +19,10 @@ from transkryptor.asr.engine import (
     draft_line_speakers,
     draft_text,
 )
-from transkryptor.asr.qa_layout import question_answer_layout
+from transkryptor.asr.phatic import ends_with_phatic_tag
+from transkryptor.asr.qa_layout import ends_with_question, question_answer_layout
 from transkryptor.document.model import Document
+from transkryptor.document.questionnaire import QuestionMatcher
 from transkryptor.document.speakers import speakers_for_clusters
 from transkryptor.ui.asr_panel import AsrPanel
 from transkryptor.ui.autosave import AutosaveController
@@ -86,7 +88,7 @@ class AsrController(QObject):
             self._review.insert_draft(self._styler.apply_text(draft))
             return
         if self._settings_store.current.asr.qa_layout:
-            draft = question_answer_layout(draft)
+            draft = question_answer_layout(draft, self._is_question())
         draft = self._styler.apply(draft)
         if not draft.diarized:
             self._review.insert_draft(draft_text(draft), draft.segments)
@@ -133,6 +135,19 @@ class AsrController(QObject):
             self._settings_store.save(
                 replace(current, asr=replace(current.asr, model_key=key))
             )
+
+    def _is_question(self) -> Callable[[str], bool]:
+        """Pytanie: znak zapytania albo zdanie z kwestionariusza (zgł. #47)."""
+        matcher = QuestionMatcher(self._panel.questionnaire())
+        if not matcher:
+            return ends_with_question
+
+        def is_question(sentence: str) -> bool:
+            if ends_with_question(sentence):
+                return True
+            return not ends_with_phatic_tag(sentence) and matcher.matches(sentence)
+
+        return is_question
 
     def _on_qa_layout_changed(self, enabled: bool) -> None:
         """Układ „pytanie - odpowiedź” z panelu jest zapamiętywany w ustawieniach."""

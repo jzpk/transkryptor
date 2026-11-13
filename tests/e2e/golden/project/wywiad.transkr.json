@@ -67,6 +67,7 @@
  },
  "asr_context": {
   "prompt": "",
+  "questionnaire": [],
   "vocabulary": []
  },
  "audio": {

@@ -73,10 +73,14 @@ class AsrDraft:
 
 @dataclass(frozen=True)
 class AsrContext:
-    """Kontekst nagrania i słownik projektu przekazywane do ASR (REQ-21)."""
+    """Kontekst nagrania i słownik projektu przekazywane do ASR (REQ-21).
+
+    ``questionnaire`` - pytania kwestionariusza wywiadu (zgłoszenie #47).
+    """
 
     prompt: str = ""
     vocabulary: tuple[str, ...] = ()
+    questionnaire: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

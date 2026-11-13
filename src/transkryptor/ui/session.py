@@ -261,6 +261,7 @@ class SessionController(QObject):
         self._asr_panel.set_audio_available(False)
         self._asr_panel.restore_result(None)
         self._asr_panel.set_asr_context("", ())
+        self._asr_panel.set_questionnaire(())
         self._editor.blockSignals(True)
         self._editor.clear()
         self._editor.blockSignals(False)
@@ -537,7 +538,11 @@ class SessionController(QObject):
                 )
             ),
             review=tuple(self._review.entries()),
-            asr_context=AsrContext(prompt=prompt, vocabulary=vocabulary),
+            asr_context=AsrContext(
+                prompt=prompt,
+                vocabulary=vocabulary,
+                questionnaire=self._asr_panel.questionnaire(),
+            ),
             ignored_warnings=tuple(self._ignored_warnings.entries()),
             anchors=tuple(self._sync.entries()),
             speakers=tuple(document.speakers),
@@ -656,6 +661,7 @@ class SessionController(QObject):
         self._asr_panel.set_asr_context(
             state.asr_context.prompt, state.asr_context.vocabulary
         )
+        self._asr_panel.set_questionnaire(state.asr_context.questionnaire)
 
         self._set_audio(None)
         if audio_path is not None:

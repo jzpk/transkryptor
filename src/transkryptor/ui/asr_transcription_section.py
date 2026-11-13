@@ -55,6 +55,7 @@ from transkryptor.i18n import tr
 from transkryptor.settings import AsrSettings, split_vocabulary
 from transkryptor.ui import icons
 from transkryptor.ui.asr_model_section import ModelSection
+from transkryptor.ui.asr_questionnaire import QuestionnaireBox
 from transkryptor.ui.asr_transcribe_thread import TranscribeThread
 from transkryptor.ui.asr_widgets import AutoHideLabel, section_label, step
 from transkryptor.ui.messages import show_error
@@ -163,6 +164,8 @@ class TranscriptionSection(QObject):
         self.vocabulary_hint = QLabel()
         self.vocabulary_hint.setWordWrap(True)
         set_props(self.vocabulary_hint, role="muted")
+        self.questionnaire_box = QuestionnaireBox()
+        self.questionnaire_box.changed.connect(self.context_changed)
         # Liczba mówców - widoczna, gdy podział na mówców jest włączony
         # i model pobrany; zmiana trafia do ustawień (jak wybór modelu).
         self.speakers_combo = QComboBox()
@@ -233,6 +236,8 @@ class TranscriptionSection(QObject):
                 QLabel(tr("asr.vocabulary")),
                 self.vocabulary_edit,
                 self.vocabulary_hint,
+                QLabel(tr("asr.questionnaire")),
+                self.questionnaire_box,
                 self.speakers_row,
                 self.qa_layout_check,
                 transcribe_row,

@@ -190,6 +190,7 @@ TUTORIALS: tuple[Tutorial, ...] = (
             _step("draft", "asr_transcription_step", "asr_panel"),
             _step("clip", "asr_clip_only_check", "asr_panel"),
             _step("qa", "asr_qa_layout_check", "asr_panel"),
+            _step("questionnaire", "asr_questionnaire_button", "asr_panel"),
             _step("segments", "asr_segments_list", "asr_panel"),
             _step(
                 "review",
