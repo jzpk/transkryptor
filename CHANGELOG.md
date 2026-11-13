@@ -7,6 +7,12 @@ Pusta sekcja blokuje wydanie.
 
 ## Nieopublikowane
 
+- **Więcej miejsca na transkrypcję:** listę ostrzeżeń zapisu można zwinąć
+  strzałką przy nagłówku - zostaje sam nagłówek z licznikiem, a edytor
+  zajmuje zwolnione miejsce. Program pamięta zwinięcie. Przełącznik
+  spektrogramu stoi teraz w jednym wierszu z przełącznikiem fali
+  dźwiękowej, a edytor dostaje na starcie większą część okna.
+
 - **Prostsza lista na stronie statusu zgłoszeń:** lista nie pokazuje już
   numerów zgłoszeń - przerwy w numeracji wyglądały jak zgubione
   zgłoszenia. Po wysłaniu formularza strona informuje, że rejestracja

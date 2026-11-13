@@ -110,6 +110,7 @@ class WaveformPanel(QWidget):
         self.toggle.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.toggle.setArrowType(Qt.ArrowType.DownArrow)
         self.toggle.setToolTip(tr("waveform.toggle.tooltip"))
+        self.spectrogram = SpectrogramPanel()
         self.status_label = QLabel()
         set_props(self.status_label, role="muted")
         # Pokrycie transkrypcji tekstem (``ui/coverage_controller.py``).
@@ -119,13 +120,13 @@ class WaveformPanel(QWidget):
         header = QHBoxLayout()
         header.setContentsMargins(0, 0, 0, 0)
         header.addWidget(self.toggle)
+        header.addWidget(self.spectrogram.toggle)
         header.addWidget(self.status_label, stretch=1)
         header.addWidget(self.coverage_label)
         self.view = WaveformView()
         self.overview = CoverageOverview()
         self.scrollbar = QScrollBar(Qt.Orientation.Horizontal)
         self.scrollbar.setVisible(False)
-        self.spectrogram = SpectrogramPanel()
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(4)
@@ -158,7 +159,12 @@ class WaveformPanel(QWidget):
         self.toggle.setArrowType(
             Qt.ArrowType.DownArrow if expanded else Qt.ArrowType.RightArrow
         )
-        for widget in (self.view, self.overview, self.spectrogram):
+        for widget in (
+            self.view,
+            self.overview,
+            self.spectrogram,
+            self.spectrogram.toggle,
+        ):
             widget.setVisible(expanded)
         self._sync_scrollbar()
 

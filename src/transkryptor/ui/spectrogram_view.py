@@ -5,8 +5,8 @@ z paletą motywu (tło karty → akcent → kolor tekstu, więc w motywie jasnym
 energia jest ciemna, a w ciemnym - jasna) i oś czasu fragmentu: kursor
 odtwarzania, pętlę A-B, klik przewija nagranie, przeciągnięcie ustawia
 pętlę - tak jak na fali (``ui/time_selection.py``). ``SpectrogramPanel``
-to nagłówek z przełącznikiem i stanem (np. „zaznacz krótszy fragment”)
-oraz widok.
+to przełącznik (umieszczany w nagłówku fali), stan (np. „zaznacz krótszy
+fragment”) i widok.
 """
 
 from __future__ import annotations
@@ -14,7 +14,6 @@ from __future__ import annotations
 from PySide6.QtCore import QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import QColor, QImage, QMouseEvent, QPainter, QPaintEvent
 from PySide6.QtWidgets import (
-    QHBoxLayout,
     QLabel,
     QSizePolicy,
     QToolButton,
@@ -196,15 +195,13 @@ class SpectrogramPanel(QWidget):
         self.status_label = QLabel()
         self.status_label.setObjectName("spectrogram_status")
         set_props(self.status_label, role="muted")
-        header = QHBoxLayout()
-        header.setContentsMargins(0, 0, 0, 0)
-        header.addWidget(self.toggle)
-        header.addWidget(self.status_label, stretch=1)
+        # Przełącznik stoi w nagłówku fali (``WaveformPanel``) - spektrogram
+        # nie zajmuje osobnego wiersza, gdy jest zwinięty (zgł. #58).
         self.view = SpectrogramView()
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(4)
-        layout.addLayout(header)
+        layout.addWidget(self.status_label)
         layout.addWidget(self.view)
         self.toggle.toggled.connect(self._on_toggled)
         self._apply_expanded(False)
@@ -221,6 +218,7 @@ class SpectrogramPanel(QWidget):
 
     def set_status(self, text: str) -> None:
         self.status_label.setText(text)
+        self.status_label.setVisible(self.expanded and bool(text))
 
     def _on_toggled(self, expanded: bool) -> None:
         self._apply_expanded(expanded)
@@ -231,4 +229,4 @@ class SpectrogramPanel(QWidget):
             Qt.ArrowType.DownArrow if expanded else Qt.ArrowType.RightArrow
         )
         self.view.setVisible(expanded)
-        self.status_label.setVisible(expanded)
+        self.status_label.setVisible(expanded and bool(self.status_label.text()))

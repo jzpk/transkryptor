@@ -132,7 +132,7 @@ from transkryptor.ui.toolbar import MainToolbar, ToolbarHandlers
 from transkryptor.ui.tutorial_controller import TutorialController
 from transkryptor.ui.update_controller import UpdateController
 from transkryptor.ui.verification import VerificationController
-from transkryptor.ui.warnings_panel import WarningsPanel
+from transkryptor.ui.warnings_panel import WarningsCard, WarningsPanel
 from transkryptor.ui.waveform import WaveformController
 from transkryptor.ui.work_time import WorkTimeTracker
 
@@ -440,27 +440,19 @@ class MainWindow(QMainWindow):
         columns.addWidget(self.compare_card)
 
         self.unify_ellipses_action = self.notation.create_unify_action(self)
-        unify_button = QToolButton()
-        unify_button.setDefaultAction(self.unify_ellipses_action)
-        warnings_header = header_row(
-            (16, 8, 16, 8),
-            label(tr("main.warnings"), "section"),
-            self.warning_count_label,
-            None,
-            shrinkable(label(tr("main.warnings.hint"), "muted")),
-            unify_button,
+        self.warnings_card = WarningsCard(
+            self.warnings_panel, self.warning_count_label, self.unify_ellipses_action
         )
-        warnings_card = card(warnings_header, self.warnings_panel)
-        warnings_card.setMinimumHeight(96)
 
+        # Edytor dostaje większość wysokości; ostrzeżenia można zwinąć (#58).
         splitter = QSplitter(Qt.Orientation.Vertical)
         splitter.setChildrenCollapsible(False)
         splitter.setHandleWidth(12)
         splitter.addWidget(columns)
-        splitter.addWidget(warnings_card)
+        splitter.addWidget(self.warnings_card)
         splitter.setStretchFactor(0, 1)
         splitter.setStretchFactor(1, 0)
-        splitter.setSizes([520, 140])
+        splitter.setSizes([600, 120])
 
         layout = QVBoxLayout()
         layout.setContentsMargins(16, 16, 16, 12)
@@ -660,6 +652,7 @@ class MainWindow(QMainWindow):
         self.waveform.panel.spectrogram.expanded_changed.connect(
             self._on_spectrogram_expanded
         )
+        self.warnings_card.expanded_changed.connect(self._on_warnings_expanded)
         self.player.playback_error.connect(
             lambda error: self._show_error(tr("main.playback_error"), error)
         )
@@ -728,6 +721,7 @@ class MainWindow(QMainWindow):
         )
         self.waveform.spectrogram.apply_options(settings.player.spectrogram)
         self.editor.apply_settings(settings.editor)
+        self.warnings_card.set_expanded(settings.editor.warnings_visible)
         self.compare_view.apply_settings(settings.editor)
         self.metadata_form.set_fields(settings.metadata.fields)
         self.session.autosave.configure(settings.project)
@@ -835,6 +829,16 @@ class MainWindow(QMainWindow):
         """Rozwinięcie spektrogramu jest zapamiętywane w ustawieniach."""
         player = self.settings_store.current.player
         self._save_player_settings(replace(player, spectrogram_visible=expanded))
+
+    def _on_warnings_expanded(self, expanded: bool) -> None:
+        """Zwinięcie listy ostrzeżeń jest zapamiętywane w ustawieniach."""
+        current = self.settings_store.current
+        if current.editor.warnings_visible != expanded:
+            self.settings_store.save(
+                replace(
+                    current, editor=replace(current.editor, warnings_visible=expanded)
+                )
+            )
 
     def _save_player_settings(self, player: PlayerSettings) -> None:
         current = self.settings_store.current

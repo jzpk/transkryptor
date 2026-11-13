@@ -92,7 +92,7 @@ TUTORIALS: tuple[Tutorial, ...] = (
                 shortcuts=(("play", player_id(PLAY_PAUSE)),),
             ),
             _step("notation", "toolbar_superscript", "main_toolbar"),
-            _step("warnings", "warnings_panel"),
+            _step("warnings", "warnings_panel", "warnings_card"),
             _step("asr", "toolbar_asr", MORE),
             _step("save", "toolbar_save", MORE),
             _step("export", "toolbar_export"),
@@ -150,7 +150,7 @@ TUTORIALS: tuple[Tutorial, ...] = (
                 shortcuts=(("pause", marker_id("pause")),),
             ),
             _step("snippets", "toolbar_snippets", "notation_more_button"),
-            _step("warnings", "warnings_panel"),
+            _step("warnings", "warnings_panel", "warnings_card"),
         ),
     ),
     Tutorial(

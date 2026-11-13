@@ -158,3 +158,28 @@ class TestValidatorSettingsTab:
         assert result.overrides == {"VAL-07": False, "VAL-11": True}
         dialog.set_settings(Settings())
         assert dialog.settings().validator == ValidatorSettings()
+
+
+def test_warning_list_collapses_and_gives_room_to_editor(add_window) -> None:
+    """Zgł. #58: zwinięta lista ostrzeżeń oddaje wysokość edytorowi."""
+    window = add_window(MainWindow())
+    window.resize(1100, 760)
+    window.show()
+    card = window.warnings_card
+    editor_height = window.editor.height()
+
+    card.toggle.click()
+
+    assert not window.warnings_panel.isVisibleTo(card)
+    assert window.warning_count_label.isVisibleTo(card)
+    assert window.settings_store.current.editor.warnings_visible is False
+    assert card.height() <= card.sizeHint().height()
+    assert window.editor.height() > editor_height
+
+    window.settings_store.save(window.settings_store.current)
+    assert not window.warnings_panel.isVisibleTo(card)
+
+    card.toggle.click()
+    assert window.warnings_panel.isVisibleTo(card)
+    assert window.settings_store.current.editor.warnings_visible is True
+    assert window.editor.height() == editor_height

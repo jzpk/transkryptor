@@ -102,12 +102,15 @@ class AppearanceSettings:
 class EditorSettings:
     """Czcionka edytora; wartości puste/zerowe oznaczają czcionkę domyślną.
 
-    ``autocomplete`` włącza podpowiedzi wstawek i słów z dokumentu.
+    ``autocomplete`` włącza podpowiedzi wstawek i słów z dokumentu,
+    ``warnings_visible`` - rozwinięta lista ostrzeżeń pod edytorem
+    (zapamiętane zwinięcie).
     """
 
     font_family: str = ""
     font_size_pt: int = 0
     autocomplete: bool = False
+    warnings_visible: bool = True
 
 
 @dataclass(frozen=True)
@@ -423,6 +426,7 @@ _FIELDS: tuple[_Field, ...] = (
     _Field("editor", "font_family", str),
     _Field("editor", "font_size_pt", int, *FONT_SIZE_RANGE_PT, allow_zero=True),
     _Field("editor", "autocomplete", bool),
+    _Field("editor", "warnings_visible", bool),
     _Field("notation", "ellipsis_style", str, choices=ELLIPSIS_STYLES),
     _Field(
         "validator",
