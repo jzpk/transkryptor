@@ -7,6 +7,11 @@ Pusta sekcja blokuje wydanie.
 
 ## Nieopublikowane
 
+- **Jednowierszowy pasek strony na telefonie:** na wąskich ekranach pasek
+  górny [strony projektu](https://transkryptorapp.pl) ma jeden wiersz -
+  nazwę programu, przycisk **Pobierz**, przełącznik motywu i przycisk
+  menu, który rozwija listę pozostałych stron. Na tabletach wszystkie
+  pozycje menu mieszczą się w jednym wierszu z krótszymi nazwami.
 - **Prostsza lista na stronie statusu zgłoszeń:** lista nie pokazuje już
   numerów zgłoszeń - przerwy w numeracji wyglądały jak zgubione
   zgłoszenia. Po wysłaniu formularza strona informuje, że rejestracja
