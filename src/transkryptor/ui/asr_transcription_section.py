@@ -44,6 +44,7 @@ from transkryptor.asr.engine import (
     SegmentResult,
     TranscriptionResult,
     build_hotwords,
+    compose_prompt,
     draft_text,
     format_timestamp,
 )
@@ -174,6 +175,7 @@ class TranscriptionSection(QObject):
         self._device = "auto"
         self._chunked = False
         self._word_timestamps = True
+        self._verbatim = True
         self._diarize = True
         self._diarize_speakers = 0
         self._diarizing = False
@@ -306,6 +308,7 @@ class TranscriptionSection(QObject):
         self._device = settings.device
         self._chunked = settings.chunked
         self._word_timestamps = settings.word_timestamps
+        self._verbatim = settings.verbatim
         self._diarize = settings.diarize
         self._diarize_speakers = settings.diarize_speakers
         self._global_vocabulary = settings.vocabulary_words
@@ -380,7 +383,7 @@ class TranscriptionSection(QObject):
         diarize = self._diarize and diarization.is_downloaded()
         return DecodingOptions(
             device=self._device,
-            initial_prompt=prompt or None,
+            initial_prompt=compose_prompt(prompt, verbatim=self._verbatim),
             hotwords=build_hotwords(self._global_vocabulary, vocabulary),
             chunked=self._chunked,
             word_timestamps=self._word_timestamps,

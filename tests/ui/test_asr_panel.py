@@ -10,7 +10,11 @@ from PySide6.QtGui import QTextCursor
 from PySide6.QtTest import QSignalSpy
 from PySide6.QtWidgets import QMessageBox
 
-from transkryptor.asr.engine import SegmentResult, TranscriptionResult
+from transkryptor.asr.engine import (
+    VERBATIM_PROMPT,
+    SegmentResult,
+    TranscriptionResult,
+)
 from transkryptor.asr.manager import DownloadCancelled, ModelManager
 from transkryptor.asr.models import DIARIZATION_MODEL, WHISPER_SMALL, AsrModelInfo
 from transkryptor.export.docx_export import export_docx
@@ -817,7 +821,8 @@ class TestContextAndVocabulary:
         panel.transcription.vocabulary_edit.setPlainText("Rożnowo\nocieszyn")
         options = panel.decoding_options()
         assert options.device == "cpu"
-        assert options.initial_prompt == "Wywiad w Ocieszynie"
+        # Kontekst na końcu promptu, po przykładzie stylu zapisu dosłownego.
+        assert options.initial_prompt == f"{VERBATIM_PROMPT} Wywiad w Ocieszynie"
         assert options.hotwords == "Oborniki Ocieszyn Rożnowo"
         assert "haseł: 2" in panel.transcription.vocabulary_hint.text()
 
@@ -830,8 +835,16 @@ class TestContextAndVocabulary:
 
     def test_empty_context_is_not_sent(self, panel) -> None:
         options = panel.decoding_options()
-        assert options.initial_prompt is None
+        assert options.initial_prompt == VERBATIM_PROMPT
         assert options.hotwords is None
+        panel.set_asr_settings(AsrSettings(verbatim=False))
+        assert panel.decoding_options().initial_prompt is None
+
+    def test_verbatim_style_can_be_turned_off(self, panel) -> None:
+        """Zgłoszenie #46: przykład stylu tylko przy zapisie dosłownym."""
+        panel.set_asr_settings(AsrSettings(verbatim=False))
+        panel.transcription.context_edit.setText("Ocieszyn")
+        assert panel.decoding_options().initial_prompt == "Ocieszyn"
 
     def test_parameters_reach_transcription(self, qtbot, window_with_asr) -> None:
         calls: list[dict] = []
@@ -851,7 +864,7 @@ class TestContextAndVocabulary:
         )
         [kwargs] = calls
         assert kwargs["model"].key == "medium"
-        assert kwargs["options"].initial_prompt == "Ocieszyn"
+        assert kwargs["options"].initial_prompt == f"{VERBATIM_PROMPT} Ocieszyn"
         assert kwargs["options"].hotwords == "Oborniki"
 
     def test_context_default_from_metadata(self, window_with_asr) -> None:

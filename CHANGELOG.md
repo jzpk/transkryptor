@@ -172,6 +172,12 @@ Pusta sekcja blokuje wydanie.
   „Kasia”, nazwy wsi spoza słownika) zachowują wielką literę, podobnie jak
   skrótowce („PRL”). Opcję **Małe litery, bez przecinków i kropek**
   wyłączysz w ustawieniach, na zakładce **ASR**, w części **Zapis szkicu**.
+- **Powtórzenia w szkicu ASR:** model rzadziej pomija powtórzone wyrazy
+  („no no”, „to to”), bo dostaje przykład mowy zapisanej dosłownie. Na
+  nagraniu wywiadu gwarowego szkic z modelu medium zachował m.in. „no no
+  nie ma okresu”. Opcję **Zapis dosłowny: powtórzenia i „nie?”** wyłączysz
+  w ustawieniach, na zakładce **ASR**, w części **Zapis szkicu**. Model
+  large-v3 zapisuje powtórzenia częściej także bez niej.
 
 ## 0.7.0 - 2026-10-26
 

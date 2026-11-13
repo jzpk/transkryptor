@@ -654,3 +654,22 @@ class TestClip:
         assert len(progress) >= 3
         assert progress == sorted(progress)
         assert progress[-1] == pytest.approx(1.0)
+
+
+class TestComposePrompt:
+    """Zgłoszenie #46: przykład stylu zapisu dosłownego przed kontekstem."""
+
+    def test_verbatim_style_comes_before_context(self) -> None:
+        from transkryptor.asr.engine import VERBATIM_PROMPT, compose_prompt
+
+        assert compose_prompt("Wywiad", verbatim=True) == f"{VERBATIM_PROMPT} Wywiad"
+        assert compose_prompt("  ", verbatim=True) == VERBATIM_PROMPT
+        assert compose_prompt(" Wywiad ", verbatim=False) == "Wywiad"
+        assert compose_prompt("", verbatim=False) is None
+
+    def test_style_example_shows_repetitions_and_phatic_nie(self) -> None:
+        from transkryptor.asr.engine import VERBATIM_PROMPT
+
+        words = VERBATIM_PROMPT.lower().replace(",", "").split()
+        assert any(a == b for a, b in zip(words, words[1:], strict=False))
+        assert "nie?" in words

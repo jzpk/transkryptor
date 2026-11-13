@@ -75,6 +75,7 @@ class AsrPage(FormPage):
             tr("settings.asr.expand_abbreviations")
         )
         self.lowercase_plain_check = QCheckBox(tr("settings.asr.lowercase_plain"))
+        self.verbatim_check = QCheckBox(tr("settings.asr.verbatim"))
         self.form.addRow(tr("settings.asr.models_root"), models_root_row)
         self.form.addRow(hint_label(tr("settings.asr.models_root.hint")))
         self.form.addRow(tr("settings.asr.device"), self.device_combo)
@@ -88,6 +89,8 @@ class AsrPage(FormPage):
         self.form.addRow(tr("settings.asr.vocabulary"), self.vocabulary_edit)
         self.form.addRow(hint_label(tr("settings.asr.vocabulary.hint")))
         self.form.addRow(section_label(tr("settings.asr.draft_style")))
+        self.form.addRow(self.verbatim_check)
+        self.form.addRow(hint_label(tr("settings.asr.verbatim.hint")))
         self.form.addRow(self.expand_abbreviations_check)
         self.form.addRow(hint_label(tr("settings.asr.expand_abbreviations.hint")))
         self.form.addRow(self.lowercase_plain_check)
@@ -107,6 +110,7 @@ class AsrPage(FormPage):
         self.vocabulary_edit.setPlainText(asr.vocabulary)
         self.expand_abbreviations_check.setChecked(asr.expand_abbreviations)
         self.lowercase_plain_check.setChecked(asr.lowercase_plain)
+        self.verbatim_check.setChecked(asr.verbatim)
 
     def apply(self, settings: Settings) -> Settings:
         # Model wybiera się w panelu ASR - strona tylko go przenosi dalej.
@@ -127,6 +131,7 @@ class AsrPage(FormPage):
                 word_threshold_pct=self.word_threshold_spin.value(),
                 expand_abbreviations=self.expand_abbreviations_check.isChecked(),
                 lowercase_plain=self.lowercase_plain_check.isChecked(),
+                verbatim=self.verbatim_check.isChecked(),
             ),
         )
 

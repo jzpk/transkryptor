@@ -76,6 +76,15 @@ DEVICES = ("auto", "cpu")
 # Limit podpowiedzi kontekstowej i słownika: okno promptu Whispera to
 # 224 tokeny, a długi prompt sprzyja halucynacjom (powtarzaniu promptu).
 PROMPT_MAX_CHARS = 200
+# Podpowiedź stylu „zapis dosłowny” (zgłoszenia #46 i #45): Whisper
+# naśladuje styl promptu, więc przykład mowy z powtórzeniami i fatycznym
+# „nie?” sprawia, że nie wygładza ich w szkicu. Pomiar na wywiadzie gwarowym
+# (model medium): dwa razy więcej „nie?”, wraca m.in. „no no”; frazy
+# promptu nie przenikają do tekstu.
+VERBATIM_PROMPT = (
+    "No no, to to było tak, nie? Ja ja nie wiem, nie? No i i tam tam chodzili,"
+    " nie? Eee… to to som zabobony, nie? No no, tak tak mówiom, nie?"
+)
 _DEVICE_NOTE_MAX_CHARS = 200
 # Najdłuższy wers szkicu (w sekundach nagrania) - wers zaczyna się
 # znacznikiem czasu, by tekst i eksport nie były jednym blokiem.
@@ -567,6 +576,19 @@ def _short(error: Exception) -> str:
     return text
 
 
+def compose_prompt(context: str, *, verbatim: bool) -> str | None:
+    """Prompt Whispera: styl zapisu dosłownego, a po nim kontekst nagrania.
+
+    Kontekst jest na końcu - gdy prompt z hasłami przekroczy okno Whispera,
+    faster-whisper obcina go od początku, więc traci się najpierw przykład
+    stylu, a nie treść wpisana przez użytkownika.
+    """
+    parts = [VERBATIM_PROMPT] if verbatim else []
+    if context.strip():
+        parts.append(context.strip())
+    return " ".join(parts) or None
+
+
 def build_hotwords(*vocabularies: Iterable[str]) -> str | None:
     """Słownik dla Whispera: suma list bez powtórzeń, w kolejności podania.
 
@@ -759,6 +781,7 @@ __all__ = [
     "ChunkedWhisperBackend",
     "DecodingOptions",
     "build_hotwords",
+    "compose_prompt",
     "draft_line_speakers",
     "draft_text",
     "SegmentResult",
