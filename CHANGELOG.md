@@ -7,6 +7,8 @@ Pusta sekcja blokuje wydanie.
 
 ## Nieopublikowane
 
+## 0.8.0 - 2026-11-13
+
 - **Mapa pokrycia transkrypcji na fali:** pod falą dźwiękową pasek
   pokazuje, które fragmenty nagrania mają już tekst (według kotwic szkicu
   ASR i znaczników czasu), a luki bez tekstu dłuższe niż 3 s są
