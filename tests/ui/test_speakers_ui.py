@@ -3,7 +3,7 @@
 from docx import Document as DocxDocument
 from PySide6.QtCore import QPoint
 from PySide6.QtGui import QTextCursor
-from PySide6.QtWidgets import QMenu, QTableWidgetItem
+from PySide6.QtWidgets import QLabel, QMenu, QTableWidgetItem
 
 from transkryptor.asr.engine import SegmentResult, TranscriptionResult
 from transkryptor.document.speakers import INFORMANT, Speaker
@@ -11,7 +11,7 @@ from transkryptor.export.docx_export import export_docx
 from transkryptor.notation.validator import VAL_12
 from transkryptor.ui.main_window import MainWindow
 from transkryptor.ui.shortcuts import SPEAKER_CLEAR_ID, speaker_id
-from transkryptor.ui.speakers_dialog import SpeakersDialog
+from transkryptor.ui.speakers_dialog import TABLE_MIN_HEIGHT, SpeakersDialog
 
 TEXT = "Rok urodzenia?\nTysionc dziewińćset\nA brat?"
 
@@ -263,3 +263,14 @@ def test_cancelled_placement_keeps_speaker_list(add_window, monkeypatch) -> None
     )
     assert window.document.text == TEXT
     assert [s.key for s in window.document.speakers] == ["B", "I"]
+
+
+def test_dialog_opens_large_enough_to_read(add_window) -> None:
+    """Podpowiedź i kilka wierszy tabeli widać bez powiększania okna."""
+    window = make_window(add_window)
+    dialog = SpeakersDialog(window.document.speakers, (), window)
+    dialog.show()
+    assert dialog.table.height() >= TABLE_MIN_HEIGHT
+    hint = dialog.findChildren(QLabel)[1]
+    assert hint.height() >= hint.heightForWidth(hint.width())
+    dialog.close()

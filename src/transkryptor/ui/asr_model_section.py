@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from PySide6.QtCore import QObject, QThread, Signal
+from PySide6.QtCore import QEvent, QObject, QThread, Signal
 from PySide6.QtWidgets import (
     QComboBox,
     QHBoxLayout,
@@ -37,6 +37,10 @@ from transkryptor.ui import icons
 from transkryptor.ui.asr_widgets import step
 from transkryptor.ui.messages import show_error
 from transkryptor.ui.theme import set_props
+
+# Wcięcie treści kroku (``asr_widgets.step``) i odstęp przycisków w wierszu.
+STEP_INDENT = 32
+ROW_SPACING = 8
 
 logger = logging.getLogger(__name__)
 
@@ -86,6 +90,7 @@ class ModelSection(QObject):
         self._manager = manager
         self._parent = dialog_parent
         self._download_thread: DownloadThread | None = None
+        self._step_widget: QWidget | None = None
         self._transcribing = False
         # Katalog modeli z ostatnio zastosowanych ustawień (None - jeszcze
         # nie stosowano; do tego czasu obowiązuje katalog menedżera).
@@ -116,9 +121,14 @@ class ModelSection(QObject):
         self.cancel_download_button = QPushButton(tr("asr.download.cancel"))
         set_props(self.cancel_download_button, variant="danger")
         self.cancel_download_button.setVisible(False)
+        # Usunięcie modelu to akcja niszcząca - czerwony przycisk z koszem;
+        # w wąskim panelu zostaje sam kosz (``eventFilter``).
         self.delete_model_button = QPushButton(tr("asr.delete"))
-        set_props(self.delete_model_button, variant="ghost")
+        self.delete_model_button.setObjectName("asr_delete_model_button")
+        set_props(self.delete_model_button, variant="danger")
+        icons.set_icon(self.delete_model_button, "trash", "danger", "text_muted")
         self.delete_model_button.setToolTip(tr("asr.delete.tooltip"))
+        self.delete_model_button.setAccessibleName(tr("asr.delete"))
 
         self.model_combo.currentIndexChanged.connect(self._on_model_combo_changed)
         self.delete_model_button.clicked.connect(self._on_delete_clicked)
@@ -133,7 +143,7 @@ class ModelSection(QObject):
         download_row.addWidget(self.cancel_download_button)
         download_row.addStretch(1)
         download_row.addWidget(self.delete_model_button)
-        return step(
+        widget = step(
             "1",
             tr("asr.step.model"),
             [
@@ -144,6 +154,33 @@ class ModelSection(QObject):
                 self.download_progress,
             ],
         )
+        widget.installEventFilter(self)
+        self._step_widget = widget
+        return widget
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # API Qt
+        """„Usuń model…” zmienia się w samą ikonę kosza, gdy wiersz się nie mieści."""
+        if event.type() == QEvent.Type.Resize and isinstance(watched, QWidget):
+            self._refit_delete_button()
+        return super().eventFilter(watched, event)
+
+    def _refit_delete_button(self) -> None:
+        if self._step_widget is None:
+            return
+        available = self._step_widget.width() - STEP_INDENT
+        button = self.delete_model_button
+        button.setText(tr("asr.delete"))
+        needed = sum(
+            widget.sizeHint().width() + ROW_SPACING
+            for widget in (
+                self.download_button,
+                self.cancel_download_button,
+                button,
+            )
+            if not widget.isHidden()
+        )
+        if needed > available:
+            button.setText("")
 
     # --- stan ----------------------------------------------------------------
 
@@ -194,6 +231,7 @@ class ModelSection(QObject):
         )
         self.download_button.setVisible(not ready)
         self.delete_model_button.setVisible(ready or self._manager.model_dir.is_dir())
+        self._refit_delete_button()
         self._refresh_combo_labels()
         self._update_model_actions()
         self.status_changed.emit()
@@ -341,6 +379,7 @@ class ModelSection(QObject):
         self.download_progress.setRange(0, 0)
         self.download_progress.setVisible(True)
         self.cancel_download_button.setVisible(True)
+        self._refit_delete_button()
         self._set_model_status(tr("asr.download.progress"), "accent")
         logger.info("Model download started: %s", self._manager.model.key)
         thread = DownloadThread(self._manager, self)
@@ -392,6 +431,7 @@ class ModelSection(QObject):
             thread.deleteLater()
         self.download_progress.setVisible(False)
         self.cancel_download_button.setVisible(False)
+        self._refit_delete_button()
         self.cancel_download_button.setEnabled(True)
         self.download_button.setEnabled(True)
         self._update_model_actions()

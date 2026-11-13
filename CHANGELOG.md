@@ -7,6 +7,13 @@ Pusta sekcja blokuje wydanie.
 
 ## Nieopublikowane
 
+- **Czytelniejsze okno „Mówcy nagrania”:** okno otwiera się w rozmiarze,
+  w którym widać cały opis i kilka wierszy tabeli, z tytułem jak inne
+  okna programu. Przyciski OK i Anuluj we wszystkich oknach nie mają już
+  ikon z motywu systemu.
+- **Czerwony przycisk „Usuń model…”:** usunięcie modelu w panelu Szkic
+  ASR to czerwony przycisk z ikoną kosza; gdy w wąskim panelu brakuje
+  miejsca, zostaje sam kosz (opis pokazuje podpowiedź).
 - **Panel Szkic ASR nie jest ucinany z prawej:** najwęższy panel
   dopasowuje się do treści (także przy większej czcionce systemu), długie
   podpisy pól łamią się na dwa wiersze, a lista modeli nie poszerza panelu.

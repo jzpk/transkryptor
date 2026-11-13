@@ -40,6 +40,7 @@ from transkryptor.ui.theme import set_props
 
 KEY_COLUMN, LABEL_COLUMN, ROLE_COLUMN = range(3)
 ORIGINAL_KEY = Qt.ItemDataRole.UserRole
+TABLE_MIN_HEIGHT = 180
 
 
 class SpeakersDialog(QDialog):
@@ -50,6 +51,7 @@ class SpeakersDialog(QDialog):
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
+        self.setObjectName("speakers_dialog")
         self.setWindowTitle(tr("speakers.dialog.title"))
         speakers = list(speakers)
         self._initial = {speaker.key for speaker in speakers}
@@ -72,7 +74,11 @@ class SpeakersDialog(QDialog):
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.table.setMinimumWidth(420)
+        # Kilka wierszy widać od razu - okno nie startuje ze ściśniętą tabelą.
+        self.table.setMinimumHeight(TABLE_MIN_HEIGHT)
 
+        title = QLabel(tr("speakers.dialog.title"))
+        set_props(title, role="title")
         hint = QLabel(tr("speakers.dialog.hint", length=KEY_MAX_LENGTH))
         hint.setWordWrap(True)
         set_props(hint, role="muted")
@@ -97,6 +103,8 @@ class SpeakersDialog(QDialog):
         buttons.rejected.connect(self.reject)
 
         layout = QVBoxLayout(self)
+        layout.setSpacing(10)
+        layout.addWidget(title)
         layout.addWidget(hint)
         layout.addWidget(self.table, stretch=1)
         layout.addLayout(buttons_row)
@@ -105,6 +113,7 @@ class SpeakersDialog(QDialog):
 
         for speaker in speakers:
             self._append(speaker, original=speaker.key)
+        self.resize(560, 420)
 
     def _append(self, speaker: Speaker, original: str | None) -> None:
         row = self.table.rowCount()

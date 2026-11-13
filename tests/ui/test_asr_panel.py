@@ -8,7 +8,7 @@ from docx import Document as DocxDocument
 from PySide6.QtCore import QCoreApplication, Qt
 from PySide6.QtGui import QTextCursor
 from PySide6.QtTest import QSignalSpy
-from PySide6.QtWidgets import QMessageBox, QScrollArea
+from PySide6.QtWidgets import QMessageBox, QScrollArea, QWidget
 
 from transkryptor.asr.engine import (
     VERBATIM_PROMPT,
@@ -1126,3 +1126,19 @@ class TestDraftStepLayout:
         scroll = window.asr_panel.findChild(QScrollArea)
         content = scroll.widget()
         assert content.minimumSizeHint().width() <= scroll.viewport().width()
+
+    def test_delete_model_button_turns_into_trash_icon_when_cramped(
+        self, panel, manager
+    ) -> None:
+        manager.download()
+        panel.show()
+        panel.refresh_model_status()
+        button = panel.models.delete_model_button
+        step_widget = panel.findChild(QWidget, "asr_model_step")
+        assert button.property("variant") == "danger"
+        assert not button.icon().isNull()
+        step_widget.resize(600, step_widget.height())
+        assert button.text() == tr("asr.delete")
+        step_widget.resize(60, step_widget.height())
+        assert button.text() == ""
+        assert button.toolTip() == tr("asr.delete.tooltip")

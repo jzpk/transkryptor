@@ -203,6 +203,10 @@ def stylesheet(t: Tokens) -> str:
 QMainWindow, QDialog, QMessageBox {{
     background: {t.bg};
 }}
+/* Przyciski OK/Anuluj bez ikon motywu systemu - jak reszta programu. */
+QDialogButtonBox {{
+    dialogbuttonbox-buttons-have-icons: 0;
+}}
 QWidget#central {{
     background: {t.bg};
 }}

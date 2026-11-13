@@ -123,6 +123,10 @@ _PATHS: dict[str, str] = {
         '<path d="M14.5 4.5l5 5-8 8H6.5v-5z"/><path d="M11.5 7.5l5 5"/>'
         '<path d="M3.5 20.5h17"/>'
     ),
+    "trash": (
+        '<path d="M4 7h16M9.5 7V4.5h5V7"/>'
+        '<path d="M6 7l1 13h10l1-13M10 11v5.5M14 11v5.5"/>'
+    ),
 }
 
 
