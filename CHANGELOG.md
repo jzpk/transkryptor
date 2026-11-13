@@ -65,8 +65,10 @@ Pusta sekcja blokuje wydanie.
 - **Samouczki w programie:** krótkie przewodniki po oknie podświetlają
   kolejne elementy (z pulsującą ramką i resztą okna przyciemnioną)
   i wyjaśniają, do czego służą. Do wyboru: **Pierwsze kroki**,
-  **Odtwarzacz i nagranie**, **Notacja i ostrzeżenia**, **Szkic ASR**,
-  **Tryb recenzji**, **Projekt i eksport** oraz **Organizacja pracy**
+  **Odtwarzacz i nagranie**, **Notacja i ostrzeżenia**, **Wyszukiwanie
+  i podświetlanie** (wyszukiwanie, zamiana, podświetlanie fraz i części
+  mowy, korpus), **Szkic ASR**, **Tryb recenzji**, **Projekt i eksport**
+  (z metryczką nagrania) oraz **Organizacja pracy**
   (statystyki, dzienny cel, migawki i paczka do przekazania). „Pierwsze
   kroki” startują same przy pierwszym uruchomieniu; **Pomiń samouczek**
   (albo Esc) zamyka przewodnik w każdej chwili, a po ukończeniu lub
@@ -131,7 +133,8 @@ Pusta sekcja blokuje wydanie.
   **Podświetlenia** na pasku narzędzi pokazuje listę fraz z liczbą
   wystąpień - odznaczenie frazy usuwa jej podświetlenie, a **Usuń wszystkie
   podświetlenia fraz** czyści listę. Podświetlenia nie trafiają do projektu
-  ani do eksportu. Samouczek **Notacja i ostrzeżenia** opisuje nową funkcję.
+  ani do eksportu. Samouczek **Wyszukiwanie i podświetlanie** opisuje nową
+  funkcję.
 - **Podświetlanie części mowy:** w menu **Podświetlenia** na pasku
   narzędzi można zaznaczyć części mowy - rzeczowniki, czasowniki,
   przymiotniki, przysłówki, zaimki, liczebniki, przyimki, spójniki,
@@ -142,8 +145,8 @@ Pusta sekcja blokuje wydanie.
   zdania: słowo wieloznaczne dostaje jedną część mowy (np. „szybko” to
   przysłówek, „piękne” - przymiotnik), więc zdarzają się pomyłki („piec”
   jest oznaczany jako czasownik). Formy spoza słownika (gwarowe, zapis
-  fonetyczny) nie są podświetlane. Samouczek **Notacja i ostrzeżenia**
-  opisuje nową funkcję.
+  fonetyczny) nie są podświetlane. Samouczek **Wyszukiwanie
+  i podświetlanie** opisuje nową funkcję.
 
 ## 0.7.0 - 2026-10-26
 

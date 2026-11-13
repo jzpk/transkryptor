@@ -96,6 +96,12 @@ TUTORIALS: tuple[Tutorial, ...] = (
             _step("asr", "toolbar_asr", MORE),
             _step("save", "toolbar_save", MORE),
             _step("export", "toolbar_export"),
+            _step(
+                "settings",
+                "toolbar_settings",
+                MORE,
+                shortcuts=(("settings", project_id("settings")),),
+            ),
             _step("help", "tutorial_button"),
         ),
     ),
@@ -145,15 +151,34 @@ TUTORIALS: tuple[Tutorial, ...] = (
             ),
             _step("snippets", "toolbar_snippets", "notation_more_button"),
             _step("warnings", "warnings_panel"),
-            _step("metadata", "metadata_form"),
+        ),
+    ),
+    Tutorial(
+        "search",
+        (
             _step(
                 "search",
                 "search_bar",
                 "editor",
-                shortcuts=(("find", search_id("find")),),
+                shortcuts=(
+                    ("find", search_id("find")),
+                    ("next", search_id("find_next")),
+                ),
+            ),
+            _step(
+                "replace",
+                "search_bar",
+                "editor",
+                shortcuts=(("replace", search_id("replace")),),
             ),
             _step("highlights", "toolbar_highlights", MORE),
             _step("pos", "toolbar_highlights", MORE),
+            _step(
+                "corpus",
+                "toolbar_corpus",
+                MORE,
+                shortcuts=(("corpus", project_id("corpus")),),
+            ),
         ),
     ),
     Tutorial(
@@ -210,24 +235,13 @@ TUTORIALS: tuple[Tutorial, ...] = (
                 shortcuts=(("save", project_id("save")),),
             ),
             _step("open", "toolbar_open", MORE),
+            _step("metadata", "metadata_form"),
             _step(
                 "export",
                 "toolbar_export",
                 shortcuts=(("export", project_id("export")),),
             ),
             _step("status", "export_status_label"),
-            _step(
-                "corpus",
-                "toolbar_corpus",
-                MORE,
-                shortcuts=(("corpus", project_id("corpus")),),
-            ),
-            _step(
-                "settings",
-                "toolbar_settings",
-                MORE,
-                shortcuts=(("settings", project_id("settings")),),
-            ),
         ),
     ),
     Tutorial(

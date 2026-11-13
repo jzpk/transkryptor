@@ -11,7 +11,12 @@ from transkryptor.i18n import catalog
 from transkryptor.settings import Settings, ShortcutSettings, TutorialSettings
 from transkryptor.ui.main_window import MainWindow
 from transkryptor.ui.settings_dialog import SettingsDialog
-from transkryptor.ui.tutorial_content import FIRST_STEPS, REVIEW, TUTORIALS
+from transkryptor.ui.tutorial_content import (
+    FIRST_STEPS,
+    REVIEW,
+    TUTORIALS,
+    TUTORIALS_BY_KEY,
+)
 
 
 @pytest.fixture
@@ -98,7 +103,8 @@ def test_navigation_highlights_widgets(qtbot, window) -> None:
     window.tutorials.start(FIRST_STEPS)
     card = overlay(window).card
     assert not card.back_button.isEnabled()
-    assert "1 z 9" in card.progress_label.text()
+    steps = len(TUTORIALS_BY_KEY[FIRST_STEPS].steps)
+    assert f"1 z {steps}" in card.progress_label.text()
 
     qtbot.keyClick(overlay(window), Qt.Key.Key_Right)
     assert overlay(window).index == 1
@@ -116,6 +122,18 @@ def test_navigation_highlights_widgets(qtbot, window) -> None:
     card.next_button.click()
     assert overlay(window).target is window.editor
     assert "Ctrl+Space / F4" in card.text_label.text()
+
+
+def test_search_and_highlighting_have_their_own_tutorial() -> None:
+    """Wyszukiwanie i podświetlanie nie są ukryte w samouczku notacji."""
+    steps = {
+        key: [step.key for step in tutorial.steps]
+        for key, tutorial in TUTORIALS_BY_KEY.items()
+    }
+    assert steps["search"] == ["search", "replace", "highlights", "pos", "corpus"]
+    assert steps["notation"] == ["superscript", "markers", "snippets", "warnings"]
+    assert "metadata" in steps["project"]
+    assert "settings" in steps[FIRST_STEPS]
 
 
 def test_last_step_finishes(window) -> None:
