@@ -1,7 +1,9 @@
 """Trwałe podświetlanie fraz w tekście, jak zakreślacz (zgłoszenie #36).
 
 Frazę dodaje przycisk „Podświetl” paska wyszukiwania - z opcjami
-wyszukiwania (wielkość liter, całe słowa, wyrażenie regularne). Każda fraza
+wyszukiwania (wielkość liter, całe słowa, wyrażenie regularne). Przycisk jest
+przełącznikiem: dla frazy już podświetlonej jest wciśnięty i usuwa
+podświetlenie (``bind_search_bar``). Każda fraza
 ma własny kolor, a jej wystąpienia zostają podświetlone także po zamknięciu
 paska i są przeliczane po każdej zmianie tekstu. Podświetlenia należą do
 widoku (warstwa ``PHRASE_LAYER``): nie trafiają do projektu ani eksportu.
@@ -13,7 +15,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from PySide6.QtCore import QObject, QTimer
+from PySide6.QtCore import QObject, QTimer, Signal
 from PySide6.QtGui import QColor, QIcon, QPixmap
 from PySide6.QtWidgets import QMenu
 
@@ -26,6 +28,7 @@ from transkryptor.document.search import (
 from transkryptor.i18n import tr, tr_plural
 from transkryptor.ui.editor import TranscriptionEditor
 from transkryptor.ui.highlights import PHRASE_LAYER
+from transkryptor.ui.search_bar import SearchBar
 from transkryptor.ui.span_layer import SpanLayer
 
 # Kolory kolejnych fraz (jak zakreślacze); po wyczerpaniu - od początku.
@@ -49,6 +52,8 @@ class Phrase:
 
 class PhraseHighlighter(QObject):
     """Frazy podświetlane na stałe i ich wystąpienia w tekście edytora."""
+
+    changed = Signal()  # dodanie lub usunięcie frazy
 
     def __init__(
         self,
@@ -78,11 +83,27 @@ class PhraseHighlighter(QObject):
         """Liczba wystąpień frazy w bieżącym tekście."""
         return len(self._matches.get(phrase, ()))
 
+    def find(self, query: str, options: SearchOptions) -> Phrase | None:
+        """Podświetlona fraza o tym tekście i opcjach wyszukiwania."""
+        return next(
+            (p for p in self._phrases if p.query == query and p.options == options),
+            None,
+        )
+
+    def toggle(self, query: str, options: SearchOptions) -> None:
+        """Przycisk „Podświetl”: dodaje frazę albo usuwa już podświetloną."""
+        phrase = self.find(query, options)
+        if phrase is None:
+            self.add(query, options)
+            return
+        self.remove(phrase)
+        self._show_status(tr("highlights.phrase.removed", phrase=query))
+
     def add(self, query: str, options: SearchOptions) -> Phrase | None:
         """Dodaje frazę z opcjami wyszukiwania; None - pusta, błędna lub już jest."""
         if not query:
             return None
-        if any(p.query == query and p.options == options for p in self._phrases):
+        if self.find(query, options) is not None:
             self._show_status(tr("highlights.phrase.exists", phrase=query))
             return None
         try:
@@ -96,6 +117,7 @@ class PhraseHighlighter(QObject):
         phrase = Phrase(query, options, color)
         self._phrases.append(phrase)
         self.refresh()
+        self.changed.emit()
         self._show_status(
             tr_plural("highlights.phrase.added", self.count(phrase), phrase=query)
         )
@@ -105,10 +127,12 @@ class PhraseHighlighter(QObject):
         if phrase in self._phrases:
             self._phrases.remove(phrase)
             self.refresh()
+            self.changed.emit()
 
     def clear(self) -> None:
         self._phrases.clear()
         self.refresh()
+        self.changed.emit()
 
     def _on_text_changed(self) -> None:
         if self._phrases:
@@ -157,6 +181,18 @@ class PhraseHighlighter(QObject):
             action.toggled.connect(lambda _checked, chosen=phrase: self.remove(chosen))
         clear = menu.addAction(tr("highlights.phrase.clear"))
         clear.triggered.connect(lambda _checked=False: self.clear())
+
+
+def bind_search_bar(bar: SearchBar, highlighter: PhraseHighlighter) -> None:
+    """Przycisk „Podświetl” przełącza frazę i pokazuje, czy jest podświetlona."""
+
+    def show_state() -> None:
+        phrase = highlighter.find(bar.find_edit.text(), bar.options())
+        bar.set_highlighted(phrase is not None)
+
+    bar.highlight_requested.connect(highlighter.toggle)
+    bar.query_changed.connect(show_state)
+    highlighter.changed.connect(show_state)
 
 
 def swatch(color: QColor) -> QIcon:

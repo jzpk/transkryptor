@@ -125,7 +125,9 @@ Pusta sekcja blokuje wydanie.
   podświetla na stałe wszystkie wystąpienia wpisanej frazy, jak zakreślacz
   w edytorze tekstu. Każda fraza ma inny kolor, podświetlenia zostają po
   zamknięciu paska i nadążają za pisaniem; działają opcje wyszukiwania
-  (wielkość liter, całe słowa, wyrażenie regularne). Nowy przycisk
+  (wielkość liter, całe słowa, wyrażenie regularne). Gdy wpisana fraza
+  jest już podświetlona, przycisk jest wciśnięty i zmienia się w **Usuń
+  podświetlenie** - kliknięcie usuwa podświetlenie. Nowy przycisk
   **Podświetlenia** na pasku narzędzi pokazuje listę fraz z liczbą
   wystąpień - odznaczenie frazy usuwa jej podświetlenie, a **Usuń wszystkie
   podświetlenia fraz** czyści listę. Podświetlenia nie trafiają do projektu

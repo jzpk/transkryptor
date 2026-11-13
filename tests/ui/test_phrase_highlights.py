@@ -40,6 +40,34 @@ def test_highlight_button_adds_phrase_that_survives_closing_search(window) -> No
     assert "2" in window.statusBar().currentMessage()
 
 
+def test_highlight_button_toggles_phrase_off(window) -> None:
+    """Ponowne „Podświetl” dla tej samej frazy usuwa podświetlenie."""
+    window.editor.setPlainText("To jest dom i jest kot.")
+    bar = window.search_bar
+    highlight_from_bar(window, "jest")
+    assert highlighted(window) == ["jest", "jest"]
+    assert bar.highlight_button.isChecked()
+    assert bar.highlight_button.text() == "Usuń podświetlenie"
+
+    bar.find_edit.setText("dom")
+    assert not bar.highlight_button.isChecked()
+    bar.find_edit.setText("jest")
+    assert bar.highlight_button.isChecked()
+
+    bar.highlight_button.click()
+    assert highlighted(window) == []
+    assert not bar.highlight_button.isChecked()
+    assert bar.highlight_button.text() == "Podświetl"
+    assert "Usunięto" in window.statusBar().currentMessage()
+
+
+def test_removing_from_menu_updates_search_button(window) -> None:
+    window.editor.setPlainText("jest")
+    highlight_from_bar(window, "jest")
+    window.phrases.clear()
+    assert not window.search_bar.highlight_button.isChecked()
+
+
 def test_highlights_follow_text_edits(qtbot, window) -> None:
     window.editor.setPlainText("kot")
     window.phrases.add("kot", SearchOptions())

@@ -84,7 +84,7 @@ from transkryptor.ui.metadata_form import MetadataForm, MetadataWidgets
 from transkryptor.ui.navigation import BACKWARD, FORWARD
 from transkryptor.ui.notation_controller import IgnoredWarnings, NotationController
 from transkryptor.ui.pack_controller import PackController
-from transkryptor.ui.phrase_highlights import PhraseHighlighter
+from transkryptor.ui.phrase_highlights import PhraseHighlighter, bind_search_bar
 from transkryptor.ui.player_bar import PlayerBar
 from transkryptor.ui.player_controller import PlayerController
 from transkryptor.ui.pos_highlights import PosHighlighter
@@ -304,7 +304,7 @@ class MainWindow(QMainWindow):
         self.phrases = PhraseHighlighter(
             self.editor, self.search.open_find, self.show_status, self
         )
-        self.search_bar.highlight_requested.connect(self.phrases.add)
+        bind_search_bar(self.search_bar, self.phrases)
         self.parts_of_speech = PosHighlighter(self.editor, self.show_status, self)
         self.speakers = SpeakerController(
             self.editor,

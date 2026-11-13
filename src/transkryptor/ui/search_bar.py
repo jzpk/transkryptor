@@ -39,7 +39,7 @@ class SearchBar(QWidget):
     replace_requested = Signal()
     replace_all_requested = Signal()
     close_requested = Signal()
-    # Trwałe podświetlenie bieżącej frazy: (tekst, ``SearchOptions``).
+    # Przełączenie trwałego podświetlenia frazy: (tekst, ``SearchOptions``).
     highlight_requested = Signal(str, object)
 
     def __init__(self, parent: QWidget | None = None) -> None:
@@ -86,8 +86,9 @@ class SearchBar(QWidget):
         self.highlight_button = QPushButton(tr("search.highlight"))
         self.highlight_button.setObjectName("search_highlight_button")
         icons.set_icon(self.highlight_button, "highlighter", "text", "text_muted")
-        self.highlight_button.setToolTip(tr("search.highlight.tooltip"))
+        self.highlight_button.setCheckable(True)
         self.highlight_button.setEnabled(False)
+        self.set_highlighted(False)
         self.close_button = QToolButton()
         icons.set_icon(self.close_button, "close", "text_muted")
         self.close_button.setToolTip(_tooltip(tr("search.close"), "Esc"))
@@ -175,6 +176,13 @@ class SearchBar(QWidget):
     @property
     def informant_only(self) -> bool:
         return not self.informant_check.isHidden() and self.informant_check.isChecked()
+
+    def set_highlighted(self, highlighted: bool) -> None:
+        """Stan przycisku „Podświetl”: wciśnięty, gdy fraza jest podświetlona."""
+        self.highlight_button.setChecked(highlighted)
+        key = "search.unhighlight" if highlighted else "search.highlight"
+        self.highlight_button.setText(tr(key))
+        self.highlight_button.setToolTip(tr(f"{key}.tooltip"))
 
     def set_replace_mode(self, enabled: bool) -> None:
         for widget in self._replace_row:
