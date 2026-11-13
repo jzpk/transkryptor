@@ -6,6 +6,9 @@
 //   .theme-toggle zapamiętuje wybór. Ustawia data-theme na <html>.
 // - Animacja liter w tle: przełącznik .motion-switch; domyślnie włączona,
 //   chyba że system prosi o ograniczenie ruchu. Ustawia data-animation.
+// - Menu na wąskich ekranach: przycisk .menu-toggle rozwija listę stron
+//   pod paskiem. Ustawia data-menu (closed/open) na <html>; bez skryptu
+//   atrybutu nie ma i menu zawija się do drugiego wiersza paska.
 // - Karty <details>: adres z #kotwicą rozwija wskazaną kartę, a przycisk
 //   [data-toggle-all] rozwija albo zwija wszystkie karty w swojej sekcji.
 // - Pobieranie: karta dla systemu odwiedzającego jest wyróżniona, a główny
@@ -21,6 +24,7 @@
   "use strict";
 
   var root = document.documentElement;
+  root.setAttribute("data-menu", "closed");
 
   function load(key, allowed) {
     try {
@@ -713,7 +717,53 @@
       });
   }
 
+  function menu() {
+    var button = document.querySelector(".menu-toggle");
+    var nav = document.getElementById("menu");
+    if (!button || !nav) {
+      return;
+    }
+    var topbar = button.closest(".topbar");
+
+    function set(open) {
+      var label = open ? "Ukryj menu" : "Pokaż menu";
+      root.setAttribute("data-menu", open ? "open" : "closed");
+      button.setAttribute("aria-expanded", open ? "true" : "false");
+      button.title = label;
+      button.setAttribute("aria-label", label);
+    }
+
+    function isOpen() {
+      return root.getAttribute("data-menu") === "open";
+    }
+
+    button.addEventListener("click", function () {
+      set(!isOpen());
+    });
+    nav.addEventListener("click", function (event) {
+      if (event.target.closest("a")) {
+        set(false);
+      }
+    });
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape" && isOpen()) {
+        set(false);
+        button.focus();
+      }
+    });
+    document.addEventListener("click", function (event) {
+      if (isOpen() && topbar && !topbar.contains(event.target)) {
+        set(false);
+      }
+    });
+    // Po poszerzeniu okna menu jest i tak widoczne w wierszu paska.
+    window.matchMedia("(max-width: 820px)").addEventListener("change", function () {
+      set(false);
+    });
+  }
+
   document.addEventListener("DOMContentLoaded", function () {
+    menu();
     each(".theme-toggle", function (button) {
       button.hidden = false;
       button.addEventListener("click", function () {

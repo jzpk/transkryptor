@@ -430,6 +430,19 @@ def test_every_page_menu_links_the_pages_and_download(changelog_file, tmp_path) 
         assert current == ([name] if name in {i.page for i in NAV_ITEMS} else [])
 
 
+def test_every_page_menu_button_controls_the_menu(changelog_file, tmp_path) -> None:
+    out = tmp_path / "site"
+    site.build(out, changelog_file, repo="owner/repo", expected_version="0.2.4")
+
+    for name in site.TEMPLATE_FILES:
+        page = (out / name).read_text(encoding="utf-8")
+        assert '<nav class="nav" id="menu"' in page, name
+        button = re.search(r'<button\s+class="icon-button menu-toggle"[^>]*>', page)
+        assert button is not None, name
+        assert 'aria-controls="menu"' in button.group(0), name
+        assert 'aria-expanded="false"' in button.group(0), name
+
+
 def test_every_page_footer_links_only_code_and_guide(changelog_file, tmp_path) -> None:
     out = tmp_path / "site"
     site.build(out, changelog_file, repo="owner/repo", expected_version="0.2.4")

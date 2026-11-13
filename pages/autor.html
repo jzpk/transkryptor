@@ -44,7 +44,7 @@
         <a class="brand" href="index.html"
           ><img src="img/ikona-56.png" alt="" width="28" height="28" />${app_name}</a
         >
-        <nav class="nav" aria-label="Strony">
+        <nav class="nav" id="menu" aria-label="Strony">
           ${nav}
         </nav>
         <div class="prefs">
@@ -60,6 +60,21 @@
             </svg>
             <svg class="icon-sun" aria-hidden="true">
               <use href="img/ikony.svg#slonce" />
+            </svg>
+          </button>
+          <button
+            class="icon-button menu-toggle"
+            type="button"
+            title="Pokaż menu"
+            aria-label="Pokaż menu"
+            aria-controls="menu"
+            aria-expanded="false"
+          >
+            <svg class="icon-menu" aria-hidden="true">
+              <use href="img/ikony.svg#menu" />
+            </svg>
+            <svg class="icon-close" aria-hidden="true">
+              <use href="img/ikony.svg#zamknij" />
             </svg>
           </button>
         </div>
