@@ -153,6 +153,7 @@ TUTORIALS: tuple[Tutorial, ...] = (
                 shortcuts=(("find", search_id("find")),),
             ),
             _step("highlights", "toolbar_highlights", MORE),
+            _step("pos", "toolbar_highlights", MORE),
         ),
     ),
     Tutorial(

@@ -522,6 +522,16 @@ wheels = [
 ]
 
 [[package]]
+name = "morfeusz2"
+version = "1.99.15"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a3/cf/87a496f0632b2c7d97bfbbf5f38000510d16c9b2e7c5d6ea8ffe11eebe07/morfeusz2-1.99.15-20260601-cp310-abi3-macosx_11_0_universal2.whl", hash = "sha256:8ff0d3f9d2ab814b905afc471bc9b70415b3abb4ffcbf6ed3904735de88dbdac", size = 15772667, upload-time = "2026-06-01T15:30:11.002Z" },
+    { url = "https://files.pythonhosted.org/packages/64/e7/467816dae5a8029d3573083af8e4e95910939c5da0b76e5d73b35a3b5bc0/morfeusz2-1.99.15-20260601-cp310-abi3-manylinux_2_28_x86_64.whl", hash = "sha256:089a83ab03a137a57e23d9d42028d80b8858d1a4de78f1db86a18ba504400a98", size = 9210531, upload-time = "2026-06-01T15:30:18.634Z" },
+    { url = "https://files.pythonhosted.org/packages/8f/13/d0d5483a1598ea053ae53ab10b8943dd7979e3b77f0bf484ffe09cf0ea90/morfeusz2-1.99.15-20260601-cp310-abi3-win_amd64.whl", hash = "sha256:1f20fefc457ea674640f87bd8de129b6310bb063ac21a68ea02b0f86bbd9aafe", size = 9688808, upload-time = "2026-06-01T15:30:29.413Z" },
+]
+
+[[package]]
 name = "mypy"
 version = "2.4.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1074,6 +1084,7 @@ dependencies = [
     { name = "faster-whisper" },
     { name = "httpx" },
     { name = "huggingface-hub" },
+    { name = "morfeusz2" },
     { name = "pyside6" },
     { name = "python-docx" },
     { name = "regex" },
@@ -1105,6 +1116,7 @@ requires-dist = [
     { name = "faster-whisper", specifier = ">=1.1" },
     { name = "httpx", specifier = ">=0.27" },
     { name = "huggingface-hub", specifier = ">=0.30" },
+    { name = "morfeusz2", specifier = ">=1.99.15" },
     { name = "pyside6", specifier = ">=6.7" },
     { name = "python-docx", specifier = ">=1.1" },
     { name = "regex", specifier = ">=2024.11.6" },

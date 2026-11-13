@@ -11,12 +11,13 @@ from __future__ import annotations
 from PySide6.QtGui import QColor, QTextCharFormat, QTextCursor
 from PySide6.QtWidgets import QTextEdit
 
-# Od spodu: aktywny segment odtwarzania, komentowane fragmenty i frazy
-# podświetlone na stałe (tło), niepewne słowa ASR i ostrzeżenia
+# Od spodu: aktywny segment odtwarzania, komentowane fragmenty, części mowy
+# i frazy podświetlone na stałe (tło), niepewne słowa ASR i ostrzeżenia
 # (podkreślenia), zmiany porównania wersji, przegląd ASR, wyszukiwanie na
 # wierzchu.
 ACTIVE_LAYER = "active"
 COMMENT_LAYER = "comment"
+POS_LAYER = "pos"
 PHRASE_LAYER = "phrase"
 UNCERTAIN_LAYER = "uncertain"
 WARNINGS_LAYER = "warnings"
@@ -26,6 +27,7 @@ SEARCH_LAYER = "search"
 LAYER_ORDER = (
     ACTIVE_LAYER,
     COMMENT_LAYER,
+    POS_LAYER,
     PHRASE_LAYER,
     UNCERTAIN_LAYER,
     WARNINGS_LAYER,

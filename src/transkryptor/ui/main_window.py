@@ -87,6 +87,7 @@ from transkryptor.ui.pack_controller import PackController
 from transkryptor.ui.phrase_highlights import PhraseHighlighter
 from transkryptor.ui.player_bar import PlayerBar
 from transkryptor.ui.player_controller import PlayerController
+from transkryptor.ui.pos_highlights import PosHighlighter
 from transkryptor.ui.readiness_dialog import ReadinessController
 from transkryptor.ui.review import (
     ReviewController,
@@ -304,6 +305,7 @@ class MainWindow(QMainWindow):
             self.editor, self.search.open_find, self.show_status, self
         )
         self.search_bar.highlight_requested.connect(self.phrases.add)
+        self.parts_of_speech = PosHighlighter(self.editor, self.show_status, self)
         self.speakers = SpeakerController(
             self.editor,
             lambda: self.document,
@@ -368,7 +370,7 @@ class MainWindow(QMainWindow):
             self, self.editor, self.main_toolbar.snippets_menu, self._on_settings
         )
         self.highlights_menu = HighlightsMenu(
-            self.main_toolbar.highlights_menu, (self.phrases,)
+            self.main_toolbar.highlights_menu, (self.phrases, self.parts_of_speech)
         )
         self.shortcut_actions = self._collect_shortcut_actions()
         self.tutorials = TutorialController(self, settings_store, self)

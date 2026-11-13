@@ -26,6 +26,9 @@ dependencies = [
     # rozwiązuje - wersja rdzenia musi być równa wersji sherpa-onnx.
     "sherpa-onnx==1.13.8",
     "sherpa-onnx-core==1.13.8",
+    # Analizator morfologiczny ze słownikiem SGJP (BSD-2-Clause) - części
+    # mowy do podświetlania w edytorze (document/parts_of_speech.py).
+    "morfeusz2>=1.99.15",
 ]
 
 [project.scripts]
@@ -112,5 +115,5 @@ disallow_incomplete_defs = true
 
 # Biblioteki bez wskazówek typów (brak py.typed i pakietu stubów w uv.lock).
 [[tool.mypy.overrides]]
-module = ["faster_whisper", "faster_whisper.*", "ctranslate2", "reportlab", "reportlab.*", "sherpa_onnx", "sherpa_onnx.*"]
+module = ["faster_whisper", "faster_whisper.*", "ctranslate2", "reportlab", "reportlab.*", "sherpa_onnx", "sherpa_onnx.*", "morfeusz2"]
 ignore_missing_imports = true

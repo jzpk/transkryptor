@@ -1,7 +1,7 @@
 """Menu przycisku „Podświetlenia” na pasku narzędzi.
 
-Menu składa się z sekcji (kontrolerów podświetleń), oddzielonych kreską.
-Każda sekcja dopisuje swoje pozycje przy każdym rozwinięciu menu, więc
+Menu składa się z sekcji (kontrolerów podświetleń), każda pod własnym
+nagłówkiem (``QMenu.addSection``). Każda sekcja dopisuje swoje pozycje przy każdym rozwinięciu menu, więc
 liczniki i stan zawsze odpowiadają bieżącemu tekstowi.
 """
 
@@ -28,7 +28,5 @@ class HighlightsMenu:
 
     def refresh(self) -> None:
         self.menu.clear()
-        for index, section in enumerate(self._sections):
-            if index:
-                self.menu.addSeparator()
+        for section in self._sections:
             section.fill_menu(self.menu)

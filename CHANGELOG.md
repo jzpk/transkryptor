@@ -130,6 +130,18 @@ Pusta sekcja blokuje wydanie.
   wystąpień - odznaczenie frazy usuwa jej podświetlenie, a **Usuń wszystkie
   podświetlenia fraz** czyści listę. Podświetlenia nie trafiają do projektu
   ani do eksportu. Samouczek **Notacja i ostrzeżenia** opisuje nową funkcję.
+- **Podświetlanie części mowy:** w menu **Podświetlenia** na pasku
+  narzędzi można zaznaczyć części mowy - rzeczowniki, czasowniki,
+  przymiotniki, przysłówki, zaimki, liczebniki, przyimki, spójniki,
+  partykuły i wykrzykniki - jedną albo kilka naraz, każdą w innym kolorze.
+  Podświetlenia nadążają za pisaniem i nie trafiają do projektu ani do
+  eksportu. Części mowy rozpoznaje dołączony analizator morfologiczny
+  Morfeusz 2 ze słownikiem SGJP (działa offline), ale bez kontekstu
+  zdania: słowo wieloznaczne dostaje jedną część mowy (np. „szybko” to
+  przysłówek, „piękne” - przymiotnik), więc zdarzają się pomyłki („piec”
+  jest oznaczany jako czasownik). Formy spoza słownika (gwarowe, zapis
+  fonetyczny) nie są podświetlane. Samouczek **Notacja i ostrzeżenia**
+  opisuje nową funkcję.
 
 ## 0.7.0 - 2026-10-26
 

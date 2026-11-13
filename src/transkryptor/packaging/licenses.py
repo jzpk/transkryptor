@@ -56,6 +56,7 @@ DIRECT_RUNTIME_DISTRIBUTIONS = (
     "cryptography",
     "sherpa-onnx",
     "sherpa-onnx-core",
+    "morfeusz2",
 )
 
 # Pliki licencji w katalogu ``*.dist-info`` pakietu.

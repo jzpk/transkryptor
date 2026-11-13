@@ -39,6 +39,7 @@ HIDDEN_IMPORTS = (
     "ctranslate2",
     "onnxruntime",
     "sherpa_onnx",  # podział na mówców (asr/diarization.py)
+    "morfeusz2",  # części mowy (document/parts_of_speech.py)
     "tokenizers",
     "av",
     "httpx",

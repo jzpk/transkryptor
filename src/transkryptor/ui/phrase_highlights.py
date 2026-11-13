@@ -134,6 +134,7 @@ class PhraseHighlighter(QObject):
 
     def fill_menu(self, menu: QMenu) -> None:
         """Polecenie dodania frazy, lista fraz (odznaczenie usuwa) i czyszczenie."""
+        menu.addSection(tr("highlights.phrase.title"))
         add = menu.addAction(tr("highlights.phrase.add"))
         add.setToolTip(tr("highlights.phrase.add.tooltip"))
         add.triggered.connect(lambda _checked=False: self._open_find())
@@ -143,7 +144,7 @@ class PhraseHighlighter(QObject):
             return
         for phrase in self._phrases:
             action = menu.addAction(
-                _swatch(phrase.qcolor()),
+                swatch(phrase.qcolor()),
                 tr(
                     "highlights.phrase.item",
                     phrase=phrase.query,
@@ -158,7 +159,8 @@ class PhraseHighlighter(QObject):
         clear.triggered.connect(lambda _checked=False: self.clear())
 
 
-def _swatch(color: QColor) -> QIcon:
+def swatch(color: QColor) -> QIcon:
+    """Kwadracik koloru podświetlenia do pozycji menu."""
     pixmap = QPixmap(SWATCH_PX, SWATCH_PX)
     opaque = QColor(color)
     opaque.setAlpha(255)
