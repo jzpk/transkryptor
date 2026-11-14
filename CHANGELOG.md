@@ -6,6 +6,35 @@ workflow „Wydanie” złoży je w sekcję z numerem wersji i datą, a jej tre�
 trafi do sekcji „Nowości w tej wersji” not wydania. Brak fragmentów blokuje
 wydanie.
 
+## 0.8.2 - 2026-11-14
+
+- **Zaimki rzeczowne w podświetleniu części mowy:** „kto”, „nikt”, „nic”,
+  „ktoś”, „wszystko”, „tamto” i ich odmiany są podświetlane jako zaimki,
+  a nie jako rzeczowniki.
+
+- **Nosówki przed spółgłoską szczelinową:** nowe reguły fonetyczne
+  zapisują „ę” i „ą” przed f, w, s, z, sz, ż, rz, ś, ź, ch, h jako „eⁿ”
+  i „oⁿ” (szczęście → szczeⁿście, wąsy → woⁿsy) i są domyślnie zaznaczone
+  w panelu ASR. Przed miękkim ś/ź można wybrać wariant z „ń” w indeksie
+  górnym (gęsi → geńsi).
+
+- **Sprawdzenie gotowej transkrypcji bez ponownego ASR:** przycisk
+  **Sprawdź tekst** w kroku „Reguły” panelu Szkic ASR stosuje reguły
+  szkicu do transkrypcji, która już jest w edytorze - np. zrobionej przed
+  aktualizacją. Reguły fonetyczne (także zapisane reguły nauczone)
+  i zapis szkicu z ustawień (skróty w pełnym brzmieniu, zapis mowy)
+  trafiają na listę **Zmiany i propozycje do przeglądu** jako propozycje,
+  bez zmiany tekstu i z pominięciem słów z indeksem górnym. Akapitom bez
+  mówcy program proponuje mówców według układu „pytanie - odpowiedź”
+  (pytania - badacz, reszta - informator), a powtarzalne poprawki szkicu
+  od razu dają propozycję nowej reguły.
+
+- **Komunikaty Qt w dzienniku programu:** ostrzeżenia i informacje
+  biblioteki Qt (np. o odtwarzaniu albo rysowaniu ikon) trafiają do pliku
+  `transkryptor.log` - ostrzeżenia z nazwą aktywnego okna, co ułatwia
+  ustalenie przyczyny zgłoszonego problemu. Informacje nie zaśmiecają już
+  konsoli.
+
 ## 0.8.1 - 2026-11-13
 
 - **Czytelniejsze okno „Mówcy nagrania”:** okno otwiera się w rozmiarze,
