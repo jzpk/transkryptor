@@ -27,7 +27,7 @@ from enum import StrEnum
 import regex
 
 # Słowo: litery wraz ze znakami łączącymi (diakrytyki zapisu fonetycznego).
-_WORD_RE = regex.compile(r"[\p{L}\p{M}]+")
+WORD_RE = regex.compile(r"[\p{L}\p{M}]+")
 
 
 class PartOfSpeech(StrEnum):
@@ -183,7 +183,7 @@ class PartOfSpeechTagger:
         if not wanted:
             return []
         found = []
-        for match in _WORD_RE.finditer(text):
+        for match in WORD_RE.finditer(text):
             part = self.part_of(match.group())
             if part is not None and part in wanted:
                 found.append((match.start(), match.end(), part))

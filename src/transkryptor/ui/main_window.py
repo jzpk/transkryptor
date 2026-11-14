@@ -129,6 +129,7 @@ from transkryptor.ui.speaker_controller import SpeakerController
 from transkryptor.ui.stats_dialog import ProgressController
 from transkryptor.ui.sync_controller import SyncController
 from transkryptor.ui.theme import apply_theme, resolve_tokens, set_props, tokens
+from transkryptor.ui.themes_dialog import ThemesController
 from transkryptor.ui.toolbar import MainToolbar, ToolbarHandlers
 from transkryptor.ui.tutorial_controller import TutorialController
 from transkryptor.ui.update_controller import UpdateController
@@ -543,7 +544,7 @@ class MainWindow(QMainWindow):
         self.main_toolbar = bar
 
     def _build_work_tools(self) -> None:
-        """Statystyki, mapa pokrycia, migawki i paczka do przekazania."""
+        """Statystyki, pola tematyczne, mapa pokrycia, migawki i paczka."""
         self.progress = ProgressController(
             self,
             self.session.capture_state,
@@ -551,6 +552,11 @@ class MainWindow(QMainWindow):
             lambda: self.settings_store.current.project.daily_goal_min,
             lambda: Path(self.session.project_name or tr("stats.default_name")).stem,
             silence=self.waveform.silence,
+        )
+        self.themes = ThemesController(
+            self,
+            lambda: self.document,
+            lambda: Path(self.session.project_name or tr("stats.default_name")).stem,
         )
         # Mapa pokrycia na fali - ta sama definicja pokrycia co statystyki.
         self.coverage = CoverageController(
@@ -587,7 +593,7 @@ class MainWindow(QMainWindow):
         self.main_toolbar.open_menu.add_actions([self.packs.open_action])
         self.main_toolbar.add_save_actions(self.snapshots.actions)
         self.main_toolbar.add_export_actions(
-            [self.progress.stats_action, self.packs.export_action]
+            [self.progress.stats_action, self.themes.action, self.packs.export_action]
         )
 
     def _build_status_bar(self) -> None:
@@ -1044,6 +1050,7 @@ class MainWindow(QMainWindow):
             *self.search_actions.values(),
             *self.snapshots.actions,
             self.progress.stats_action,
+            self.themes.action,
         ):
             action.setEnabled(not locked)
         self.player_controller.set_locked(locked)

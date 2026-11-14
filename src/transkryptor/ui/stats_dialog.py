@@ -20,7 +20,6 @@ from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
-    QFileDialog,
     QHeaderView,
     QLabel,
     QTableWidget,
@@ -29,12 +28,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from transkryptor.corpus.catalog import CSV_SUFFIX, XLSX_SUFFIX, Table, save_table
+from transkryptor.corpus.catalog import CSV_SUFFIX, XLSX_SUFFIX, Table
 from transkryptor.document.progress import ProjectStats, project_stats, stats_rows
 from transkryptor.document.project import ProjectState
-from transkryptor.errors import AppError
 from transkryptor.i18n import tr
-from transkryptor.ui.messages import show_error
+from transkryptor.ui.table_export import export_table
 from transkryptor.ui.theme import set_props
 
 # Co tyle odświeża się etykieta dziennego celu (pokrycie liczone od nowa,
@@ -104,22 +102,7 @@ class StatsDialog(QDialog):
 
     def export(self, suffix: str) -> bool:
         """Zapis tabeli do CSV albo XLSX; False - anulowano albo błąd."""
-        path, _selected = QFileDialog.getSaveFileName(
-            self,
-            tr("stats.export.dialog"),
-            f"{self._default_name}{suffix}",
-            tr("stats.export.filter", pattern=f"*{suffix}"),
-        )
-        if not path:
-            return False
-        if not path.lower().endswith(suffix):
-            path += suffix
-        try:
-            save_table(self._table, path, tr("stats.title"))
-        except AppError as error:
-            show_error(self, tr("stats.export.error"), error)
-            return False
-        return True
+        return export_table(self, self._table, self._default_name, suffix, "stats")
 
 
 class ProgressController(QObject):

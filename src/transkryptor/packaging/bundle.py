@@ -80,12 +80,14 @@ EXCLUDED_MODULES = (
 #
 # ``transkryptor/i18n/locales`` to katalogi tłumaczeń interfejsu (JSON)
 # wczytywane przez ``importlib.resources`` przy starcie,
-# ``transkryptor/notation/data`` - wbudowane reguły fonetyczne (TOML),
+# ``transkryptor/notation/data`` - wbudowane reguły fonetyczne i regiony
+# (TOML), ``transkryptor/document/data`` - słownik pól tematycznych (TOML),
 # a ``transkryptor/fonts`` - czcionka tekstu Charis SIL z licencją OFL.
 PACKAGE_DATA = (
     ("faster_whisper", "assets"),
     ("transkryptor", "i18n/locales"),
     ("transkryptor", "notation/data"),
+    ("transkryptor", "document/data"),
     ("transkryptor", "fonts"),
 )
 # Biblioteki natywne pakietów, które muszą zostać obok ich modułu.

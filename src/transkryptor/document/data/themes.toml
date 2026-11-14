@@ -1,0 +1,163 @@
+# Pola tematyczne wywiadów gwarowych (zgłoszenie #51).
+#
+# Pole to nazwa i lematy (formy słownikowe) należące do niego. Słowa tekstu
+# są sprowadzane do lematów przez Morfeusza 2, więc „krowy”, „krowę”
+# i „krowami” liczą się jako „krowa”. Lematy są małymi literami (wielkość
+# liter nie ma znaczenia). Lemat może należeć do kilku pól.
+# Lista jest orientacyjna - do szybkiego przeglądu tematów wywiadu.
+
+[[theme]]
+key = "agriculture"
+label = { pl = "Rolnictwo i praca w polu", en = "Farming and field work" }
+lemmas = [
+    "pole", "rola", "ziemia", "gospodarstwo", "gospodarz", "gospodyni", "zboże",
+    "żyto", "pszenica", "owies", "jęczmień", "gryka", "proso", "ziemniak",
+    "kartofel", "burak", "len", "konopie", "siać", "siew", "orać", "pług",
+    "brona", "bronować", "kosić", "kosa", "sierp", "żąć", "żniwa", "snop",
+    "kopa", "młócić", "cep", "młocarnia", "stodoła", "siano", "łąka", "grabie",
+    "widły", "wóz", "nawóz", "gnój", "obora", "chlew", "stajnia", "krowa",
+    "koń", "świnia", "owca", "koza", "kura", "gęś", "kaczka", "cielę", "byk",
+    "wół", "paść", "pastuch", "mleko", "doić", "traktor", "kombajn",
+]
+
+[[theme]]
+key = "home"
+label = { pl = "Dom i zagroda", en = "House and farmstead" }
+lemmas = [
+    "dom", "chałupa", "chata", "izba", "kuchnia", "piec", "komora", "sień",
+    "strych", "piwnica", "dach", "strzecha", "ściana", "okno", "drzwi",
+    "podłoga", "powała", "belka", "komin", "studnia", "płot", "podwórze",
+    "zagroda", "ogród", "sad", "stół", "ława", "łóżko", "skrzynia", "szafa",
+    "kredens", "lampa", "budować", "mieszkać",
+]
+
+[[theme]]
+key = "family"
+label = { pl = "Rodzina", en = "Family" }
+lemmas = [
+    "rodzina", "matka", "ojciec", "mama", "tata", "tatuś", "mamusia", "syn",
+    "córka", "brat", "siostra", "dziadek", "babcia", "babka", "wnuk",
+    "wnuczka", "ciotka", "ciocia", "wujek", "stryj", "teść", "teściowa",
+    "zięć", "synowa", "szwagier", "szwagierka", "mąż", "żona", "rodzic",
+    "dziecko", "rodzeństwo", "krewny",
+]
+
+[[theme]]
+key = "baptism"
+label = { pl = "Narodziny i chrzest", en = "Birth and baptism" }
+lemmas = [
+    "chrzest", "chrzcić", "ochrzcić", "chrzciny", "chrzestny", "chrzestna",
+    "kum", "kuma", "kumoter", "akuszerka", "położna", "poród", "urodzić",
+    "rodzić", "niemowlę", "kołyska", "powijak", "becik", "imię", "wywód",
+]
+
+[[theme]]
+key = "wedding"
+label = { pl = "Zaloty i wesele", en = "Courtship and wedding" }
+lemmas = [
+    "wesele", "ślub", "swat", "swatka", "zaręczyny", "zapowiedź", "narzeczony",
+    "narzeczona", "panna", "kawaler", "drużba", "druhna",
+    "starosta", "starościna", "oczepiny", "czepiec", "wianek", "posag",
+    "wiano", "korowaj", "kapela", "muzykant", "tańczyć", "taniec", "żenić",
+    "ożenić",
+]
+
+[[theme]]
+key = "funeral"
+label = { pl = "Śmierć i pogrzeb", en = "Death and funeral" }
+lemmas = [
+    "pogrzeb", "umrzeć", "umierać", "śmierć", "zmarły", "nieboszczyk",
+    "nieboszczka", "trumna", "grób", "cmentarz", "pochować", "chować",
+    "czuwanie", "różaniec", "żałoba", "dzwon", "dzwonić", "konać", "stypa",
+    "krzyż", "wieniec", "płakać", "lament",
+]
+
+[[theme]]
+key = "holidays"
+label = { pl = "Święta i obrzędy doroczne", en = "Holidays and yearly customs" }
+lemmas = [
+    "święto", "wigilia", "opłatek", "kolęda", "kolędnik", "kolędować",
+    "szopka", "gwiazdor", "choinka", "wielkanoc", "pisanka", "kraszanka",
+    "święconka", "święcić", "palma", "śmigus", "dyngus", "post", "zapusty",
+    "ostatki", "dożynki", "wieniec", "sobótka", "odpust", "jarmark",
+    "zaduszki", "andrzejki",
+]
+
+[[theme]]
+key = "religion"
+label = { pl = "Religia i Kościół", en = "Religion and Church" }
+lemmas = [
+    "kościół", "ksiądz", "proboszcz", "msza", "nabożeństwo", "pacierz",
+    "modlić", "modlitwa", "kapliczka", "procesja", "pielgrzymka", "spowiedź",
+    "komunia", "bierzmowanie", "parafia", "bóg", "święty", "obraz", "figura",
+    "różaniec", "organista",
+]
+
+[[theme]]
+key = "food"
+label = { pl = "Jedzenie i kuchnia", en = "Food and cooking" }
+lemmas = [
+    "jedzenie", "jeść", "gotować", "chleb", "bochenek", "mąka", "masło",
+    "ser", "twaróg", "śmietana", "jajko", "mięso", "kiełbasa", "słonina",
+    "smalec", "kapusta", "ziemniak", "kartofel", "zupa", "barszcz", "żur",
+    "kasza", "kluska", "pieróg", "placek", "kołacz", "obiad", "śniadanie",
+    "kolacja", "wieczerza", "garnek", "misa", "łyżka", "dzieża", "upiec",
+]
+
+[[theme]]
+key = "crafts"
+label = { pl = "Rzemiosło i prace domowe", en = "Crafts and household work" }
+lemmas = [
+    "kowal", "kuźnia", "stolarz", "cieśla", "garncarz", "kołodziej",
+    "bednarz", "szewc", "krawiec", "krawcowa", "tkać", "tkaczka", "krosno",
+    "przędza", "prząść", "kądziel", "wrzeciono", "kołowrotek", "wełna",
+    "płótno", "haft", "haftować", "szyć", "prać", "pranie", "maglować",
+    "młyn", "młynarz", "wiatrak",
+]
+
+[[theme]]
+key = "clothing"
+label = { pl = "Strój i ubiór", en = "Costume and clothing" }
+lemmas = [
+    "strój", "ubranie", "koszula", "spódnica", "zapaska", "fartuch",
+    "gorset", "serdak", "kaftan", "sukmana", "kożuch", "chustka", "chusta",
+    "czapka", "kapelusz", "buty", "trzewik", "korale", "suknia", "spodnie",
+    "nosić",
+]
+
+[[theme]]
+key = "beliefs"
+label = { pl = "Wierzenia i magia", en = "Beliefs and magic" }
+lemmas = [
+    "diabeł", "czart", "czarownica", "czary", "strzyga", "upiór", "zmora",
+    "duch", "straszyć", "urok", "odczyniać", "zamawiać", "znachor",
+    "znachorka", "wróżyć", "wróżba", "sen", "przesąd", "topielec",
+    "utopiec", "bies",
+]
+
+[[theme]]
+key = "health"
+label = { pl = "Zdrowie i lecznictwo", en = "Health and healing" }
+lemmas = [
+    "choroba", "chorować", "chory", "lekarz", "doktor", "lekarstwo", "leczyć",
+    "zioło", "napar", "rumianek", "szpital", "gorączka", "ból", "boleć",
+    "kaszel", "rana", "bańka",
+]
+
+[[theme]]
+key = "war"
+label = { pl = "Wojna i okupacja", en = "War and occupation" }
+lemmas = [
+    "wojna", "wojsko", "żołnierz", "front", "okupacja", "niemiec", "rusek",
+    "rosjanin", "partyzant", "bomba", "strzelać", "uciekać", "obóz",
+    "wywieźć", "kontyngent", "wyzwolenie", "sowiet",
+]
+
+[[theme]]
+key = "school"
+label = { pl = "Szkoła i dzieciństwo", en = "School and childhood" }
+lemmas = [
+    "szkoła", "nauczyciel", "nauczycielka", "uczyć", "lekcja", "zeszyt",
+    "elementarz", "tablica", "klasa", "zabawa", "bawić", "zabawka",
+    "dzieciństwo",
+]

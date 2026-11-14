@@ -257,6 +257,7 @@ TUTORIALS: tuple[Tutorial, ...] = (
         (
             _step("intro"),
             _step("stats", "toolbar_export"),
+            _step("themes", "toolbar_export"),
             _step("goal", "daily_goal_label", "toolbar_settings", MORE),
             _step("snapshot", "toolbar_save", MORE),
             _step("history", "toolbar_save", MORE),
