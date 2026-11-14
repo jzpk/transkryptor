@@ -10,8 +10,9 @@
 # Pierwsze pięć reguł odpowiada regułom z wersji 0.4.0. Labializacja
 # początkowego „o-” daje tylko propozycje - stosowana automatycznie
 # zmieniała prawie każde słowo na „o-”. Szósta (wygłosowe „ę” → „e”) jest
-# domyślnie zaznaczona. Pewności kolejnych są orientacyjne - kalibracja na
-# korpusie w fazie 15.
+# domyślnie zaznaczona, tak jak następne „ę”/„ą” przed spółgłoską
+# szczelinową (zgłoszenie #60). Pewności kolejnych są orientacyjne -
+# kalibracja na korpusie w fazie 15.
 
 [[rule]]
 code = "SUG-NAS-A-FINAL"
@@ -71,6 +72,44 @@ replacement = 'e'
 confidence = 0.6
 example = "się"
 auto_apply = true
+
+[[rule]]
+code = "SUG-NAS-E-FRIC"
+label = { pl = "Nosowość: „ę” przed spółgłoską szczelinową → „eⁿ” (szczęście → szczeⁿście)", en = "Nasality: “ę” before a fricative → “eⁿ” (szczęście → szczeⁿście)" }
+description = { pl = "Rozłożenie nosowości: przed spółgłoską szczelinową (f, w, s, z, sz, ż, rz, ś, ź, ch, h, także fi, wi, si, zi, chi, hi) „ę” traci rezonans nosowy, a przed spółgłoską pojawia się krótkie „ⁿ” (przykład: szczęście → szczeⁿście).", en = "Split nasality: before a fricative (f, w, s, z, sz, ż, rz, ś, ź, ch, h, also fi, wi, si, zi, chi, hi) “ę” loses its nasal resonance and a short “ⁿ” appears before the consonant (example: szczęście → szczeⁿście)." }
+pattern = 'ę(?=[fwszśźżh]|rz|ch)'
+replacement = 'e^n'
+confidence = 0.4
+example = "szczęście"
+auto_apply = true
+
+[[rule]]
+code = "SUG-NAS-A-FRIC"
+label = { pl = "Nosowość: „ą” przed spółgłoską szczelinową → „oⁿ” (wąsy → woⁿsy)", en = "Nasality: “ą” before a fricative → “oⁿ” (wąsy → woⁿsy)" }
+description = { pl = "Rozłożenie nosowości: przed spółgłoską szczelinową (f, w, s, z, sz, ż, rz, ś, ź, ch, h, także fi, wi, si, zi, chi, hi) „ą” traci rezonans nosowy, a przed spółgłoską pojawia się krótkie „ⁿ” (przykład: wąsy → woⁿsy).", en = "Split nasality: before a fricative (f, w, s, z, sz, ż, rz, ś, ź, ch, h, also fi, wi, si, zi, chi, hi) “ą” loses its nasal resonance and a short “ⁿ” appears before the consonant (example: wąsy → woⁿsy)." }
+pattern = 'ą(?=[fwszśźżh]|rz|ch)'
+replacement = 'o^n'
+confidence = 0.4
+example = "wąsy"
+auto_apply = true
+
+[[rule]]
+code = "SUG-NAS-E-SOFT"
+label = { pl = "Nosowość: „ę” przed ś/ź → „e” z „ń” w indeksie górnym (gęsi → geńsi)", en = "Nasality: “ę” before ś/ź → “e” with superscript “ń” (gęsi → geńsi)" }
+description = { pl = "Rozłożenie nosowości z upodobnieniem do miękkiej szczelinowej (ś, si, ź, zi): krótki element nosowy zapisany jako „ń” w indeksie górnym. Alternatywa dla „eⁿ”.", en = "Split nasality assimilated to a soft fricative (ś, si, ź, zi): the short nasal element written as a superscript “ń”. Alternative to “eⁿ”." }
+pattern = 'ę(?=[śź]|[sz]i)'
+replacement = 'e^ń'
+confidence = 0.2
+example = "gęsi"
+
+[[rule]]
+code = "SUG-NAS-A-SOFT"
+label = { pl = "Nosowość: „ą” przed ś/ź → „o” z „ń” w indeksie górnym (gąsienica → gońsienica)", en = "Nasality: “ą” before ś/ź → “o” with superscript “ń” (gąsienica → gońsienica)" }
+description = { pl = "Rozłożenie nosowości z upodobnieniem do miękkiej szczelinowej (ś, si, ź, zi): krótki element nosowy zapisany jako „ń” w indeksie górnym. Alternatywa dla „oⁿ”.", en = "Split nasality assimilated to a soft fricative (ś, si, ź, zi): the short nasal element written as a superscript “ń”. Alternative to “oⁿ”." }
+pattern = 'ą(?=[śź]|[sz]i)'
+replacement = 'o^ń'
+confidence = 0.2
+example = "gąsienica"
 
 [[rule]]
 code = "SUG-L-INTERVOC"

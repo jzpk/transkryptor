@@ -12,7 +12,10 @@ mają części mowy.
 
 Znaczniki Morfeusza są grupowane w tradycyjne części mowy: imiesłowy
 należą do czasownika, odsłownik (``ger``) - do rzeczownika, a zaimki
-przymiotne (np. „ten”) Morfeusz oznacza jako przymiotniki. Analiza jednego
+przymiotne (np. „ten”) Morfeusz oznacza jako przymiotniki. Zaimki
+rzeczowne (np. „kto”, „nic”, „wszystko”) Morfeusz oznacza jako rzeczowniki
+(``subst``), więc rozpoznajemy je po lemacie (``NOUN_PRONOUN_LEMMAS``,
+zgłoszenie #53). Analiza jednego
 słowa jest zapamiętywana, więc ponowne przejście po tekście jest tanie.
 """
 
@@ -69,6 +72,29 @@ TAG_CLASSES: dict[str, PartOfSpeech] = {
     "interj": PartOfSpeech.INTERJECTION,
 }
 
+# Lematy zaimków rzeczownych, które Morfeusz oznacza jako ``subst``.
+NOUN_PRONOUN_LEMMAS = frozenset(
+    (
+        "kto",
+        "ktoś",
+        "ktokolwiek",
+        "ktosik",
+        "któż",
+        "nikt",
+        "co",
+        "coś",
+        "cokolwiek",
+        "cosik",
+        "cóż",
+        "nic",
+        "wszystko",
+        "wszyscy",
+        "to",
+        "tamto",
+        "owo",
+    )
+)
+
 # Kolejność wyboru części mowy słowa wieloznacznego.
 PRIORITY = (
     PartOfSpeech.PREPOSITION,
@@ -83,9 +109,10 @@ PRIORITY = (
     PartOfSpeech.NOUN,
 )
 
-# Interpretacje słowa: znacznik (np. ``"fin:sg:ter:imperf"``) i kwalifikatory
-# (np. ``["muz."]``).
-Interpretation = tuple[str, Sequence[str]]
+# Interpretacje słowa: znacznik (np. ``"fin:sg:ter:imperf"``), kwalifikatory
+# (np. ``["muz."]``) i lemat (np. ``"co:S"`` - po dwukropku rozróżnienie
+# homonimów).
+Interpretation = tuple[str, Sequence[str], str]
 Analyser = Callable[[str], Iterable[Interpretation]]
 
 
@@ -103,7 +130,9 @@ def morfeusz_analyser() -> Analyser:
 
     def analyse(word: str) -> list[Interpretation]:
         # Wynik: (od, do, (forma, lemat, znacznik, nazwy, kwalifikatory)).
-        return [(found[2], found[4]) for _, _, found in morfeusz.analyse(word)]
+        return [
+            (found[2], found[4], found[1]) for _, _, found in morfeusz.analyse(word)
+        ]
 
     return analyse
 
@@ -138,9 +167,13 @@ class PartOfSpeechTagger:
 def _choose(interpretations: list[Interpretation]) -> PartOfSpeech | None:
     """Jedna część mowy z interpretacji (bez rzadkich, gdy są inne)."""
     plain = [entry for entry in interpretations if not entry[1]]
-    parts = {
-        TAG_CLASSES[tag.split(":", 1)[0]]
-        for tag, _ in plain or interpretations
-        if tag.split(":", 1)[0] in TAG_CLASSES
-    }
+    parts = {_part(tag, lemma) for tag, _, lemma in plain or interpretations}
     return next((part for part in PRIORITY if part in parts), None)
+
+
+def _part(tag: str, lemma: str) -> PartOfSpeech | None:
+    """Część mowy jednej interpretacji; zaimek rzeczowny zamiast rzeczownika."""
+    part = TAG_CLASSES.get(tag.split(":", 1)[0])
+    if part is PartOfSpeech.NOUN and lemma.split(":", 1)[0] in NOUN_PRONOUN_LEMMAS:
+        return PartOfSpeech.PRONOUN
+    return part

@@ -10,22 +10,24 @@ from transkryptor.document.parts_of_speech import (
     morfeusz_analyser,
 )
 
-FAKE_TAGS: dict[str, list[tuple[str, list[str]]]] = {
-    "piec": [("subst:sg:nom.acc:m3", []), ("inf:imperf", [])],
-    "kot": [("subst:sg:nom:m2", [])],
-    "szybko": [("subst:sg:voc:f", []), ("adv:pos", [])],
-    "do": [("prep:gen", []), ("subst:sg:nom:n:ncol", ["muz."])],
-    "re": [("subst:sg:nom:n:ncol", ["muz."])],
-    "w": [("prep:loc:nwok", [])],
-    "som": [("ign", [])],
+FAKE_TAGS: dict[str, list[tuple[str, list[str], str]]] = {
+    "piec": [("subst:sg:nom.acc:m3", [], "piec"), ("inf:imperf", [], "piec")],
+    "kot": [("subst:sg:nom:m2", [], "kot")],
+    "szybko": [("subst:sg:voc:f", [], "szybka"), ("adv:pos", [], "szybko")],
+    "do": [("prep:gen", [], "do"), ("subst:sg:nom:n:ncol", ["muz."], "do:S")],
+    "re": [("subst:sg:nom:n:ncol", ["muz."], "re")],
+    "w": [("prep:loc:nwok", [], "w")],
+    "som": [("ign", [], "som")],
+    "kogo": [("subst:sg:gen:m1", [], "kto"), ("subst:sg:voc:f", ["hist."], "koga")],
+    "nic": [("subst:sg:gen:n:ncol", [], "nic"), ("subst:pl:gen:f", [], "nica")],
 }
 
 
 def fake_tagger(calls: list[str] | None = None) -> PartOfSpeechTagger:
-    def analyse(word: str) -> list[tuple[str, list[str]]]:
+    def analyse(word: str) -> list[tuple[str, list[str], str]]:
         if calls is not None:
             calls.append(word)
-        return FAKE_TAGS.get(word, [("ign", [])])
+        return FAKE_TAGS.get(word, [("ign", [], word)])
 
     return PartOfSpeechTagger(analyse)
 
@@ -46,6 +48,14 @@ def test_qualified_interpretations_count_only_when_alone() -> None:
     tagger = fake_tagger()
     assert tagger.part_of("do") == PartOfSpeech.PREPOSITION
     assert tagger.part_of("re") == PartOfSpeech.NOUN
+
+
+def test_noun_pronouns_are_pronouns_not_nouns() -> None:
+    """Zgłoszenie #53: zaimki rzeczowne (``subst`` u Morfeusza) to zaimki."""
+    tagger = fake_tagger()
+    assert tagger.part_of("kogo") == PartOfSpeech.PRONOUN
+    assert tagger.part_of("nic") == PartOfSpeech.PRONOUN
+    assert tagger.part_of("kot") == PartOfSpeech.NOUN
 
 
 def test_spans_cover_only_wanted_parts() -> None:
@@ -86,6 +96,12 @@ def test_each_word_is_analysed_once() -> None:
         ("że", PartOfSpeech.CONJUNCTION),
         ("się", PartOfSpeech.PARTICLE),
         ("ach", PartOfSpeech.INTERJECTION),
+        ("kto", PartOfSpeech.PRONOUN),
+        ("nikogo", PartOfSpeech.PRONOUN),
+        ("niczego", PartOfSpeech.PRONOUN),
+        ("ktoś", PartOfSpeech.PRONOUN),
+        ("wszystko", PartOfSpeech.PRONOUN),
+        ("tamto", PartOfSpeech.PRONOUN),
     ],
 )
 def test_morfeusz_recognises_parts_of_speech(word, part) -> None:
