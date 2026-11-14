@@ -93,7 +93,9 @@ class TestNasalBeforeFricative:
     def test_automatic_variant_wins_over_soft_alternative(self) -> None:
         selected = {r.code for r in default_rules() if r.auto_apply}
         kept = without_overlaps(propose("szczęście"), selected)
-        assert [s.code for s in kept] == ["SUG-NAS-E-FRIC"]
+        assert [s.code for s in kept if s.code.startswith("SUG-NAS")] == [
+            "SUG-NAS-E-FRIC"
+        ]
 
 
 class TestLabialInitialO:

@@ -6,6 +6,8 @@ i zapisu szkicu dla tekstu, który już jest w edytorze (zgł. #62,
 ``RecheckController``). Lista przeglądu pokazuje zmiany zastosowane
 automatycznie i pozostałe propozycje (REQ-16); wybór i zastosowanie
 pozycji sekcja zgłasza sygnałami, a tekst zmienia ``ReviewController``.
+Lista „Region / gwara” nad regułami zaznacza reguły typowe dla gwar
+regionu (zgłoszenie #49, ``notation.regions``).
 """
 
 from __future__ import annotations
@@ -14,6 +16,7 @@ from PySide6.QtCore import QObject, Qt, Signal
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QCheckBox,
+    QComboBox,
     QHBoxLayout,
     QLabel,
     QListWidget,
@@ -25,6 +28,12 @@ from PySide6.QtWidgets import (
 )
 
 from transkryptor.i18n import tr
+from transkryptor.notation.regions import (
+    NO_REGION,
+    builtin_regions,
+    region_by_key,
+    region_selection,
+)
 from transkryptor.notation.suggestions import (
     RuleInfo,
     Suggestion,
@@ -49,12 +58,15 @@ class ReviewSection(QObject):
     review_item_apply_requested = Signal(int)
     review_finish_requested = Signal()
     recheck_requested = Signal()  # „Sprawdź tekst” - gotowa transkrypcja
+    region_changed = Signal(str)  # klucz regionu wybranego przez użytkownika
 
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
         self._review_applied: list[bool] = []
         self._review_box: Collapsible | None = None
         self.rule_checkboxes: dict[str, QCheckBox] = {}
+        self._rules: tuple[RuleInfo, ...] = ()
+        self._build_region_combo()
         self._rules_layout = QVBoxLayout()
         self._rules_layout.setSpacing(2)
 
@@ -120,11 +132,33 @@ class ReviewSection(QObject):
         recheck_row = QHBoxLayout()
         recheck_row.addWidget(self.recheck_button)
         recheck_row.addStretch(1)
+        region_row = QHBoxLayout()
+        region_row.addWidget(QLabel(tr("asr.region")))
+        region_row.addWidget(self.region_combo, stretch=1)
         return step(
             "2",
             tr("asr.step.rules"),
-            [self.rules_toggle, self.rules_details, recheck_row],
+            [
+                region_row,
+                self.region_hint,
+                self.rules_toggle,
+                self.rules_details,
+                recheck_row,
+            ],
         )
+
+    def _build_region_combo(self) -> None:
+        self.region_combo = QComboBox()
+        self.region_combo.setObjectName("asr_region_combo")
+        self.region_combo.setToolTip(tr("asr.region.tooltip"))
+        self.region_combo.addItem(tr("asr.region.none"), NO_REGION)
+        for region in builtin_regions():
+            self.region_combo.addItem(region.label_text, region.key)
+        self.region_hint = QLabel()
+        self.region_hint.setWordWrap(True)
+        set_props(self.region_hint, role="muted")
+        self.region_hint.setVisible(False)
+        self.region_combo.activated.connect(self._on_region_activated)
 
     def build_review_box(self) -> Collapsible:
         """Zwinięta lista przeglądu z przyciskami pod listą segmentów.
@@ -149,6 +183,7 @@ class ReviewSection(QObject):
         """
         previous = self.selected_rule_codes()
         known = set(self.rule_checkboxes)
+        self._rules = tuple(rules)
         for checkbox in self.rule_checkboxes.values():
             self._rules_layout.removeWidget(checkbox)
             checkbox.deleteLater()
@@ -163,6 +198,31 @@ class ReviewSection(QObject):
             self._rules_layout.addWidget(checkbox)
             self.rule_checkboxes[rule.code] = checkbox
         self._update_rules_summary()
+
+    # --- region ---------------------------------------------------------------
+
+    def region(self) -> str:
+        """Klucz wybranego regionu (pusty - bez regionu)."""
+        return str(self.region_combo.currentData())
+
+    def set_region(self, key: str) -> None:
+        """Wybiera region (np. z ustawień) i jego reguły, bez ``region_changed``."""
+        index = self.region_combo.findData(key)
+        self.region_combo.setCurrentIndex(max(index, 0))
+        self._apply_region()
+
+    def _on_region_activated(self, _index: int) -> None:
+        self._apply_region()
+        self.region_changed.emit(self.region())
+
+    def _apply_region(self) -> None:
+        """Zaznacza reguły domyślne i reguły wybranego regionu."""
+        selection = region_selection(self.region(), self._rules)
+        for code, checkbox in self.rule_checkboxes.items():
+            checkbox.setChecked(code in selection)
+        region = region_by_key(self.region())
+        self.region_hint.setText(region.description_text if region else "")
+        self.region_hint.setVisible(region is not None)
 
     def selected_rule_codes(self) -> frozenset[str]:
         """Kody reguł zaznaczonych do automatycznego stosowania (REQ-15)."""

@@ -36,6 +36,7 @@ from transkryptor.export.superscript import MODES as SUPERSCRIPT_MODES
 from transkryptor.export.superscript import UNICODE
 from transkryptor.i18n import LANGUAGES
 from transkryptor.notation.ellipsis import DEFAULT_ELLIPSIS_STYLE, EllipsisStyle
+from transkryptor.notation.regions import region_keys
 from transkryptor.notation.validator import enabled_codes
 
 SCHEMA_VERSION = 1
@@ -344,6 +345,9 @@ class AsrSettings:
     # Układ „pytanie - odpowiedź”: zdania ze znakiem zapytania - badacz,
     # pozostałe - informator (zamiast podziału na mówców według głosu).
     qa_layout: bool = False
+    # Region/gwara wybrany w panelu ASR (``notation.regions``): zaznacza
+    # reguły fonetyczne typowe dla regionu; pusty - bez regionu.
+    region: str = ""
 
     @property
     def word_threshold(self) -> float:
@@ -473,6 +477,7 @@ _FIELDS: tuple[_Field, ...] = (
     _Field("asr", "lowercase_plain", bool),
     _Field("asr", "verbatim", bool),
     _Field("asr", "qa_layout", bool),
+    _Field("asr", "region", str, choices=region_keys()),
     _Field("review", "comment_author", str),
     _Field("tutorial", "show_on_start", bool),
 )

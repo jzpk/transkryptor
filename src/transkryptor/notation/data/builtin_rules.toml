@@ -166,3 +166,33 @@ pattern = '(?<=[bpwfmkg])o'
 replacement = '^uo'
 confidence = 0.2
 example = "kosa"
+
+# Mazurzenie (zgłoszenie #49): spółgłoski szumiące wymawiane jak syczące.
+# Tylko propozycje - zaznacza je wybór regionu z mazurzeniem w panelu ASR.
+
+[[rule]]
+code = "SUG-MAZ-SZ"
+label = { pl = "Mazurzenie: „sz” → „s” (szafa → safa)", en = "Mazurzenie: “sz” → “s” (szafa → safa)" }
+description = { pl = "Mazurzenie: „sz” wymawiane jak „s” (przykład: szafa → safa). Typowe m.in. dla Mazowsza, Kurpiów, Małopolski i Podhala.", en = "Mazurzenie: “sz” pronounced as “s” (example: szafa → safa). Typical of Mazovia, Kurpie, Lesser Poland and Podhale, among others." }
+pattern = 'sz'
+replacement = 's'
+confidence = 0.2
+example = "szafa"
+
+[[rule]]
+code = "SUG-MAZ-CZ"
+label = { pl = "Mazurzenie: „cz” → „c” (czas → cas)", en = "Mazurzenie: “cz” → “c” (czas → cas)" }
+description = { pl = "Mazurzenie: „cz” wymawiane jak „c” (przykład: czas → cas).", en = "Mazurzenie: “cz” pronounced as “c” (example: czas → cas)." }
+pattern = 'cz'
+replacement = 'c'
+confidence = 0.2
+example = "czas"
+
+[[rule]]
+code = "SUG-MAZ-ZH"
+label = { pl = "Mazurzenie: „ż” → „z” (żaba → zaba)", en = "Mazurzenie: “ż” → “z” (żaba → zaba)" }
+description = { pl = "Mazurzenie: „ż” (także w „dż”) wymawiane jak „z” (przykłady: żaba → zaba, dżdżownica → dzdzownica). „Rz” zostaje bez zmian.", en = "Mazurzenie: “ż” (also in “dż”) pronounced as “z” (examples: żaba → zaba, dżdżownica → dzdzownica). “Rz” stays unchanged." }
+pattern = 'ż'
+replacement = 'z'
+confidence = 0.2
+example = "żaba"

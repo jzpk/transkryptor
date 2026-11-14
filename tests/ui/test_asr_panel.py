@@ -1142,3 +1142,37 @@ class TestDraftStepLayout:
         step_widget.resize(60, step_widget.height())
         assert button.text() == ""
         assert button.toolTip() == tr("asr.delete.tooltip")
+
+
+class TestRegion:
+    """Zgłoszenie #49: wybór regionu zaznacza reguły typowe dla jego gwar."""
+
+    def test_region_checks_its_rules(self, panel) -> None:
+        review = panel.review
+        assert review.region() == ""
+        assert not review.rule_checkboxes["SUG-MAZ-SZ"].isChecked()
+        assert review.region_hint.isHidden()
+        spy = QSignalSpy(panel.region_changed)
+        review.region_combo.setCurrentIndex(review.region_combo.findData("kurpie"))
+        review.region_combo.activated.emit(review.region_combo.currentIndex())
+        assert spy.count() == 1 and spy.at(0) == ["kurpie"]
+        assert review.rule_checkboxes["SUG-MAZ-SZ"].isChecked()
+        assert review.rule_checkboxes["SUG-NAS-A-FINAL"].isChecked()
+        assert not review.region_hint.isHidden()
+        review.set_region("")
+        assert not review.rule_checkboxes["SUG-MAZ-SZ"].isChecked()
+
+    def test_settings_region_keeps_manual_choices(self, panel) -> None:
+        panel.set_asr_settings(AsrSettings(region="wielkopolska"))
+        boxes = panel.review.rule_checkboxes
+        assert boxes["SUG-VOICE-K-PAIR"].isChecked()
+        boxes["SUG-VOICE-K-PAIR"].setChecked(False)
+        # Te same ustawienia (np. po zmianie modelu) nie cofają zmiany ręcznej.
+        panel.set_asr_settings(AsrSettings(region="wielkopolska"))
+        assert not boxes["SUG-VOICE-K-PAIR"].isChecked()
+
+    def test_region_choice_is_saved(self, window_with_asr) -> None:
+        review = window_with_asr.asr_panel.review
+        review.region_combo.setCurrentIndex(review.region_combo.findData("podhale"))
+        review.region_combo.activated.emit(review.region_combo.currentIndex())
+        assert window_with_asr.settings_store.current.asr.region == "podhale"

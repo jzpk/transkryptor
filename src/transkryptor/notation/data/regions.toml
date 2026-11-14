@@ -1,0 +1,49 @@
+# Regiony i gwary do wyboru w panelu ASR (zgłoszenie #49).
+#
+# Region to zestaw reguł fonetycznych (kody z builtin_rules.toml) typowych
+# dla gwar regionu. Wybór regionu zaznacza w kroku „Reguły” reguły
+# domyślne (auto_apply) i reguły regionu; transkrybent może potem zmienić
+# zaznaczenie. Zestawy są orientacyjne - cechy gwar różnią się między
+# wsiami, a reguły dają tylko zapis, który trzeba sprawdzić ze słuchu.
+
+[[region]]
+key = "wielkopolska"
+label = { pl = "Wielkopolska", en = "Greater Poland" }
+description = { pl = "Udźwięczniająca fonetyka międzywyrazowa, labializacja „o”, rozłożona nosowość przed szczelinowymi.", en = "Voicing across word boundaries, labialized “o”, split nasality before fricatives." }
+rules = ["SUG-VOICE-S-PAIR", "SUG-VOICE-K-PAIR", "SUG-LAB-U-INIT", "SUG-LAB-MEDIAL"]
+
+[[region]]
+key = "gorny-slask"
+label = { pl = "Górny Śląsk", en = "Upper Silesia" }
+description = { pl = "Udźwięczniająca fonetyka międzywyrazowa, labializacja nagłosowego „o” (ôd), bez mazurzenia.", en = "Voicing across word boundaries, labialized initial “o” (ôd), no mazurzenie." }
+rules = ["SUG-VOICE-S-PAIR", "SUG-VOICE-K-PAIR", "SUG-LAB-U-INIT"]
+
+[[region]]
+key = "malopolska"
+label = { pl = "Małopolska", en = "Lesser Poland" }
+description = { pl = "Mazurzenie i udźwięczniająca fonetyka międzywyrazowa.", en = "Mazurzenie and voicing across word boundaries." }
+rules = ["SUG-MAZ-SZ", "SUG-MAZ-CZ", "SUG-MAZ-ZH", "SUG-VOICE-S-PAIR", "SUG-VOICE-K-PAIR"]
+
+[[region]]
+key = "podhale"
+label = { pl = "Podhale", en = "Podhale" }
+description = { pl = "Mazurzenie i udźwięczniająca fonetyka międzywyrazowa.", en = "Mazurzenie and voicing across word boundaries." }
+rules = ["SUG-MAZ-SZ", "SUG-MAZ-CZ", "SUG-MAZ-ZH", "SUG-VOICE-S-PAIR", "SUG-VOICE-K-PAIR"]
+
+[[region]]
+key = "mazowsze"
+label = { pl = "Mazowsze", en = "Mazovia" }
+description = { pl = "Mazurzenie, ubezdźwięczniająca fonetyka międzywyrazowa.", en = "Mazurzenie, devoicing across word boundaries." }
+rules = ["SUG-MAZ-SZ", "SUG-MAZ-CZ", "SUG-MAZ-ZH"]
+
+[[region]]
+key = "kurpie"
+label = { pl = "Kurpie", en = "Kurpie" }
+description = { pl = "Mazurzenie, ubezdźwięczniająca fonetyka międzywyrazowa.", en = "Mazurzenie, devoicing across word boundaries." }
+rules = ["SUG-MAZ-SZ", "SUG-MAZ-CZ", "SUG-MAZ-ZH"]
+
+[[region]]
+key = "warmia"
+label = { pl = "Warmia", en = "Warmia" }
+description = { pl = "Mazurzenie, ubezdźwięczniająca fonetyka międzywyrazowa.", en = "Mazurzenie, devoicing across word boundaries." }
+rules = ["SUG-MAZ-SZ", "SUG-MAZ-CZ", "SUG-MAZ-ZH"]

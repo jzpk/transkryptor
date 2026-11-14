@@ -12,8 +12,8 @@ Panel jest cienkim kontenerem trzech sekcji, które układa w kolejne kroki:
 
 - ``models`` (:class:`ModelSection`) - krok „Model”: wybór modelu
   z rejestru, pobranie za zgodą i usunięcie (REQ-10);
-- ``review`` (:class:`ReviewSection`) - krok „Reguły” i lista przeglądu
-  zastosowanych zmian i propozycji (REQ-16);
+- ``review`` (:class:`ReviewSection`) - krok „Reguły” z wyborem regionu
+  i lista przeglądu zastosowanych zmian i propozycji (REQ-16);
 - ``transcription`` (:class:`TranscriptionSection`) - krok „Szkic”:
   kontekst i słownik (REQ-21), transkrypcja i lista segmentów;
 - ``recording`` (:class:`RecordingFieldsBox`) - dane nagrania z metryczki
@@ -69,6 +69,7 @@ class AsrPanel(QWidget):
     speakers_edit_requested = Signal()  # „Mówcy…” - edycja listy mówców
     metadata_edited = Signal(str, str)  # pole metryczki z kroku „Szkic”, wartość
     qa_layout_changed = Signal(bool)  # układ „pytanie - odpowiedź” w panelu
+    region_changed = Signal(str)  # region/gwara wybrany w kroku „Reguły”
     context_changed = Signal()  # kontekst nagrania lub słownik projektu
 
     def __init__(
@@ -155,6 +156,7 @@ class AsrPanel(QWidget):
         )
         self.review.review_finish_requested.connect(self.review_finish_requested)
         self.review.recheck_requested.connect(self.recheck_requested)
+        self.review.region_changed.connect(self.region_changed)
 
     def _on_model_status_changed(self) -> None:
         self.transcription.update_availability()
@@ -188,9 +190,15 @@ class AsrPanel(QWidget):
         self.models.select_model(key)
 
     def set_asr_settings(self, settings: AsrSettings) -> None:
-        """Stosuje ustawienia ASR: model, katalog modeli, urządzenie, słownik."""
+        """Stosuje ustawienia ASR: model, katalog modeli, urządzenie, słownik.
+
+        Region zmieniony w ustawieniach zaznacza na nowo swoje reguły; ten sam
+        region nie zmienia zaznaczenia transkrybenta.
+        """
         self.transcription.apply_settings(settings)
         self.models.apply_settings(settings)
+        if settings.region != self.review.region():
+            self.review.set_region(settings.region)
 
     def download_consent_text(self) -> str:
         return self.models.download_consent_text()

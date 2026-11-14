@@ -188,6 +188,7 @@ TUTORIALS: tuple[Tutorial, ...] = (
             _step("panel", "toolbar_asr", MORE),
             _step("model", "asr_model_step", "asr_panel"),
             _step("rules", "asr_rules_step", "asr_panel"),
+            _step("region", "asr_region_combo", "asr_rules_step", "asr_panel"),
             _step("recheck", "asr_recheck_button", "asr_rules_step", "asr_panel"),
             _step("draft", "asr_transcription_step", "asr_panel"),
             _step("clip", "asr_clip_only_check", "asr_panel"),
