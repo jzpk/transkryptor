@@ -146,7 +146,11 @@ Wykonaj kolejno, zanim zgłosisz, że praca jest skończona:
    do kodu wyjścia 0. W trybie jednego agenta na `release/X.Y` uruchom
    `./merge-forward.sh X.Y`; na `main` krok pomijasz.
 
-**Nigdy nie wykonuj `git push`.** Wysyłkę na remote robi użytkownik.
+7. **Wysyłka:** gałęzie `release/X.Y` możesz wypychać sam
+   (`git push origin release/X.Y`), ale dopiero po kroku 6 zakończonym
+   kodem 0. **Nigdy nie wypychaj `main`** (ani `--force`/`--all`/`--mirror`,
+   które by go dotknęły) - `main` wysyła na remote użytkownik. Innych gałęzi
+   (gałęzie agentów, cudze gałęzie zdalne) też nie wypychaj bez prośby.
 
 ## Gałęzie wydań: main i release/X.Y
 
@@ -154,8 +158,15 @@ Wykonaj kolejno, zanim zgłosisz, że praca jest skończona:
 - `release/X.Y` to poprawki wydanej serii (0.8.2, 0.8.3, ...); z niej
   wychodzą wydania `patch`. Gałąź zakłada workflow „Wydanie” przy wydaniu
   minor/major z `main`.
+- `release/X.Y` następnej serii (np. `release/0.9` przed wydaniem 0.9.0)
+  może istnieć wcześniej, gdy użytkownik ją założył do prac nad tą wersją.
+  Pracuje się na niej jak na każdej `release/X.Y` - commit, potem
+  `./merge-forward.sh X.Y` - więc zawsze jest zawarta w `main` i push
+  workflow „Wydanie” (`HEAD:refs/heads/release/X.Y` przy wydaniu minor
+  z `main`) przesuwa ją fast-forwardem.
 - Wybór gałęzi: zgłoszenie z milestone'em serii (np. `0.8.2`, `0.8.x`)
-  robisz na `release/0.8`; pozostałe na `main`. W razie wątpliwości zapytaj
+  robisz na `release/0.8`; pozostałe na `main` albo na wskazanej przez
+  użytkownika `release/X.Y` następnej serii. W razie wątpliwości zapytaj
   użytkownika.
 - Scalamy tylko w przód: `release/X.Y` → `main` (`./merge-forward.sh X.Y`,
   wywoływany też przez `./integrate.sh release/X.Y`). Nigdy nie scalaj
