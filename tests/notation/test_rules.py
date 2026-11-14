@@ -29,7 +29,7 @@ ORIGINAL_CODES = (
     "SUG-LAB-U-INIT",
 )
 # Reguły dodane później, ale domyślnie zaznaczone w panelu ASR.
-AUTO_APPLIED_LATER = ("SUG-NAS-E-FINAL",)
+AUTO_APPLIED_LATER = ("SUG-NAS-E-FINAL", "SUG-NAS-E-FRIC", "SUG-NAS-A-FRIC")
 
 
 def user_rule(**overrides) -> str:
@@ -101,6 +101,10 @@ class TestBuiltinRules:
             ("się", "SUG-NAS-E-FINAL", "sie"),
             ("myszkę", "SUG-NAS-E-FINAL", "myszke"),
             ("szyję", "SUG-NAS-E-FINAL", "szyje"),
+            ("szczęście", "SUG-NAS-E-FRIC", "szczenście"),
+            ("wąsy", "SUG-NAS-A-FRIC", "wonsy"),
+            ("gęsi", "SUG-NAS-E-SOFT", "geńsi"),
+            ("gąsienica", "SUG-NAS-A-SOFT", "gońsienica"),
         ],
     )
     def test_new_rules_follow_specification_examples(

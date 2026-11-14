@@ -1,6 +1,8 @@
 """Testy regułowych kandydatów zapisu fonetycznego (sugestie, nie mutacje)."""
 
-from transkryptor.notation.suggestions import propose
+import pytest
+
+from transkryptor.notation.suggestions import default_rules, propose, without_overlaps
 
 
 def by_code(suggestions, code):
@@ -43,6 +45,57 @@ class TestNasalBeforeLabial:
         assert suggestion.replacement == "om"
 
 
+class TestNasalBeforeFricative:
+    """Zgłoszenie #60: rozłożenie nosowości przed spółgłoską szczelinową."""
+
+    @pytest.mark.parametrize(
+        "word",
+        [
+            "węfel",
+            "męwi",
+            "gęsty",
+            "węzeł",
+            "męszczyzna",
+            "księżyc",
+            "dręrze",
+            "szczęście",
+            "gęzi",
+            "męchy",
+            "węhać",
+        ],
+    )
+    def test_e_ogonek_before_each_fricative(self, word: str) -> None:
+        (suggestion,) = by_code(propose(word), "SUG-NAS-E-FRIC")
+        assert suggestion.original == "ę"
+        assert suggestion.replacement == "en"
+        assert suggestion.superscript_ranges == ((1, 2),)
+
+    @pytest.mark.parametrize(
+        "word", ["wąs", "wąwóz", "dąży", "mąż", "wąchać", "gąsior"]
+    )
+    def test_a_ogonek_before_each_fricative(self, word: str) -> None:
+        (suggestion,) = by_code(propose(word), "SUG-NAS-A-FRIC")
+        assert suggestion.replacement == "on"
+        assert suggestion.superscript_ranges == ((1, 2),)
+
+    @pytest.mark.parametrize("word", ["będzie", "zęby", "ręka", "kąt", "się"])
+    def test_not_before_other_consonants(self, word: str) -> None:
+        assert not by_code(propose(word), "SUG-NAS-E-FRIC")
+        assert not by_code(propose(word), "SUG-NAS-A-FRIC")
+
+    def test_soft_variant_only_before_soft_fricative(self) -> None:
+        (suggestion,) = by_code(propose("gęś"), "SUG-NAS-E-SOFT")
+        assert suggestion.replacement == "eń"
+        assert suggestion.superscript_ranges == ((1, 2),)
+        assert not by_code(propose("gęsty"), "SUG-NAS-E-SOFT")
+        assert by_code(propose("wąziutki"), "SUG-NAS-A-SOFT")
+
+    def test_automatic_variant_wins_over_soft_alternative(self) -> None:
+        selected = {r.code for r in default_rules() if r.auto_apply}
+        kept = without_overlaps(propose("szczęście"), selected)
+        assert [s.code for s in kept] == ["SUG-NAS-E-FRIC"]
+
+
 class TestLabialInitialO:
     def test_initial_o_proposes_superscript_u(self) -> None:
         """Przykład ze specyfikacji: od → uod."""
@@ -83,6 +136,8 @@ class TestRuleCatalogue:
             "SUG-NAS-E-LAB",
             "SUG-NAS-A-LAB",
             "SUG-NAS-E-FINAL",
+            "SUG-NAS-E-FRIC",
+            "SUG-NAS-A-FRIC",
         }
         assert all(rule.label and 0 < rule.confidence <= 1 for rule in rules)
 
