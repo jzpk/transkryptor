@@ -1,6 +1,10 @@
 """Testy etykiet zgłoszeń: wersja programu albo wdrożenie strony."""
 
+import io
+import urllib.error
+import urllib.request
 from datetime import UTC, datetime
+from email.message import Message
 
 import pytest
 
@@ -40,6 +44,7 @@ class FakeTracker:
         self.issues = issues
         self.created: list[tuple[str, str]] = []
         self.added: list[tuple[int, str]] = []
+        self.closed: list[tuple[int, str]] = []
 
     def closed_issues(self):
         return iter(self.issues)
@@ -52,6 +57,9 @@ class FakeTracker:
 
     def add_label(self, number, name):
         self.added.append((number, name))
+
+    def close_issue(self, number, comment):
+        self.closed.append((number, comment))
 
 
 @pytest.mark.parametrize("name", ["0.8.0", "v0.7.2", "10.20.30"])
@@ -179,6 +187,39 @@ def test_patch_release_labels_only_issues_named_in_its_commits(tmp_path) -> None
     )
     assert main(["release", "0.8.2", "--messages", str(messages)], tracker) == 0
     assert tracker.added == [(1, "0.8.2"), (2, "0.8.2")]
+    assert tracker.closed == [(1, "Wydane w wersji 0.8.2.")]
+
+
+def test_patch_release_closes_open_issues_even_when_already_labelled(
+    tmp_path, capsys
+) -> None:
+    """Ponowne uruchomienie po nadaniu etykiety nadal zamyka zgłoszenie."""
+    tracker = FakeTracker(
+        [
+            issue(1, "0.8.2", state="open", closed_at=None, reason=None),
+            issue(
+                2, state="open", closed_at=None, reason=None, pull_request={"url": "x"}
+            ),
+        ]
+    )
+    messages = tmp_path / "commits.txt"
+    messages.write_text("Fixes #1\nFixes #2\n", encoding="utf-8")
+    assert main(["release", "0.8.2", "--messages", str(messages)], tracker) == 0
+    assert tracker.added == []
+    assert tracker.closed == [(1, "Wydane w wersji 0.8.2.")]
+    assert "Zamknięte: #1" in capsys.readouterr().out
+
+
+def test_dry_run_closes_nothing(tmp_path, capsys) -> None:
+    tracker = FakeTracker([issue(1, state="open", closed_at=None, reason=None)])
+    messages = tmp_path / "commits.txt"
+    messages.write_text("Fixes #1\n", encoding="utf-8")
+    assert (
+        main(["release", "0.8.2", "--messages", str(messages), "--dry-run"], tracker)
+        == 0
+    )
+    assert tracker.closed == []
+    assert "Do zamknięcia: #1" in capsys.readouterr().out
 
 
 def test_release_needs_cutoff_or_messages() -> None:
@@ -189,3 +230,32 @@ def test_release_needs_cutoff_or_messages() -> None:
             ["release", "0.8.2", "--cutoff", "2026-11-20", "--messages", "x"],
             FakeTracker([]),
         )
+
+
+def test_github_close_removes_in_progress_comments_and_closes(monkeypatch) -> None:
+    requests: list[tuple[str, str, bytes | None]] = []
+
+    class Response(io.BytesIO):
+        headers: dict[str, str] = {}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+    def fake_urlopen(request, timeout):
+        requests.append((request.get_method(), request.full_url, request.data))
+        if request.get_method() == "DELETE":
+            raise urllib.error.HTTPError(request.full_url, 404, "", Message(), None)
+        return Response(b"{}")
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    GitHubIssues("o/r", "t").close_issue(60, "Wydane w wersji 0.8.2.")
+    base = "https://api.github.com/repos/o/r/issues/60"
+    assert [(method, url) for method, url, _ in requests] == [
+        ("DELETE", f"{base}/labels/in%20progress"),
+        ("POST", f"{base}/comments"),
+        ("PATCH", base),
+    ]
+    assert b'"state_reason": "completed"' in (requests[2][2] or b"")

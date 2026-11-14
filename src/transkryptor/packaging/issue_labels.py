@@ -20,8 +20,11 @@ Wydanie poprawkowe z gałęzi ``release/X.Y`` nie może brać granicy czasowej:
 zgłoszenia zrobione w tym czasie tylko na ``main`` (następna wersja minor)
 dostałyby numer poprawki. Wtedy workflow podaje opisy commitów z zakresu
 ``vPOPRZEDNIA..vX.Y.Z`` (``--messages``), a etykietę dostają zgłoszenia
-wskazane w nich przez ``Closes/Fixes/Resolves #N`` - także jeszcze otwarte,
-bo zamyka je dopiero scalenie gałęzi wydania do ``main``.
+wskazane w nich przez ``Closes/Fixes/Resolves #N``. Wskazane zgłoszenia,
+które są jeszcze otwarte, workflow od razu zamyka (jako zrobione,
+z komentarzem o wersji, bez etykiety ``in progress``): GitHub nie zamyka ich sam, bo commity trafiają do
+``main`` w scaleniu wypchniętym przez workflow (``GITHUB_TOKEN``), a późniejszy
+push ``main`` już ich nie zawiera jako nowych.
 
 Granicą (``--cutoff``) jest chwila publikacji wydania albo początek
 wdrożenia strony, a nie data commita: commit bywa starszy niż zamknięcie
@@ -49,6 +52,7 @@ import os
 import re
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
@@ -61,6 +65,9 @@ WEBPAGE_LABEL = "webpage"
 # Nazwy etykiet po angielsku, jak pozostałe etykiety repozytorium; GitHub
 # porównuje je bez rozróżniania wielkości liter, więc tu też.
 DEPLOYED_LABEL = "Deployed"
+# Zdejmowana przy zamknięciu tutaj: zamknięcie tokenem GITHUB_TOKEN nie
+# uruchamia workflow „Zgłoszenia”, który robi to przy zamknięciu ręcznym.
+IN_PROGRESS_LABEL = "in progress"
 LABEL_COLOR = "2da44e"
 API_URL = "https://api.github.com"
 
@@ -115,6 +122,8 @@ class IssueTracker(Protocol):
 
     def add_label(self, number: int, name: str) -> None: ...
 
+    def close_issue(self, number: int, comment: str) -> None: ...
+
 
 def is_version_label(name: str) -> bool:
     """Czy etykieta to numer wersji (``0.8.0`` albo ``v0.8.0``)."""
@@ -159,6 +168,11 @@ def issues_to_label(
 def referenced_issues(messages: str) -> list[int]:
     """Numery zgłoszeń zamykanych w opisach commitów (``Closes #12``)."""
     return sorted({int(match) for match in _CLOSING_REFERENCE.findall(messages)})
+
+
+def _closable_reference(issue: Issue) -> bool:
+    """Otwarte zgłoszenie (nie PR) wskazane w commicie wydania."""
+    return not issue.get("pull_request") and issue.get("state") == "open"
 
 
 def _labelable_reference(issue: Issue, target: Target) -> bool:
@@ -229,6 +243,23 @@ class GitHubIssues:
             "POST", f"{self._base}/issues/{number}/labels", {"labels": [name]}
         )
 
+    def close_issue(self, number: int, comment: str) -> None:
+        label = urllib.parse.quote(IN_PROGRESS_LABEL)
+        try:
+            self._request("DELETE", f"{self._base}/issues/{number}/labels/{label}")
+        except urllib.error.HTTPError as error:
+            # 404: zgłoszenie nie ma tej etykiety.
+            if error.code != 404:
+                raise
+        self._request(
+            "POST", f"{self._base}/issues/{number}/comments", {"body": comment}
+        )
+        self._request(
+            "PATCH",
+            f"{self._base}/issues/{number}",
+            {"state": "closed", "state_reason": "completed"},
+        )
+
 
 def label_issues(
     tracker: IssueTracker, target: Target, cutoff: datetime, *, dry_run: bool = False
@@ -239,15 +270,35 @@ def label_issues(
 
 
 def label_referenced_issues(
-    tracker: IssueTracker, target: Target, messages: str, *, dry_run: bool = False
+    tracker: IssueTracker,
+    target: Target,
+    messages: str,
+    *,
+    dry_run: bool = False,
+    closed: list[int] | None = None,
 ) -> list[int]:
-    """Nadaje etykietę ``target`` zgłoszeniom zamykanym w opisach commitów."""
+    """Nadaje etykietę ``target`` zgłoszeniom zamykanym w opisach commitów.
+
+    Wskazane zgłoszenia, które są jeszcze otwarte, zamyka jako zrobione
+    (lista zamkniętych: ``closed``, gdy podana).
+    """
     numbers = []
+    to_close = []
     for number in referenced_issues(messages):
         found = tracker.issue(number)
-        if found is not None and _labelable_reference(found, target):
+        if found is None:
+            continue
+        if _labelable_reference(found, target):
             numbers.append(number)
-    return _apply(tracker, target, numbers, dry_run=dry_run)
+        if _closable_reference(found):
+            to_close.append(number)
+    labelled = _apply(tracker, target, numbers, dry_run=dry_run)
+    if not dry_run:
+        for number in to_close:
+            tracker.close_issue(number, f"Wydane w wersji {target.label}.")
+    if closed is not None:
+        closed.extend(to_close)
+    return labelled
 
 
 def _apply(
@@ -304,12 +355,14 @@ def main(argv: list[str] | None = None, tracker: IssueTracker | None = None) -> 
         target = release_target(args.version) if args.mode == "release" else SITE_TARGET
         tracker = tracker or _tracker_from_env()
         messages: Path | None = getattr(args, "messages", None)
+        closed: list[int] = []
         if messages is not None:
             numbers = label_referenced_issues(
                 tracker,
                 target,
                 messages.read_text(encoding="utf-8"),
                 dry_run=args.dry_run,
+                closed=closed,
             )
         else:
             numbers = label_issues(tracker, target, args.cutoff, dry_run=args.dry_run)
@@ -319,6 +372,9 @@ def main(argv: list[str] | None = None, tracker: IssueTracker | None = None) -> 
     verb = "Do oznaczenia" if args.dry_run else "Oznaczone"
     listed = ", ".join(f"#{number}" for number in numbers) or "brak"
     print(f"{verb} etykietą {target.label}: {listed}")
+    if closed:
+        closing = "Do zamknięcia" if args.dry_run else "Zamknięte"
+        print(f"{closing}: " + ", ".join(f"#{number}" for number in closed))
     return 0
 
 
