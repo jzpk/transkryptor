@@ -6,6 +6,65 @@ workflow „Wydanie” złoży je w sekcję z numerem wersji i datą, a jej tre�
 trafi do sekcji „Nowości w tej wersji” not wydania. Brak fragmentów blokuje
 wydanie.
 
+## 0.9.0 - 2026-11-14
+
+- **Profile notacji:** reguły fonetyczne, włączone reguły walidatora,
+  wstawki, autouzupełnianie, zapis wielokropka, szablon DOCX i pola
+  metryczki tworzą teraz nazwany profil. Na nowej zakładce **Profile**
+  w ustawieniach utworzysz profil pusty albo kopię bieżącego, zmienisz
+  nazwę, usuniesz profil oraz wyeksportujesz go do pliku i zaimportujesz -
+  tak zespół dzieli się jednym standardem zapisu. Szybki przełącznik
+  profilu jest w pasku stanu. Projekt zapamiętuje swój profil i przełącza
+  go przy otwarciu (z informacją w pasku stanu). Przy pierwszym
+  uruchomieniu obecne ustawienia stają się profilem **Domyślny** - bez
+  utraty danych.
+- **Powiększenie tekstu edytora:** Ctrl + `+` / Ctrl + `-` / Ctrl + `0`
+  oraz Ctrl + kółko myszy powiększają i pomniejszają sam tekst edytora
+  (50-300%), bez zmiany reszty okna. Powiększenie jest zapamiętywane
+  i można je ustawić na zakładce **Wygląd**; indeks górny, podkreślenia
+  ostrzeżeń i etykiety mówców skalują się razem z tekstem. Skróty zmienisz
+  na zakładce **Skróty**.
+- **Dostępność:** na zakładce **Wygląd** są nowy motyw **Wysoki kontrast**,
+  skala całego interfejsu (100-200%, działa po ponownym uruchomieniu)
+  i opcja **Ogranicz animacje**, która wyłącza pulsującą ramkę
+  i przesuwanie podświetlenia w samouczkach. Wskazówki walidatora mają
+  w edytorze kreskowane podkreślenie, a na liście ostrzeżeń - inną ikonę
+  niż ostrzeżenia; segmenty szkicu ASR o niskiej pewności mają ikonę - są
+  rozróżnialne bez rozpoznawania barw. Przyciski, pola metryczki, lista
+  ostrzeżeń i komentarzy mają nazwy i opisy dla czytników ekranu,
+  a komunikaty paska stanu są ogłaszane. Element z fokusem klawiatury ma
+  wyraźną ramkę także na przyciskach narzędzi, polach wyboru i listach.
+  Nowy samouczek **Wygoda i dostępność** opisuje profile, powiększenie,
+  wygląd i pracę z klawiatury.
+
+- **Region i gwara w panelu ASR:** w kroku „Reguły” lista „Region /
+  gwara” (Wielkopolska, Górny Śląsk, Małopolska, Podhale, Mazowsze,
+  Kurpie, Warmia) zaznacza reguły fonetyczne typowe dla gwar regionu,
+  np. mazurzenie albo udźwięczniającą fonetykę międzywyrazową. Wybór jest
+  zapamiętywany; pojedyncze reguły można potem zmienić.
+- **Reguły mazurzenia:** nowe propozycje „sz” → „s”, „cz” → „c”
+  i „ż” → „z” (szafa → safa, czas → cas, żaba → zaba).
+
+- **Pola tematyczne:** nowe polecenie „Pola tematyczne…” w menu przycisku
+  eksportu grupuje słowa kluczowe wywiadu w tematy (m.in. rolnictwo, dom,
+  rodzina, chrzest, wesele, pogrzeb, święta, jedzenie, wojna) z liczbą
+  wystąpień i formami z tekstu. Słowa są sprowadzane do formy słownikowej,
+  a przy przypisanych mówcach liczą się tylko wypowiedzi informatorów.
+  Listę można zapisać do CSV albo XLSX.
+
+- **Części mowy w eksporcie:** okno „Eksportuj jako…” ma grupę
+  „Podświetl części mowy” - zaznaczone części mowy dostają w DOCX, ODT
+  i PDF tło w swoim kolorze, jak w edytorze. Na starcie zaznaczone są
+  części mowy podświetlane w edytorze; bez zaznaczenia plik powstaje
+  bez podświetleń.
+
+- **Zapis szkicu ASR w profilu notacji:** profil obejmuje też zapis
+  szkicu - skróty w pełnym brzmieniu, zapis mowy, zapis dosłowny, układ
+  „pytanie - odpowiedź” i region gwary. Po przełączeniu profilu panel ASR
+  od razu pokazuje jego ustawienia. Starsze pliki profili dostają
+  ustawienia domyślne, a region nieznany w tej wersji programu jest
+  pomijany.
+
 ## 0.8.2 - 2026-11-14
 
 - **Zaimki rzeczowne w podświetleniu części mowy:** „kto”, „nikt”, „nic”,
