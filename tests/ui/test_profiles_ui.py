@@ -7,7 +7,12 @@ import pytest
 from PySide6.QtWidgets import QInputDialog, QMessageBox
 
 from transkryptor.notation.rules import PhoneticRule
-from transkryptor.profiles import NotationProfile, ProfileLibrary, dumps_profile
+from transkryptor.profiles import (
+    DraftNotation,
+    NotationProfile,
+    ProfileLibrary,
+    dumps_profile,
+)
 from transkryptor.settings import (
     EditorSettings,
     NotationSettings,
@@ -106,6 +111,23 @@ class TestSwitching:
         assert window.profiles.switch_to("Domyślny")
         assert [rule.code for rule in window.rules_store.user_rules] == ["USR-UO"]
         assert not window.settings_store.current.editor.autocomplete
+
+    def test_switch_updates_asr_draft_notation(self, window, isolated_profiles) -> None:
+        draft = DraftNotation(verbatim=False, qa_layout=True, region="gorny-slask")
+        library(isolated_profiles).save(NotationProfile("Śląsk", draft=draft))
+        window.profiles.profiles_changed.emit()
+        assert window.profiles.switch_to("Śląsk")
+        asr = window.settings_store.current.asr
+        assert (asr.verbatim, asr.qa_layout, asr.region) == (
+            False,
+            True,
+            "gorny-slask",
+        )
+        assert window.asr_panel.review.region() == "gorny-slask"
+        assert window.asr_panel.transcription.qa_layout_check.isChecked()
+        assert window.profiles.switch_to("Domyślny")
+        assert window.asr_panel.review.region() == ""
+        assert not window.asr_panel.transcription.qa_layout_check.isChecked()
 
     def test_switcher_in_status_bar(self, window, isolated_profiles) -> None:
         library(isolated_profiles).save(NotationProfile("Gwara"))
