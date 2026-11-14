@@ -11,6 +11,7 @@ from transkryptor.document.project.migrations import migrate
 from transkryptor.errors import ProfileError
 from transkryptor.profiles import (
     PROFILE_FORMAT,
+    DraftNotation,
     NotationProfile,
     ProfileLibrary,
     apply_profile,
@@ -22,6 +23,7 @@ from transkryptor.profiles import (
 )
 from transkryptor.settings import (
     AppearanceSettings,
+    AsrSettings,
     EditorSettings,
     ExportSettings,
     MetadataSettings,
@@ -45,6 +47,13 @@ def team_settings() -> Settings:
         notation=NotationSettings(ellipsis_style="ascii"),
         export=ExportSettings(template_path="/zespol/szablon.docx"),
         metadata=MetadataSettings(fields_spec=encode_fields(fields)),
+        asr=AsrSettings(
+            expand_abbreviations=False,
+            lowercase_plain=False,
+            verbatim=False,
+            qa_layout=True,
+            region="gorny-slask",
+        ),
     )
 
 
@@ -54,6 +63,18 @@ class TestCaptureAndApply:
         applied = apply_profile(profile, Settings())
         assert capture("Zespół A", applied, RULES) == profile
         assert applied.profiles.active == "Zespół A"
+        assert applied.asr.qa_layout is True
+        assert applied.asr.region == "gorny-slask"
+
+    def test_draft_notation_switches_but_model_stays(self) -> None:
+        settings = replace(
+            team_settings(), asr=replace(team_settings().asr, model_key="small")
+        )
+        applied = apply_profile(NotationProfile("Pusty"), settings)
+        assert applied.asr.model_key == "small"
+        assert applied.asr.region == ""
+        assert applied.asr.qa_layout is False
+        assert applied.asr.expand_abbreviations is True
 
     def test_apply_keeps_fields_outside_the_profile(self) -> None:
         settings = replace(
@@ -80,6 +101,30 @@ class TestFileFormat:
         assert data["snippets"] == [{"text": "a^1", "shortcut": "Ctrl+Alt+1"}]
         assert data["docx_template"] == "/zespol/szablon.docx"
         assert data["metadata_fields"][2]["enabled"] is False
+        assert data["asr_draft"] == {
+            "expand_abbreviations": False,
+            "lowercase_plain": False,
+            "verbatim": False,
+            "qa_layout": True,
+            "region": "gorny-slask",
+        }
+
+    def test_older_profile_without_draft_gets_defaults(self) -> None:
+        raw = json.dumps({"format": PROFILE_FORMAT, "version": 1, "name": "A"})
+        assert loads_profile(raw, "a.json").draft == DraftNotation()
+
+    def test_unknown_region_falls_back_to_none(self) -> None:
+        raw = json.dumps(
+            {
+                "format": PROFILE_FORMAT,
+                "version": 1,
+                "name": "A",
+                "asr_draft": {"region": "atlantyda", "qa_layout": True},
+            }
+        )
+        draft = loads_profile(raw, "a.json").draft
+        assert draft.region == ""
+        assert draft.qa_layout is True
 
     def test_default_profile_has_no_metadata_override(self) -> None:
         data = json.loads(dumps_profile(NotationProfile("A")))
@@ -102,6 +147,14 @@ class TestFileFormat:
                     "version": 1,
                     "name": "A",
                     "ellipsis_style": "kropki",
+                }
+            ),
+            json.dumps(
+                {
+                    "format": PROFILE_FORMAT,
+                    "version": 1,
+                    "name": "A",
+                    "asr_draft": {"verbatim": "tak"},
                 }
             ),
         ],

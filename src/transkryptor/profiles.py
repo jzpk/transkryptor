@@ -1,8 +1,9 @@
 """Profile notacji: nazwane zestawy ustawień zapisu (bez zależności od Qt).
 
 Profil obejmuje reguły fonetyczne użytkownika (TOML), włączone reguły
-walidatora, wstawki, autouzupełnianie, zapis wielokropka, szablon DOCX
-i pola metryczki. Bieżące ustawienia (``Settings``) i plik reguł
+walidatora, wstawki, autouzupełnianie, zapis wielokropka, szablon DOCX,
+pola metryczki oraz zapis szkicu ASR (skróty, zapis mowy, zapis dosłowny,
+układ „pytanie - odpowiedź” i region gwary). Bieżące ustawienia (``Settings``) i plik reguł
 użytkownika są roboczą kopią aktywnego profilu: :func:`capture` robi
 z nich profil, a :func:`apply_profile` wpisuje profil z powrotem.
 
@@ -28,7 +29,9 @@ from transkryptor.errors import ProfileError
 from transkryptor.fileio import write_atomic
 from transkryptor.i18n import tr
 from transkryptor.notation.ellipsis import DEFAULT_ELLIPSIS_STYLE, EllipsisStyle
+from transkryptor.notation.regions import region_keys
 from transkryptor.settings import (
+    AsrSettings,
     Settings,
     decode_bool_map,
     decode_snippets,
@@ -42,6 +45,43 @@ PROFILE_FORMAT = "transkryptor-profile"
 PROFILE_VERSION = 1
 PROFILE_SUFFIX = ".json"
 NAME_MAX_LENGTH = 80
+
+
+_DRAFT_DEFAULTS = AsrSettings()
+
+
+@dataclass(frozen=True)
+class DraftNotation:
+    """Zapis szkicu ASR należący do profilu (pola ``AsrSettings``)."""
+
+    expand_abbreviations: bool = _DRAFT_DEFAULTS.expand_abbreviations
+    lowercase_plain: bool = _DRAFT_DEFAULTS.lowercase_plain
+    verbatim: bool = _DRAFT_DEFAULTS.verbatim
+    qa_layout: bool = _DRAFT_DEFAULTS.qa_layout
+    region: str = _DRAFT_DEFAULTS.region
+
+    @classmethod
+    def from_settings(cls, asr: AsrSettings) -> DraftNotation:
+        return cls(
+            expand_abbreviations=asr.expand_abbreviations,
+            lowercase_plain=asr.lowercase_plain,
+            verbatim=asr.verbatim,
+            qa_layout=asr.qa_layout,
+            region=asr.region,
+        )
+
+    def applied_to(self, asr: AsrSettings) -> AsrSettings:
+        return replace(
+            asr,
+            expand_abbreviations=self.expand_abbreviations,
+            lowercase_plain=self.lowercase_plain,
+            verbatim=self.verbatim,
+            qa_layout=self.qa_layout,
+            region=self.region,
+        )
+
+
+_DRAFT_FLAGS = ("expand_abbreviations", "lowercase_plain", "verbatim", "qa_layout")
 
 
 @dataclass(frozen=True)
@@ -60,6 +100,7 @@ class NotationProfile:
     ellipsis_style: str = DEFAULT_ELLIPSIS_STYLE.value
     template_path: str = ""
     metadata_fields_spec: str = ""
+    draft: DraftNotation = DraftNotation()
 
     def renamed(self, name: str) -> NotationProfile:
         return replace(self, name=name)
@@ -76,6 +117,7 @@ def capture(name: str, settings: Settings, rules_toml: str) -> NotationProfile:
         ellipsis_style=settings.notation.ellipsis_style,
         template_path=settings.export.template_path,
         metadata_fields_spec=settings.metadata.fields_spec,
+        draft=DraftNotation.from_settings(settings.asr),
     )
 
 
@@ -93,6 +135,7 @@ def apply_profile(profile: NotationProfile, settings: Settings) -> Settings:
         notation=replace(settings.notation, ellipsis_style=profile.ellipsis_style),
         export=replace(settings.export, template_path=profile.template_path),
         metadata=replace(settings.metadata, fields_spec=profile.metadata_fields_spec),
+        asr=profile.draft.applied_to(settings.asr),
         profiles=replace(settings.profiles, active=profile.name),
     )
 
@@ -133,6 +176,10 @@ def dumps_profile(profile: NotationProfile) -> str:
             if profile.metadata_fields_spec
             else None
         ),
+        "asr_draft": {
+            **{flag: getattr(profile.draft, flag) for flag in _DRAFT_FLAGS},
+            "region": profile.draft.region,
+        },
     }
     return json.dumps(data, ensure_ascii=False, indent=2) + "\n"
 
@@ -188,7 +235,29 @@ def _parse(data: dict[str, Any]) -> NotationProfile:
         ellipsis_style=ellipsis,
         template_path=_text(data.get("docx_template", "")),
         metadata_fields_spec=fields_spec,
+        draft=_parse_draft(data.get("asr_draft", {})),
     )
+
+
+def _parse_draft(value: object) -> DraftNotation:
+    """Zapis szkicu z profilu; brakujące pola (starsze profile) - domyślne.
+
+    Region nieznany w tej wersji programu nie unieważnia profilu - profil
+    działa wtedy bez regionu.
+    """
+    if not isinstance(value, dict):
+        raise TypeError("asr draft")
+    flags: dict[str, bool] = {}
+    for flag in _DRAFT_FLAGS:
+        flag_value = value.get(flag, getattr(_DRAFT_DEFAULTS, flag))
+        if not isinstance(flag_value, bool):
+            raise ValueError(flag)
+        flags[flag] = flag_value
+    region = _text(value.get("region", _DRAFT_DEFAULTS.region))
+    if region and region not in region_keys():
+        logger.warning("Unknown dialect region in profile: %s", region)
+        region = ""
+    return DraftNotation(**flags, region=region)
 
 
 def _text(value: object) -> str:
