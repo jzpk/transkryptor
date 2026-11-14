@@ -4,14 +4,15 @@ DOCX to format główny (przycisk na pasku, ``Ctrl+E``); pozostałe formaty
 z rejestru ``export/registry.py`` są w oknie „Eksportuj jako…”. Przed
 wyborem pliku ``confirm`` może zatrzymać eksport (raport gotowości do
 oddania, ``ui/readiness_dialog.py``). Raport eksportu (np. fragmenty
-z czasem interpolowanym) jest pokazywany po zapisie.
+z czasem interpolowanym) jest pokazywany po zapisie. Części mowy wybrane
+w oknie dostają w pliku tło w swoim kolorze (zgłoszenie #54).
 """
 
 from __future__ import annotations
 
 import logging
 from collections.abc import Callable, Iterable
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from PySide6.QtCore import QDate, QObject
@@ -21,10 +22,25 @@ from transkryptor.document.anchors import Anchor
 from transkryptor.document.comments import Comment
 from transkryptor.document.metadata import SIGNATURE, MetadataField
 from transkryptor.document.model import Document
+from transkryptor.document.parts_of_speech import (
+    PartOfSpeech,
+    PartOfSpeechTagger,
+    paper_color,
+)
 from transkryptor.errors import AppError
-from transkryptor.export.model import build_export_document
+from transkryptor.export.model import (
+    ExportDocument,
+    build_export_document,
+    with_highlights,
+)
 from transkryptor.export.options import ExportOptions, ExportReport
-from transkryptor.export.registry import DOCX, Exporter, exporter_by_key, run_export
+from transkryptor.export.registry import (
+    DOCX,
+    OPTION_PARTS_OF_SPEECH,
+    Exporter,
+    exporter_by_key,
+    run_export,
+)
 from transkryptor.i18n import tr
 from transkryptor.settings import ExportSettings
 from transkryptor.ui.export_dialog import ExportDialog
@@ -34,6 +50,24 @@ from transkryptor.ui.messages import show_error
 logger = logging.getLogger(__name__)
 
 DOCX_SUFFIX = ".docx"
+
+
+@dataclass(frozen=True)
+class ExportSources:
+    """Dane projektu i edytora, z których powstaje plik (wąskie funkcje).
+
+    ``pos_selected`` - części mowy podświetlane w edytorze (domyślny wybór
+    okna), ``pos_tagger`` - analizator części mowy albo None, gdy
+    niedostępny.
+    """
+
+    fields: Callable[[], tuple[MetadataField, ...]]
+    anchors: Callable[[], Iterable[Anchor]] = tuple
+    comments: Callable[[], Iterable[Comment]] = tuple
+    audio_path: Callable[[], Path | None] = lambda: None
+    font_family: Callable[[], str] = str
+    pos_selected: Callable[[], tuple[PartOfSpeech, ...]] = tuple
+    pos_tagger: Callable[[], PartOfSpeechTagger | None] = lambda: None
 
 
 class ExportController(QObject):
@@ -48,14 +82,10 @@ class ExportController(QObject):
         dialog_parent: QWidget,
         document: Callable[[], Document],
         date: Callable[[], QDate],
-        fields: Callable[[], tuple[MetadataField, ...]],
+        sources: ExportSources,
         on_exported: Callable[[], None],
-        anchors: Callable[[], Iterable[Anchor]] = tuple,
-        comments: Callable[[], Iterable[Comment]] = tuple,
-        audio_path: Callable[[], Path | None] = lambda: None,
         settings: Callable[[], ExportSettings] = ExportSettings,
         save_settings: Callable[[ExportSettings], None] = lambda _settings: None,
-        font_family: Callable[[], str] = str,
         confirm: Callable[[], bool] = lambda: True,
     ) -> None:
         super().__init__(dialog_parent)
@@ -63,13 +93,9 @@ class ExportController(QObject):
         self._document = document
         self._date = date
         self._on_exported = on_exported
-        self._fields = fields
-        self._anchors = anchors
-        self._comments = comments
-        self._audio_path = audio_path
+        self._sources = sources
         self._settings = settings
         self._save_settings = save_settings
-        self._font_family = font_family
         self._confirm = confirm
         self.last_report: ExportReport | None = None
 
@@ -91,15 +117,19 @@ class ExportController(QObject):
         )
 
     def has_times(self) -> bool:
-        return any(anchor.source != "word" for anchor in self._anchors())
+        return any(anchor.source != "word" for anchor in self._sources.anchors())
 
     def create_dialog(self) -> ExportDialog:
         settings = self._settings()
         return ExportDialog(
             settings.last_format,
-            settings.superscript_mode,
-            settings.untimed_mode,
+            ExportOptions(
+                superscript=settings.superscript_mode,
+                untimed=settings.untimed_mode,
+                parts_of_speech=self._sources.pos_selected(),
+            ),
             self.has_times(),
+            self._sources.pos_tagger() is not None,
             self._parent,
         )
 
@@ -158,16 +188,20 @@ class ExportController(QObject):
         options = replace(
             options,
             template_path=self._settings().template_path,
-            font_family=self._font_family(),
+            font_family=self._sources.font_family(),
         )
         try:
-            export_document = build_export_document(
-                document,
-                self._fields(),
-                anonymize,
-                self._anchors() if exporter.timed else (),
-                self._audio_path(),
-                self._comments() if exporter.key == DOCX else (),
+            export_document = self._highlighted(
+                build_export_document(
+                    document,
+                    self._sources.fields(),
+                    anonymize,
+                    self._sources.anchors() if exporter.timed else (),
+                    self._sources.audio_path(),
+                    self._sources.comments() if exporter.key == DOCX else (),
+                ),
+                exporter,
+                options.parts_of_speech,
             )
             report = run_export(exporter, export_document, path, options)
         except AppError as error:
@@ -186,6 +220,26 @@ class ExportController(QObject):
                 + "\n\n".join(report.warnings),
             )
         return True
+
+    def _highlighted(
+        self,
+        document: ExportDocument,
+        exporter: Exporter,
+        parts: tuple[PartOfSpeech, ...],
+    ) -> ExportDocument:
+        """Dokument z tłem słów wybranych części mowy (gdy format je zna)."""
+        if not parts or OPTION_PARTS_OF_SPEECH not in exporter.options:
+            return document
+        tagger = self._sources.pos_tagger()
+        if tagger is None:
+            return document
+        return with_highlights(
+            document,
+            [
+                (start, end, paper_color(part))
+                for start, end, part in tagger.spans(document.text, parts)
+            ],
+        )
 
     def _default_name(self, document: Document, anonymize: bool, suffix: str) -> str:
         base = document.metadata.get(SIGNATURE, "").strip() or tr(

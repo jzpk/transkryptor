@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Any
 
 from docx import Document as DocxDocument
+from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.text.paragraph import Paragraph
 from docx.text.run import Run
@@ -177,6 +178,8 @@ def _write(
             for start, end in _pieces(position, position + len(run.text), boundaries):
                 text = run.text[start - position : end - position]
                 docx_run = target_paragraph.add_run(text)
+                if run.highlight:
+                    _shade(docx_run, run.highlight)
                 if run.superscript:
                     docx_run.font.superscript = True
                 placed.append((start, end, docx_run))
@@ -187,6 +190,29 @@ def _write(
         _add_comment(docx, comment, placed)
 
     docx.save(str(target))
+
+
+# Elementy ``w:rPr`` po ``w:shd`` w kolejności schematu WordprocessingML.
+_AFTER_SHADING = (
+    "w:fitText",
+    "w:vertAlign",
+    "w:rtl",
+    "w:cs",
+    "w:em",
+    "w:lang",
+    "w:eastAsianLayout",
+    "w:specVanish",
+    "w:oMath",
+)
+
+
+def _shade(run: Run, color: str) -> None:
+    """Tło runu (cieniowanie ``w:shd``) - dowolny kolor, nie tylko zakreślacz."""
+    shading = OxmlElement("w:shd")
+    shading.set(qn("w:val"), "clear")
+    shading.set(qn("w:color"), "auto")
+    shading.set(qn("w:fill"), color.lstrip("#").upper())
+    run._r.get_or_add_rPr().insert_element_before(shading, *_AFTER_SHADING)
 
 
 def _pieces(start: int, end: int, boundaries: list[int]) -> list[tuple[int, int]]:

@@ -62,7 +62,7 @@ from transkryptor.ui.compare_controller import CompareController
 from transkryptor.ui.corpus_controller import CorpusController
 from transkryptor.ui.coverage_controller import CoverageController
 from transkryptor.ui.editor import TranscriptionEditor
-from transkryptor.ui.export_controller import ExportController
+from transkryptor.ui.export_controller import ExportController, ExportSources
 from transkryptor.ui.fonts import text_font_family
 from transkryptor.ui.highlights_menu import HighlightsMenu
 from transkryptor.ui.layout import (
@@ -265,16 +265,21 @@ class MainWindow(QMainWindow):
             self,
             lambda: self.document,
             self.date_edit.date,
-            lambda: self.settings_store.current.metadata.fields,
+            ExportSources(
+                fields=lambda: self.settings_store.current.metadata.fields,
+                anchors=self.sync.entries,
+                comments=self.comments.entries,
+                audio_path=lambda: self.player.source_path,
+                font_family=lambda: text_font_family(
+                    self.settings_store.current.editor.font_family
+                ),
+                # Późne wiązanie: podświetlenia części mowy powstają niżej.
+                pos_selected=lambda: self.parts_of_speech.selected,
+                pos_tagger=lambda: self.parts_of_speech.tagger(),
+            ),
             self._update_title,
-            anchors=self.sync.entries,
-            comments=self.comments.entries,
-            audio_path=lambda: self.player.source_path,
             settings=lambda: self.settings_store.current.export,
             save_settings=self._save_export_settings,
-            font_family=lambda: text_font_family(
-                self.settings_store.current.editor.font_family
-            ),
             # Późne wiązanie: kontroler notacji powstaje niżej.
             confirm=lambda: self.readiness.confirm_export(),
         )

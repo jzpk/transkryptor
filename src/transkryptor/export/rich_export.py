@@ -2,7 +2,7 @@
 
 Oba formaty powstają z jednego ``QTextDocument`` o układzie jak DOCX:
 tabela metryczki, akapit „Autor: … Data: …” i akapity tekstu z pogrubioną
-etykietą mówcy oraz indeksem górnym. ODT zapisuje ``QTextDocumentWriter``
+etykietą mówcy, indeksem górnym i tłem podświetleń. ODT zapisuje ``QTextDocumentWriter``
 (format ODF, indeks górny jako ``style:text-position``), PDF - ``QPdfWriter``
 (A4, czcionka osadzona). Wymaga działającej ``QGuiApplication``.
 """
@@ -13,6 +13,7 @@ from pathlib import Path
 
 from PySide6.QtCore import QMarginsF
 from PySide6.QtGui import (
+    QColor,
     QFont,
     QPageLayout,
     QPageSize,
@@ -80,7 +81,10 @@ def build_text_document(
             cursor.insertText(f"{paragraph.speaker.key}:", bold)
             cursor.insertText("\t", plain)
         for run in paragraph.runs:
-            cursor.insertText(run.text, superscript if run.superscript else plain)
+            run_format = QTextCharFormat(superscript if run.superscript else plain)
+            if run.highlight:
+                run_format.setBackground(QColor(run.highlight))
+            cursor.insertText(run.text, run_format)
     return qdoc
 
 

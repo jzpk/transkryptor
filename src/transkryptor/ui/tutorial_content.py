@@ -173,6 +173,7 @@ TUTORIALS: tuple[Tutorial, ...] = (
             ),
             _step("highlights", "toolbar_highlights", MORE),
             _step("pos", "toolbar_highlights", MORE),
+            _step("pos_export", "toolbar_export", MORE),
             _step(
                 "corpus",
                 "toolbar_corpus",

@@ -43,6 +43,32 @@ class PartOfSpeech(StrEnum):
     INTERJECTION = "interjection"
 
 
+# Kolor każdej części mowy (``#rrggbb``): w edytorze półprzezroczyste
+# podświetlenie, w eksporcie tło słowa (``paper_color``).
+POS_COLORS: dict[PartOfSpeech, str] = {
+    PartOfSpeech.NOUN: "#4a9df8",
+    PartOfSpeech.VERB: "#f0506e",
+    PartOfSpeech.ADJECTIVE: "#3cbf6a",
+    PartOfSpeech.ADVERB: "#ff8a2a",
+    PartOfSpeech.PRONOUN: "#9b6bff",
+    PartOfSpeech.NUMERAL: "#14b8b0",
+    PartOfSpeech.PREPOSITION: "#a0785a",
+    PartOfSpeech.CONJUNCTION: "#8a94a6",
+    PartOfSpeech.PARTICLE: "#e0b400",
+    PartOfSpeech.INTERJECTION: "#e05cd0",
+}
+# Krycie podświetlenia (0-255) - to samo w edytorze i na papierze.
+POS_ALPHA = 90
+
+
+def paper_color(part: PartOfSpeech) -> str:
+    """Kolor części mowy nałożony z krycia ``POS_ALPHA`` na białe tło."""
+    base = POS_COLORS[part].lstrip("#")
+    channels = (int(base[i : i + 2], 16) for i in (0, 2, 4))
+    mixed = (255 - (255 - value) * POS_ALPHA // 255 for value in channels)
+    return "#" + "".join(f"{value:02x}" for value in mixed)
+
+
 # Klasa gramatyczna Morfeusza (pierwszy człon znacznika) → część mowy.
 TAG_CLASSES: dict[str, PartOfSpeech] = {
     **dict.fromkeys(("subst", "depr", "ger"), PartOfSpeech.NOUN),
