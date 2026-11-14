@@ -1,10 +1,13 @@
 // Worker Cloudflare: przyjmuje zgłoszenia z formularza na stronie
-// (pages/zglos.html) i zakłada z nich issue na GitHubie.
+// (pages/zglos.html) i zakłada z nich issue na GitHubie, a pod adresem
+// /comment - komentarze do istniejących zgłoszeń z ich podglądu na stronie
+// (pages/zgloszenie.html).
 //
 // Token GitHuba jest tylko tutaj (sekret Workera), a nie na stronie. Worker:
 // - przyjmuje wyłącznie żądania ze strony projektu (ALLOWED_ORIGINS),
 // - sprawdza token Cloudflare Turnstile (ochrona przed botami),
-// - ogranicza liczbę zgłoszeń z jednego adresu IP (REPORT_LIMITER, opcjonalnie),
+// - ogranicza liczbę zgłoszeń i komentarzy z jednego adresu IP
+//   (REPORT_LIMITER, opcjonalnie, wspólny limit),
 // - po cichu odrzuca formularze z wypełnionym polem-pułapką,
 // - pilnuje długości pól i wyłącza wzmianki @użytkownik w treści.
 //
@@ -27,6 +30,21 @@ export const LIMITS = {
   version: [0, 40],
   system: [0, 120],
 };
+
+export const COMMENT_LIMITS = {
+  text: [10, 5000],
+};
+
+export const COMMENT_PATH = "/comment";
+
+// Stopki wpisów z formularzy. Podgląd zgłoszenia na stronie (pages/issue.js)
+// rozpoznaje po nich wpisy z formularza i ukrywa stopkę - zmieniając
+// początek napisu, popraw też FORM_FOOTER w pages/issue.js.
+export const REPORT_FOOTER =
+  "_Zgłoszenie z formularza na stronie programu. Osoba zgłaszająca może " +
+  "nie mieć konta na GitHubie - odpowiedzi w tym wątku zobaczy w Statusie " +
+  "zgłoszeń na stronie programu._";
+export const COMMENT_FOOTER = "_Komentarz z formularza na stronie programu._";
 
 // Całe żądanie - z zapasem na kodowanie JSON polskich znaków.
 const MAX_BODY_BYTES = 32 * 1024;
@@ -72,8 +90,9 @@ export async function handle(request, env, fetchImpl) {
   if (typeof data.website === "string" && data.website.trim() !== "") {
     return json({ ok: true }, 201, cors);
   }
-  const report = parseReport(data);
-  if (!report) {
+  const comment = new URL(request.url).pathname.endsWith(COMMENT_PATH);
+  const parsed = comment ? parseComment(data) : parseReport(data);
+  if (!parsed) {
     return json({ error: "invalid" }, 400, cors);
   }
 
@@ -82,11 +101,10 @@ export async function handle(request, env, fetchImpl) {
     return json({ error: "captcha" }, 403, cors);
   }
 
-  const issue = await createIssue(env, report, fetchImpl);
-  if (!issue) {
-    return json({ error: "github" }, 502, cors);
-  }
-  return json({ number: issue.number, url: issue.html_url }, 201, cors);
+  const result = comment
+    ? await addComment(env, parsed, fetchImpl)
+    : await createIssue(env, parsed, fetchImpl);
+  return json(result.body, result.status, cors);
 }
 
 export function allowedOrigins(env) {
@@ -164,6 +182,22 @@ export function parseReport(data) {
   return report;
 }
 
+// Zwraca poprawiony komentarz ({ issue, text }) albo null.
+export function parseComment(data) {
+  const issue = data.issue;
+  if (!Number.isInteger(issue) || issue < 1 || issue > 1e9) {
+    return null;
+  }
+  const comment = { issue, text: clean(data.text) };
+  for (const [field, [min, max]] of Object.entries(COMMENT_LIMITS)) {
+    const length = [...comment[field]].length;
+    if (length < min || length > max) {
+      return null;
+    }
+  }
+  return comment;
+}
+
 // Wzmianka @nazwa w issue powiadamia tę osobę na GitHubie - znak o zerowej
 // szerokości po @ wyłącza powiadomienie, a tekst wygląda tak samo.
 export function noMentions(text) {
@@ -185,10 +219,13 @@ export function issueBody(report) {
     ...tech,
     "",
     "---",
-    "_Zgłoszenie z formularza na stronie programu. Osoba zgłaszająca może " +
-      "nie mieć konta na GitHubie i nie zobaczy odpowiedzi w tym wątku._",
+    REPORT_FOOTER,
     "",
   ].join("\n");
+}
+
+export function commentBody(comment) {
+  return [noMentions(comment.text), "", "---", COMMENT_FOOTER, ""].join("\n");
 }
 
 async function verifyTurnstile(secret, token, ip, fetchImpl) {
@@ -214,18 +251,26 @@ async function verifyTurnstile(secret, token, ip, fetchImpl) {
   }
 }
 
+function github(env, path, fetchImpl, init = {}) {
+  return fetchImpl(`${GITHUB_API}/repos/${env.GITHUB_REPO}${path}`, {
+    ...init,
+    headers: {
+      Accept: "application/vnd.github+json",
+      Authorization: `Bearer ${env.GITHUB_TOKEN}`,
+      "Content-Type": "application/json",
+      "User-Agent": "transkryptor-zgloszenia",
+      "X-GitHub-Api-Version": "2022-11-28",
+    },
+  });
+}
+
+const GITHUB_FAILED = { status: 502, body: { error: "github" } };
+
 async function createIssue(env, report, fetchImpl) {
   const labels = [LABELS[report.kind], LABELS.source];
   try {
-    const response = await fetchImpl(`${GITHUB_API}/repos/${env.GITHUB_REPO}/issues`, {
+    const response = await github(env, "/issues", fetchImpl, {
       method: "POST",
-      headers: {
-        Accept: "application/vnd.github+json",
-        Authorization: `Bearer ${env.GITHUB_TOKEN}`,
-        "Content-Type": "application/json",
-        "User-Agent": "transkryptor-zgloszenia",
-        "X-GitHub-Api-Version": "2022-11-28",
-      },
       body: JSON.stringify({
         title: noMentions(report.title),
         body: issueBody(report),
@@ -234,12 +279,49 @@ async function createIssue(env, report, fetchImpl) {
     });
     if (response.status !== 201) {
       console.error(`GitHub: ${response.status} ${await response.text()}`);
-      return null;
+      return GITHUB_FAILED;
     }
     const issue = await response.json();
-    return { number: issue.number, html_url: issue.html_url };
+    return { status: 201, body: { number: issue.number, url: issue.html_url } };
   } catch (error) {
     console.error(`GitHub niedostępny: ${error}`);
-    return null;
+    return GITHUB_FAILED;
+  }
+}
+
+// Komentarz trafia tylko do istniejącego, niezablokowanego zgłoszenia
+// (nie do pull requesta). Token Workera ma zwykle prawa właściciela
+// repozytorium, które pozwalają pisać także w zablokowanych wątkach -
+// dlatego blokadę sprawdzamy sami.
+async function addComment(env, comment, fetchImpl) {
+  try {
+    const found = await github(env, `/issues/${comment.issue}`, fetchImpl);
+    if (found.status === 404 || found.status === 410) {
+      return { status: 404, body: { error: "not-found" } };
+    }
+    if (found.status !== 200) {
+      console.error(`GitHub: ${found.status} ${await found.text()}`);
+      return GITHUB_FAILED;
+    }
+    const issue = await found.json();
+    if (issue.pull_request) {
+      return { status: 404, body: { error: "not-found" } };
+    }
+    if (issue.locked) {
+      return { status: 409, body: { error: "locked" } };
+    }
+    const response = await github(env, `/issues/${comment.issue}/comments`, fetchImpl, {
+      method: "POST",
+      body: JSON.stringify({ body: commentBody(comment) }),
+    });
+    if (response.status !== 201) {
+      console.error(`GitHub: ${response.status} ${await response.text()}`);
+      return GITHUB_FAILED;
+    }
+    const created = await response.json();
+    return { status: 201, body: { id: created.id, url: created.html_url } };
+  } catch (error) {
+    console.error(`GitHub niedostępny: ${error}`);
+    return GITHUB_FAILED;
   }
 }

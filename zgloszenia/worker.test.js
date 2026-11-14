@@ -1,8 +1,18 @@
 // Testy Workera zgłoszeń: node --test worker.test.js (w tym katalogu).
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
-import { handle, issueBody, noMentions, parseReport } from "./worker.js";
+import {
+  COMMENT_FOOTER,
+  REPORT_FOOTER,
+  commentBody,
+  handle,
+  issueBody,
+  noMentions,
+  parseComment,
+  parseReport,
+} from "./worker.js";
 
 const ORIGIN = "https://transkryptorapp.pl";
 
@@ -46,8 +56,8 @@ const VALID = {
   token: "token",
 };
 
-function post(body, { origin = ORIGIN, type = "application/json" } = {}) {
-  return new Request("https://worker.example/", {
+function post(body, { origin = ORIGIN, type = "application/json", path = "/" } = {}) {
+  return new Request(`https://worker.example${path}`, {
     method: "POST",
     headers: { Origin: origin, "Content-Type": type, "CF-Connecting-IP": "1.2.3.4" },
     body: typeof body === "string" ? body : JSON.stringify(body),
@@ -181,4 +191,143 @@ test("issue body marks missing technical details", () => {
   const body = issueBody(parseReport({ ...VALID, version: "", system: "" }));
   assert.match(body, /Wersja programu: nie podano/);
   assert.match(body, /System: nie podano/);
+});
+
+// Udaje Turnstile i GitHuba dla komentarzy: issue (albo jego status HTTP)
+// i odpowiedź na dodanie komentarza.
+function makeCommentFetch({ issue = { number: 7, locked: false }, issueStatus = 200, commentStatus = 201 } = {}) {
+  const calls = [];
+  const fake = async (url, init = {}) => {
+    calls.push({ url, init });
+    if (url.startsWith("https://challenges.cloudflare.com/")) {
+      return Response.json({ success: true });
+    }
+    if (url.endsWith("/comments")) {
+      if (commentStatus !== 201) {
+        return new Response("nope", { status: commentStatus });
+      }
+      return Response.json(
+        { id: 99, html_url: "https://github.com/owner/repo/issues/7#issuecomment-99" },
+        { status: 201 }
+      );
+    }
+    if (issueStatus !== 200) {
+      return new Response("nope", { status: issueStatus });
+    }
+    return Response.json(issue);
+  };
+  fake.calls = calls;
+  return fake;
+}
+
+const COMMENT = {
+  issue: 7,
+  text: "Mnie też to się zdarza, @octocat.",
+  website: "",
+  token: "token",
+};
+
+function postComment(body) {
+  return post(body, { path: "/comment" });
+}
+
+test("comment is added to an existing issue with the form footer", async () => {
+  const fetchImpl = makeCommentFetch();
+  const response = await handle(postComment(COMMENT), makeEnv(), fetchImpl);
+
+  assert.equal(response.status, 201);
+  assert.deepEqual(await response.json(), {
+    id: 99,
+    url: "https://github.com/owner/repo/issues/7#issuecomment-99",
+  });
+  assert.equal(response.headers.get("Access-Control-Allow-Origin"), ORIGIN);
+  const github = fetchImpl.calls.filter((call) => call.url.includes("api.github.com"));
+  assert.equal(github[0].url, "https://api.github.com/repos/owner/repo/issues/7");
+  assert.equal(github[0].init.method, undefined);
+  assert.equal(github[1].url, "https://api.github.com/repos/owner/repo/issues/7/comments");
+  assert.equal(github[1].init.method, "POST");
+  assert.equal(github[1].init.headers.Authorization, "Bearer ghp_test");
+  const sent = JSON.parse(github[1].init.body);
+  assert.equal(sent.body, `Mnie też to się zdarza, @\u200boctocat.\n\n---\n${COMMENT_FOOTER}\n`);
+});
+
+test("comment to a missing issue or a pull request is not found", async () => {
+  for (const fetchImpl of [
+    makeCommentFetch({ issueStatus: 404 }),
+    makeCommentFetch({ issue: { number: 7, pull_request: {} } }),
+  ]) {
+    const response = await handle(postComment(COMMENT), makeEnv(), fetchImpl);
+    assert.equal(response.status, 404);
+    assert.deepEqual(await response.json(), { error: "not-found" });
+    assert.ok(fetchImpl.calls.every((call) => !call.url.endsWith("/comments")));
+  }
+});
+
+test("locked issue does not take comments", async () => {
+  const fetchImpl = makeCommentFetch({ issue: { number: 7, locked: true } });
+  const response = await handle(postComment(COMMENT), makeEnv(), fetchImpl);
+  assert.equal(response.status, 409);
+  assert.deepEqual(await response.json(), { error: "locked" });
+  assert.ok(fetchImpl.calls.every((call) => !call.url.endsWith("/comments")));
+});
+
+test("GitHub failure while commenting is reported as 502", async () => {
+  for (const fetchImpl of [
+    makeCommentFetch({ issueStatus: 500 }),
+    makeCommentFetch({ commentStatus: 403 }),
+  ]) {
+    const response = await handle(postComment(COMMENT), makeEnv(), fetchImpl);
+    assert.equal(response.status, 502);
+    assert.deepEqual(await response.json(), { error: "github" });
+  }
+});
+
+test("invalid comments are rejected before Turnstile and GitHub", async () => {
+  const cases = [
+    { ...COMMENT, issue: "7" },
+    { ...COMMENT, issue: 0 },
+    { ...COMMENT, issue: 1.5 },
+    { ...COMMENT, text: "za krótko" },
+    { ...COMMENT, text: "x".repeat(5001) },
+  ];
+  for (const body of cases) {
+    const fetchImpl = makeCommentFetch();
+    const response = await handle(postComment(body), makeEnv(), fetchImpl);
+    assert.equal(response.status, 400, JSON.stringify(body).slice(0, 80));
+    assert.equal(fetchImpl.calls.length, 0);
+  }
+});
+
+test("comments share the captcha, honeypot and rate limit of reports", async () => {
+  const noToken = makeCommentFetch();
+  const captcha = await handle(postComment({ ...COMMENT, token: "" }), makeEnv(), noToken);
+  assert.equal(captcha.status, 403);
+  assert.equal(noToken.calls.length, 0);
+
+  const trapped = makeCommentFetch();
+  const trap = await handle(postComment({ ...COMMENT, website: "spam" }), makeEnv(), trapped);
+  assert.equal(trap.status, 201);
+  assert.equal(trapped.calls.length, 0);
+
+  const env = makeEnv({ REPORT_LIMITER: { limit: async () => ({ success: false }) } });
+  const limited = await handle(postComment(COMMENT), env, makeCommentFetch());
+  assert.equal(limited.status, 429);
+});
+
+test("comment fields are normalised", () => {
+  assert.deepEqual(parseComment({ issue: 3, text: "  linia 1\r\nlinia 2\u0007 " }), {
+    issue: 3,
+    text: "linia 1\nlinia 2",
+  });
+  assert.match(commentBody({ text: "Treść komentarza" }), /^Treść komentarza\n\n---\n_Komentarz/);
+});
+
+test("form footers start with the text the issue page recognises", () => {
+  const pattern = "(Zgłoszenie|Komentarz) z formularza na stronie programu\\.";
+  const page = readFileSync(new URL("../pages/issue.js", import.meta.url), "utf-8");
+  assert.ok(page.includes(`/^${pattern}/`), "FORM_FOOTER_TEXT w pages/issue.js");
+  const recognised = new RegExp(`^_${pattern}`);
+  assert.match(REPORT_FOOTER, recognised);
+  assert.match(COMMENT_FOOTER, recognised);
+  assert.ok(issueBody(parseReport(VALID)).endsWith(`\n---\n${REPORT_FOOTER}\n`));
 });

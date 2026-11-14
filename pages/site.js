@@ -16,10 +16,9 @@
 // - Formularz zgłoszeń (zglos.html): wysyła zgłoszenie do Workera
 //   (zgloszenia/worker.js), który zakłada issue na GitHubie. Bez adresu
 //   Workera albo bez skryptów zostaje odnośnik do zgłoszeń na GitHubie.
-// - Status zgłoszeń (zgloszenia.html): pobiera zgłoszenia z API GitHuba
-//   i pokazuje ich stan z filtrami i podziałem na strony (?pokaz=&strona=
-//   w adresie); legenda opisuje stany z wybranego filtra. Po błędzie
-//   zostaje odnośnik do GitHuba.
+// - window.Transkryptor: wspólne narzędzia (Turnstile, wysyłka do Workera)
+//   dla skryptów zgłoszeń - status i podobne zgłoszenia (issues.js,
+//   similar-issues.js) oraz podgląd zgłoszenia z komentarzami (issue.js).
 (function () {
   "use strict";
 
@@ -193,28 +192,46 @@
     });
   }
 
-  var REPORT_ERRORS = {
-    invalid: "Sprawdź pola formularza i spróbuj ponownie.",
-    captcha:
-      "Nie udało się potwierdzić, że nie jesteś robotem. Spróbuj ponownie.",
-    "too-many":
-      "Za dużo zgłoszeń w krótkim czasie. Spróbuj ponownie za kilka minut.",
+  function element(tag, className, text) {
+    var node = document.createElement(tag);
+    if (className) {
+      node.className = className;
+    }
+    if (text) {
+      node.textContent = text;
+    }
+    return node;
+  }
+
+  var REPORT_MESSAGES = {
+    errors: {
+      invalid: "Sprawdź pola formularza i spróbuj ponownie.",
+      captcha:
+        "Nie udało się potwierdzić, że nie jesteś robotem. Spróbuj ponownie.",
+      "too-many":
+        "Za dużo zgłoszeń w krótkim czasie. Spróbuj ponownie za kilka minut.",
+    },
+    failed:
+      "Nie udało się wysłać zgłoszenia. Spróbuj ponownie za chwilę - " +
+      "wpisany tekst nie zniknie.",
   };
-  var REPORT_FAILED =
-    "Nie udało się wysłać zgłoszenia. Spróbuj ponownie za chwilę - " +
-    "wpisany tekst nie zniknie.";
+  var CAPTCHA_WAIT =
+    "Poczekaj chwilę, aż zakończy się sprawdzanie, czy nie jesteś robotem.";
 
   // Ochrona przed botami (Cloudflare Turnstile) - skrypt ładowany tylko
-  // na stronie formularza i tylko wtedy, gdy ustawiono klucz.
-  function loadCaptcha(container, sitekey, onReady) {
+  // na stronach z formularzem i tylko wtedy, gdy ustawiono klucz. Zwraca
+  // null bez klucza; token() jest pusty, dopóki sprawdzanie trwa.
+  function captchaField(container, sitekey) {
+    if (!sitekey) {
+      return null;
+    }
+    var id = null;
     window.transkryptorCaptcha = function () {
-      onReady(
-        window.turnstile.render(container, {
-          sitekey: sitekey,
-          language: "pl",
-          theme: root.getAttribute("data-theme") === "dark" ? "dark" : "light",
-        })
-      );
+      id = window.turnstile.render(container, {
+        sitekey: sitekey,
+        language: "pl",
+        theme: root.getAttribute("data-theme") === "dark" ? "dark" : "light",
+      });
     };
     var script = document.createElement("script");
     script.src =
@@ -222,6 +239,71 @@
       "?render=explicit&onload=transkryptorCaptcha";
     script.async = true;
     document.head.appendChild(script);
+    var ready = function () {
+      return window.turnstile && id !== null;
+    };
+    return {
+      token: function () {
+        return ready() ? window.turnstile.getResponse(id) || "" : "";
+      },
+      // Token Turnstile jest jednorazowy.
+      reset: function () {
+        if (ready()) {
+          window.turnstile.reset(id);
+        }
+      },
+    };
+  }
+
+  // Wysyła formularz do Workera zgłoszeń. Odrzucona obietnica ma zawsze
+  // userMessage z messages (błąd sieci - TypeError - ma komunikat
+  // przeglądarki po angielsku, więc go nie pokazujemy).
+  function sendToWorker(url, payload, messages) {
+    return fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    })
+      .then(function (response) {
+        return response
+          .json()
+          .catch(function () {
+            return {};
+          })
+          .then(function (data) {
+            if (!response.ok) {
+              throw { userMessage: messages.errors[data.error] || messages.failed };
+            }
+            return data;
+          });
+      })
+      .catch(function (error) {
+        throw { userMessage: (error && error.userMessage) || messages.failed };
+      });
+  }
+
+  // Napis stanu formularza ([data-*-status]); isError wyróżnia błąd.
+  function statusLine(node) {
+    return function (text, isError) {
+      node.textContent = text;
+      node.classList.toggle("error", Boolean(isError));
+    };
+  }
+
+  // Pola formularza bez białych znaków na brzegach; zwraca pierwsze błędne
+  // pole albo null i oznacza błędne aria-invalid.
+  function firstInvalid(form, names) {
+    var invalid = null;
+    names.forEach(function (name) {
+      var field = form.elements[name];
+      field.value = field.value.trim();
+      var ok = field.checkValidity();
+      field.setAttribute("aria-invalid", ok ? "false" : "true");
+      if (!ok && !invalid) {
+        invalid = field;
+      }
+    });
+    return invalid;
   }
 
   function reportForm() {
@@ -230,11 +312,10 @@
     if (!endpoint || !window.fetch) {
       return;
     }
-    var sitekey = form.getAttribute("data-sitekey");
-    var status = form.querySelector("[data-report-status]");
+    var say = statusLine(form.querySelector("[data-report-status]"));
     var submit = form.querySelector("[data-report-submit]");
     var done = document.querySelector("[data-report-done]");
-    var captchaId = null;
+    var doneLink = done.querySelector("[data-report-link]");
 
     document.querySelector("[data-report-fallback]").hidden = true;
     form.hidden = false;
@@ -263,36 +344,14 @@
     });
     showHints();
 
-    if (sitekey) {
-      var captcha = form.querySelector("[data-report-captcha]");
-      loadCaptcha(captcha, sitekey, function (id) {
-        captchaId = id;
-      });
-    }
-
-    function say(text, isError) {
-      status.textContent = text;
-      status.classList.toggle("error", Boolean(isError));
-    }
-
-    // Zwraca pierwsze błędne pole albo null.
-    function validate() {
-      var invalid = null;
-      ["tytul", "opis"].forEach(function (name) {
-        var field = form.elements[name];
-        field.value = field.value.trim();
-        var ok = field.checkValidity();
-        field.setAttribute("aria-invalid", ok ? "false" : "true");
-        if (!ok && !invalid) {
-          invalid = field;
-        }
-      });
-      return invalid;
-    }
+    var captcha = captchaField(
+      form.querySelector("[data-report-captcha]"),
+      form.getAttribute("data-sitekey")
+    );
 
     form.addEventListener("submit", function (event) {
       event.preventDefault();
-      var invalid = validate();
+      var invalid = firstInvalid(form, ["tytul", "opis"]);
       if (invalid) {
         say(
           "Uzupełnij tytuł (co najmniej 5 znaków) i opis (co najmniej 10 znaków).",
@@ -301,18 +360,10 @@
         invalid.focus();
         return;
       }
-      var token = "";
-      if (sitekey) {
-        if (window.turnstile && captchaId !== null) {
-          token = window.turnstile.getResponse(captchaId) || "";
-        }
-        if (!token) {
-          say(
-            "Poczekaj chwilę, aż zakończy się sprawdzanie, czy nie jesteś robotem.",
-            true
-          );
-          return;
-        }
+      var token = captcha ? captcha.token() : "";
+      if (captcha && !token) {
+        say(CAPTCHA_WAIT, true);
+        return;
       }
       var elements = form.elements;
       var payload = {
@@ -326,39 +377,25 @@
       };
       submit.disabled = true;
       say("Wysyłanie...", false);
-      fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      })
-        .then(function (response) {
-          return response
-            .json()
-            .catch(function () {
-              return {};
-            })
-            .then(function (data) {
-              if (!response.ok) {
-                throw { userMessage: REPORT_ERRORS[data.error] || REPORT_FAILED };
-              }
-              return data;
-            });
-        })
+      sendToWorker(endpoint, payload, REPORT_MESSAGES)
         .then(function (data) {
           say("", false);
+          // Pole-pułapka dostaje sukces bez numeru zgłoszenia.
+          doneLink.hidden = !data.number;
+          if (data.number) {
+            doneLink.querySelector("a").href = "zgloszenie.html?nr=" + data.number;
+          }
           form.hidden = true;
           done.hidden = false;
           done.focus();
         })
         .catch(function (error) {
-          // Błąd sieci (TypeError) ma komunikat przeglądarki po angielsku.
-          say((error && error.userMessage) || REPORT_FAILED, true);
+          say(error.userMessage, true);
         })
         .then(function () {
           submit.disabled = false;
-          // Token Turnstile jest jednorazowy.
-          if (window.turnstile && captchaId !== null) {
-            window.turnstile.reset(captchaId);
+          if (captcha) {
+            captcha.reset();
           }
         });
     });
@@ -367,356 +404,24 @@
       ["tytul", "opis"].forEach(function (name) {
         form.elements[name].value = "";
       });
+      form.elements.tytul.dispatchEvent(new Event("input"));
       done.hidden = true;
       form.hidden = false;
       form.elements.tytul.focus();
     });
   }
 
-  // Stan zgłoszenia na stronie statusu. Zamknięte jako „not planned” albo
-  // duplikat są odrzucone, pozostałe zamknięte - zrobione: wydane, gdy mają
-  // etykietę wersji (nadaje ją workflow wydania), inaczej niewydane.
-  // Zgłoszenia strony (ISSUE_WEBPAGE_LABEL) nie czekają na wydanie programu:
-  // są wdrożone, gdy mają etykietę ISSUE_DEPLOYED_LABEL (nadaje ją workflow
-  // strony), inaczej niewdrożone; etykieta wersji ma pierwszeństwo. Otwarte
-  // są „w toku”, gdy mają etykietę ISSUE_PROGRESS_LABELS albo przypisaną
-  // osobę. Kolejność kluczy to kolejność na liście: najpierw sprawy w toku
-  // i otwarte. Do napisu wydanych dochodzi numer wersji.
-  var ISSUE_STATES = {
-    progress: "W toku",
-    open: "Otwarte",
-    unreleased: "Zrobione, niewydane",
-    undeployed: "Niewdrożone",
-    released: "Wydane",
-    deployed: "Wdrożone",
-    rejected: "Odrzucone",
+  // Wspólne narzędzia dla skryptów zgłoszeń (issues.js, issue.js,
+  // similar-issues.js), ładowanych z defer po tym pliku.
+  window.Transkryptor = {
+    each: each,
+    element: element,
+    captchaField: captchaField,
+    sendToWorker: sendToWorker,
+    statusLine: statusLine,
+    firstInvalid: firstInvalid,
+    CAPTCHA_WAIT: CAPTCHA_WAIT,
   };
-  var ISSUE_VERSION_LABEL = /^v?(\d+)\.(\d+)\.(\d+)$/;
-  var ISSUE_WEBPAGE_LABEL = "webpage";
-  // Małymi literami - labelNames() porównuje nazwy etykiet bez wielkości liter.
-  var ISSUE_DEPLOYED_LABEL = "deployed";
-  var ISSUE_PROGRESS_LABELS = ["w-toku", "in progress"];
-  var ISSUE_KINDS = { bug: "Błąd", enhancement: "Pomysł" };
-  var ISSUES_FAILED =
-    "Nie udało się pobrać listy zgłoszeń. Spróbuj ponownie za chwilę " +
-    "albo sprawdź je w ";
-
-  function labelNames(issue) {
-    return (issue.labels || []).map(function (label) {
-      return String(typeof label === "string" ? label : label.name).toLowerCase();
-    });
-  }
-
-  // Najwyższa wersja z etykiet zgłoszenia (bez „v”) albo null.
-  function issueRelease(issue) {
-    var best = null;
-    labelNames(issue).forEach(function (name) {
-      var match = ISSUE_VERSION_LABEL.exec(name);
-      if (!match) {
-        return;
-      }
-      var parts = match.slice(1).map(Number);
-      var newer = best
-        ? parts[0] - best[0] || parts[1] - best[1] || parts[2] - best[2]
-        : 1;
-      if (newer > 0) {
-        best = parts;
-      }
-    });
-    return best && best.join(".");
-  }
-
-  function closedState(issue) {
-    if (issueRelease(issue)) {
-      return "released";
-    }
-    var labels = labelNames(issue);
-    if (labels.indexOf(ISSUE_WEBPAGE_LABEL) < 0) {
-      return "unreleased";
-    }
-    return labels.indexOf(ISSUE_DEPLOYED_LABEL) >= 0 ? "deployed" : "undeployed";
-  }
-
-  function issueState(issue) {
-    if (issue.state === "closed") {
-      if (
-        issue.state_reason === "not_planned" ||
-        issue.state_reason === "duplicate"
-      ) {
-        return "rejected";
-      }
-      return closedState(issue);
-    }
-    var labels = labelNames(issue);
-    var inProgress = ISSUE_PROGRESS_LABELS.some(function (name) {
-      return labels.indexOf(name) >= 0;
-    });
-    return inProgress || (issue.assignees && issue.assignees.length)
-      ? "progress"
-      : "open";
-  }
-
-  function element(tag, className, text) {
-    var node = document.createElement(tag);
-    if (className) {
-      node.className = className;
-    }
-    if (text) {
-      node.textContent = text;
-    }
-    return node;
-  }
-
-  function issueItem(issue) {
-    var state = issueState(issue);
-    var item = element("li", "issue");
-    var badge;
-    if (state === "released") {
-      // Wersja prowadzi do jej sekcji w historii zmian na stronie głównej.
-      var version = issueRelease(issue);
-      badge = element("a", "issue-state", ISSUE_STATES[state] + " " + version);
-      badge.href = "zmiany.html#v" + version;
-      badge.title = "Historia zmian wersji " + version;
-    } else {
-      badge = element("span", "issue-state", ISSUE_STATES[state]);
-    }
-    badge.setAttribute("data-state", state);
-    item.appendChild(badge);
-
-    var link = element("a", "issue-title", issue.title);
-    link.href = issue.html_url;
-    item.appendChild(link);
-
-    // Bez numeru zgłoszenia: numeracja GitHuba (wspólna z pull requestami)
-    // ma przerwy, które osobom spoza projektu wyglądają na zgubione zgłoszenia.
-    var meta = element("span", "issue-meta small");
-    var labels = labelNames(issue);
-    for (var name in ISSUE_KINDS) {
-      if (labels.indexOf(name) >= 0) {
-        meta.textContent = ISSUE_KINDS[name];
-        break;
-      }
-    }
-    item.appendChild(meta);
-    return item;
-  }
-
-  // Filtry listy: nazwa w adresie (?pokaz=) → stany zgłoszeń. Pierwszy
-  // jest domyślny.
-  var ISSUE_FILTERS = {
-    aktywne: ["progress", "open"],
-    zrobione: ["unreleased", "undeployed", "released", "deployed"],
-    niewydane: ["unreleased", "undeployed"],
-    odrzucone: ["rejected"],
-    wszystkie: Object.keys(ISSUE_STATES),
-  };
-  var ISSUES_PER_PAGE = 20;
-  // Bez tokenu API pozwala na 60 zapytań na godzinę z jednego adresu, więc
-  // pobieramy najwyżej tyle stron po 100 ostatnio zmienionych zgłoszeń.
-  var ISSUES_MAX_REQUESTS = 3;
-
-  // Kolejne strony odpowiedzi API (nagłówek Link z rel="next").
-  function fetchIssues(url, requestsLeft) {
-    // no-cache: API pozwala trzymać odpowiedź w pamięci podręcznej minutę,
-    // a świeżo wysłane zgłoszenie ma się pojawić od razu. Przeglądarka pyta
-    // z ETagiem, więc niezmienionej listy nie pobiera ponownie.
-    return fetch(url, {
-      headers: { Accept: "application/vnd.github+json" },
-      cache: "no-cache",
-    }).then(
-      function (response) {
-        if (!response.ok) {
-          throw new Error("GitHub " + response.status);
-        }
-        var next = /<([^>]+)>;\s*rel="next"/.exec(response.headers.get("Link") || "");
-        return response.json().then(function (issues) {
-          if (!next || requestsLeft <= 1) {
-            return issues;
-          }
-          return fetchIssues(next[1], requestsLeft - 1).then(function (more) {
-            return issues.concat(more);
-          });
-        });
-      }
-    );
-  }
-
-  // Numery stron do pokazania: pierwsza, ostatnia i sąsiedzi bieżącej;
-  // null oznacza przerwę („…”). Przerwa nie zastępuje jednej strony.
-  function pageNumbers(current, count) {
-    var pages = [];
-    for (var page = 1; page <= count; page++) {
-      var distance = Math.abs(page - current);
-      var edge = page <= 2 || page >= count - 1;
-      if (page === 1 || page === count || distance <= 1 || (edge && distance === 2)) {
-        pages.push(page);
-      } else if (pages[pages.length - 1] !== null) {
-        pages.push(null);
-      }
-    }
-    return pages;
-  }
-
-  function issueStatus() {
-    var container = document.querySelector("[data-issues]");
-    var api = container && container.getAttribute("data-api");
-    if (!api || !window.fetch) {
-      return;
-    }
-    var filters = document.querySelector("[data-issues-filters]");
-    var pager = document.querySelector("[data-issues-pager]");
-    var fallback = container.querySelector("[data-issues-status]");
-    var githubLink = fallback.querySelector("a").cloneNode(true);
-    var issues = [];
-    var params = new URLSearchParams(window.location.search);
-    var filter = ISSUE_FILTERS[params.get("pokaz")]
-      ? params.get("pokaz")
-      : Object.keys(ISSUE_FILTERS)[0];
-    var page = parseInt(params.get("strona"), 10) || 1;
-
-    fallback.textContent = "Wczytywanie zgłoszeń...";
-    container.setAttribute("aria-busy", "true");
-
-    function remember() {
-      var query = new URLSearchParams(window.location.search);
-      query.set("pokaz", filter);
-      if (page > 1) {
-        query.set("strona", String(page));
-      } else {
-        query.delete("strona");
-      }
-      try {
-        history.replaceState(null, "", "?" + query.toString() + window.location.hash);
-      } catch (error) {
-        // Bez historii (np. plik otwarty z dysku) stan widać tylko na stronie.
-      }
-    }
-
-    function pagerButton(label, target, current) {
-      var button = element("button", "button compact", label);
-      button.type = "button";
-      button.setAttribute("aria-label", "Strona " + label);
-      if (current) {
-        button.setAttribute("aria-current", "page");
-      }
-      if (target === null) {
-        button.disabled = true;
-      } else {
-        button.addEventListener("click", function () {
-          page = target;
-          render();
-          filters.scrollIntoView({ block: "start" });
-        });
-      }
-      return button;
-    }
-
-    // Na wąskim ekranie zostaje sama strzałka (słowo ukrywa style.css).
-    function stepButton(arrow, word, target) {
-      var button = pagerButton("", target);
-      button.setAttribute("aria-label", word + " strona");
-      var next = arrow === "›";
-      var label = element("span", "issues-pager-word", next ? word + " " : " " + word);
-      button.appendChild(element("span", "", arrow));
-      button.insertBefore(label, next ? button.firstChild : null);
-      return button;
-    }
-
-    function render() {
-      var shown = issues.filter(function (issue) {
-        return ISSUE_FILTERS[filter].indexOf(issueState(issue)) >= 0;
-      });
-      var pages = Math.max(1, Math.ceil(shown.length / ISSUES_PER_PAGE));
-      page = Math.min(Math.max(page, 1), pages);
-      remember();
-
-      each("[data-filter]", function (button) {
-        var name = button.getAttribute("data-filter");
-        var count = issues.filter(function (issue) {
-          return ISSUE_FILTERS[name].indexOf(issueState(issue)) >= 0;
-        }).length;
-        button.textContent = button.getAttribute("data-label") + " (" + count + ")";
-        button.setAttribute("aria-pressed", name === filter ? "true" : "false");
-      });
-
-      // Legenda opisuje tylko stany widoczne w bieżącym filtrze.
-      each("[data-issues-legend] li", function (item) {
-        var state = item.querySelector("[data-state]").getAttribute("data-state");
-        item.hidden = ISSUE_FILTERS[filter].indexOf(state) < 0;
-      });
-
-      container.textContent = "";
-      if (!shown.length) {
-        container.appendChild(
-          element("p", "issues-fallback", "Brak zgłoszeń w tym widoku.")
-        );
-      } else {
-        var list = element("ul", "issues-items");
-        shown
-          .slice((page - 1) * ISSUES_PER_PAGE, page * ISSUES_PER_PAGE)
-          .forEach(function (issue) {
-            list.appendChild(issueItem(issue));
-          });
-        container.appendChild(list);
-      }
-
-      pager.textContent = "";
-      pager.hidden = pages < 2;
-      pager.appendChild(stepButton("‹", "Poprzednia", page > 1 ? page - 1 : null));
-      pageNumbers(page, pages).forEach(function (number) {
-        if (number === null) {
-          pager.appendChild(element("span", "issues-gap", "…"));
-        } else {
-          pager.appendChild(pagerButton(String(number), number, number === page));
-        }
-      });
-      pager.appendChild(stepButton("›", "Następna", page < pages ? page + 1 : null));
-    }
-
-    each("[data-filter]", function (button) {
-      button.setAttribute("data-label", button.textContent.trim());
-      button.addEventListener("click", function () {
-        filter = button.getAttribute("data-filter");
-        page = 1;
-        render();
-      });
-    });
-
-    fetchIssues(api, ISSUES_MAX_REQUESTS)
-      .then(function (data) {
-        // API zgłoszeń zwraca też pull requesty - te pomijamy.
-        data = data.filter(function (issue) {
-          return !issue.pull_request;
-        });
-        if (!data.length) {
-          fallback.textContent = "Nie ma jeszcze żadnych zgłoszeń.";
-          return;
-        }
-        // API sortuje od ostatnio zmienionych; to zostaje w obrębie stanu.
-        var order = Object.keys(ISSUE_STATES);
-        issues = data
-          .map(function (issue, index) {
-            return { issue: issue, rank: order.indexOf(issueState(issue)), index: index };
-          })
-          .sort(function (a, b) {
-            return a.rank - b.rank || a.index - b.index;
-          })
-          .map(function (entry) {
-            return entry.issue;
-          });
-        filters.hidden = false;
-        render();
-      })
-      .catch(function () {
-        fallback.textContent = ISSUES_FAILED;
-        fallback.appendChild(githubLink);
-        fallback.appendChild(document.createTextNode("."));
-        fallback.classList.add("error");
-      })
-      .then(function () {
-        container.setAttribute("aria-busy", "false");
-      });
-  }
 
   function menu() {
     var button = document.querySelector(".menu-toggle");
@@ -815,7 +520,6 @@
     }
     highlightDownload();
     reportForm();
-    issueStatus();
     openFromHash();
   });
 })();

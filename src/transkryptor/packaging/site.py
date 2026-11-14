@@ -6,7 +6,8 @@ wydania, a historia zmian obejmuje tylko wydane wersje - fragmenty
 niewydanych zmian (``changelog.d``) nie trafiają na stronę. Opis i wygląd są w katalogu
 ``pages/`` (szablony ``index.html``, ``faq.html``, ``autor.html`` i ``404.html``
 z polami ``${...}``, formularz zgłoszeń ``zglos.html``, status zgłoszeń
-``zgloszenia.html``, arkusz stylów, skrypt strony, zrzuty ekranu, zdjęcie autora
+``zgloszenia.html``, podgląd zgłoszenia ``zgloszenie.html``, arkusz stylów,
+skrypty strony, zrzuty ekranu, zdjęcie autora
 i ikony); wymagania i nazwy plików pochodzą z ``packaging.metadata``,
 tak jak w notach wydania. Dla wyszukiwarek generator dodaje ``sitemap.xml``,
 ``robots.txt`` i dane strukturalne schema.org (JSON-LD) w nagłówkach stron.
@@ -50,6 +51,7 @@ from transkryptor.packaging.metadata import (
 from transkryptor.packaging.site_nav import (
     CHANGES_PAGE,
     HOME_PAGE,
+    ISSUE_PAGE,
     ISSUES_PAGE,
     NOT_FOUND_PAGE,
     footer_links_html,
@@ -79,14 +81,24 @@ TEMPLATE_FILES = (
     CHANGES_PAGE,
     REPORT_PAGE,
     ISSUES_PAGE,
+    ISSUE_PAGE,
     NOT_FOUND_PAGE,
 )
-# Strony w mapie strony; 404.html ma noindex.
-INDEXED_FILES = tuple(name for name in TEMPLATE_FILES if name != NOT_FOUND_PAGE)
+# Strony w mapie strony; 404.html i podgląd zgłoszenia (treść zależy od
+# adresu) mają noindex.
+NOINDEX_FILES = (ISSUE_PAGE, NOT_FOUND_PAGE)
+INDEXED_FILES = tuple(name for name in TEMPLATE_FILES if name not in NOINDEX_FILES)
 SITEMAP_FILE = "sitemap.xml"
 ROBOTS_FILE = "robots.txt"
-# Pliki z pages/ kopiowane bez zmian (poza szablonami).
-STATIC_FILES = ("style.css", "site.js")
+# Pliki z pages/ kopiowane bez zmian (poza szablonami). Skrypty zgłoszeń
+# ładują tylko strony zgłoszeń, po site.js.
+STATIC_FILES = (
+    "style.css",
+    "site.js",
+    "issues.js",
+    "issue.js",
+    "similar-issues.js",
+)
 STATIC_DIRS = ("img",)
 
 # Litery przelatujące w tle strony (efekt w style.css, klatki „fruwanie”).
@@ -321,6 +333,8 @@ def page_fields(
         "issues_api_url": html.escape(
             f"{GITHUB_API}/repos/{repo}/issues?state=all&sort=updated&per_page=100"
         ),
+        # Podgląd dopisuje numer zgłoszenia (/N, /N/comments).
+        "issue_api_url": f"{GITHUB_API}/repos/{repo}/issues",
         "report_endpoint": html.escape(report_endpoint),
         "turnstile_site_key": html.escape(turnstile_site_key),
         "windows_url": f"{download}/{artifacts['windows'].artifact_name}",
@@ -546,9 +560,11 @@ __all__ = [
     "CHANGES_PAGE",
     "INDEXED_FILES",
     "ISSUES_PAGE",
+    "ISSUE_PAGE",
     "LETTERS",
     "LETTER_COUNT",
     "LINKEDIN_URL",
+    "NOINDEX_FILES",
     "PAGES_DIR",
     "REPORT_ENDPOINT_ENV",
     "ROBOTS_FILE",

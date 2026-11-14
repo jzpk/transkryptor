@@ -42,6 +42,8 @@
       ${letters_css}
     </style>
     <script src="site.js"></script>
+    <script src="issues.js" defer></script>
+    <script src="similar-issues.js" defer></script>
   </head>
   <body>
     ${letters}
@@ -138,6 +140,21 @@
               autocomplete="off"
               placeholder="np. Nie mogę zapisać projektu na pendrive"
             />
+            <div
+              class="similar-issues"
+              data-similar
+              data-api="${issues_api_url}"
+              aria-live="polite"
+              hidden
+            >
+              <p class="small">
+                <strong>Podobne zgłoszenia.</strong> Jeśli któreś opisuje to
+                samo, otwórz je i dodaj komentarz - pomoże to bardziej niż
+                nowe zgłoszenie. Zgłoszenie otworzy się w nowej karcie, więc
+                wpisany tutaj tekst nie zniknie.
+              </p>
+              <ul class="issues-items" data-similar-list></ul>
+            </div>
           </div>
 
           <div class="field">
@@ -229,6 +246,12 @@
             Zgłoszenie zostało wysłane. Jego rejestracja potrwa do minuty -
             potem zobaczysz je na stronie
             <a href="zgloszenia.html">Status zgłoszeń</a>.
+          </p>
+          <p data-report-link hidden>
+            Odpowiedzi pojawią się na
+            <a href="zgloszenia.html">stronie Twojego zgłoszenia</a> - warto
+            zapisać jej adres, żeby do niej wrócić. Możesz tam też dopisać
+            komentarz.
           </p>
           <div class="actions">
             <button class="button" type="button" data-report-again>

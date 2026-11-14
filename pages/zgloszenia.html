@@ -5,7 +5,7 @@
   znak dolara zapisuje się jako $$. Odnośniki paska górnego i stopki
   ($${nav}, $${footer_links}) składa
   src/transkryptor/packaging/site_nav.py. Strona jest statyczna, więc
-  listę pobiera skrypt (site.js) z publicznego API GitHuba przy każdym
+  listę pobiera skrypt (issues.js) z publicznego API GitHuba przy każdym
   otwarciu i dzieli ją filtrami i na strony. Bez skryptów albo po błędzie
   (np. limit zapytań API) zostaje odnośnik do zgłoszeń na GitHubie.
 -->
@@ -40,6 +40,7 @@
       ${letters_css}
     </style>
     <script src="site.js"></script>
+    <script src="issues.js" defer></script>
   </head>
   <body>
     ${letters}
@@ -89,8 +90,9 @@
       <section class="wrap report issues">
         <h1>Status zgłoszeń</h1>
         <p class="lead">
-          Zgłoszone błędy i pomysły oraz etap ich realizacji. Szczegóły
-          i dyskusja są na GitHubie - wystarczy kliknąć tytuł.
+          Zgłoszone błędy i pomysły oraz etap ich realizacji. Kliknij
+          tytuł, żeby zobaczyć szczegóły i odpowiedzi albo dopisać komentarz -
+          bez zakładania konta.
         </p>
         <p class="actions">
           <a class="button primary" href="zglos.html">Zgłoś problem lub pomysł</a>

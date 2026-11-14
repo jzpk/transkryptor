@@ -21,6 +21,8 @@ HOME_PAGE = "index.html"
 NOT_FOUND_PAGE = "404.html"
 CHANGES_PAGE = "zmiany.html"
 ISSUES_PAGE = "zgloszenia.html"
+# Podgląd jednego zgłoszenia (?nr=N) - poza menu, otwierany z listy.
+ISSUE_PAGE = "zgloszenie.html"
 DOWNLOAD_ANCHOR = "pobierz"
 
 
@@ -96,6 +98,7 @@ __all__ = [
     "FOOTER_ITEMS",
     "HOME_PAGE",
     "ISSUES_PAGE",
+    "ISSUE_PAGE",
     "NAV_ITEMS",
     "NOT_FOUND_PAGE",
     "NavItem",

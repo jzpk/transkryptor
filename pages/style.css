@@ -1222,6 +1222,153 @@ a.issue-state:focus-visible {
   font-weight: 600;
 }
 
+/* Podobne zgłoszenia pod tytułem w formularzu (similar-issues.js) */
+
+.similar-issues {
+  margin-top: 8px;
+}
+
+.similar-issues[hidden] {
+  display: none;
+}
+
+.similar-issues p {
+  margin: 0 0 8px;
+}
+
+.similar-issues .issues-items {
+  box-shadow: none;
+  background: var(--bg);
+}
+
+.similar-issues .issue {
+  padding: 8px 12px;
+}
+
+/* Podgląd zgłoszenia (issue.js) */
+
+.issue-back {
+  margin: 0 0 8px;
+}
+
+.issue-view h1 {
+  overflow-wrap: anywhere;
+}
+
+.issue-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 0 0 20px;
+  color: var(--muted);
+}
+
+.issue-posts {
+  display: grid;
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.issue-post {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.issue-post.own {
+  border-color: var(--accent);
+}
+
+.issue-post-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--muted);
+}
+
+.issue-post-header strong {
+  color: var(--text);
+}
+
+.issue-post-role {
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.issue-post-body {
+  padding: 4px 16px 12px;
+  overflow-wrap: anywhere;
+}
+
+.issue-post-body h1,
+.issue-post-body h2,
+.issue-post-body h3,
+.issue-post-body h4,
+.issue-post-body h5,
+.issue-post-body h6 {
+  font-size: 1rem;
+  margin: 16px 0 4px;
+}
+
+.issue-post-body img {
+  max-width: 100%;
+  height: auto;
+}
+
+.issue-post-body pre {
+  overflow-x: auto;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--code-bg);
+}
+
+.issue-post-body table {
+  display: block;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+
+.issue-post-body th,
+.issue-post-body td {
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+}
+
+.issue-post-body blockquote {
+  margin: 8px 0;
+  padding-left: 12px;
+  border-left: 3px solid var(--border);
+  color: var(--muted);
+}
+
+.issue-post-plain {
+  white-space: pre-wrap;
+}
+
+.issue-github {
+  margin: 16px 0 0;
+}
+
+.comment-form {
+  margin-top: 32px;
+}
+
+.comment-form h2 {
+  margin: 0;
+}
+
 @media (max-width: 560px) {
   .issue {
     grid-template-columns: minmax(0, 1fr) auto;

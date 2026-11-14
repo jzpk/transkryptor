@@ -468,8 +468,9 @@ def test_issue_status_page_reads_the_repository_issues(
     assert 'href="zglos.html"' in page
     filters = re.findall(r'data-filter="([^"]+)"', page)
     assert filters == ["aktywne", "zrobione", "niewydane", "odrzucone", "wszystkie"]
-    # Każdy przycisk filtra ma swój zestaw stanów w skrypcie strony.
-    script = (out / "site.js").read_text(encoding="utf-8")
+    # Każdy przycisk filtra ma swój zestaw stanów w skrypcie zgłoszeń.
+    assert '<script src="issues.js" defer></script>' in page
+    script = (out / "issues.js").read_text(encoding="utf-8")
     for name in filters:
         assert re.search(rf"^\s+{name}: ", script, re.MULTILINE)
     # Legenda opisuje stany zrobionych zgłoszeń programu i strony.
@@ -484,3 +485,52 @@ def test_issue_status_page_reads_the_repository_issues(
     assert site.ISSUES_PAGE in (out / site.SITEMAP_FILE).read_text(encoding="utf-8")
     report = (out / "zglos.html").read_text(encoding="utf-8")
     assert f'href="{site.ISSUES_PAGE}"' in report
+
+
+def test_issue_page_shows_one_issue_and_takes_comments(
+    changelog_file, tmp_path
+) -> None:
+    out = tmp_path / "site"
+    site.build(
+        out,
+        changelog_file,
+        repo="owner/repo",
+        expected_version="0.2.4",
+        report_endpoint="https://zgloszenia.example.workers.dev",
+        turnstile_site_key="0x4AAA",
+    )
+
+    page = (out / site.ISSUE_PAGE).read_text(encoding="utf-8")
+    assert 'data-api="https://api.github.com/repos/owner/repo/issues"' in page
+    # Bez skryptu albo po błędzie API zostaje odnośnik do GitHuba.
+    assert 'href="https://github.com/owner/repo/issues"' in page
+    assert 'data-endpoint="https://zgloszenia.example.workers.dev"' in page
+    assert 'data-sitekey="0x4AAA"' in page
+    assert 'name="komentarz"' in page
+    for script in ("site.js", "issues.js", "issue.js"):
+        assert (out / script).is_file()
+    assert '<script src="issue.js" defer></script>' in page
+    # Treść zależy od numeru w adresie, więc strona nie trafia do wyszukiwarek.
+    assert '<meta name="robots" content="noindex" />' in page
+    assert site.ISSUE_PAGE not in (out / site.SITEMAP_FILE).read_text(encoding="utf-8")
+    # Lista i podpowiedzi prowadzą do podglądu zgłoszenia.
+    assert f'"{site.ISSUE_PAGE}"' in (out / "issues.js").read_text(encoding="utf-8")
+
+
+def test_report_form_suggests_similar_issues(changelog_file, tmp_path) -> None:
+    out = tmp_path / "site"
+    site.build(out, changelog_file, repo="owner/repo", expected_version="0.2.4")
+
+    page = (out / "zglos.html").read_text(encoding="utf-8")
+    similar = re.search(r"<div\s+class=\"similar-issues\"[^>]*>", page)
+    assert similar is not None
+    assert (
+        'data-api="https://api.github.com/repos/owner/repo/issues'
+        '?state=all&amp;sort=updated&amp;per_page=100"'
+    ) in similar[0]
+    assert "hidden" in similar[0]
+    assert page.index('<script src="issues.js" defer></script>') < page.index(
+        '<script src="similar-issues.js" defer></script>'
+    )
+    assert (out / "similar-issues.js").is_file()
+    assert "data-report-link" in page
