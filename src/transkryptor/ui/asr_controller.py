@@ -69,6 +69,7 @@ class AsrController(QObject):
         panel.model_changed.connect(self._on_model_changed)
         panel.speakers_changed.connect(self._on_speakers_changed)
         panel.qa_layout_changed.connect(self._on_qa_layout_changed)
+        panel.region_changed.connect(self._on_region_changed)
         panel.review_item_activated.connect(review.activate)
         panel.review_item_apply_requested.connect(review.apply)
         panel.review_finish_requested.connect(review.finish)
@@ -142,6 +143,14 @@ class AsrController(QObject):
         if current.asr.qa_layout != enabled:
             self._settings_store.save(
                 replace(current, asr=replace(current.asr, qa_layout=enabled))
+            )
+
+    def _on_region_changed(self, key: str) -> None:
+        """Region wybrany w panelu ASR jest zapamiętywany w ustawieniach."""
+        current = self._settings_store.current
+        if current.asr.region != key:
+            self._settings_store.save(
+                replace(current, asr=replace(current.asr, region=key))
             )
 
     def _on_speakers_changed(self, count: int) -> None:

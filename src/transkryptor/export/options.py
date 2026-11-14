@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from transkryptor.document.parts_of_speech import PartOfSpeech
 from transkryptor.export.superscript import UNICODE
 from transkryptor.i18n import tr
 
@@ -18,12 +19,16 @@ REPORT_EXAMPLES = 8
 
 @dataclass(frozen=True)
 class ExportOptions:
-    """Opcje zapisu; formaty biorą tylko te, które ich dotyczą."""
+    """Opcje zapisu; formaty biorą tylko te, które ich dotyczą.
+
+    ``parts_of_speech`` - części mowy podświetlane w pliku (zgłoszenie #54).
+    """
 
     superscript: str = UNICODE
     untimed: str = UNTIMED_INTERPOLATE
     template_path: str = ""
     font_family: str = ""
+    parts_of_speech: tuple[PartOfSpeech, ...] = ()
 
 
 @dataclass

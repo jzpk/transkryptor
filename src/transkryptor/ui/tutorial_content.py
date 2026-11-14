@@ -173,6 +173,7 @@ TUTORIALS: tuple[Tutorial, ...] = (
             ),
             _step("highlights", "toolbar_highlights", MORE),
             _step("pos", "toolbar_highlights", MORE),
+            _step("pos_export", "toolbar_export", MORE),
             _step(
                 "corpus",
                 "toolbar_corpus",
@@ -187,6 +188,7 @@ TUTORIALS: tuple[Tutorial, ...] = (
             _step("panel", "toolbar_asr", MORE),
             _step("model", "asr_model_step", "asr_panel"),
             _step("rules", "asr_rules_step", "asr_panel"),
+            _step("region", "asr_region_combo", "asr_rules_step", "asr_panel"),
             _step("recheck", "asr_recheck_button", "asr_rules_step", "asr_panel"),
             _step("draft", "asr_transcription_step", "asr_panel"),
             _step("clip", "asr_clip_only_check", "asr_panel"),
@@ -255,6 +257,7 @@ TUTORIALS: tuple[Tutorial, ...] = (
         (
             _step("intro"),
             _step("stats", "toolbar_export"),
+            _step("themes", "toolbar_export"),
             _step("goal", "daily_goal_label", "toolbar_settings", MORE),
             _step("snapshot", "toolbar_save", MORE),
             _step("history", "toolbar_save", MORE),

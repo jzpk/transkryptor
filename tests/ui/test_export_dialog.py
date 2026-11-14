@@ -1,11 +1,13 @@
 """Testy UI eksportu do wielu formatów (faza 12, ACC-54)."""
 
+import zipfile
 from pathlib import Path
 
 from PySide6.QtGui import QStandardItemModel
 from PySide6.QtWidgets import QFileDialog
 
 from transkryptor.document.anchors import SEGMENT, Anchor
+from transkryptor.document.parts_of_speech import PartOfSpeech, paper_color
 from transkryptor.export.options import UNTIMED_SKIP, ExportOptions
 from transkryptor.export.registry import exporter_by_key
 from transkryptor.ui.export_dialog import ExportDialog
@@ -150,3 +152,51 @@ def test_bundled_font_is_default_for_editor_and_pdf(
     save_dialog(monkeypatch, tmp_path / "wywiad.pdf")
     assert window.exporter.export_with(exporter_by_key("pdf"), ExportOptions(), False)
     assert b"CharisSIL" in (tmp_path / "wywiad.pdf").read_bytes()
+
+
+def test_dialog_offers_parts_of_speech_for_rich_formats(qtbot) -> None:
+    """Zgłoszenie #54: wybór podświetlanych części mowy dla DOCX, ODT i PDF."""
+    initial = ExportOptions(parts_of_speech=(PartOfSpeech.NOUN,))
+    dialog = ExportDialog("docx", initial)
+    qtbot.addWidget(dialog)
+    assert not dialog.pos_group.isHidden()
+    assert dialog.parts_of_speech == (PartOfSpeech.NOUN,)
+    dialog.pos_checks[PartOfSpeech.VERB].setChecked(True)
+    assert dialog.options().parts_of_speech == (PartOfSpeech.NOUN, PartOfSpeech.VERB)
+    dialog.format_combo.setCurrentIndex(dialog.format_combo.findData("txt"))
+    assert dialog.pos_group.isHidden()
+    assert dialog.options().parts_of_speech == ()
+
+
+def test_dialog_without_analyser_disables_parts_of_speech(qtbot) -> None:
+    initial = ExportOptions(parts_of_speech=(PartOfSpeech.NOUN,))
+    dialog = ExportDialog("pdf", initial, pos_available=False)
+    qtbot.addWidget(dialog)
+    assert not dialog.pos_group.isEnabled()
+    assert dialog.parts_of_speech == ()
+
+
+def test_dialog_starts_with_editor_highlights(add_window) -> None:
+    window = make_window(add_window)
+    window.parts_of_speech.set_part(PartOfSpeech.NOUN, True)
+    dialog = window.exporter.create_dialog()
+    assert dialog.pos_checks[PartOfSpeech.NOUN].isChecked()
+    assert not dialog.pos_checks[PartOfSpeech.VERB].isChecked()
+
+
+def test_docx_export_highlights_chosen_parts_of_speech(
+    add_window, monkeypatch, tmp_path
+) -> None:
+    window = make_window(add_window)
+    save_dialog(monkeypatch, tmp_path / "czesci")
+    options = ExportOptions(parts_of_speech=(PartOfSpeech.NOUN,))
+    assert window.exporter.export_with(exporter_by_key("docx"), options, False)
+    xml = zipfile.ZipFile(tmp_path / "czesci.docx").read("word/document.xml")
+    fill = paper_color(PartOfSpeech.NOUN).lstrip("#").upper()
+    assert f'w:fill="{fill}"'.encode() in xml
+    # Bez wyboru - plik bez podświetleń.
+    save_dialog(monkeypatch, tmp_path / "bez")
+    assert window.exporter.export_with(exporter_by_key("docx"), ExportOptions(), False)
+    assert b"<w:shd " not in zipfile.ZipFile(tmp_path / "bez.docx").read(
+        "word/document.xml"
+    )

@@ -28,6 +28,7 @@ from transkryptor.i18n import tr
 # Opcje okna eksportu, które mogą dotyczyć formatu.
 OPTION_SUPERSCRIPT = "superscript"
 OPTION_UNTIMED = "untimed"
+OPTION_PARTS_OF_SPEECH = "parts_of_speech"
 
 Writer = Callable[[ExportDocument, Path, ExportOptions, ExportReport], None]
 
@@ -56,14 +57,15 @@ def _docx(
     write_docx(document, path, options, report)
 
 
+_RICH = frozenset({OPTION_PARTS_OF_SPEECH})
 _TEXT = frozenset({OPTION_SUPERSCRIPT})
 _TIMED = frozenset({OPTION_SUPERSCRIPT, OPTION_UNTIMED})
 
 DOCX = "docx"
 EXPORTERS: tuple[Exporter, ...] = (
-    Exporter(DOCX, "export.format.docx", ".docx", _docx),
-    Exporter("odt", "export.format.odt", ".odt", write_odt),
-    Exporter("pdf", "export.format.pdf", ".pdf", write_pdf),
+    Exporter(DOCX, "export.format.docx", ".docx", _docx, options=_RICH),
+    Exporter("odt", "export.format.odt", ".odt", write_odt, options=_RICH),
+    Exporter("pdf", "export.format.pdf", ".pdf", write_pdf, options=_RICH),
     Exporter("txt", "export.format.txt", ".txt", write_txt, options=_TEXT),
     Exporter("eaf", "export.format.eaf", ".eaf", write_eaf, True, _TIMED),
     Exporter(

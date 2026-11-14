@@ -130,7 +130,14 @@ def test_search_and_highlighting_have_their_own_tutorial() -> None:
         key: [step.key for step in tutorial.steps]
         for key, tutorial in TUTORIALS_BY_KEY.items()
     }
-    assert steps["search"] == ["search", "replace", "highlights", "pos", "corpus"]
+    assert steps["search"] == [
+        "search",
+        "replace",
+        "highlights",
+        "pos",
+        "pos_export",
+        "corpus",
+    ]
     assert steps["notation"] == ["superscript", "markers", "snippets", "warnings"]
     assert "metadata" in steps["project"]
     assert "settings" in steps[FIRST_STEPS]

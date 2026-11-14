@@ -6,12 +6,13 @@ informatorów puste przy anonimizacji), akapity z mówcą i runami indeksu
 górnego, kotwice czasowe i ścieżka nagrania dla formatów z czasami oraz
 komentarze recenzji (eksportuje je tylko DOCX; anonimizacja je pomija).
 Eksportery (``export/registry.py``) czytają tylko ten model - nie
-``Document`` ani ustawienia.
+``Document`` ani ustawienia. ``with_highlights`` dodaje tło wybranym
+słowom (np. części mowy, zgłoszenie #54).
 """
 
 from __future__ import annotations
 
-from bisect import bisect_right
+from bisect import bisect_left, bisect_right
 from collections.abc import Iterable
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -32,8 +33,11 @@ from transkryptor.i18n import tr
 
 @dataclass(frozen=True)
 class ExportRun:
+    """Spójny fragment akapitu; ``highlight`` to kolor tła (``#rrggbb``)."""
+
     text: str
     superscript: bool = False
+    highlight: str = ""
 
 
 @dataclass(frozen=True)
@@ -145,6 +149,64 @@ def build_export_document(
         comments=() if anonymize else tuple(comments),
         fields=tuple(fields),
     )
+
+
+# Podświetlony fragment tekstu: (początek, koniec, kolor ``#rrggbb``).
+Highlight = tuple[int, int, str]
+
+
+def with_highlights(
+    document: ExportDocument, highlights: Iterable[Highlight]
+) -> ExportDocument:
+    """Dokument z tłem fragmentów ``highlights`` (runy dzielone na granicach).
+
+    Fragmenty nie powinny na siebie nachodzić; przy nakładaniu wygrywa
+    późniejszy.
+    """
+    ordered = sorted(h for h in highlights if h[0] < h[1])
+    if not ordered:
+        return document
+    starts = [start for start, _, _ in ordered]
+    paragraphs = tuple(
+        replace(
+            paragraph,
+            runs=_highlight_runs(paragraph, ordered, starts),
+        )
+        for paragraph in document.paragraphs
+    )
+    return replace(document, paragraphs=paragraphs)
+
+
+def _highlight_runs(
+    paragraph: ExportParagraph, ordered: list[Highlight], starts: list[int]
+) -> tuple[ExportRun, ...]:
+    """Runy akapitu podzielone na granicach podświetleń, które go dotyczą."""
+    first = max(bisect_right(starts, paragraph.start) - 1, 0)
+    last = bisect_left(starts, paragraph.end)
+    relevant = [h for h in ordered[first:last] if h[1] > paragraph.start]
+    if not relevant:
+        return paragraph.runs
+    result: list[ExportRun] = []
+    position = paragraph.start
+    for run in paragraph.runs:
+        run_end = position + len(run.text)
+        edges = {position, run_end}
+        for start, end, _ in relevant:
+            edges.update(edge for edge in (start, end) if position < edge < run_end)
+        cuts = sorted(edges)
+        for piece_start, piece_end in zip(cuts, cuts[1:], strict=False):
+            color = next(
+                (c for s, e, c in reversed(relevant) if s <= piece_start < e), ""
+            )
+            result.append(
+                replace(
+                    run,
+                    text=run.text[piece_start - position : piece_end - position],
+                    highlight=color or run.highlight,
+                )
+            )
+        position = run_end
+    return tuple(result)
 
 
 def split_runs(

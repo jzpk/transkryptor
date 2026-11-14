@@ -3,12 +3,13 @@
 import pytest
 
 from transkryptor.document.parts_of_speech import (
+    POS_COLORS,
     AnalyserUnavailable,
     PartOfSpeech,
 )
 from transkryptor.ui.highlights import POS_LAYER
 from transkryptor.ui.main_window import MainWindow
-from transkryptor.ui.pos_highlights import POS_COLORS, PosHighlighter
+from transkryptor.ui.pos_highlights import PosHighlighter
 
 
 @pytest.fixture

@@ -4,7 +4,9 @@ W menu „Podświetlenia” na pasku narzędzi można zaznaczyć jedną albo kil
 części mowy (rzeczowniki, czasowniki, przymiotniki…); każda ma własny kolor.
 Części mowy podaje Morfeusz 2 (``document/parts_of_speech.py``), wczytywany
 dopiero przy pierwszym zaznaczeniu. Podświetlenia należą do widoku (warstwa
-``POS_LAYER``): nie trafiają do projektu ani eksportu.
+``POS_LAYER``): nie trafiają do projektu. Eksport może je powtórzyć
+(zgłoszenie #54) - okno „Eksportuj jako…” bierze zaznaczenie z
+``selected`` i analizator z ``tagger``.
 """
 
 from __future__ import annotations
@@ -16,6 +18,8 @@ from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QMenu
 
 from transkryptor.document.parts_of_speech import (
+    POS_ALPHA,
+    POS_COLORS,
     AnalyserUnavailable,
     PartOfSpeech,
     PartOfSpeechTagger,
@@ -27,19 +31,6 @@ from transkryptor.ui.highlights import POS_LAYER
 from transkryptor.ui.phrase_highlights import swatch
 from transkryptor.ui.span_layer import SpanLayer
 
-POS_COLORS: dict[PartOfSpeech, str] = {
-    PartOfSpeech.NOUN: "#4a9df8",
-    PartOfSpeech.VERB: "#f0506e",
-    PartOfSpeech.ADJECTIVE: "#3cbf6a",
-    PartOfSpeech.ADVERB: "#ff8a2a",
-    PartOfSpeech.PRONOUN: "#9b6bff",
-    PartOfSpeech.NUMERAL: "#14b8b0",
-    PartOfSpeech.PREPOSITION: "#a0785a",
-    PartOfSpeech.CONJUNCTION: "#8a94a6",
-    PartOfSpeech.PARTICLE: "#e0b400",
-    PartOfSpeech.INTERJECTION: "#e05cd0",
-}
-POS_ALPHA = 90
 REFRESH_DEBOUNCE_MS = 300
 
 
@@ -96,6 +87,10 @@ class PosHighlighter(QObject):
     def _on_text_changed(self) -> None:
         if self._selected:
             self._timer.start()
+
+    def tagger(self) -> PartOfSpeechTagger | None:
+        """Analizator (wczytywany przy pierwszym użyciu); None - niedostępny."""
+        return self._ensure_tagger()
 
     def _ensure_tagger(self) -> PartOfSpeechTagger | None:
         if self._tagger is None and not self._unavailable:
