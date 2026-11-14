@@ -203,7 +203,11 @@ class PackController(QObject):
         if self.run_import_dialog(dialog) != PackImportDialog.DialogCode.Accepted:
             return False
         self._apply_settings(opened.settings, dialog, opened.template_path)
-        return self._session.open_project(opened.project_path, confirm=False)
+        # Ustawienia z paczki trafiły do bieżącego profilu - bez przełączania
+        # na profil nadawcy zapisany w projekcie.
+        return self._session.open_project(
+            opened.project_path, confirm=False, use_profile=False
+        )
 
     def _confirm_overwrite(self, manifest: PackManifest, directory: Path) -> bool:
         existing = conflicts(manifest, directory)

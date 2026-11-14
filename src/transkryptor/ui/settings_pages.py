@@ -14,13 +14,11 @@ from pathlib import Path
 from typing import Protocol
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
     QComboBox,
     QFileDialog,
-    QFontComboBox,
     QFormLayout,
     QFrame,
     QHBoxLayout,
@@ -52,17 +50,12 @@ from transkryptor.export.docx_template import (
 )
 from transkryptor.export.options import UNTIMED_MODES
 from transkryptor.export.superscript import MODES as SUPERSCRIPT_MODES
-from transkryptor.i18n import LANGUAGES, tr
+from transkryptor.i18n import tr
 from transkryptor.notation.ellipsis import EllipsisStyle
 from transkryptor.notation.validator import SEVERITY_HINT, VALIDATOR_RULES
 from transkryptor.settings import (
     AUTOSAVE_INTERVAL_RANGE_S,
     DAILY_GOAL_RANGE_MIN,
-    FONT_SIZE_RANGE_PT,
-    LANGUAGE_SYSTEM,
-    THEME_DARK,
-    THEME_LIGHT,
-    THEME_SYSTEM,
     Settings,
     encode_bool_map,
     encode_shortcut_map,
@@ -79,19 +72,6 @@ class SettingsPage(Protocol):
     def load(self, settings: Settings) -> None: ...
 
     def apply(self, settings: Settings) -> Settings: ...
-
-
-def theme_labels() -> dict[str, str]:
-    return {
-        THEME_SYSTEM: tr("settings.theme.system"),
-        THEME_LIGHT: tr("settings.theme.light"),
-        THEME_DARK: tr("settings.theme.dark"),
-    }
-
-
-def language_labels() -> dict[str, str]:
-    """Nazwy języków w nich samych - rozpoznawalne niezależnie od bieżącego."""
-    return {LANGUAGE_SYSTEM: tr("settings.language.system"), **LANGUAGES}
 
 
 def device_labels() -> dict[str, str]:
@@ -129,79 +109,6 @@ class FormPage(QScrollArea):
         self.setWidgetResizable(True)
         self.setFrameShape(QFrame.Shape.NoFrame)
         self.setWidget(content)
-
-
-class AppearancePage(FormPage):
-    """Język, motyw i czcionka edytora."""
-
-    def __init__(self, initial_language: str) -> None:
-        super().__init__()
-        self._initial_language = initial_language
-        self.default_font_check = QCheckBox(tr("settings.editor.default_font"))
-        self.font_combo = QFontComboBox()
-        self.default_font_check.toggled.connect(
-            lambda checked: self.font_combo.setEnabled(not checked)
-        )
-        self.font_size_spin = QSpinBox()
-        # Wartość 0 („Domyślny”) leży tuż pod zakresem rozmiarów.
-        self.font_size_spin.setRange(FONT_SIZE_RANGE_PT[0] - 1, FONT_SIZE_RANGE_PT[1])
-        self.font_size_spin.setSpecialValueText(tr("settings.editor.default_size"))
-        self.font_size_spin.setSuffix(" pt")
-        self.theme_combo = QComboBox()
-        for value, theme_label in theme_labels().items():
-            self.theme_combo.addItem(theme_label, value)
-        self.theme_combo.setToolTip(tr("settings.theme.tooltip"))
-        self.language_combo = QComboBox()
-        for code, language_label in language_labels().items():
-            self.language_combo.addItem(language_label, code)
-        self.language_hint = QLabel(tr("settings.language.restart_hint"))
-        self.language_hint.setWordWrap(True)
-        set_props(self.language_hint, role="muted")
-        self.language_combo.currentIndexChanged.connect(self._update_language_hint)
-        self.form.addRow(tr("settings.language"), self.language_combo)
-        self.form.addRow(self.language_hint)
-        self.form.addRow(tr("settings.theme"), self.theme_combo)
-        self.form.addRow(self.default_font_check)
-        self.form.addRow(tr("settings.editor.font"), self.font_combo)
-        self.form.addRow(tr("settings.editor.size"), self.font_size_spin)
-
-    def load(self, settings: Settings) -> None:
-        select_data(self.theme_combo, settings.appearance.theme)
-        select_data(self.language_combo, settings.appearance.language)
-        self._update_language_hint()
-        editor = settings.editor
-        self.default_font_check.setChecked(not editor.font_family)
-        self.font_combo.setEnabled(bool(editor.font_family))
-        if editor.font_family:
-            self.font_combo.setCurrentFont(QFont(editor.font_family))
-        self.font_size_spin.setValue(
-            editor.font_size_pt or self.font_size_spin.minimum()
-        )
-
-    def apply(self, settings: Settings) -> Settings:
-        size = self.font_size_spin.value()
-        return replace(
-            settings,
-            appearance=replace(
-                settings.appearance,
-                theme=str(self.theme_combo.currentData()),
-                language=str(self.language_combo.currentData()),
-            ),
-            editor=replace(
-                settings.editor,
-                font_family=(
-                    ""
-                    if self.default_font_check.isChecked()
-                    else self.font_combo.currentFont().family()
-                ),
-                font_size_pt=0 if size == self.font_size_spin.minimum() else size,
-            ),
-        )
-
-    def _update_language_hint(self) -> None:
-        """Komunikat o restarcie tylko po zmianie języka względem bieżącego."""
-        changed = self.language_combo.currentData() != self._initial_language
-        self.language_hint.setVisible(changed)
 
 
 class NotationPage(FormPage):

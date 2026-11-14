@@ -20,6 +20,7 @@ from tests.ui.conftest import (  # noqa: F401 - fikstury dla testów e2e
     enough_memory,
     isolated_autosave,
     isolated_playback_cache,
+    isolated_profiles,
     isolated_rules,
     isolated_settings,
     isolated_snapshots,

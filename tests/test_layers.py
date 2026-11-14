@@ -26,6 +26,7 @@ QT_FREE = (
     "feedback.py",
     "fileio.py",
     "paths.py",
+    "profiles.py",
     "settings.py",
 )
 

@@ -191,6 +191,9 @@ class TutorialOverlay(QWidget):
         self._target: QWidget | None = None
         self._hole = QRectF()
         self._pulse = 0.0
+        # Ograniczenie animacji (ustawienia „Wygląd”): bez pulsowania ramki
+        # i bez przesuwania podświetlenia między krokami.
+        self._reduced_motion = False
         self.setObjectName("tutorial_overlay")
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setStyleSheet(
@@ -238,6 +241,17 @@ class TutorialOverlay(QWidget):
     def is_running(self) -> bool:
         return self._tutorial is not None
 
+    def set_reduced_motion(self, reduced: bool) -> None:
+        self._reduced_motion = reduced
+        if reduced:
+            self._pulse_animation.stop()
+            self._set_pulse(0.0)
+        elif self.is_running():
+            self._pulse_animation.start()
+
+    def is_pulsing(self) -> bool:
+        return self._pulse_animation.state() == QAbstractAnimation.State.Running
+
     def target_rect(self) -> QRect:
         """Obszar podświetlenia w układzie nakładki (pusty bez elementu)."""
         target = self._target
@@ -261,7 +275,8 @@ class TutorialOverlay(QWidget):
         self.show()
         self.raise_()
         self.setFocus()
-        self._pulse_animation.start()
+        if not self._reduced_motion:
+            self._pulse_animation.start()
         self._show_step()
 
     def next(self) -> None:
@@ -322,7 +337,7 @@ class TutorialOverlay(QWidget):
     def _move_hole(self, *, animated: bool) -> None:
         end = QRectF(self.target_rect())
         self._move.stop()
-        if animated and not end.isEmpty():
+        if animated and not end.isEmpty() and not self._reduced_motion:
             self._move.setStartValue(self._hole)
             self._move.setEndValue(end)
             self._move.start()

@@ -55,6 +55,8 @@ class CommentsPanel(QWidget):
         self.setObjectName("comments_panel")
         self.tree = QTreeWidget()
         self.tree.setObjectName("comments_tree")
+        self.tree.setAccessibleName(tr("comments.dock"))
+        self.tree.setAccessibleDescription(tr("comments.accessible_description"))
         self.tree.setHeaderHidden(True)
         self.tree.setWordWrap(True)
         self.tree.setUniformRowHeights(False)
@@ -69,6 +71,7 @@ class CommentsPanel(QWidget):
         for key in FILTERS:
             self.filter_combo.addItem(tr(f"comments.filter.{key}"), key)
         self.filter_combo.setToolTip(tr("comments.filter.tooltip"))
+        self.filter_combo.setAccessibleName(tr("comments.filter.tooltip"))
         self.filter_combo.currentIndexChanged.connect(
             lambda _index: self.set_comments(self._comments)
         )
