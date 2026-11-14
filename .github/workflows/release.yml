@@ -549,7 +549,9 @@ jobs:
   # w której wersji zmiana trafiła do programu. Wydanie z main: zgłoszenia
   # zamknięte jako zrobione przed publikacją. Wydanie z release/X.Y:
   # zgłoszenia zamykane („Closes #N”) w commitach od poprzedniego taga tej
-  # gałęzi - granica czasowa objęłaby też zgłoszenia zrobione tylko na main. Zgłoszenia strony (etykieta webpage) nie
+  # gałęzi - granica czasowa objęłaby też zgłoszenia zrobione tylko na main.
+  # Otwarte spośród nich job zamyka (GitHub nie zamyka ich przy scaleniu do
+  # main wypchniętym tokenem workflow). Zgłoszenia strony (etykieta webpage) nie
   # czekają na wydanie: etykietę „Deployed” nadaje im workflow „Strona”.
   # Błąd tutaj nie cofa wydania; job można uruchomić ponownie (już
   # oznaczone zgłoszenia zostają bez zmian).
