@@ -52,6 +52,12 @@ const VALID = {
   description: "Klikam Zapisz i nic się nie dzieje.",
   version: "0.7.0",
   system: "Windows-11",
+  area: "projekt",
+  steps: "1. Otwieram projekt.\n2. Klikam Zapisz.",
+  expected: "Projekt się zapisuje.",
+  actual: "Nic się nie dzieje.",
+  // Pole pomysłu - zgłoszenie błędu je pomija.
+  problem: "Tracę zmiany.",
   website: "",
   token: "token",
 };
@@ -376,7 +382,7 @@ test("bug fields become separate sections in order", () => {
 });
 
 test("empty sections are left out", () => {
-  const body = issueBody(parseReport(VALID));
+  const body = issueBody(parseReport({ ...VALID, kind: "question" }));
   const headings = [...body.matchAll(/^### (.+)$/gm)].map((match) => match[1]);
   assert.deepEqual(headings, ["Opis", "Informacje techniczne"]);
 });
@@ -409,4 +415,25 @@ test("unknown choices and too long sections are rejected", () => {
 test("mentions in sections are neutralised", () => {
   const body = issueBody(parseReport({ ...VALID, actual: "pisze do @octocat" }));
   assert.match(body, /pisze do @​octocat/);
+});
+
+test("required fields of the kind must be filled", () => {
+  for (const field of ["area", "steps", "expected", "actual"]) {
+    assert.equal(parseReport({ ...VALID, [field]: "" }), null, field);
+    assert.equal(parseReport({ ...VALID, [field]: "  " }), null, field);
+  }
+  assert.equal(parseReport({ ...VALID, steps: "ab" }), null);
+  assert.ok(parseReport({ ...VALID, frequency: "" }));
+  assert.equal(parseReport({ ...VALID, kind: "idea", problem: "" }), null);
+  for (const kind of ["question", "text", "webpage"]) {
+    const bare = { kind, title: VALID.title, description: VALID.description, token: "t" };
+    assert.ok(parseReport(bare), kind);
+  }
+});
+
+test("report without required bug fields is rejected before GitHub", async () => {
+  const fetchImpl = makeFetch();
+  const response = await handle(post({ ...VALID, steps: "" }), makeEnv(), fetchImpl);
+  assert.equal(response.status, 400);
+  assert.equal(fetchImpl.calls.length, 0);
 });

@@ -56,18 +56,23 @@ export const SECTIONS = [
 ];
 
 // Rodzaje zgłoszeń: etykiety issue, pola zależne od rodzaju (inne pola
-// z żądania są pomijane), pola o stałej wartości i to, czy zgłoszenie
-// dotyczy programu (wersja programu w informacjach technicznych).
+// z żądania są pomijane), pola wymagane (atrybut required w
+// pages/zglos.html), pola o stałej wartości i to, czy zgłoszenie dotyczy
+// strony (bez wersji programu w informacjach technicznych).
 export const KINDS = {
   bug: {
     labels: ["bug"],
     fields: ["area", "steps", "expected", "actual", "frequency"],
+    required: ["area", "steps", "expected", "actual"],
   },
-  idea: { labels: ["enhancement"], fields: ["problem"] },
+  idea: { labels: ["enhancement"], fields: ["problem"], required: ["problem"] },
   question: { labels: ["question"], fields: [] },
   text: { labels: ["bug"], fields: [], fixed: { area: "tekst" } },
   webpage: { labels: ["webpage"], fields: [], website: true },
 };
+
+// Najmniejsza długość wymaganego pola zależnego od rodzaju.
+export const REQUIRED_MIN = 3;
 
 export const LIMITS = {
   title: [5, 120],
@@ -233,6 +238,11 @@ export function parseReport(data) {
   for (const [field, [min, max]] of Object.entries(LIMITS)) {
     const length = [...report[field]].length;
     if (length < min || length > max) {
+      return null;
+    }
+  }
+  for (const field of spec.required || []) {
+    if ([...report[field]].length < REQUIRED_MIN) {
       return null;
     }
   }

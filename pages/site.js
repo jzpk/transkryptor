@@ -332,6 +332,18 @@
     return group && group.hidden ? "" : field.value.trim();
   }
 
+  // Nazwy wymaganych pól, które dotyczą wybranego rodzaju zgłoszenia.
+  function requiredShown(form) {
+    var names = [];
+    Array.prototype.forEach.call(form.elements, function (field) {
+      var group = field.closest("[data-for-kind]");
+      if (field.required && !(group && group.hidden)) {
+        names.push(field.name);
+      }
+    });
+    return names;
+  }
+
   function reportPayload(form, token) {
     var elements = form.elements;
     var payload = {
@@ -395,10 +407,12 @@
 
     form.addEventListener("submit", function (event) {
       event.preventDefault();
-      var invalid = firstInvalid(form, ["tytul", "opis"]);
+      var invalid = firstInvalid(form, requiredShown(form));
       if (invalid) {
         say(
-          "Uzupełnij tytuł (co najmniej 5 znaków) i opis (co najmniej 10 znaków).",
+          "Uzupełnij wymagane pola zaznaczone na czerwono: tytuł (co najmniej " +
+            "5 znaków), opis (co najmniej 10 znaków) i pozostałe pola " +
+            "tego rodzaju zgłoszenia.",
           true
         );
         invalid.focus();

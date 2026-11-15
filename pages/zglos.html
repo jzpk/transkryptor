@@ -10,8 +10,9 @@
   widać tylko odnośnik do zgłoszeń na GitHubie. Program otwiera tę stronę
   z parametrami ?wersja=...&system=..., które wypełniają pola informacji
   technicznych (parametr rodzaj=... wybiera rodzaj zgłoszenia). Pola
-  z data-for-kind widać tylko przy wymienionych rodzajach; wartości pól
-  wyboru muszą się zgadzać z CHOICES w zgloszenia/worker.js.
+  z data-for-kind widać tylko przy wymienionych rodzajach i tylko wtedy
+  sprawdza się ich atrybut required; wymagane pola i wartości pól
+  wyboru muszą się zgadzać z KINDS i CHOICES w zgloszenia/worker.js.
 -->
 <html lang="pl">
   <head>
@@ -214,8 +215,8 @@
 
           <div class="field" data-for-kind="blad">
             <label for="report-area">Czego dotyczy?</label>
-            <select id="report-area" name="obszar">
-              <option value="">Wybierz (opcjonalnie)</option>
+            <select id="report-area" name="obszar" required>
+              <option value="">Wybierz...</option>
               <option value="asr">Szkic z nagrania (ASR)</option>
               <option value="odtwarzacz">Odtwarzacz nagrania</option>
               <option value="edytor">Edytor i notacja</option>
@@ -229,7 +230,7 @@
             </select>
           </div>
           <div class="field" data-for-kind="blad">
-            <label for="report-steps">Kroki (opcjonalnie)</label>
+            <label for="report-steps">Kroki</label>
             <p class="small field-hint">
               Wypisz po kolei, co robisz w programie, aż pojawi się błąd.
             </p>
@@ -237,27 +238,33 @@
               id="report-steps"
               name="kroki"
               class="short"
+              required
+              minlength="3"
               maxlength="3000"
               rows="4"
               placeholder="1. Otwieram projekt.&#10;2. Klikam Eksportuj.&#10;3. ..."
             ></textarea>
           </div>
           <div class="field" data-for-kind="blad">
-            <label for="report-expected">Co powinno się stać? (opcjonalnie)</label>
+            <label for="report-expected">Co powinno się stać?</label>
             <textarea
               id="report-expected"
               name="oczekiwane"
               class="short"
+              required
+              minlength="3"
               maxlength="3000"
               rows="4"
             ></textarea>
           </div>
           <div class="field" data-for-kind="blad">
-            <label for="report-actual">Co dzieje się zamiast tego? (opcjonalnie)</label>
+            <label for="report-actual">Co się aktualnie dzieje?</label>
             <textarea
               id="report-actual"
               name="faktyczne"
               class="short"
+              required
+              minlength="3"
               maxlength="3000"
               rows="4"
             ></textarea>
@@ -273,7 +280,7 @@
             </select>
           </div>
           <div class="field" data-for-kind="pomysl" hidden>
-            <label for="report-problem">Jaki problem to rozwiąże? (opcjonalnie)</label>
+            <label for="report-problem">Jaki problem to rozwiąże?</label>
             <p class="small field-hint">
               Opisz sytuację, w której brakuje Ci tej funkcji - co dziś
               musisz robić inaczej albo ręcznie.
@@ -282,6 +289,8 @@
               id="report-problem"
               name="problem"
               class="short"
+              required
+              minlength="3"
               maxlength="3000"
               rows="4"
             ></textarea>
