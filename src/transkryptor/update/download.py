@@ -21,11 +21,13 @@ from pathlib import Path
 import httpx
 
 from transkryptor.errors import UpdateError
+from transkryptor.fileio import SizeLimitError, limited_chunks
 from transkryptor.i18n import tr
 from transkryptor.paths import user_cache_dir
 from transkryptor.update.releases import (
     CHECKSUMS_ASSET,
     SIGNATURE_ASSET,
+    Asset,
     ReleaseInfo,
     parse_version,
 )
@@ -33,6 +35,11 @@ from transkryptor.update.signature import SignatureError, verify_release_checksu
 
 CHUNK_SIZE = 1 << 20
 PART_SUFFIX = ".part"
+# Sumy i podpis mają po kilkaset bajtów; limit chroni pamięć przed
+# nieskończoną odpowiedzią serwera.
+MAX_SMALL_FILE_BYTES = 64 * 1024
+# Górna granica artefaktu, gdy API nie podało jego rozmiaru.
+MAX_ARTIFACT_BYTES = 2 * 1024**3
 
 # Postęp pobierania: (pobrane bajty, całość albo None, gdy serwer jej nie podał).
 DownloadProgress = Callable[[int, int | None], None]
@@ -125,33 +132,14 @@ def download_release(
         return target
 
     partial = target.with_name(target.name + PART_SUFFIX)
-    digest = hashlib.sha256()
     try:
-        with client.stream("GET", artifact.url) as stream:
-            if stream.status_code != 200:
-                raise UpdateError(
-                    user_message=tr(
-                        "update.error.download",
-                        version=release.version,
-                        status=stream.status_code,
-                    ),
-                    retry_hint=tr("update.error.later.hint"),
-                )
-            total = _content_length(stream)
-            done = 0
-            progress(done, total)
-            with partial.open("wb") as handle:
-                for chunk in stream.iter_bytes(chunk_size=CHUNK_SIZE):
-                    if should_cancel():
-                        raise DownloadCancelled()
-                    handle.write(chunk)
-                    digest.update(chunk)
-                    done += len(chunk)
-                    progress(done, total)
+        digest = _stream_artifact(
+            artifact, release.version, client, partial, should_cancel, progress
+        )
     except BaseException:
         partial.unlink(missing_ok=True)
         raise
-    if digest.hexdigest() != expected:
+    if digest != expected:
         partial.unlink(missing_ok=True)
         raise UpdateError(
             user_message=tr("update.error.checksum_mismatch", version=release.version),
@@ -159,6 +147,56 @@ def download_release(
         )
     partial.replace(target)
     return target
+
+
+def _stream_artifact(
+    artifact: Asset,
+    version: str,
+    client: httpx.Client,
+    partial: Path,
+    should_cancel: Callable[[], bool],
+    progress: DownloadProgress,
+) -> str:
+    """Zapisuje artefakt do ``partial`` i zwraca jego SHA-256.
+
+    Strumień dłuższy niż rozmiar zasobu z API GitHuba jest przerywany od
+    razu - serwer pośredni nie zapełni dysku, zanim suma odrzuci plik.
+    """
+    digest = hashlib.sha256()
+    with client.stream("GET", artifact.url) as stream:
+        if stream.status_code != 200:
+            raise UpdateError(
+                user_message=tr(
+                    "update.error.download",
+                    version=version,
+                    status=stream.status_code,
+                ),
+                retry_hint=tr("update.error.later.hint"),
+            )
+        total = _content_length(stream)
+        # Zapas 1 % na wypadek drobnej niezgodności rozmiaru w API.
+        limit = (
+            artifact.size + artifact.size // 100
+            if artifact.size > 0
+            else MAX_ARTIFACT_BYTES
+        )
+        if total is not None and total > limit:
+            raise _too_large(artifact.name)
+        done = 0
+        progress(done, total)
+        chunks = stream.iter_bytes(chunk_size=CHUNK_SIZE)
+        try:
+            with partial.open("wb") as handle:
+                for chunk in limited_chunks(chunks, limit):
+                    if should_cancel():
+                        raise DownloadCancelled()
+                    handle.write(chunk)
+                    digest.update(chunk)
+                    done += len(chunk)
+                    progress(done, total)
+        except SizeLimitError as error:
+            raise _too_large(artifact.name) from error
+    return digest.hexdigest()
 
 
 def verify_downloaded(artifact: Path, trusted_keys: Iterable[str] | None = None) -> str:
@@ -199,14 +237,30 @@ def _content_length(response: httpx.Response) -> int | None:
 
 
 def _fetch(client: httpx.Client, url: str) -> bytes:
-    """Mały plik wydania (sumy, podpis); błąd HTTP → ``UpdateError``."""
-    response = client.get(url)
-    if response.status_code != 200:
-        raise UpdateError(
-            user_message=tr("update.error.checksums", status=response.status_code),
-            retry_hint=tr("update.error.later.hint"),
-        )
-    return response.content
+    """Mały plik wydania (sumy, podpis); błąd HTTP → ``UpdateError``.
+
+    Odczyt jest strumieniowy z limitem ``MAX_SMALL_FILE_BYTES`` - plik
+    sum nie trafia w całości do pamięci, zanim podpis go odrzuci.
+    """
+    with client.stream("GET", url) as response:
+        if response.status_code != 200:
+            raise UpdateError(
+                user_message=tr("update.error.checksums", status=response.status_code),
+                retry_hint=tr("update.error.later.hint"),
+            )
+        # Porcje takie, jak przychodzą z sieci - bez buforowania 1 MB naraz.
+        chunks = response.iter_bytes()
+        try:
+            return b"".join(limited_chunks(chunks, MAX_SMALL_FILE_BYTES))
+        except SizeLimitError as error:
+            raise _too_large(url.rsplit("/", 1)[-1]) from error
+
+
+def _too_large(name: str) -> UpdateError:
+    return UpdateError(
+        user_message=tr("update.error.too_large", name=name),
+        retry_hint=tr("update.error.later.hint"),
+    )
 
 
 def _write_file(path: Path, data: bytes) -> None:

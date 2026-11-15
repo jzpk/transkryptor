@@ -1,4 +1,5 @@
-"""Operacje plikowe wspólne dla aplikacji: zapis atomowy i suma SHA-256."""
+"""Operacje plikowe wspólne dla aplikacji: zapis atomowy, suma SHA-256
+i odczyt danych z limitem rozmiaru (pobrania, elementy archiwów)."""
 
 from __future__ import annotations
 
@@ -7,7 +8,7 @@ import hashlib
 import os
 import stat
 import tempfile
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from pathlib import Path
 from typing import IO
 
@@ -15,6 +16,37 @@ from transkryptor.errors import ProjectError
 from transkryptor.i18n import tr
 
 _HASH_CHUNK = 1 << 20
+
+
+class SizeLimitError(ValueError):
+    """Dane są dłuższe niż dozwolony limit (np. strumień z serwera)."""
+
+    def __init__(self, limit: int) -> None:
+        super().__init__(f"dane przekraczają limit {limit} B")
+        self.limit = limit
+
+
+def limited_chunks(chunks: Iterable[bytes], limit: int) -> Iterator[bytes]:
+    """Przepuszcza porcje, dopóki ich łączna długość nie przekroczy ``limit``.
+
+    Porcja, która przekroczyłaby limit, nie jest oddawana - zamiast niej
+    :class:`SizeLimitError`. Chroni dysk i pamięć przed strumieniem bez
+    końca, zanim suma kontrolna odrzuci dane.
+    """
+    total = 0
+    for chunk in chunks:
+        total += len(chunk)
+        if total > limit:
+            raise SizeLimitError(limit)
+        yield chunk
+
+
+def read_limited(stream: IO[bytes], limit: int) -> bytes:
+    """Cały strumień, gdy ma najwyżej ``limit`` bajtów; dłuższy → ``SizeLimitError``."""
+    data = stream.read(limit + 1)
+    if len(data) > limit:
+        raise SizeLimitError(limit)
+    return data
 
 
 def write_atomic(target: Path, payload: bytes, mode: int | None = None) -> None:

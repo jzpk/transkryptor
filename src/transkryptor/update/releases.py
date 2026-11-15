@@ -91,6 +91,25 @@ def is_safe_url(url: str, hosts: frozenset[str] = DOWNLOAD_HOSTS) -> bool:
     )
 
 
+# Hosty, z którymi klient aktualizacji w ogóle rozmawia: API i pliki wydań.
+UPDATE_HOSTS = DOWNLOAD_HOSTS | {"api.github.com"}
+
+
+def check_request_host(request: httpx.Request) -> None:
+    """Hak żądań klienta aktualizacji: tylko ``https`` na ``UPDATE_HOSTS``.
+
+    Klient podąża za przekierowaniami, a hak widzi każde żądanie, także
+    przekierowane - adres spoza listy kończy się ``UpdateError``, zanim
+    cokolwiek zostanie pobrane. Autentyczność plików i tak potwierdza podpis;
+    hak domyka listę hostów sprawdzaną dla adresów z API.
+    """
+    if request.url.scheme != "https" or request.url.host not in UPDATE_HOSTS:
+        raise UpdateError(
+            user_message=tr("update.error.host", host=request.url.host),
+            retry_hint=tr("update.error.later.hint"),
+        )
+
+
 def safe_page_url(url: object) -> str:
     """Strona wydania do pokazania użytkownikowi; inny adres → lista wydań."""
     if isinstance(url, str) and is_safe_url(url, frozenset({"github.com"})):

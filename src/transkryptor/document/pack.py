@@ -13,16 +13,25 @@ Paczka to archiwum ZIP z plikiem ``manifest.json`` (format i numer wersji
 - ``settings/<nazwa>.docx`` - szablon DOCX użyty w projekcie.
 
 Rozpakowanie bierze z archiwum tylko pliki wymienione w manifeście,
-pod bezpiecznymi nazwami (bez katalogów), więc paczka nie zapisze niczego
-poza wskazanym katalogiem. Zapis przechodzi przez ``fileio.atomic_output``.
+pod bezpiecznymi nazwami (bez katalogów i nazw zarezerwowanych w Windows),
+więc paczka nie zapisze niczego poza wskazanym katalogiem. Elementy
+archiwum są czytane z limitem rozmiaru (bomba ZIP nie wyczerpie pamięci),
+a pliki trafiają najpierw do katalogu tymczasowego obok celu
+(:func:`stage_pack`) - pod docelowe nazwy przenosi je dopiero
+:meth:`StagedPack.commit` po zgodzie użytkownika. Nagranie musi mieć sumę
+SHA-256 z manifestu. Zapis paczki przechodzi przez ``fileio.atomic_output``.
 Scalanie ustawień z paczki z własnymi jest w ``document/pack_settings.py``.
 """
 
 from __future__ import annotations
 
+import contextlib
+import hashlib
 import json
 import shutil
+import tempfile
 import zipfile
+from collections.abc import Iterator
 from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path, PurePosixPath
@@ -31,7 +40,12 @@ from typing import Any
 from transkryptor import __version__
 from transkryptor.document.project import PROJECT_SUFFIX, ProjectState, dumps
 from transkryptor.errors import ProjectError
-from transkryptor.fileio import atomic_output
+from transkryptor.fileio import (
+    SizeLimitError,
+    atomic_output,
+    limited_chunks,
+    read_limited,
+)
 from transkryptor.i18n import tr
 
 PACK_SUFFIX = ".tkpack"
@@ -41,6 +55,19 @@ MANIFEST = "manifest.json"
 # Powyżej tego rozmiaru nagrania okno eksportu ostrzega o dużej paczce.
 LARGE_AUDIO_BYTES = 500 * 1024 * 1024
 _COPY_CHUNK = 1 << 20
+# Limity rozmiaru elementów archiwum po rozpakowaniu. Nagranie nie ma
+# stałego limitu - jego rozmiar musi zgadzać się z nagłówkiem ZIP.
+MAX_MANIFEST_BYTES = 1024 * 1024
+MAX_SETTINGS_BYTES = 16 * 1024 * 1024
+MAX_PROJECT_BYTES = 256 * 1024 * 1024
+MAX_TEMPLATE_BYTES = 64 * 1024 * 1024
+_STAGING_PREFIX = ".tkpack-"
+# Nazwy urządzeń w Windows - pliku o takim rdzeniu nazwy nie da się zapisać.
+_RESERVED_NAMES = frozenset(
+    {"CON", "PRN", "AUX", "NUL"}
+    | {f"COM{n}" for n in range(1, 10)}
+    | {f"LPT{n}" for n in range(1, 10)}
+)
 
 
 def file_dialog_filter() -> str:
@@ -96,6 +123,47 @@ class OpenedPack:
     template_path: Path | None
 
 
+@dataclass(frozen=True)
+class StagedPack:
+    """Paczka rozpakowana do katalogu tymczasowego ``staging`` obok celu.
+
+    Nic jeszcze nie leży pod docelowymi nazwami w ``directory`` - użytkownik
+    może zobaczyć zawartość i zrezygnować bez śladu na dysku.
+    """
+
+    manifest: PackManifest
+    settings: PackSettings
+    directory: Path
+    staging: Path
+
+    @property
+    def has_template(self) -> bool:
+        return bool(self.manifest.template)
+
+    def commit(self) -> OpenedPack:
+        """Przenosi pliki pod docelowe nazwy (nadpisuje istniejące)."""
+        manifest = self.manifest
+        try:
+            project = self._move(manifest.project)
+            audio = self._move(manifest.audio_name) if manifest.audio_included else None
+            template = self._move(manifest.template) if manifest.template else None
+        except OSError as exc:
+            raise ProjectError(
+                user_message=tr(
+                    "project.error.save",
+                    name=manifest.project,
+                    reason=exc.strerror or exc,
+                ),
+                retry_hint=tr("project.error.save.hint"),
+            ) from exc
+        return OpenedPack(manifest, project, audio, self.settings, template)
+
+    def _move(self, name: str) -> Path:
+        target = self.directory / name
+        (self.staging / name).replace(target)
+        return target
+
+
 def estimated_size(source: PackSource) -> int:
     """Przybliżony rozmiar paczki w bajtach (nagranie się nie kompresuje)."""
     size = len(_project_json(source).encode("utf-8"))
@@ -120,6 +188,7 @@ def write_pack(target: Path, source: PackSource) -> None:
     """Zapisuje paczkę atomowo; błąd zapisu → ``ProjectError``."""
     audio = _audio(source)
     template = source.template_path if _is_file(source.template_path) else None
+    template_name = _safe_name(template.name) if template is not None else ""
     manifest: dict[str, Any] = {
         "format": PACK_FORMAT,
         "version": PACK_VERSION,
@@ -127,7 +196,7 @@ def write_pack(target: Path, source: PackSource) -> None:
         "created": datetime.now().replace(microsecond=0).isoformat(),
         "project": _project_name(source.project_name),
         "audio": _audio_manifest(source, audio),
-        "template": template.name if template is not None else "",
+        "template": template_name,
     }
     with (
         atomic_output(target) as handle,
@@ -136,13 +205,15 @@ def write_pack(target: Path, source: PackSource) -> None:
         archive.writestr(MANIFEST, json.dumps(manifest, ensure_ascii=False))
         archive.writestr(f"project/{manifest['project']}", _project_json(source))
         if audio is not None:
+            # Nazwa jak w manifeście (bezpieczna), bo po niej szuka odczyt.
             # Nagrania (MP3, AAC…) są już skompresowane.
+            audio_name = (manifest["audio"] or {}).get("name") or _safe_name(audio.name)
             archive.write(
-                audio, f"audio/{audio.name}", compress_type=zipfile.ZIP_STORED
+                audio, f"audio/{audio_name}", compress_type=zipfile.ZIP_STORED
             )
         _write_settings(archive, source.settings)
         if template is not None:
-            archive.write(template, f"settings/{template.name}")
+            archive.write(template, f"settings/{template_name}")
 
 
 def read_manifest(path: Path) -> PackManifest:
@@ -164,35 +235,55 @@ def conflicts(manifest: PackManifest, directory: Path) -> list[str]:
     return [name for name in names if (directory / name).exists()]
 
 
-def open_pack(path: Path, directory: Path) -> OpenedPack:
-    """Rozpakowuje paczkę do ``directory``; błąd → ``ProjectError``."""
+@contextlib.contextmanager
+def stage_pack(path: Path, directory: Path) -> Iterator[StagedPack]:
+    """Rozpakowuje paczkę do katalogu tymczasowego w ``directory``.
+
+    Pliki trafiają pod docelowe nazwy dopiero po :meth:`StagedPack.commit`;
+    wyjście z bloku ``with`` usuwa katalog tymczasowy, więc anulowany import
+    nie zostawia plików. Błąd → ``ProjectError``.
+    """
+    try:
+        directory.mkdir(parents=True, exist_ok=True)
+        staging = Path(tempfile.mkdtemp(prefix=_STAGING_PREFIX, dir=directory))
+    except OSError as exc:
+        raise ProjectError(
+            user_message=tr(
+                "project.error.save", name=directory.name, reason=exc.strerror or exc
+            ),
+            retry_hint=tr("project.error.save.hint"),
+        ) from exc
+    try:
+        yield _unpack(path, directory, staging)
+    finally:
+        shutil.rmtree(staging, ignore_errors=True)
+
+
+def _unpack(path: Path, directory: Path, staging: Path) -> StagedPack:
     try:
         with zipfile.ZipFile(path) as archive:
             manifest = _manifest(archive)
-            directory.mkdir(parents=True, exist_ok=True)
-            project = _extract(
-                archive, f"project/{manifest.project}", directory / manifest.project
-            )
-            audio = None
+            _extract(archive, f"project/{manifest.project}", staging, MAX_PROJECT_BYTES)
             if manifest.audio_included:
-                audio = _extract(
-                    archive,
-                    f"audio/{manifest.audio_name}",
-                    directory / manifest.audio_name,
-                )
-            template = None
+                digest = _extract(archive, f"audio/{manifest.audio_name}", staging)
+                if manifest.audio_sha256 and digest != manifest.audio_sha256.lower():
+                    raise ProjectError(
+                        user_message=tr("pack.error.audio_mismatch", name=path.name),
+                        retry_hint=tr("pack.error.invalid.hint"),
+                    )
             if manifest.template:
-                template = _extract(
+                _extract(
                     archive,
                     f"settings/{manifest.template}",
-                    directory / manifest.template,
+                    staging,
+                    MAX_TEMPLATE_BYTES,
                 )
             settings = _read_settings(archive)
     except ProjectError:
         raise
     except (OSError, zipfile.BadZipFile, ValueError, KeyError, TypeError) as exc:
         raise _invalid(path) from exc
-    return OpenedPack(manifest, project, audio, settings, template)
+    return StagedPack(manifest, settings, directory, staging)
 
 
 # --- zapis -------------------------------------------------------------------
@@ -255,7 +346,7 @@ def _write_settings(archive: zipfile.ZipFile, settings: PackSettings) -> None:
 
 
 def _manifest(archive: zipfile.ZipFile) -> PackManifest:
-    data = json.loads(archive.read(MANIFEST).decode("utf-8"))
+    data = json.loads(_read_member(archive, MANIFEST, MAX_MANIFEST_BYTES))
     if not isinstance(data, dict) or data.get("format") != PACK_FORMAT:
         raise ValueError("to nie jest paczka Transkryptora")
     version = data.get("version")
@@ -291,7 +382,9 @@ def _read_settings(archive: zipfile.ZipFile) -> PackSettings:
 
     def text(name: str) -> str:
         member = f"settings/{name}"
-        return archive.read(member).decode("utf-8") if member in names else ""
+        if member not in names:
+            return ""
+        return _read_member(archive, member, MAX_SETTINGS_BYTES).decode("utf-8")
 
     notation_raw = text("notation.json")
     notation = json.loads(notation_raw) if notation_raw else {}
@@ -305,17 +398,52 @@ def _read_settings(archive: zipfile.ZipFile) -> PackSettings:
     )
 
 
-def _extract(archive: zipfile.ZipFile, member: str, target: Path) -> Path:
-    with archive.open(member) as source, atomic_output(target) as handle:
-        shutil.copyfileobj(source, handle, _COPY_CHUNK)
-    return target
+def _read_member(archive: zipfile.ZipFile, member: str, limit: int) -> bytes:
+    """Element archiwum w pamięci; większy niż ``limit`` → ``SizeLimitError``.
+
+    Rozmiar z nagłówka odrzuca dużą paczkę od razu, a odczyt z limitem
+    chroni przed nagłówkiem, który zaniża rozmiar.
+    """
+    info = archive.getinfo(member)
+    if info.file_size > limit:
+        raise SizeLimitError(limit)
+    with archive.open(info) as source:
+        return read_limited(source, limit)
+
+
+def _extract(
+    archive: zipfile.ZipFile, member: str, directory: Path, limit: int | None = None
+) -> str:
+    """Rozpakowuje element do ``directory`` pod jego nazwą; zwraca SHA-256.
+
+    Bez ``limit`` obowiązuje rozmiar z nagłówka ZIP.
+    """
+    info = archive.getinfo(member)
+    limit = info.file_size if limit is None else limit
+    if info.file_size > limit:
+        raise SizeLimitError(limit)
+    digest = hashlib.sha256()
+    target = directory / PurePosixPath(member).name
+    with archive.open(info) as source, target.open("wb") as handle:
+        chunks = iter(lambda: source.read(_COPY_CHUNK), b"")
+        for chunk in limited_chunks(chunks, limit):
+            handle.write(chunk)
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _safe_name(name: str) -> str:
-    """Sama nazwa pliku, bez katalogów i znaków niedozwolonych w Windows."""
+    """Sama nazwa pliku, bez katalogów i znaków niedozwolonych w Windows.
+
+    Nazwa urządzenia Windows (``CON``, ``NUL.txt``, ``com1.mp3``...) dostaje
+    przedrostek ``_`` - inaczej zapis kończy się niezrozumiałym błędem.
+    """
     base = PurePosixPath(name.replace("\\", "/")).name
     cleaned = "".join("_" if ch in '<>:"|?*' or ord(ch) < 32 else ch for ch in base)
-    return cleaned.strip(" .")
+    cleaned = cleaned.strip(" .")
+    if cleaned.split(".", 1)[0].rstrip(" ").upper() in _RESERVED_NAMES:
+        cleaned = f"_{cleaned}"
+    return cleaned
 
 
 def _checked_name(value: Any) -> str:

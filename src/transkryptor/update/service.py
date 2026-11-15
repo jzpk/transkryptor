@@ -38,6 +38,7 @@ from transkryptor.update.quota import RequestQuota
 from transkryptor.update.releases import (
     USER_AGENT,
     ReleaseInfo,
+    check_request_host,
     current_platform,
     fetch_latest,
     is_newer,
@@ -78,7 +79,10 @@ class UpdateOutcome:
 
 def default_client() -> httpx.Client:
     return httpx.Client(
-        follow_redirects=True, timeout=TIMEOUT, headers={"User-Agent": USER_AGENT}
+        follow_redirects=True,
+        timeout=TIMEOUT,
+        headers={"User-Agent": USER_AGENT},
+        event_hooks={"request": [check_request_host]},
     )
 
 

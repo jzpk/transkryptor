@@ -114,6 +114,23 @@ def test_pack_opens_on_another_computer_with_audio_and_notation(
     assert [rule.code for rule in receiver.rules_store.user_rules] == ["USR-UO"]
 
 
+def test_cancelled_import_leaves_no_files(
+    qtbot, add_window, tmp_path, monkeypatch
+) -> None:
+    sender = transcriber_window(qtbot, add_window, tmp_path)
+    pack = tmp_path / "wysylka" / "WP-0042.tkpack"
+    pack.parent.mkdir()
+    export_pack(sender, monkeypatch, pack, audio=True)
+
+    receiver = verifier_window(add_window, tmp_path, monkeypatch)
+    receiver.packs.run_import_dialog = lambda _dialog: int(
+        PackImportDialog.DialogCode.Rejected
+    )
+    assert not receiver.packs.open_pack(pack)
+    assert list((tmp_path / "od-transkrybenta").iterdir()) == []
+    assert receiver.session.project_path is None
+
+
 def test_pack_without_audio_binds_own_copy_by_checksum(
     qtbot, add_window, tmp_path, monkeypatch
 ) -> None:

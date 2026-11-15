@@ -6,8 +6,9 @@ i szablon DOCX z ustawień eksportu, pokazuje zawartość i rozmiar
 (``ui/pack_dialogs.py``) i zapisuje plik ``.tkpack`` (``document/pack.py``).
 
 „Otwórz paczkę…” (i upuszczenie pliku ``.tkpack`` na okno) rozpakowuje
-paczkę do wskazanego katalogu, pyta o ustawienia z paczki
-(``document/pack_settings.py``) i otwiera projekt zwykłą ścieżką sesji -
+paczkę do katalogu tymczasowego we wskazanym katalogu, pyta o ustawienia
+z paczki (``document/pack_settings.py``), po zgodzie przenosi pliki pod
+docelowe nazwy i otwiera projekt zwykłą ścieżką sesji -
 paczka bez nagrania wiąże je jak każdy projekt: po sumie SHA-256.
 """
 
@@ -27,10 +28,11 @@ from transkryptor.document.pack import (
     PackManifest,
     PackSettings,
     PackSource,
+    StagedPack,
     conflicts,
     file_dialog_filter,
-    open_pack,
     read_manifest,
+    stage_pack,
     write_pack,
 )
 from transkryptor.document.pack_settings import apply_pack_settings
@@ -190,18 +192,24 @@ class PackController(QObject):
         if directory is None or not self._confirm_overwrite(manifest, directory):
             return False
         try:
-            opened = open_pack(path, directory)
+            with stage_pack(path, directory) as staged:
+                return self._import_staged(staged)
         except AppError as error:
             show_error(self._window, tr("pack.open.error"), error)
             return False
+
+    def _import_staged(self, staged: StagedPack) -> bool:
+        """Okno importu ustawień, potem pliki pod docelowe nazwy i projekt.
+
+        Do akceptacji okna pliki leżą w katalogu tymczasowym - „Anuluj” nie
+        zostawia ich ani nie nadpisuje istniejących.
+        """
         dialog = PackImportDialog(
-            opened.manifest,
-            opened.settings,
-            opened.template_path is not None,
-            self._window,
+            staged.manifest, staged.settings, staged.has_template, self._window
         )
         if self.run_import_dialog(dialog) != PackImportDialog.DialogCode.Accepted:
             return False
+        opened = staged.commit()
         self._apply_settings(opened.settings, dialog, opened.template_path)
         # Ustawienia z paczki trafiły do bieżącego profilu - bez przełączania
         # na profil nadawcy zapisany w projekcie.

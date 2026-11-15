@@ -16,7 +16,8 @@
 # montowany przy uruchomieniu.
 
 # Zastępcza icuuc.dll dla importu QtCore pod Wine - opis w icuuc_stub.c.
-FROM debian:bookworm-slim AS icu-stub
+# Obrazy przypięte do digestu; aktualizuje je Dependabot (.github/dependabot.yml).
+FROM debian:bookworm-slim@sha256:734a72b3d6142a71993b4bc580ca01d8ca687f77a2c422d96a961d3376b179bc AS icu-stub
 RUN apt-get update \
     && apt-get install --no-install-recommends -y gcc-mingw-w64-x86-64 \
     && rm -rf /var/lib/apt/lists/*
