@@ -230,6 +230,45 @@ class TestVerifiedDownload:
             manager.download()
         assert not manager.model_dir.exists()
 
+    def test_endless_stream_is_cut_at_the_pinned_size(self, tmp_path) -> None:
+        """B-2: serwer wysyłający dane bez końca nie zapełni dysku."""
+        model = small_model(("model.bin", b"w" * 10_000))
+        sent: list[int] = []
+        written: list[int] = []
+
+        def endless():
+            while True:
+                sent.append(4096)
+                yield b"w" * 4096
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, content=endless())
+
+        def track(done: int, _total: int | None, _name: str) -> None:
+            written.append(done)
+
+        manager = ModelManager(
+            model=model,
+            models_root=tmp_path,
+            downloader=partial(
+                hf_streaming_download, transport=httpx.MockTransport(handler)
+            ),
+        )
+        with pytest.raises(ModelDownloadError, match="model.bin"):
+            manager.download(on_progress=track)
+        # Na dysk nie trafia nic ponad przypięty rozmiar, a z sieci najwyżej
+        # jedna porcja (1 MB) ponad niego.
+        assert max(written, default=0) <= 10_000
+        assert sum(sent) <= 10_000 + (1 << 20) + 4096
+        assert not manager.model_dir.exists()
+
+    def test_wrong_content_length_is_rejected_before_download(self, tmp_path) -> None:
+        model = small_model(("model.bin", b"wagi"))
+        manager = self._manager(tmp_path, model, {"model.bin": b"dluzsze wagi"}, [])
+        with pytest.raises(ModelDownloadError, match="model.bin"):
+            manager.download()
+        assert not manager.model_dir.exists()
+
     def test_name_outside_model_dir_is_rejected(self, tmp_path) -> None:
         model = small_model(("../ucieczka.txt", b"x"))
         manager = self._manager(tmp_path, model, {"ucieczka.txt": b"x"}, [])

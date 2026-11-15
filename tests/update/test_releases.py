@@ -154,3 +154,49 @@ def test_parse_release_replaces_foreign_page_url() -> None:
 def test_release_info_rejects_versions_unusable_as_paths(version) -> None:
     with pytest.raises(ValueError):
         ReleaseInfo(version, releases.RELEASES_PAGE_URL, None, None)
+
+
+@pytest.mark.parametrize(
+    "location",
+    ["https://evil.example/plik", "http://github.com/jzpk/transkryptor/x"],
+)
+def test_update_client_refuses_redirect_outside_github(github, location) -> None:
+    import httpx
+
+    from transkryptor.update.service import default_client
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.host in releases.UPDATE_HOSTS:
+            return httpx.Response(302, headers={"Location": location})
+        raise AssertionError(f"żądanie do {request.url}")
+
+    hooks = default_client().event_hooks
+    with (
+        httpx.Client(
+            transport=httpx.MockTransport(handler),
+            follow_redirects=True,
+            event_hooks=hooks,
+        ) as client,
+        pytest.raises(UpdateError) as info,
+    ):
+        releases.fetch_latest(client, "linux")
+    assert "niedozwolony adres" in info.value.user_message
+
+
+def test_update_client_follows_redirect_to_release_assets() -> None:
+    import httpx
+
+    target = "https://release-assets.githubusercontent.com/plik"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if str(request.url) == target:
+            return httpx.Response(200, content=b"ok")
+        return httpx.Response(302, headers={"Location": target})
+
+    with httpx.Client(
+        transport=httpx.MockTransport(handler),
+        follow_redirects=True,
+        event_hooks={"request": [releases.check_request_host]},
+    ) as client:
+        response = client.get("https://github.com/jzpk/transkryptor/releases/x")
+    assert response.content == b"ok"

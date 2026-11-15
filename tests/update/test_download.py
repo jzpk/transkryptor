@@ -9,6 +9,8 @@ import pytest
 
 from transkryptor.errors import UpdateError
 from transkryptor.update.download import (
+    CHUNK_SIZE,
+    MAX_SMALL_FILE_BYTES,
     DownloadCancelled,
     clear_downloads,
     download_release,
@@ -181,3 +183,37 @@ def test_file_changed_after_download_fails_verification(github, tmp_path) -> Non
     with pytest.raises(UpdateError):
         verify_downloaded(path)
     assert not path.parent.exists()
+
+
+def endless(sent: list[int], chunk: bytes = b"x" * 4096):
+    """Strumień bez końca (chunked, bez Content-Length); liczy wysłane bajty."""
+
+    def stream():
+        while True:
+            sent.append(len(chunk))
+            yield chunk
+
+    return stream
+
+
+def test_endless_artifact_stream_is_cut_at_the_announced_size(github, tmp_path) -> None:
+    github.publish("1.0.0", {ASSET: b"nowy obraz" * 1000})
+    sent: list[int] = []
+    github.streams[ASSET] = endless(sent)
+    with github.client() as client, pytest.raises(UpdateError) as info:
+        download_release(release_from(github), client, tmp_path)
+    assert "większy" in info.value.user_message
+    # Klient buforuje najwyżej jedną porcję (CHUNK_SIZE) ponad limit.
+    assert sum(sent) <= 10_100 + CHUNK_SIZE + 4096
+    assert names_in(tmp_path / "1.0.0") == SIGNED_SUMS
+
+
+def test_endless_checksums_are_not_read_into_memory(github, tmp_path) -> None:
+    github.publish("1.0.0", {ASSET: b"nowy obraz"})
+    release = release_from(github)
+    sent: list[int] = []
+    github.streams["SHA256SUMS.txt"] = endless(sent)
+    with github.client() as client, pytest.raises(UpdateError):
+        download_release(release, client, tmp_path)
+    assert sum(sent) <= MAX_SMALL_FILE_BYTES + 4096
+    assert not (tmp_path / "1.0.0").exists()

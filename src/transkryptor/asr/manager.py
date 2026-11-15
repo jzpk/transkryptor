@@ -10,7 +10,8 @@ pobieranie nigdy nie jest uznawane za gotowy model.
 
 Domyślny downloader pobiera wyłącznie pliki z ``AsrModelInfo.files``
 z przypiętej rewizji i sprawdza rozmiar oraz SHA-256 każdego z nich przed
-umieszczeniem go w katalogu modelu (SEC-02). Ścieżka docelowa musi leżeć
+umieszczeniem go w katalogu modelu (SEC-02); strumień dłuższy niż przypięty
+rozmiar jest przerywany w trakcie pobierania. Ścieżka docelowa musi leżeć
 w katalogu modelu (SEC-05).
 """
 
@@ -30,6 +31,7 @@ from transkryptor.asr.models import (
     format_size,
 )
 from transkryptor.errors import ModelDownloadError
+from transkryptor.fileio import SizeLimitError, limited_chunks
 from transkryptor.i18n import tr
 
 if TYPE_CHECKING:
@@ -192,6 +194,12 @@ def hf_streaming_download(
 
     total = sum(file.size for file in model.files) or None
     downloaded = 0
+
+    def on_chunk(file: ModelFile, length: int) -> None:
+        nonlocal downloaded
+        downloaded += length
+        on_progress(downloaded, total, file.name)
+
     with httpx.Client(
         follow_redirects=True, timeout=60.0, transport=transport
     ) as client:
@@ -205,29 +213,69 @@ def hf_streaming_download(
                 f"https://huggingface.co/{file.repo_id or model.hf_repo_id}"
                 f"/resolve/{file.revision or model.hf_revision}/{file.name}"
             )
-            digest = hashlib.sha256()
-            size = 0
             try:
-                with client.stream("GET", url) as response:
-                    response.raise_for_status()
-                    with partial.open("wb") as handle:
-                        for chunk in response.iter_bytes(chunk_size=1 << 20):
-                            if should_cancel():
-                                raise DownloadCancelled()
-                            handle.write(chunk)
-                            digest.update(chunk)
-                            size += len(chunk)
-                            downloaded += len(chunk)
-                            on_progress(downloaded, total, file.name)
-            except DownloadCancelled:
+                size, sha256 = _stream_file(
+                    client, url, file, partial, on_chunk, should_cancel
+                )
+            except (DownloadCancelled, ModelDownloadError):
                 raise
+            except SizeLimitError as error:
+                raise _mismatch(file) from error
             except Exception as error:
                 raise ModelDownloadError(
                     user_message=tr("asr.error.file", name=file.name, reason=error),
                     retry_hint=tr("asr.error.network.hint"),
                 ) from error
-            _verify(file, size, digest.hexdigest())
+            _verify(file, size, sha256)
             partial.replace(target)
+
+
+def _stream_file(
+    client: httpx.Client,
+    url: str,
+    file: ModelFile,
+    partial: Path,
+    on_chunk: Callable[[ModelFile, int], None],
+    should_cancel: CancelCheck,
+) -> tuple[int, str]:
+    """Zapisuje plik do ``partial``; zwraca (rozmiar, SHA-256).
+
+    Strumień dłuższy niż przypięty rozmiar jest przerywany od razu
+    (``SizeLimitError``) - błędny serwer pośredni nie zapełni dysku, zanim
+    weryfikacja odrzuci plik. Nagłówek ``Content-Length`` niezgodny
+    z rozmiarem odrzuca plik przed pobraniem.
+    """
+    digest = hashlib.sha256()
+    size = 0
+    with client.stream("GET", url) as response:
+        response.raise_for_status()
+        length = _content_length(response)
+        if length is not None and length != file.size:
+            raise _mismatch(file)
+        with partial.open("wb") as handle:
+            chunks = response.iter_bytes(chunk_size=1 << 20)
+            for chunk in limited_chunks(chunks, file.size):
+                if should_cancel():
+                    raise DownloadCancelled()
+                handle.write(chunk)
+                digest.update(chunk)
+                size += len(chunk)
+                on_chunk(file, len(chunk))
+    return size, digest.hexdigest()
+
+
+def _content_length(response: httpx.Response) -> int | None:
+    """Długość treści z nagłówka; None, gdy jej nie ma albo treść jest kodowana.
+
+    Przy ``Content-Encoding`` (np. gzip) nagłówek podaje długość po
+    kompresji, więc nie da się go porównać z rozmiarem pliku.
+    """
+    if response.headers.get("content-encoding", "identity") != "identity":
+        return None
+    try:
+        return int(response.headers["content-length"])
+    except (KeyError, ValueError):
+        return None
 
 
 def model_file_path(dest_dir: Path, name: str) -> Path:
@@ -245,10 +293,14 @@ def model_file_path(dest_dir: Path, name: str) -> Path:
 def _verify(file: ModelFile, size: int, sha256: str) -> None:
     """Rozmiar i suma pobranego pliku muszą zgadzać się z przypiętymi."""
     if size != file.size or sha256 != file.sha256:
-        raise ModelDownloadError(
-            user_message=tr("asr.error.checksum", name=file.name),
-            retry_hint=tr("asr.error.checksum.hint"),
-        )
+        raise _mismatch(file)
+
+
+def _mismatch(file: ModelFile) -> ModelDownloadError:
+    return ModelDownloadError(
+        user_message=tr("asr.error.checksum", name=file.name),
+        retry_hint=tr("asr.error.checksum.hint"),
+    )
 
 
 __all__ = [

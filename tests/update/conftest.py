@@ -6,7 +6,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import os
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 
 import httpx
 import pytest
@@ -57,6 +57,8 @@ class FakeGitHub:
         self.files: dict[str, bytes] = {}
         self.checksums_override: str | None = None
         self.signature_override: str | None = None
+        # Treść podstawiana zamiast pliku (np. strumień bez końca).
+        self.streams: dict[str, Callable[[], Iterator[bytes]]] = {}
         self.offline = False
         self.api_calls = 0
         self.downloads: list[str] = []
@@ -70,13 +72,19 @@ class FakeGitHub:
         return f"{DOWNLOAD_BASE}/v{self.version}/{name}"
 
     def payload(self) -> dict:
-        names = [*self.files, "SHA256SUMS.txt", "SHA256SUMS.txt.minisig"]
+        sizes = {name: len(data) for name, data in self.files.items()}
+        sizes["SHA256SUMS.txt"] = len(self.checksums().encode())
+        sizes["SHA256SUMS.txt.minisig"] = len(self.signature().encode())
         return {
             "tag_name": f"v{self.version}",
             "html_url": f"https://github.com/jzpk/transkryptor/releases/tag/v{self.version}",
             "assets": [
-                {"name": name, "browser_download_url": self.asset_url(name), "size": 1}
-                for name in names
+                {
+                    "name": name,
+                    "browser_download_url": self.asset_url(name),
+                    "size": size,
+                }
+                for name, size in sizes.items()
             ],
         }
 
@@ -106,6 +114,8 @@ class FakeGitHub:
                 return httpx.Response(self.api_status, json={"message": "x"})
             return httpx.Response(200, json=self.payload())
         name = url.rsplit("/", 1)[-1]
+        if name in self.streams:
+            return httpx.Response(200, content=self.streams[name]())
         if name == "SHA256SUMS.txt":
             return httpx.Response(200, text=self.checksums())
         if name == "SHA256SUMS.txt.minisig":

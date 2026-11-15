@@ -1,20 +1,23 @@
 """Paczka do przekazania: format ZIP z manifestem i scalanie ustawień."""
 
+import hashlib
 import json
 import zipfile
 from pathlib import Path
 
 import pytest
 
+from transkryptor.document import pack as pack_module
 from transkryptor.document.pack import (
     MANIFEST,
     PACK_VERSION,
+    OpenedPack,
     PackSettings,
     PackSource,
     conflicts,
     estimated_size,
-    open_pack,
     read_manifest,
+    stage_pack,
     write_pack,
 )
 from transkryptor.document.pack_settings import (
@@ -41,18 +44,25 @@ from transkryptor.settings import (
 
 RULE_A = PhoneticRule("USR-A", {"*": "a"}, "a", "b", 0.5)
 RULE_B = PhoneticRule("USR-B", {"*": "b"}, "b", "c", 0.5)
+AUDIO = b"ID3 nagranie"
+AUDIO_SHA = hashlib.sha256(AUDIO).hexdigest()
+
+
+def open_pack(pack: Path, directory: Path) -> OpenedPack:
+    with stage_pack(pack, directory) as staged:
+        return staged.commit()
 
 
 @pytest.fixture
 def source(tmp_path) -> PackSource:
     audio = tmp_path / "nagrania" / "AdK 1954.mp3"
     audio.parent.mkdir()
-    audio.write_bytes(b"ID3 nagranie")
+    audio.write_bytes(AUDIO)
     template = tmp_path / "szablon.docx"
     template.write_bytes(b"PK szablon")
     state = ProjectState(
         text="raz dwa",
-        audio=AudioRef(str(audio), "abc123", relative_path="../nagrania/AdK 1954.mp3"),
+        audio=AudioRef(str(audio), AUDIO_SHA, relative_path="../nagrania/AdK 1954.mp3"),
     )
     return PackSource(
         state=state,
@@ -78,14 +88,19 @@ def test_round_trip_with_audio(tmp_path, source) -> None:
     assert opened.manifest.audio_included
     assert opened.project_path == target / "wywiad.transkr"
     assert opened.audio_path == target / "AdK 1954.mp3"
-    assert (target / "AdK 1954.mp3").read_bytes() == b"ID3 nagranie"
+    assert (target / "AdK 1954.mp3").read_bytes() == AUDIO
+    assert sorted(p.name for p in target.iterdir()) == [
+        "AdK 1954.mp3",
+        "szablon.docx",
+        "wywiad.transkr",
+    ]
     assert opened.template_path == target / "szablon.docx"
     assert opened.settings == source.settings
     state = load_project(opened.project_path)
     assert state.text == "raz dwa"
     assert state.audio is not None
     assert state.audio.relative_path == "AdK 1954.mp3"
-    assert state.audio.sha256 == "abc123"
+    assert state.audio.sha256 == AUDIO_SHA
 
 
 def test_without_audio(tmp_path, source) -> None:
@@ -97,7 +112,7 @@ def test_without_audio(tmp_path, source) -> None:
         assert not any(name.startswith("audio/") for name in archive.namelist())
     manifest = read_manifest(pack)
     assert manifest.audio_name == "AdK 1954.mp3"
-    assert manifest.audio_sha256 == "abc123"
+    assert manifest.audio_sha256 == AUDIO_SHA
     assert not manifest.audio_included
     opened = open_pack(pack, tmp_path / "odbiorca")
     assert opened.audio_path is None
@@ -168,6 +183,85 @@ def test_only_listed_members_are_extracted(tmp_path, source) -> None:
     target = tmp_path / "odbiorca"
     open_pack(pack, target)
     assert not (tmp_path / "poza.txt").exists()
+
+
+def test_staged_pack_without_commit_leaves_no_files(tmp_path, source) -> None:
+    pack = tmp_path / "p.tkpack"
+    write_pack(pack, source)
+    target = tmp_path / "odbiorca"
+    target.mkdir()
+    (target / "wywiad.transkr").write_text("mój", encoding="utf-8")
+    with stage_pack(pack, target) as staged:
+        assert staged.settings == source.settings
+        assert staged.has_template
+        assert not (target / "AdK 1954.mp3").exists()
+    assert [p.name for p in target.iterdir()] == ["wywiad.transkr"]
+    assert (target / "wywiad.transkr").read_text(encoding="utf-8") == "mój"
+
+
+def test_commit_overwrites_existing_files(tmp_path, source) -> None:
+    pack = tmp_path / "p.tkpack"
+    write_pack(pack, source)
+    target = tmp_path / "odbiorca"
+    target.mkdir()
+    (target / "wywiad.transkr").write_text("stary", encoding="utf-8")
+    opened = open_pack(pack, target)
+    assert load_project(opened.project_path).text == "raz dwa"
+
+
+def test_audio_with_wrong_checksum_is_rejected(tmp_path, source) -> None:
+    from dataclasses import replace
+
+    audio = replace(source.state.audio, sha256="0" * 64)
+    pack = tmp_path / "p.tkpack"
+    write_pack(pack, replace(source, state=replace(source.state, audio=audio)))
+    target = tmp_path / "odbiorca"
+    with pytest.raises(ProjectError) as info:
+        open_pack(pack, target)
+    assert "sumę kontrolną" in info.value.user_message
+    assert list(target.iterdir()) == []
+
+
+@pytest.mark.parametrize(
+    ("limit", "member"),
+    [
+        ("MAX_MANIFEST_BYTES", MANIFEST),
+        ("MAX_SETTINGS_BYTES", "settings/rules.toml"),
+        ("MAX_PROJECT_BYTES", "project/wywiad.transkr"),
+        ("MAX_TEMPLATE_BYTES", "settings/szablon.docx"),
+    ],
+)
+def test_oversized_members_are_rejected(
+    tmp_path, source, monkeypatch, limit, member
+) -> None:
+    pack = tmp_path / "p.tkpack"
+    write_pack(pack, source)
+    with zipfile.ZipFile(pack) as archive:
+        size = archive.getinfo(member).file_size
+    monkeypatch.setattr(pack_module, limit, size - 1)
+    target = tmp_path / "odbiorca"
+    with pytest.raises(ProjectError):
+        open_pack(pack, target)
+    assert list(target.iterdir()) == []
+
+
+def test_windows_reserved_names_are_not_used(tmp_path, source) -> None:
+    from dataclasses import replace
+
+    pack = tmp_path / "p.tkpack"
+    write_pack(pack, replace(source, project_name="CON.transkr"))
+    assert read_manifest(pack).project == "_CON.transkr"
+    write_zip(
+        pack,
+        {
+            "format": "transkryptor-pack",
+            "version": 1,
+            "project": "a.transkr",
+            "audio": {"name": "nul.mp3", "included": True},
+        },
+    )
+    with pytest.raises(ProjectError):
+        read_manifest(pack)
 
 
 class TestSettings:
