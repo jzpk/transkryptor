@@ -4,6 +4,9 @@
   "type": "module",
   "scripts": {
     "test": "node --test worker.test.js",
-    "deploy": "npx wrangler deploy"
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "4.156.0"
   }
 }
