@@ -7,7 +7,10 @@
 #
 # Kontekst budowania: pyproject.toml, uv.lock i README.md (przygotowuje je
 # scripts/build-installers.sh). Kod źródłowy jest montowany przy uruchomieniu.
-FROM ubuntu:22.04
+#
+# Obrazy są przypięte do digestu (tag zostaje dla czytelnika); FROM aktualizuje
+# Dependabot (.github/dependabot.yml), a obraz uv w COPY --from - ręcznie.
+FROM ubuntu:22.04@sha256:74b12b11ffa550fba1929ad4d8d16533c34f6612728469671afba1b03b66881c
 
 ENV DEBIAN_FRONTEND=noninteractive
 # binutils: objdump do analizy zależności PyInstallera; file: dla appimagetool.
@@ -20,7 +23,7 @@ RUN apt-get update \
         libegl1 libgl1 libxkbcommon-x11-0 libdbus-1-3 libfontconfig1 libglib2.0-0 libpulse0 \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=ghcr.io/astral-sh/uv:0.11.6 /uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.11.6@sha256:b1e699368d24c57cda93c338a57a8c5a119009ba809305cc8e86986d4a006754 /uv /usr/local/bin/uv
 
 # Wersja i suma takie same jak w .github/workflows/release.yml.
 ARG APPIMAGETOOL_VERSION=1.9.1
