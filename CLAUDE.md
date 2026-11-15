@@ -72,6 +72,16 @@ któryś limit, najpierw wydziel część kodu, potem dopisuj funkcję.
 - Gdy funkcja zmienia coś, co opisuje istniejący krok (np. nowe pozycje
   w menu przycisku), popraw też jego tekst.
 
+**Formularz zgłoszeń**
+
+- Lista „Czego dotyczy?” w formularzu zgłoszeń (`pages/zglos.html`,
+  pole `obszar`) obejmuje główne obszary programu. Gdy dodajesz nowy
+  obszar funkcji (albo zmieniasz nazwę lub usuwasz istniejący), popraw
+  listę w tej samej zmianie - zawsze w obu miejscach: `<option>`
+  w `pages/zglos.html` i `CHOICES.area` w `zgloszenia/worker.js`
+  (wartości muszą się zgadzać). Po zmianie Workera przypomnij
+  użytkownikowi o jego ponownym wdrożeniu (`npm run deploy` w `zgloszenia/`).
+
 **Higiena kodu**
 
 - Używaj istniejących pomocników zamiast kopii: `ui.messages.show_error`,
