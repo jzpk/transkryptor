@@ -331,3 +331,82 @@ test("form footers start with the text the issue page recognises", () => {
   assert.match(COMMENT_FOOTER, recognised);
   assert.ok(issueBody(parseReport(VALID)).endsWith(`\n---\n${REPORT_FOOTER}\n`));
 });
+
+test("each kind gets its labels", async () => {
+  const expected = {
+    bug: ["bug"],
+    idea: ["enhancement"],
+    question: ["question"],
+    text: ["bug"],
+    webpage: ["webpage"],
+    unknown: ["bug"],
+  };
+  for (const [kind, labels] of Object.entries(expected)) {
+    const fetchImpl = makeFetch();
+    await handle(post({ ...VALID, kind }), makeEnv(), fetchImpl);
+    const github = fetchImpl.calls.find((call) => call.url.includes("api.github.com"));
+    assert.deepEqual(JSON.parse(github.init.body).labels, [...labels, "reported by user"], kind);
+  }
+});
+
+test("bug fields become separate sections in order", () => {
+  const body = issueBody(
+    parseReport({
+      ...VALID,
+      area: "asr",
+      steps: "1. Otwieram nagranie.\n2. Klikam Szkic.",
+      expected: "Szkic się tworzy.",
+      actual: "Program się zamyka.",
+      frequency: "zawsze",
+    })
+  );
+  const headings = [...body.matchAll(/^### (.+)$/gm)].map((match) => match[1]);
+  assert.deepEqual(headings, [
+    "Opis",
+    "Czego dotyczy",
+    "Kroki",
+    "Oczekiwane zachowanie",
+    "Faktyczne zachowanie",
+    "Jak często występuje",
+    "Informacje techniczne",
+  ]);
+  assert.match(body, /### Czego dotyczy\n\nSzkic z nagrania \(ASR\)\n/);
+  assert.match(body, /### Jak często występuje\n\nZa każdym razem\n/);
+  assert.match(body, /### Kroki\n\n1\. Otwieram nagranie\.\n2\. Klikam Szkic\.\n/);
+});
+
+test("empty sections are left out", () => {
+  const body = issueBody(parseReport(VALID));
+  const headings = [...body.matchAll(/^### (.+)$/gm)].map((match) => match[1]);
+  assert.deepEqual(headings, ["Opis", "Informacje techniczne"]);
+});
+
+test("fields of other kinds are ignored", () => {
+  const idea = parseReport({ ...VALID, kind: "idea", steps: "krok", problem: "Brak eksportu." });
+  assert.equal(idea.steps, "");
+  assert.equal(idea.problem, "Brak eksportu.");
+  assert.match(issueBody(idea), /### Jaki problem rozwiązuje\n\nBrak eksportu\.\n/);
+  const bug = parseReport({ ...VALID, problem: "x" });
+  assert.equal(bug.problem, "");
+});
+
+test("text errors are filed under texts and webpage reports skip the app version", () => {
+  const text = issueBody(parseReport({ ...VALID, kind: "text", area: "asr" }));
+  assert.match(text, /### Czego dotyczy\n\nTłumaczenie lub tekst w programie\n/);
+  const webpage = issueBody(parseReport({ ...VALID, kind: "webpage" }));
+  assert.doesNotMatch(webpage, /Wersja programu/);
+  assert.match(webpage, /- System: Windows-11/);
+});
+
+test("unknown choices and too long sections are rejected", () => {
+  assert.equal(parseReport({ ...VALID, area: "<script>" }), null);
+  assert.equal(parseReport({ ...VALID, frequency: "często" }), null);
+  assert.equal(parseReport({ ...VALID, frequency: "toString" }), null);
+  assert.equal(parseReport({ ...VALID, steps: "x".repeat(3001) }), null);
+  assert.equal(parseReport({ ...VALID, kind: "toString" }).kind, "bug");
+});
+
+test("mentions in sections are neutralised", () => {
+  const body = issueBody(parseReport({ ...VALID, actual: "pisze do @octocat" }));
+  assert.match(body, /pisze do @​octocat/);
+});

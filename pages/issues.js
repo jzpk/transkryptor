@@ -41,7 +41,12 @@
   // Małymi literami - labelNames() porównuje nazwy etykiet bez wielkości liter.
   var ISSUE_DEPLOYED_LABEL = "deployed";
   var ISSUE_PROGRESS_LABELS = ["w-toku", "in progress"];
-  var ISSUE_KINDS = { bug: "Błąd", enhancement: "Pomysł" };
+  var ISSUE_KINDS = {
+    bug: "Błąd",
+    enhancement: "Pomysł",
+    question: "Pytanie",
+    webpage: "Strona",
+  };
   var ISSUE_PAGE = "zgloszenie.html";
   var ISSUES_FAILED =
     "Nie udało się pobrać listy zgłoszeń. Spróbuj ponownie za chwilę " +
@@ -102,7 +107,7 @@
       : "open";
   }
 
-  // „Błąd”, „Pomysł” albo "" według etykiet.
+  // Rodzaj według pierwszej pasującej etykiety (ISSUE_KINDS) albo "".
   function issueKind(issue) {
     var labels = labelNames(issue);
     for (var name in ISSUE_KINDS) {

@@ -1,6 +1,6 @@
 <!doctype html>
 <!--
-  Formularz zgłoszeń błędów i pomysłów (GitHub Pages). Pola $${nazwa}
+  Formularz zgłoszeń błędów, pomysłów i pytań (GitHub Pages). Pola $${nazwa}
   wypełnia src/transkryptor/packaging/site.py; dosłowny znak dolara
   zapisuje się jako $$. Odnośniki paska górnego i stopki ($${nav},
   $${footer_links}) składa src/transkryptor/packaging/site_nav.py.
@@ -9,7 +9,9 @@
   Workera nie jest ustawiony albo przeglądarka nie uruchamia skryptów,
   widać tylko odnośnik do zgłoszeń na GitHubie. Program otwiera tę stronę
   z parametrami ?wersja=...&system=..., które wypełniają pola informacji
-  technicznych.
+  technicznych (parametr rodzaj=... wybiera rodzaj zgłoszenia). Pola
+  z data-for-kind widać tylko przy wymienionych rodzajach; wartości pól
+  wyboru muszą się zgadzać z CHOICES w zgloszenia/worker.js.
 -->
 <html lang="pl">
   <head>
@@ -93,8 +95,8 @@
       <section class="wrap report">
         <h1>Zgłoś problem lub pomysł</h1>
         <p class="lead">
-          Coś nie działa tak, jak powinno, albo brakuje Ci jakiejś funkcji?
-          Napisz o tym - nie musisz zakładać żadnego konta.
+          Coś nie działa tak, jak powinno, brakuje Ci jakiejś funkcji albo
+          masz pytanie? Napisz o tym - nie musisz zakładać żadnego konta.
         </p>
 
         <p class="report-fallback" data-report-fallback>
@@ -124,6 +126,27 @@
               <span>
                 <strong>Mam pomysł</strong>
                 <span class="small">Nowa funkcja albo usprawnienie</span>
+              </span>
+            </label>
+            <label class="report-choice">
+              <input type="radio" name="rodzaj" value="pytanie" />
+              <span>
+                <strong>Mam pytanie</strong>
+                <span class="small">Nie wiem, jak coś zrobić, potrzebuję pomocy</span>
+              </span>
+            </label>
+            <label class="report-choice">
+              <input type="radio" name="rodzaj" value="tekst" />
+              <span>
+                <strong>Błąd w tekście</strong>
+                <span class="small">Literówka, błędne tłumaczenie albo niejasny opis w programie</span>
+              </span>
+            </label>
+            <label class="report-choice">
+              <input type="radio" name="rodzaj" value="strona" />
+              <span>
+                <strong>Strona internetowa</strong>
+                <span class="small">Problem albo pomysł dotyczący tej strony</span>
               </span>
             </label>
           </fieldset>
@@ -159,13 +182,25 @@
 
           <div class="field">
             <label for="report-description">Opis</label>
-            <p class="small field-hint" data-hint-for="blad">
-              Opisz po kolei: co robisz w programie, co się dzieje i co
-              powinno się stać zamiast tego. Jeśli program pokazał komunikat,
-              przepisz go.
+            <p class="small field-hint" data-for-kind="blad">
+              Opisz krótko, co się stało. Jeśli program pokazał komunikat,
+              przepisz go. Szczegóły możesz podać w polach poniżej.
             </p>
-            <p class="small field-hint" data-hint-for="pomysl" hidden>
-              Opisz, czego potrzebujesz i do czego Ci się to przyda.
+            <p class="small field-hint" data-for-kind="pomysl" hidden>
+              Opisz, czego potrzebujesz i jak to powinno działać.
+            </p>
+            <p class="small field-hint" data-for-kind="pytanie" hidden>
+              Napisz, co chcesz zrobić, co już próbujesz i co nie wychodzi.
+              Odpowiedź może już być w
+              <a href="faq.html">częstych pytaniach</a>.
+            </p>
+            <p class="small field-hint" data-for-kind="tekst" hidden>
+              Przepisz błędny tekst, napisz, gdzie go widać (okno, menu,
+              komunikat), i jak powinien brzmieć.
+            </p>
+            <p class="small field-hint" data-for-kind="strona" hidden>
+              Napisz, której podstrony dotyczy zgłoszenie i co jest nie tak
+              albo co warto zmienić.
             </p>
             <textarea
               id="report-description"
@@ -177,13 +212,88 @@
             ></textarea>
           </div>
 
+          <div class="field" data-for-kind="blad">
+            <label for="report-area">Czego dotyczy?</label>
+            <select id="report-area" name="obszar">
+              <option value="">Wybierz (opcjonalnie)</option>
+              <option value="asr">Szkic z nagrania (ASR)</option>
+              <option value="odtwarzacz">Odtwarzacz nagrania</option>
+              <option value="edytor">Edytor i notacja</option>
+              <option value="fonetyka">Propozycje zapisu fonetycznego</option>
+              <option value="kontrola">Kontrola zapisu</option>
+              <option value="wyszukiwanie">Wyszukiwanie</option>
+              <option value="eksport">Metryczka, eksport i import DOCX</option>
+              <option value="projekt">Projekt i autozapis</option>
+              <option value="instalacja">Instalacja i aktualizacje</option>
+              <option value="inne">Inne</option>
+            </select>
+          </div>
+          <div class="field" data-for-kind="blad">
+            <label for="report-steps">Kroki (opcjonalnie)</label>
+            <p class="small field-hint">
+              Wypisz po kolei, co robisz w programie, aż pojawi się błąd.
+            </p>
+            <textarea
+              id="report-steps"
+              name="kroki"
+              class="short"
+              maxlength="3000"
+              rows="4"
+              placeholder="1. Otwieram projekt.&#10;2. Klikam Eksportuj.&#10;3. ..."
+            ></textarea>
+          </div>
+          <div class="field" data-for-kind="blad">
+            <label for="report-expected">Co powinno się stać? (opcjonalnie)</label>
+            <textarea
+              id="report-expected"
+              name="oczekiwane"
+              class="short"
+              maxlength="3000"
+              rows="4"
+            ></textarea>
+          </div>
+          <div class="field" data-for-kind="blad">
+            <label for="report-actual">Co dzieje się zamiast tego? (opcjonalnie)</label>
+            <textarea
+              id="report-actual"
+              name="faktyczne"
+              class="short"
+              maxlength="3000"
+              rows="4"
+            ></textarea>
+          </div>
+          <div class="field" data-for-kind="blad">
+            <label for="report-frequency">Jak często to się zdarza?</label>
+            <select id="report-frequency" name="czestosc">
+              <option value="">Wybierz (opcjonalnie)</option>
+              <option value="zawsze">Za każdym razem</option>
+              <option value="czasem">Czasami</option>
+              <option value="raz">Zdarzyło się raz</option>
+              <option value="nie-wiem">Nie wiem</option>
+            </select>
+          </div>
+          <div class="field" data-for-kind="pomysl" hidden>
+            <label for="report-problem">Jaki problem to rozwiąże? (opcjonalnie)</label>
+            <p class="small field-hint">
+              Opisz sytuację, w której brakuje Ci tej funkcji - co dziś
+              musisz robić inaczej albo ręcznie.
+            </p>
+            <textarea
+              id="report-problem"
+              name="problem"
+              class="short"
+              maxlength="3000"
+              rows="4"
+            ></textarea>
+          </div>
+
           <details class="report-tech">
             <summary>Informacje techniczne (opcjonalnie)</summary>
             <p class="small">
               Program wypełnia te pola sam, gdy otworzysz formularz przyciskiem
               <strong>Zgłoś problem lub pomysł</strong> na dole okna.
             </p>
-            <div class="field">
+            <div class="field" data-for-kind="blad pomysl pytanie tekst">
               <label for="report-version">Wersja programu</label>
               <input
                 id="report-version"

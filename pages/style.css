@@ -908,7 +908,7 @@ thead th {
 .report-form[hidden],
 .report-fallback[hidden],
 .report-done[hidden],
-.field-hint[hidden] {
+[data-for-kind][hidden] {
   display: none;
 }
 
@@ -966,6 +966,7 @@ thead th {
 }
 
 .field input,
+.field select,
 .field textarea {
   width: 100%;
   padding: 10px 12px;
@@ -981,7 +982,12 @@ thead th {
   min-height: 160px;
 }
 
+.field textarea.short {
+  min-height: 96px;
+}
+
 .field input:focus-visible,
+.field select:focus-visible,
 .field textarea:focus-visible,
 .report-choice:has(input:focus-visible),
 .report-tech summary:focus-visible,

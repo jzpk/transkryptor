@@ -306,6 +306,49 @@
     return invalid;
   }
 
+  // Rodzaje zgłoszeń (wartości pola rodzaj) i ich nazwy w Workerze.
+  var REPORT_KINDS = {
+    blad: "bug",
+    pomysl: "idea",
+    pytanie: "question",
+    tekst: "text",
+    strona: "webpage",
+  };
+  // Pola zależne od rodzaju i ich nazwy w Workerze.
+  var REPORT_KIND_FIELDS = {
+    obszar: "area",
+    kroki: "steps",
+    oczekiwane: "expected",
+    faktyczne: "actual",
+    czestosc: "frequency",
+    problem: "problem",
+  };
+
+  // Wartość pola bez białych znaków na brzegach; pole schowane, bo nie
+  // dotyczy wybranego rodzaju zgłoszenia, daje "".
+  function shownValue(form, name) {
+    var field = form.elements[name];
+    var group = field.closest("[data-for-kind]");
+    return group && group.hidden ? "" : field.value.trim();
+  }
+
+  function reportPayload(form, token) {
+    var elements = form.elements;
+    var payload = {
+      kind: REPORT_KINDS[elements.rodzaj.value] || "bug",
+      title: elements.tytul.value,
+      description: elements.opis.value,
+      version: shownValue(form, "wersja"),
+      system: shownValue(form, "system"),
+      website: elements.strona.value,
+      token: token,
+    };
+    Object.keys(REPORT_KIND_FIELDS).forEach(function (name) {
+      payload[REPORT_KIND_FIELDS[name]] = shownValue(form, name);
+    });
+    return payload;
+  }
+
   function reportForm() {
     var form = document.querySelector("[data-report-form]");
     var endpoint = form && form.getAttribute("data-endpoint");
@@ -329,20 +372,21 @@
         field.value = value.slice(0, field.maxLength);
       }
     });
-    if (params.get("rodzaj") === "pomysl") {
-      form.elements.rodzaj.value = "pomysl";
+    if (Object.prototype.hasOwnProperty.call(REPORT_KINDS, params.get("rodzaj"))) {
+      form.elements.rodzaj.value = params.get("rodzaj");
     }
 
-    function showHints() {
+    // Wskazówki i pola dotyczące tylko niektórych rodzajów zgłoszeń.
+    function showKindFields() {
       var kind = form.elements.rodzaj.value;
-      each("[data-hint-for]", function (hint) {
-        hint.hidden = hint.getAttribute("data-hint-for") !== kind;
+      each("[data-for-kind]", function (node) {
+        node.hidden = node.getAttribute("data-for-kind").split(" ").indexOf(kind) < 0;
       });
     }
     each('input[name="rodzaj"]', function (radio) {
-      radio.addEventListener("change", showHints);
+      radio.addEventListener("change", showKindFields);
     });
-    showHints();
+    showKindFields();
 
     var captcha = captchaField(
       form.querySelector("[data-report-captcha]"),
@@ -365,19 +409,9 @@
         say(CAPTCHA_WAIT, true);
         return;
       }
-      var elements = form.elements;
-      var payload = {
-        kind: elements.rodzaj.value === "pomysl" ? "idea" : "bug",
-        title: elements.tytul.value,
-        description: elements.opis.value,
-        version: elements.wersja.value.trim(),
-        system: elements.system.value.trim(),
-        website: elements.strona.value,
-        token: token,
-      };
       submit.disabled = true;
       say("Wysyłanie...", false);
-      sendToWorker(endpoint, payload, REPORT_MESSAGES)
+      sendToWorker(endpoint, reportPayload(form, token), REPORT_MESSAGES)
         .then(function (data) {
           say("", false);
           // Pole-pułapka dostaje sukces bez numeru zgłoszenia.
@@ -401,7 +435,7 @@
     });
 
     done.querySelector("[data-report-again]").addEventListener("click", function () {
-      ["tytul", "opis"].forEach(function (name) {
+      ["tytul", "opis"].concat(Object.keys(REPORT_KIND_FIELDS)).forEach(function (name) {
         form.elements[name].value = "";
       });
       form.elements.tytul.dispatchEvent(new Event("input"));

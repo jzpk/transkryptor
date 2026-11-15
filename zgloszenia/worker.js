@@ -18,10 +18,55 @@ const GITHUB_API = "https://api.github.com";
 const TURNSTILE_VERIFY_URL =
   "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 
-export const LABELS = {
-  bug: "bug",
-  idea: "enhancement",
-  source: "reported by user",
+export const SOURCE_LABEL = "reported by user";
+
+// Wartości pól wyboru z formularza (atrybuty value w pages/zglos.html)
+// i ich opisy w issue. Pusta wartość oznacza „nie podano”.
+export const CHOICES = {
+  area: {
+    asr: "Szkic z nagrania (ASR)",
+    odtwarzacz: "Odtwarzacz nagrania",
+    edytor: "Edytor i notacja",
+    fonetyka: "Propozycje zapisu fonetycznego",
+    kontrola: "Kontrola zapisu",
+    wyszukiwanie: "Wyszukiwanie",
+    eksport: "Metryczka, eksport i import DOCX",
+    projekt: "Projekt i autozapis",
+    instalacja: "Instalacja i aktualizacje",
+    tekst: "Tłumaczenie lub tekst w programie",
+    inne: "Inne",
+  },
+  frequency: {
+    zawsze: "Za każdym razem",
+    czasem: "Czasami",
+    raz: "Zdarzyło się raz",
+    "nie-wiem": "Nie wiem",
+  },
+};
+
+// Sekcje issue z pól zależnych od rodzaju, w kolejności w treści.
+// Pusta sekcja nie trafia do issue.
+export const SECTIONS = [
+  { field: "area", heading: "Czego dotyczy" },
+  { field: "steps", heading: "Kroki" },
+  { field: "expected", heading: "Oczekiwane zachowanie" },
+  { field: "actual", heading: "Faktyczne zachowanie" },
+  { field: "frequency", heading: "Jak często występuje" },
+  { field: "problem", heading: "Jaki problem rozwiązuje" },
+];
+
+// Rodzaje zgłoszeń: etykiety issue, pola zależne od rodzaju (inne pola
+// z żądania są pomijane), pola o stałej wartości i to, czy zgłoszenie
+// dotyczy programu (wersja programu w informacjach technicznych).
+export const KINDS = {
+  bug: {
+    labels: ["bug"],
+    fields: ["area", "steps", "expected", "actual", "frequency"],
+  },
+  idea: { labels: ["enhancement"], fields: ["problem"] },
+  question: { labels: ["question"], fields: [] },
+  text: { labels: ["bug"], fields: [], fixed: { area: "tekst" } },
+  webpage: { labels: ["webpage"], fields: [], website: true },
 };
 
 export const LIMITS = {
@@ -29,6 +74,10 @@ export const LIMITS = {
   description: [10, 5000],
   version: [0, 40],
   system: [0, 120],
+  steps: [0, 3000],
+  expected: [0, 3000],
+  actual: [0, 3000],
+  problem: [0, 3000],
 };
 
 export const COMMENT_LIMITS = {
@@ -47,7 +96,7 @@ export const REPORT_FOOTER =
 export const COMMENT_FOOTER = "_Komentarz z formularza na stronie programu._";
 
 // Całe żądanie - z zapasem na kodowanie JSON polskich znaków.
-const MAX_BODY_BYTES = 32 * 1024;
+const MAX_BODY_BYTES = 64 * 1024;
 
 export default {
   async fetch(request, env) {
@@ -164,18 +213,31 @@ function oneLine(value) {
   return clean(value).replace(/\s+/g, " ");
 }
 
-// Zwraca poprawione zgłoszenie albo null, gdy pola nie mieszczą się w limitach.
+// Zwraca poprawione zgłoszenie albo null, gdy pola nie mieszczą się
+// w limitach albo pole wyboru ma nieznaną wartość. Pola, których rodzaj
+// zgłoszenia nie ma, są puste.
 export function parseReport(data) {
+  const kind = Object.hasOwn(KINDS, data.kind) ? data.kind : "bug";
+  const spec = KINDS[kind];
   const report = {
-    kind: data.kind === "idea" ? "idea" : "bug",
+    kind,
     title: oneLine(data.title),
     description: clean(data.description),
-    version: oneLine(data.version),
+    version: spec.website ? "" : oneLine(data.version),
     system: oneLine(data.system),
   };
+  for (const { field } of SECTIONS) {
+    report[field] = spec.fields.includes(field) ? clean(data[field]) : "";
+  }
+  Object.assign(report, spec.fixed);
   for (const [field, [min, max]] of Object.entries(LIMITS)) {
     const length = [...report[field]].length;
     if (length < min || length > max) {
+      return null;
+    }
+  }
+  for (const [field, choices] of Object.entries(CHOICES)) {
+    if (report[field] !== "" && !Object.hasOwn(choices, report[field])) {
       return null;
     }
   }
@@ -204,20 +266,26 @@ export function noMentions(text) {
   return text.replace(/@(?=[A-Za-z0-9])/g, "@\u200b");
 }
 
+function sectionText(report, field) {
+  const value = report[field];
+  return Object.hasOwn(CHOICES, field) ? CHOICES[field][value] || "" : value;
+}
+
 export function issueBody(report) {
-  const tech = [
-    `- Wersja programu: ${noMentions(report.version) || "nie podano"}`,
-    `- System: ${noMentions(report.system) || "nie podano"}`,
-  ];
+  const sections = [["Opis", report.description]];
+  for (const { field, heading } of SECTIONS) {
+    const text = sectionText(report, field);
+    if (text) {
+      sections.push([heading, text]);
+    }
+  }
+  const tech = [`- System: ${noMentions(report.system) || "nie podano"}`];
+  if (!KINDS[report.kind].website) {
+    tech.unshift(`- Wersja programu: ${noMentions(report.version) || "nie podano"}`);
+  }
+  sections.push(["Informacje techniczne", tech.join("\n")]);
   return [
-    "### Opis",
-    "",
-    noMentions(report.description),
-    "",
-    "### Informacje techniczne",
-    "",
-    ...tech,
-    "",
+    ...sections.flatMap(([heading, text]) => [`### ${heading}`, "", noMentions(text), ""]),
     "---",
     REPORT_FOOTER,
     "",
@@ -267,7 +335,7 @@ function github(env, path, fetchImpl, init = {}) {
 const GITHUB_FAILED = { status: 502, body: { error: "github" } };
 
 async function createIssue(env, report, fetchImpl) {
-  const labels = [LABELS[report.kind], LABELS.source];
+  const labels = [...KINDS[report.kind].labels, SOURCE_LABEL];
   try {
     const response = await github(env, "/issues", fetchImpl, {
       method: "POST",
