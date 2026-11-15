@@ -220,8 +220,10 @@
 
   // Ochrona przed botami (Cloudflare Turnstile) - skrypt ładowany tylko
   // na stronach z formularzem i tylko wtedy, gdy ustawiono klucz. Zwraca
-  // null bez klucza; token() jest pusty, dopóki sprawdzanie trwa.
-  function captchaField(container, sitekey) {
+  // null bez klucza; token() jest pusty, dopóki sprawdzanie trwa. action
+  // ("report" albo "comment") Worker sprawdza w wyniku Turnstile
+  // (TURNSTILE_ACTIONS w zgloszenia/worker.js).
+  function captchaField(container, sitekey, action) {
     if (!sitekey) {
       return null;
     }
@@ -229,6 +231,7 @@
     window.transkryptorCaptcha = function () {
       id = window.turnstile.render(container, {
         sitekey: sitekey,
+        action: action,
         language: "pl",
         theme: root.getAttribute("data-theme") === "dark" ? "dark" : "light",
       });
@@ -253,6 +256,13 @@
         }
       },
     };
+  }
+
+  // Identyfikator jednej wysyłki formularza: ponowienie (np. po błędzie
+  // sieci) ma ten sam, więc Worker nie założy drugiego wpisu. Nowy dopiero
+  // po udanej wysyłce.
+  function requestId() {
+    return window.crypto && window.crypto.randomUUID ? window.crypto.randomUUID() : "";
   }
 
   // Wysyła formularz do Workera zgłoszeń. Odrzucona obietnica ma zawsze
@@ -344,7 +354,7 @@
     return names;
   }
 
-  function reportPayload(form, token) {
+  function reportPayload(form, token, id) {
     var elements = form.elements;
     var payload = {
       kind: REPORT_KINDS[elements.rodzaj.value] || "bug",
@@ -354,6 +364,7 @@
       system: shownValue(form, "system"),
       website: elements.strona.value,
       token: token,
+      requestId: id,
     };
     Object.keys(REPORT_KIND_FIELDS).forEach(function (name) {
       payload[REPORT_KIND_FIELDS[name]] = shownValue(form, name);
@@ -402,8 +413,10 @@
 
     var captcha = captchaField(
       form.querySelector("[data-report-captcha]"),
-      form.getAttribute("data-sitekey")
+      form.getAttribute("data-sitekey"),
+      "report"
     );
+    var id = requestId();
 
     form.addEventListener("submit", function (event) {
       event.preventDefault();
@@ -425,8 +438,9 @@
       }
       submit.disabled = true;
       say("Wysyłanie...", false);
-      sendToWorker(endpoint, reportPayload(form, token), REPORT_MESSAGES)
+      sendToWorker(endpoint, reportPayload(form, token, id), REPORT_MESSAGES)
         .then(function (data) {
+          id = requestId();
           say("", false);
           // Pole-pułapka dostaje sukces bez numeru zgłoszenia.
           doneLink.hidden = !data.number;
@@ -465,6 +479,7 @@
     each: each,
     element: element,
     captchaField: captchaField,
+    requestId: requestId,
     sendToWorker: sendToWorker,
     statusLine: statusLine,
     firstInvalid: firstInvalid,

@@ -149,6 +149,9 @@
 
   // Bezpieczny fragment z HTML-a treści. DOMParser niczego nie uruchamia
   // ani nie pobiera, więc obce znaczniki można sprawdzić przed wstawieniem.
+  // Sprawdzone węzły są przenoszone (adoptNode), a nie serializowane
+  // ponownie do HTML-a - dlatego nie grozi tu mutation XSS. Gdyby coś
+  // jednak przeszło, skryptu nie uruchomi CSP strony (site_csp.py).
   function sanitize(html) {
     var doc = new DOMParser().parseFromString(String(html || ""), "text/html");
     sanitizeChildren(doc.body);
@@ -264,9 +267,11 @@
     var submit = form.querySelector("[data-comment-submit]");
     var captcha = T.captchaField(
       form.querySelector("[data-comment-captcha]"),
-      form.getAttribute("data-sitekey")
+      form.getAttribute("data-sitekey"),
+      "comment"
     );
     var url = endpoint.replace(/\/+$/, "") + "/comment";
+    var id = T.requestId();
 
     form.addEventListener("submit", function (event) {
       event.preventDefault();

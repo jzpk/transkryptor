@@ -5,6 +5,8 @@ import { test } from "node:test";
 
 import {
   COMMENT_FOOTER,
+  DEDUP_TTL,
+  MAX_BODY_BYTES,
   REPORT_FOOTER,
   commentBody,
   handle,
@@ -26,13 +28,23 @@ function makeEnv(extra = {}) {
   };
 }
 
+// Odpowiedź Turnstile siteverify: wynik, host strony i akcja widżetu.
+function turnstileResult(human, turnstile) {
+  return Response.json({
+    success: human,
+    hostname: "transkryptorapp.pl",
+    action: "report",
+    ...turnstile,
+  });
+}
+
 // Udaje Turnstile i GitHuba; zapisuje wywołania.
-function makeFetch({ human = true, githubStatus = 201 } = {}) {
+function makeFetch({ human = true, githubStatus = 201, turnstile = {} } = {}) {
   const calls = [];
   const fake = async (url, init) => {
     calls.push({ url, init });
     if (url.startsWith("https://challenges.cloudflare.com/")) {
-      return Response.json({ success: human });
+      return turnstileResult(human, turnstile);
     }
     if (githubStatus !== 201) {
       return new Response("nope", { status: githubStatus });
@@ -62,12 +74,34 @@ const VALID = {
   token: "token",
 };
 
-function post(body, { origin = ORIGIN, type = "application/json", path = "/" } = {}) {
+function post(
+  body,
+  { origin = ORIGIN, type = "application/json", path = "/", ip = "1.2.3.4" } = {}
+) {
+  const headers = { Origin: origin, "Content-Type": type };
+  if (ip) {
+    headers["CF-Connecting-IP"] = ip;
+  }
   return new Request(`https://worker.example${path}`, {
     method: "POST",
-    headers: { Origin: origin, "Content-Type": type, "CF-Connecting-IP": "1.2.3.4" },
+    headers,
     body: typeof body === "string" ? body : JSON.stringify(body),
   });
+}
+
+// Imitacja KV: get(klucz, "json") i put(klucz, wartość, opcje).
+function makeKv() {
+  const store = new Map();
+  return {
+    store,
+    async get(key, type) {
+      const value = store.get(key)?.value;
+      return value === undefined ? null : type === "json" ? JSON.parse(value) : value;
+    },
+    async put(key, value, options) {
+      store.set(key, { value, options });
+    },
+  };
 }
 
 test("valid report creates a labelled issue", async () => {
@@ -206,7 +240,7 @@ function makeCommentFetch({ issue = { number: 7, locked: false }, issueStatus = 
   const fake = async (url, init = {}) => {
     calls.push({ url, init });
     if (url.startsWith("https://challenges.cloudflare.com/")) {
-      return Response.json({ success: true });
+      return turnstileResult(true, { action: "comment" });
     }
     if (url.endsWith("/comments")) {
       if (commentStatus !== 201) {
@@ -436,4 +470,84 @@ test("report without required bug fields is rejected before GitHub", async () =>
   const response = await handle(post({ ...VALID, steps: "" }), makeEnv(), fetchImpl);
   assert.equal(response.status, 400);
   assert.equal(fetchImpl.calls.length, 0);
+});
+
+test("captcha from another site or another form is rejected", async () => {
+  for (const turnstile of [
+    { hostname: "evil.example" },
+    { action: "comment" },
+    { action: undefined },
+  ]) {
+    const fetchImpl = makeFetch({ turnstile });
+    const response = await handle(post(VALID), makeEnv(), fetchImpl);
+    assert.equal(response.status, 403, JSON.stringify(turnstile));
+    assert.ok(fetchImpl.calls.every((call) => !call.url.includes("api.github.com")));
+  }
+  // Token z formularza zgłoszenia nie dodaje komentarza.
+  const comment = await handle(postComment(COMMENT), makeEnv(), makeFetch());
+  assert.equal(comment.status, 403);
+});
+
+test("request without the client address is rejected", async () => {
+  const fetchImpl = makeFetch();
+  const response = await handle(post(VALID, { ip: "" }), makeEnv(), fetchImpl);
+  assert.equal(response.status, 400);
+  assert.equal(fetchImpl.calls.length, 0);
+});
+
+test("too large body is rejected by its header and while reading", async () => {
+  const big = { ...VALID, description: "x".repeat(MAX_BODY_BYTES) };
+  const declared = await handle(post(big), makeEnv(), makeFetch());
+  assert.equal(declared.status, 413);
+  assert.deepEqual(await declared.json(), { error: "too-large" });
+
+  // Strumień bez nagłówka Content-Length - limit liczony w trakcie odczytu.
+  const chunk = new TextEncoder().encode("x".repeat(16 * 1024));
+  let sent = 0;
+  const body = new ReadableStream({
+    pull(controller) {
+      sent += chunk.byteLength;
+      controller.enqueue(chunk);
+    },
+  });
+  const request = new Request("https://worker.example/", {
+    method: "POST",
+    headers: { Origin: ORIGIN, "Content-Type": "application/json", "CF-Connecting-IP": "1.2.3.4" },
+    body,
+    duplex: "half",
+  });
+  const streamed = await handle(request, makeEnv(), makeFetch());
+  assert.equal(streamed.status, 413);
+  assert.ok(sent <= MAX_BODY_BYTES + 3 * chunk.byteLength, `wysłano ${sent} B`);
+});
+
+test("repeated submission returns the first result instead of a second issue", async () => {
+  const kv = makeKv();
+  const env = makeEnv({ REPORT_DEDUP: kv });
+  const requestId = "0b6f6a4e-4c1d-4f63-9a51-0d0c8f7e2a11";
+  const fetchImpl = makeFetch();
+  const first = await handle(post({ ...VALID, requestId }), env, fetchImpl);
+  const again = await handle(post({ ...VALID, requestId }), env, fetchImpl);
+
+  assert.equal(first.status, 201);
+  assert.equal(again.status, 201);
+  assert.deepEqual(await again.json(), await first.json());
+  const created = fetchImpl.calls.filter((call) => call.url.endsWith("/issues"));
+  assert.equal(created.length, 1);
+  assert.equal(kv.store.get(`report:${requestId}`).options.expirationTtl, DEDUP_TTL);
+
+  // Inny identyfikator albo brak identyfikatora - nowe zgłoszenie.
+  await handle(post({ ...VALID, requestId: requestId.replace("0b", "1b") }), env, fetchImpl);
+  await handle(post(VALID), env, fetchImpl);
+  assert.equal(fetchImpl.calls.filter((call) => call.url.endsWith("/issues")).length, 3);
+});
+
+test("failed submissions are not remembered", async () => {
+  const kv = makeKv();
+  const env = makeEnv({ REPORT_DEDUP: kv });
+  const body = { ...VALID, requestId: "0b6f6a4e-4c1d-4f63-9a51-0d0c8f7e2a11" };
+  await handle(post(body), env, makeFetch({ githubStatus: 500 }));
+  assert.equal(kv.store.size, 0);
+  const retry = await handle(post(body), env, makeFetch());
+  assert.equal(retry.status, 201);
 });

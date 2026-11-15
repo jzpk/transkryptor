@@ -1,4 +1,5 @@
-# Konfiguracja Workera zgłoszeń (Cloudflare). Wdrożenie: npx wrangler deploy.
+# Konfiguracja Workera zgłoszeń (Cloudflare). Wdrożenie (wrangler w wersji
+# z package-lock.json): npm ci && npm run deploy.
 name = "transkryptor-zgloszenia"
 main = "worker.js"
 compatibility_date = "2026-10-01"
@@ -17,3 +18,11 @@ namespace_id = "1001"
   [ratelimits.simple]
   limit = 3
   period = 60
+
+# Opcjonalnie: powtórzona wysyłka formularza (ten sam requestId) dostaje
+# poprzedni wynik zamiast drugiego zgłoszenia. Włączenie:
+#   npx wrangler kv namespace create REPORT_DEDUP
+# i odkomentowanie wpisu z podanym id.
+# [[kv_namespaces]]
+# binding = "REPORT_DEDUP"
+# id = "<id z polecenia powyżej>"

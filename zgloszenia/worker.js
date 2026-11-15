@@ -5,14 +5,27 @@
 //
 // Token GitHuba jest tylko tutaj (sekret Workera), a nie na stronie. Worker:
 // - przyjmuje wyłącznie żądania ze strony projektu (ALLOWED_ORIGINS),
-// - sprawdza token Cloudflare Turnstile (ochrona przed botami),
+// - odrzuca ciało żądania większe niż MAX_BODY_BYTES, zanim je przeczyta,
+// - sprawdza token Cloudflare Turnstile (ochrona przed botami): wynik musi
+//   pochodzić ze strony projektu i z widżetu tego formularza (action),
 // - ogranicza liczbę zgłoszeń i komentarzy z jednego adresu IP
-//   (REPORT_LIMITER, opcjonalnie, wspólny limit),
+//   (REPORT_LIMITER, opcjonalnie, wspólny limit); żądanie bez adresu IP
+//   (Cloudflare zawsze go podaje) jest odrzucane,
 // - po cichu odrzuca formularze z wypełnionym polem-pułapką,
-// - pilnuje długości pól i wyłącza wzmianki @użytkownik w treści.
+// - pilnuje długości pól i wyłącza wzmianki @użytkownik w treści,
+// - dla powtórzonego identyfikatora wysyłki (requestId) zwraca poprzedni
+//   wynik zamiast zakładać drugi wpis (REPORT_DEDUP, opcjonalnie, KV).
 //
-// Konfiguracja: wrangler.toml (zmienne, limit) i sekrety GITHUB_TOKEN
+// Konfiguracja: wrangler.toml (zmienne, limit, KV) i sekrety GITHUB_TOKEN
 // oraz TURNSTILE_SECRET (npx wrangler secret put ...).
+//
+// GITHUB_TOKEN to fine-grained personal access token (albo token instalacji
+// GitHub App) z dostępem WYŁĄCZNIE do repozytorium GITHUB_REPO i jednym
+// uprawnieniem: „Issues: Read and write” („Metadata: Read-only” GitHub
+// dodaje sam). Bez „Contents”, „Administration”, „Actions” ani innych
+// repozytoriów - Worker jest publiczny, więc wyciek sekretu albo błąd w kodzie
+// nie może dać dostępu do kodu, wydań ani ustawień. Ważność tokena najwyżej
+// rok; przy wymianie: npx wrangler secret put GITHUB_TOKEN.
 
 const GITHUB_API = "https://api.github.com";
 const TURNSTILE_VERIFY_URL =
@@ -101,7 +114,16 @@ export const REPORT_FOOTER =
 export const COMMENT_FOOTER = "_Komentarz z formularza na stronie programu._";
 
 // Całe żądanie - z zapasem na kodowanie JSON polskich znaków.
-const MAX_BODY_BYTES = 64 * 1024;
+export const MAX_BODY_BYTES = 64 * 1024;
+
+// Akcje widżetów Turnstile (parametr action w pages/site.js) - token z
+// formularza zgłoszenia nie przejdzie jako token komentarza i odwrotnie.
+export const TURNSTILE_ACTIONS = { report: "report", comment: "comment" };
+
+// Jak długo powtórzona wysyłka z tym samym requestId dostaje poprzedni
+// wynik (sekundy; KV wymaga co najmniej 60).
+export const DEDUP_TTL = 600;
+const REQUEST_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 export default {
   async fetch(request, env) {
@@ -129,14 +151,20 @@ export async function handle(request, env, fetchImpl) {
   }
 
   const ip = request.headers.get("CF-Connecting-IP") || "";
+  if (!ip) {
+    return json({ error: "invalid" }, 400, cors);
+  }
   if (env.REPORT_LIMITER) {
-    const { success } = await env.REPORT_LIMITER.limit({ key: ip || "brak-ip" });
+    const { success } = await env.REPORT_LIMITER.limit({ key: ip });
     if (!success) {
       return json({ error: "too-many" }, 429, cors);
     }
   }
 
   const data = await readJson(request);
+  if (data === TOO_LARGE) {
+    return json({ error: "too-large" }, 413, cors);
+  }
   if (!data) {
     return json({ error: "invalid" }, 400, cors);
   }
@@ -150,15 +178,38 @@ export async function handle(request, env, fetchImpl) {
     return json({ error: "invalid" }, 400, cors);
   }
 
-  const human = await verifyTurnstile(env.TURNSTILE_SECRET, data.token, ip, fetchImpl);
+  const expected = {
+    hostnames: allowedOrigins(env).map((allowedOrigin) => new URL(allowedOrigin).hostname),
+    action: comment ? TURNSTILE_ACTIONS.comment : TURNSTILE_ACTIONS.report,
+  };
+  const human = await verifyTurnstile(env.TURNSTILE_SECRET, data.token, ip, expected, fetchImpl);
   if (!human) {
     return json({ error: "captcha" }, 403, cors);
   }
 
+  const dedupKey = dedupKeyOf(env, expected.action, data.requestId);
+  const previous = dedupKey && (await env.REPORT_DEDUP.get(dedupKey, "json"));
+  if (previous) {
+    return json(previous.body, previous.status, cors);
+  }
   const result = comment
     ? await addComment(env, parsed, fetchImpl)
     : await createIssue(env, parsed, fetchImpl);
+  if (dedupKey && result.status === 201) {
+    await env.REPORT_DEDUP.put(dedupKey, JSON.stringify(result), {
+      expirationTtl: DEDUP_TTL,
+    });
+  }
   return json(result.body, result.status, cors);
+}
+
+// Klucz KV dla identyfikatora wysyłki z formularza (crypto.randomUUID());
+// null bez KV albo bez poprawnego identyfikatora.
+function dedupKeyOf(env, action, requestId) {
+  if (!env.REPORT_DEDUP || typeof requestId !== "string" || !REQUEST_ID.test(requestId)) {
+    return null;
+  }
+  return `${action}:${requestId}`;
 }
 
 export function allowedOrigins(env) {
@@ -185,14 +236,22 @@ function json(body, status, headers = {}) {
   });
 }
 
+const TOO_LARGE = Symbol("too-large");
+
+// Ciało żądania jako JSON; TOO_LARGE, gdy przekracza MAX_BODY_BYTES (po
+// nagłówku Content-Length od razu, a bez niego - po przeczytaniu limitu),
+// null, gdy to nie jest obiekt JSON.
 async function readJson(request) {
   const type = request.headers.get("Content-Type") || "";
   if (!type.startsWith("application/json")) {
     return null;
   }
-  const text = await request.text();
-  if (new TextEncoder().encode(text).length > MAX_BODY_BYTES) {
-    return null;
+  if (Number(request.headers.get("Content-Length")) > MAX_BODY_BYTES) {
+    return TOO_LARGE;
+  }
+  const text = await readLimited(request, MAX_BODY_BYTES);
+  if (text === null) {
+    return TOO_LARGE;
   }
   try {
     const data = JSON.parse(text);
@@ -200,6 +259,36 @@ async function readJson(request) {
   } catch {
     return null;
   }
+}
+
+// Tekst ciała żądania czytany porcjami; null po przekroczeniu limitu
+// (reszta nie jest czytana).
+async function readLimited(request, limit) {
+  if (!request.body) {
+    return "";
+  }
+  const reader = request.body.getReader();
+  const chunks = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+    size += value.byteLength;
+    if (size > limit) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(bytes);
 }
 
 // Usuwa znaki sterujące (poza nowym wierszem i tabulatorem) i ujednolica
@@ -306,7 +395,10 @@ export function commentBody(comment) {
   return [noMentions(comment.text), "", "---", COMMENT_FOOTER, ""].join("\n");
 }
 
-async function verifyTurnstile(secret, token, ip, fetchImpl) {
+// Token musi być ważny, wydany na stronie projektu (hostname) i przez
+// widżet tego formularza (action) - inaczej przeszedłby token z innej
+// strony z tym samym kluczem witryny albo z drugiego formularza.
+async function verifyTurnstile(secret, token, ip, expected, fetchImpl) {
   if (typeof token !== "string" || token === "" || token.length > 2048) {
     return false;
   }
@@ -322,7 +414,11 @@ async function verifyTurnstile(secret, token, ip, fetchImpl) {
       body: form,
     });
     const result = await response.json();
-    return result.success === true;
+    return (
+      result.success === true &&
+      expected.hostnames.includes(result.hostname) &&
+      result.action === expected.action
+    );
   } catch (error) {
     console.error(`Turnstile niedostępny: ${error}`);
     return false;
@@ -368,9 +464,9 @@ async function createIssue(env, report, fetchImpl) {
 }
 
 // Komentarz trafia tylko do istniejącego, niezablokowanego zgłoszenia
-// (nie do pull requesta). Token Workera ma zwykle prawa właściciela
-// repozytorium, które pozwalają pisać także w zablokowanych wątkach -
-// dlatego blokadę sprawdzamy sami.
+// (nie do pull requesta). Konto, do którego należy token, może mieć prawa
+// pisania w zablokowanych wątkach (np. właściciel repozytorium) - dlatego
+// blokadę sprawdzamy sami, niezależnie od zakresu tokena.
 async function addComment(env, comment, fetchImpl) {
   try {
     const found = await github(env, `/issues/${comment.issue}`, fetchImpl);
