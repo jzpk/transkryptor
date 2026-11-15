@@ -87,18 +87,27 @@
     }
   }
 
+  // Obrazki tylko z pełnego adresu https na hostach GitHuba - GitHub
+  // przepisuje obrazki ze zgłoszeń na camo.githubusercontent.com i swoje
+  // serwery, więc obcy host oznacza piksel śledzący odwiedzających. Te same
+  // hosty dopuszcza CSP strony (IMAGE_SOURCES w packaging/site_csp.py).
+  function imageUrl(value) {
+    var url = /^https:\/\//i.test(value) && safeUrl(value, false);
+    if (!url) {
+      return null;
+    }
+    var host = new URL(url).hostname;
+    return host === "github.com" || /\.githubusercontent\.com$/.test(host) ? url : null;
+  }
+
   function cleanAttributes(node) {
     var allowed = ALLOWED[node.tagName];
     Array.prototype.slice.call(node.attributes).forEach(function (attribute) {
       var name = attribute.name;
       var keep = allowed.indexOf(name) >= 0;
       if (keep && (name === "href" || name === "src")) {
-        // Obrazki tylko z pełnego adresu https (GitHub podaje takie); względny
-        // adres wskazywałby na tę stronę.
         var url =
-          name === "href"
-            ? safeUrl(attribute.value, true)
-            : /^https:\/\//i.test(attribute.value) && safeUrl(attribute.value, false);
+          name === "href" ? safeUrl(attribute.value, true) : imageUrl(attribute.value);
         keep = Boolean(url);
         if (keep) {
           node.setAttribute(name, url);
@@ -296,10 +305,12 @@
           text: text,
           website: form.elements.strona.value,
           token: token,
+          requestId: id,
         },
         COMMENT_MESSAGES
       )
         .then(function () {
+          id = T.requestId();
           posts.appendChild(ownComment(text));
           form.elements.komentarz.value = "";
           say("Komentarz został dodany. Dziękujemy!", false);

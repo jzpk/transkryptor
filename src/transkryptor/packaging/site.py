@@ -48,6 +48,7 @@ from transkryptor.packaging.metadata import (
     VERSION,
     targets,
 )
+from transkryptor.packaging.site_csp import add_csp, content_security_policy
 from transkryptor.packaging.site_nav import (
     CHANGES_PAGE,
     HOME_PAGE,
@@ -505,6 +506,7 @@ def build(
             f"Najnowsza wersja w {Path(changelog_file).name} ({fields['version']}) "
             f"różni się od wersji programu ({expected_version})."
         )
+    policy = content_security_policy(report_endpoint)
     pages = {}
     for name in TEMPLATE_FILES:
         template = Template((source / name).read_text(encoding="utf-8"))
@@ -519,6 +521,7 @@ def build(
         data = structured_data(name, pages[name], fields)
         if data is not None:
             pages[name] = add_structured_data(pages[name], data)
+        pages[name] = add_csp(pages[name], policy)
 
     out.mkdir(parents=True, exist_ok=True)
     for name, page in pages.items():

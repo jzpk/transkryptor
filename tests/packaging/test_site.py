@@ -534,3 +534,63 @@ def test_report_form_suggests_similar_issues(changelog_file, tmp_path) -> None:
     )
     assert (out / "similar-issues.js").is_file()
     assert "data-report-link" in page
+
+
+def csp_of(page: str) -> dict[str, list[str]]:
+    match = re.search(
+        r'<meta charset="utf-8" />\s*<meta http-equiv="Content-Security-Policy" '
+        r'content="([^"]+)" />',
+        page,
+    )
+    assert match, "CSP musi stać zaraz po <meta charset>"
+    policy = match.group(1).replace("&#x27;", "'")
+    return {
+        name: values for name, *values in (part.split() for part in policy.split(";"))
+    }
+
+
+def test_every_page_has_a_content_security_policy(changelog_file, tmp_path) -> None:
+    out = tmp_path / "site"
+    site.build(
+        out,
+        changelog_file,
+        repo="owner/repo",
+        expected_version="0.2.4",
+        report_endpoint="https://zgloszenia.example.workers.dev/sciezka",
+        turnstile_site_key="klucz",
+    )
+    for name in site.TEMPLATE_FILES:
+        page = (out / name).read_text(encoding="utf-8")
+        policy = csp_of(page)
+        assert policy["script-src"] == ["'self'", "https://challenges.cloudflare.com"]
+        assert "'unsafe-inline'" not in policy["script-src"]
+        assert policy["object-src"] == ["'none'"]
+        assert policy["base-uri"] == ["'none'"]
+        assert policy["connect-src"] == [
+            "'self'",
+            "https://api.github.com",
+            "https://zgloszenia.example.workers.dev",
+        ]
+        assert policy["img-src"] == [
+            "'self'",
+            "https://github.com",
+            "https://*.githubusercontent.com",
+        ]
+        # Jedyne skrypty bez src to dane JSON-LD - CSP ich nie blokuje.
+        for script in re.findall(r"<script([^>]*)>", page):
+            assert "src=" in script or 'type="application/ld+json"' in script, name
+
+
+def test_csp_without_worker_allows_only_github_connections() -> None:
+    from transkryptor.packaging.site_csp import content_security_policy
+
+    assert "connect-src 'self' https://api.github.com;" in content_security_policy()
+
+
+def test_issue_page_images_match_the_csp_hosts() -> None:
+    from transkryptor.packaging.site_csp import IMAGE_SOURCES
+
+    script = (site.PAGES_DIR / "issue.js").read_text(encoding="utf-8")
+    assert 'host === "github.com"' in script
+    assert r"/\.githubusercontent\.com$/" in script
+    assert IMAGE_SOURCES == ("https://github.com", "https://*.githubusercontent.com")
