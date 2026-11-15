@@ -19,10 +19,9 @@ namespace_id = "1001"
   limit = 3
   period = 60
 
-# Opcjonalnie: powtórzona wysyłka formularza (ten sam requestId) dostaje
-# poprzedni wynik zamiast drugiego zgłoszenia. Włączenie:
-#   npx wrangler kv namespace create REPORT_DEDUP
-# i odkomentowanie wpisu z podanym id.
-# [[kv_namespaces]]
-# binding = "REPORT_DEDUP"
-# id = "<id z polecenia powyżej>"
+# Powtórzona wysyłka formularza (ten sam requestId) dostaje poprzedni wynik
+# zamiast drugiego zgłoszenia. Bez tego wpisu Worker działa, tylko bez tej
+# ochrony. Przestrzeń utworzona: npx wrangler kv namespace create REPORT_DEDUP.
+[[kv_namespaces]]
+binding = "REPORT_DEDUP"
+id = "6992ab7b55c74fdf88a490aa0468c425"
