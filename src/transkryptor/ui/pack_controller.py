@@ -41,7 +41,6 @@ from transkryptor.errors import AppError
 from transkryptor.i18n import tr
 from transkryptor.notation.rules import dumps_rules
 from transkryptor.settings import Settings
-from transkryptor.ui.file_dialogs import ask_save_path
 from transkryptor.ui.messages import show_error
 from transkryptor.ui.pack_dialogs import PackExportDialog, PackImportDialog
 from transkryptor.ui.rules_store import RulesStore
@@ -130,10 +129,10 @@ class PackController(QObject):
         if self.run_export_dialog(dialog) != PackExportDialog.DialogCode.Accepted:
             return None
         source = dialog.source()
-        target = ask_save_path(
+        target = self._session.save_location.ask(
             self._window,
             tr("pack.export.dialog"),
-            self._default_pack_path(),
+            f"{Path(self._project_name()).stem}{PACK_SUFFIX}",
             file_dialog_filter(),
             PACK_SUFFIX,
         )
@@ -157,25 +156,16 @@ class PackController(QObject):
         )
         return f"{stem}{PROJECT_SUFFIX}"
 
-    def _default_pack_path(self) -> str:
-        """Obok projektu, a bez pliku projektu - obok nagrania.
-
-        Sama nazwa pliku otworzyłaby okno w katalogu bieżącym procesu,
-        a paczka trafiłaby tam, gdzie użytkownik jej nie szuka.
-        """
-        name = f"{Path(self._project_name()).stem}{PACK_SUFFIX}"
-        anchor = self._session.project_path or self._audio_path()
-        if anchor is not None:
-            return str(anchor.parent / name)
-        return name
-
     # --- otwieranie ------------------------------------------------------
 
     def open_dialog(self) -> bool:
         if not self._session.maybe_discard_changes():
             return False
         path, _selected = QFileDialog.getOpenFileName(
-            self._window, tr("pack.open.dialog"), "", file_dialog_filter()
+            self._window,
+            tr("pack.open.dialog"),
+            self._session.save_location.start_dir(),
+            file_dialog_filter(),
         )
         return bool(path) and self.open_pack(Path(path), confirm=False)
 

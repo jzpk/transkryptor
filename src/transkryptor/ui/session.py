@@ -59,12 +59,12 @@ from transkryptor.ui.audio_hash import HashFunction, HashThread, wait_for
 from transkryptor.ui.autosave import AutosaveController, RecoveryDialog, find_orphans
 from transkryptor.ui.comments_controller import CommentsController
 from transkryptor.ui.editor import TranscriptionEditor
-from transkryptor.ui.file_dialogs import ask_save_path
 from transkryptor.ui.messages import show_error
 from transkryptor.ui.metadata_form import MetadataWidgets
 from transkryptor.ui.notation_controller import IgnoredWarnings
 from transkryptor.ui.player_bar import PlayerBar
 from transkryptor.ui.review import ReviewController
+from transkryptor.ui.save_location import SaveLocation
 from transkryptor.ui.settings_store import SettingsStore
 from transkryptor.ui.sync_controller import SyncController
 from transkryptor.ui.verification import VerificationController
@@ -137,6 +137,8 @@ class SessionController(QObject):
         self._work = annotations.work
         self._metadata = metadata
         self._settings_store = settings_store
+        # Wspólny folder okien zapisu i otwierania (projekt, eksport, paczka).
+        self.save_location = SaveLocation(settings_store, lambda: self.project_path)
         self.events = SessionEvents(self)
         # Wołane przed zastąpieniem treści edytora (nowy dokument, projekt,
         # import DOCX, odzyskanie) - np. koniec porównania wersji.
@@ -462,7 +464,7 @@ class SessionController(QObject):
         return self._write_project(self.project_path)
 
     def save_project_as(self) -> bool:
-        path = ask_save_path(
+        path = self.save_location.ask(
             self._parent,
             tr("session.save.dialog"),
             self._default_project_name(),
@@ -474,14 +476,15 @@ class SessionController(QObject):
         return self._write_project(path)
 
     def _default_project_name(self) -> str:
+        """Nazwa pliku projektu; folder wybiera ``SaveLocation``."""
         if self.project_path is not None:
-            return str(self.project_path)
+            return self.project_path.name
         signature = self.document.metadata.get(SIGNATURE, "").strip()
         if signature:
             return f"{signature}{PROJECT_SUFFIX}"
         source = self._player.source_path
         if source is not None:
-            return str(source.with_suffix(PROJECT_SUFFIX))
+            return source.with_suffix(PROJECT_SUFFIX).name
         return f"{tr('session.default_project_name')}{PROJECT_SUFFIX}"
 
     def _write_project(self, path: Path) -> bool:
@@ -560,9 +563,11 @@ class SessionController(QObject):
     def open_project_dialog(self) -> None:
         if not self.maybe_discard_changes():
             return
-        start = str(self.project_path.parent) if self.project_path else ""
         path, _selected_filter = QFileDialog.getOpenFileName(
-            self._parent, tr("session.open.dialog"), start, file_dialog_filter()
+            self._parent,
+            tr("session.open.dialog"),
+            self.save_location.start_dir(),
+            file_dialog_filter(),
         )
         if path:
             self.open_project(path, confirm=False)
@@ -721,7 +726,10 @@ class SessionController(QObject):
         if not self.maybe_discard_changes():
             return
         path, _selected_filter = QFileDialog.getOpenFileName(
-            self._parent, tr("session.import_docx.dialog"), "", tr("export.filter")
+            self._parent,
+            tr("session.import_docx.dialog"),
+            self.save_location.start_dir(),
+            tr("export.filter"),
         )
         if path:
             self.import_docx(path, confirm=False)

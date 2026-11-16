@@ -242,6 +242,7 @@ TUTORIALS: tuple[Tutorial, ...] = (
     Tutorial(
         "project",
         (
+            _step("new", "toolbar_new", MORE, shortcuts=(("new", project_id("new")),)),
             _step(
                 "save",
                 "toolbar_save",

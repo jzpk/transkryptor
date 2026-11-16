@@ -120,6 +120,16 @@ Etykiety nie zdejmuj ręcznie przy zamknięciu - robi to workflow
 `.github/workflows/issues.yml`. Jeśli porzucasz zgłoszenie bez zamknięcia,
 usuń ją (`--remove-label "in progress"`).
 
+**Jedno zgłoszenie = jeden commit (albo PR).** Każde zgłoszenie dostaje
+osobny commit, a przy pracy przez PR - osobny PR, z `Closes #<numer>`
+w opisie. Dotyczy to także zadania obejmującego kilka zgłoszeń naraz.
+Wspólny commit lub PR dla kilku zgłoszeń tylko wtedy, gdy użytkownik
+wyraźnie o to poprosi. Gdy zgłoszenia zmieniają te same pliki (np.
+`i18n/locales/*.json`, `tests/conftest.py`), rozdziel zmiany tak, żeby
+każdy commit sam przechodził lint, typy i testy. Poprawki do już
+zrobionego zgłoszenia dołączaj do jego commita, nie do commita innego
+zgłoszenia.
+
 ## Na koniec każdego zadania zmieniającego kod
 
 Wykonaj kolejno, zanim zgłosisz, że praca jest skończona:

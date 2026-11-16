@@ -4,7 +4,8 @@ Kontroler wstawia gotowy szkic (z podziałem na mówców) i transkrypcję
 fragmentu przez ``ReviewController`` - po obróbce zapisu według ustawień
 (``DraftStyler``, np. skróty w pełnym brzmieniu). Zapamiętuje wybór
 modelu i liczby mówców w ustawieniach, przekazuje segmenty wyniku do fali dźwięku i na
-czas transkrypcji blokuje okno nakładką z postępem i anulowaniem.
+czas transkrypcji blokuje okno nakładką z postępem i anulowaniem, a komputer
+powstrzymuje przed uśpieniem i wygaszaczem ekranu (``KeepAwake``).
 """
 
 from __future__ import annotations
@@ -22,10 +23,12 @@ from transkryptor.asr.engine import (
 from transkryptor.asr.qa_layout import question_answer_layout, question_detector
 from transkryptor.document.model import Document
 from transkryptor.document.speakers import speakers_for_clusters
+from transkryptor.i18n import tr
 from transkryptor.ui.asr_panel import AsrPanel
 from transkryptor.ui.autosave import AutosaveController
 from transkryptor.ui.compare_controller import CompareController
 from transkryptor.ui.draft_styler import DraftStyler
+from transkryptor.ui.keep_awake import KeepAwake
 from transkryptor.ui.loading_overlay import LoadingOverlay
 from transkryptor.ui.review import ReviewController
 from transkryptor.ui.settings_store import SettingsStore
@@ -62,6 +65,8 @@ class AsrController(QObject):
         self._autosave = autosave
         self._set_locked = set_locked
         self._styler = DraftStyler(lambda: settings_store.current.asr)
+        # Uśpienie albo wygaszacz zatrzymywały długą transkrypcję (#68).
+        self.keep_awake = KeepAwake()
 
         panel.draft_ready.connect(self.insert_draft)
         panel.fragment_ready.connect(self.insert_fragment)
@@ -172,8 +177,10 @@ class AsrController(QObject):
         self._set_locked(True)
         self._autosave.pause()
         self._overlay.start()
+        self.keep_awake.hold(tr("asr.keep_awake.reason"))
 
     def transcription_finished(self) -> None:
+        self.keep_awake.release()
         self._overlay.stop()
         self._set_locked(False)
         self._autosave.resume()

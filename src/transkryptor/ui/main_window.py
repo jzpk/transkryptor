@@ -285,6 +285,7 @@ class MainWindow(QMainWindow):
                 # Późne wiązanie: podświetlenia części mowy powstają niżej.
                 pos_selected=lambda: self.parts_of_speech.selected,
                 pos_tagger=lambda: self.parts_of_speech.tagger(),
+                ask_path=self.session.save_location.ask,
             ),
             self._update_title,
             settings=lambda: self.settings_store.current.export,

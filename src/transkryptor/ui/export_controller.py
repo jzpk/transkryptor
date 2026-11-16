@@ -58,7 +58,8 @@ class ExportSources:
 
     ``pos_selected`` - części mowy podświetlane w edytorze (domyślny wybór
     okna), ``pos_tagger`` - analizator części mowy albo None, gdy
-    niedostępny.
+    niedostępny. ``ask_path`` - okno wyboru pliku (w oknie programu
+    ``SaveLocation.ask``: wspólny folder zapisu z projektem).
     """
 
     fields: Callable[[], tuple[MetadataField, ...]]
@@ -68,6 +69,7 @@ class ExportSources:
     font_family: Callable[[], str] = str
     pos_selected: Callable[[], tuple[PartOfSpeech, ...]] = tuple
     pos_tagger: Callable[[], PartOfSpeechTagger | None] = lambda: None
+    ask_path: Callable[[QWidget, str, str, str, str], Path | None] = ask_save_path
 
 
 class ExportController(QObject):
@@ -170,7 +172,7 @@ class ExportController(QObject):
                 format=exporter.label,
             )
             file_filter = exporter.file_filter
-        path = ask_save_path(
+        path = self._sources.ask_path(
             self._parent,
             title,
             self._default_name(document, anonymize, exporter.suffix),
