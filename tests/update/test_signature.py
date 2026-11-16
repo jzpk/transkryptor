@@ -12,7 +12,9 @@ from transkryptor.update.signature import (
     main,
     trusted_comment_for,
     verify,
+    verify_comment,
     verify_release_checksums,
+    version_from_comment,
 )
 
 SUMS = b"abc  Transkryptor-1.0.0-x86_64.AppImage\n"
@@ -96,3 +98,31 @@ def test_release_gate_requires_a_valid_embedded_key(release_key) -> None:
     assert keys.key_problems((release_key.public,)) == []
     assert keys.key_problems(()) != []
     assert keys.key_problems(("RWQnie-klucz",)) != []
+
+
+def test_comment_is_verified_without_the_signed_content(release_key) -> None:
+    signature = release_key.sign(SUMS, COMMENT)
+    assert verify_comment(signature) == COMMENT
+    assert version_from_comment(COMMENT) == "1.0.0"
+
+
+def test_tampered_comment_is_rejected(release_key) -> None:
+    """Podmiana wersji w komentarzu łamie podpis globalny."""
+    signature = release_key.sign(SUMS, COMMENT)
+    forged = signature.replace(COMMENT, trusted_comment_for("99.0.0"))
+    with pytest.raises(SignatureError):
+        verify_comment(forged)
+
+
+def test_comment_from_foreign_key_is_rejected(foreign_key) -> None:
+    with pytest.raises(SignatureError):
+        verify_comment(foreign_key.sign(SUMS, COMMENT))
+
+
+@pytest.mark.parametrize(
+    "comment",
+    ["", "transkryptor 1.0.0", "inny 1.0.0 SHA256SUMS.txt", "transkryptor 1 2 3"],
+)
+def test_unknown_comment_has_no_version(comment) -> None:
+    with pytest.raises(SignatureError):
+        version_from_comment(comment)

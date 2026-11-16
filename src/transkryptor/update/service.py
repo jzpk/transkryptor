@@ -2,13 +2,13 @@
 
 Kolejność:
 
-1. Wynik zapytania z tej doby wskazuje nowszą wersję → bez nowego zapytania
-   (ponowienie pobrania nie zużywa limitu API).
-2. W przeciwnym razie rezerwacja zapytania w dziennym limicie i jedno
-   zapytanie do API. Brak sieci zwraca rezerwację - limit liczy tylko
-   zapytania, które dotarły do serwera.
-3. Nowsza wersja w artefakcie wydania → pobranie i weryfikacja; w środowisku
-   deweloperskim → tylko informacja z linkiem do strony wydania.
+1. Pobranie podpisu najnowszego wydania (kilkaset bajtów, bez API GitHuba
+   i jego limitu) i odczyt wersji z zaufanego komentarza.
+2. Nowsza wersja → pobranie i weryfikacja artefaktu; w środowisku
+   deweloperskim → tylko informacja o nowej wersji.
+
+Przebieg nie ma stanu między uruchomieniami, więc może się powtarzać
+dowolnie często (start i okresowe sprawdzenie w ``ui/update_controller.py``).
 
 Serwis jest synchroniczny; wątek tła zapewnia ``ui/update_controller.py``.
 """
@@ -18,7 +18,6 @@ from __future__ import annotations
 import sys
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import date
 from enum import Enum
 from pathlib import Path
 
@@ -34,7 +33,6 @@ from transkryptor.update.download import (
     download_release,
 )
 from transkryptor.update.install import can_self_update
-from transkryptor.update.quota import RequestQuota
 from transkryptor.update.releases import (
     USER_AGENT,
     ReleaseInfo,
@@ -63,7 +61,6 @@ class UpdateStatus(Enum):
     UP_TO_DATE = "up_to_date"
     READY = "ready"  # nowa wersja pobrana i zweryfikowana
     AVAILABLE = "available"  # nowa wersja jest, ale bez samoaktualizacji
-    QUOTA_EXHAUSTED = "quota_exhausted"
     OFFLINE = "offline"
     ERROR = "error"
     CANCELLED = "cancelled"  # aplikacja zamknięta w trakcie pobierania
@@ -93,22 +90,18 @@ class UpdateService:
         self,
         *,
         current_version: str = __version__,
-        quota: RequestQuota | None = None,
         download_root: Path | None = None,
         client_factory: Callable[[], httpx.Client] = default_client,
         platform: str = sys.platform,
         self_update: bool | None = None,
-        today: Callable[[], date] = date.today,
     ) -> None:
         self.current_version = current_version
-        self.quota = quota or RequestQuota()
         self._download_root = download_root
         self._client_factory = client_factory
         self._platform = current_platform(platform)
         self._self_update = (
             can_self_update(platform=platform) if self_update is None else self_update
         )
-        self._today = today
 
     def run(
         self,
@@ -119,26 +112,19 @@ class UpdateService:
         """Jeden przebieg; ``on_stage`` i ``on_progress`` zasilają ekran startowy."""
         stage = on_stage or (lambda _stage, _release: None)
         stage(UpdateStage.CHECKING, None)
-        today = self._today()
         with self._client_factory() as client:
-            release = self.quota.cached_release(today)
-            if release is None or not is_newer(release.version, self.current_version):
-                if not self.quota.try_acquire(today):
-                    return UpdateOutcome(UpdateStatus.QUOTA_EXHAUSTED)
-                try:
-                    release = fetch_latest(client, self._platform)
-                except httpx.TransportError:
-                    self.quota.refund(today)
-                    return UpdateOutcome(UpdateStatus.OFFLINE)
-                except UpdateError as error:
-                    return UpdateOutcome(UpdateStatus.ERROR, error=error)
-                self.quota.remember(today, release)
+            try:
+                release = fetch_latest(client, self._platform)
+            except httpx.TransportError:
+                return UpdateOutcome(UpdateStatus.OFFLINE)
+            except UpdateError as error:
+                return UpdateOutcome(UpdateStatus.ERROR, error=error)
 
             if release is None or not is_newer(release.version, self.current_version):
                 if self._self_update:
                     clear_downloads(self._download_root)
                 return UpdateOutcome(UpdateStatus.UP_TO_DATE, release)
-            if not self._self_update or release.artifact is None:
+            if not self._self_update or release.artifact_suffix is None:
                 return UpdateOutcome(UpdateStatus.AVAILABLE, release)
 
             stage(UpdateStage.DOWNLOADING, release)

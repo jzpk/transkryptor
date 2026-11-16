@@ -364,8 +364,9 @@ class MainWindow(QMainWindow):
         self._sync_timer.timeout.connect(self.comments.refresh)
 
         self._build_layout()
-        # Bez połączeń sieciowych przy tworzeniu okna: sprawdzanie startuje
-        # punkt wejścia (``__main__.main``) przez ``updates.start_automatic``.
+        # Bez połączeń sieciowych przy tworzeniu okna: sprawdzanie (także
+        # okresowe) startuje punkt wejścia (``__main__.main``) przez
+        # ``updates.adopt``.
         self.updates = UpdateController(self)
         self._build_toolbar()
         self._build_work_tools()

@@ -1,8 +1,9 @@
 """Pobranie artefaktu nowej wersji z weryfikacją podpisu i sumy SHA256.
 
-Łańcuch zaufania: podpis minisign (``SHA256SUMS.txt.minisig``) potwierdza
-``SHA256SUMS.txt`` kluczem wbudowanym w aplikację, a sumy potwierdzają
-artefakt. Bez poprawnego podpisu nic nie jest pobierane. Plik jest
+Łańcuch zaufania: podpis minisign (``SHA256SUMS.txt.minisig``, pobrany już
+przy sprawdzeniu wersji) potwierdza ``SHA256SUMS.txt`` kluczem wbudowanym
+w aplikację, a sumy potwierdzają artefakt. Nazwę artefaktu dla platformy
+podają podpisane sumy. Bez poprawnego podpisu nic nie jest pobierane. Plik jest
 zapisywany jako ``.part`` i dopiero po zgodnej sumie zmienia nazwę na
 docelową - przerwane albo uszkodzone pobranie nigdy nie zostaje uznane za
 gotową aktualizację. Pobrania leżą w pamięci podręcznej użytkownika
@@ -27,18 +28,17 @@ from transkryptor.paths import user_cache_dir
 from transkryptor.update.releases import (
     CHECKSUMS_ASSET,
     SIGNATURE_ASSET,
-    Asset,
     ReleaseInfo,
+    fetch_small,
+    is_safe_asset_name,
     parse_version,
+    too_large,
 )
 from transkryptor.update.signature import SignatureError, verify_release_checksums
 
 CHUNK_SIZE = 1 << 20
 PART_SUFFIX = ".part"
-# Sumy i podpis mają po kilkaset bajtów; limit chroni pamięć przed
-# nieskończoną odpowiedzią serwera.
-MAX_SMALL_FILE_BYTES = 64 * 1024
-# Górna granica artefaktu, gdy API nie podało jego rozmiaru.
+# Górna granica artefaktu, gdy serwer nie podał jego rozmiaru.
 MAX_ARTIFACT_BYTES = 2 * 1024**3
 
 # Postęp pobierania: (pobrane bajty, całość albo None, gdy serwer jej nie podał).
@@ -91,41 +91,17 @@ def download_release(
     nagłówka ``Content-Length`` albo None).
     """
     progress = on_progress or (lambda _done, _total: None)
-    artifact, checksums = release.artifact, release.checksums
-    if artifact is None or checksums is None:
-        raise UpdateError(
-            user_message=tr("update.error.no_artifact", version=release.version)
-        )
-    if release.signature is None:
-        raise UpdateError(
-            user_message=tr("update.error.signature_missing", version=release.version)
-        )
+    sums = _verified_checksums(release, client, trusted_keys)
+    name, expected = _platform_artifact(release, sums)
     root = root or default_download_root()
     target_dir = root / release.version
-    target = target_dir / artifact.name
-
-    sums = _fetch(client, checksums.url)
-    signature = _fetch(client, release.signature.url)
-    try:
-        verify_release_checksums(
-            sums, signature.decode("utf-8", "replace"), release.version, trusted_keys
-        )
-    except SignatureError as error:
-        raise UpdateError(
-            user_message=tr("update.error.signature_invalid", version=release.version),
-            retry_hint=tr("update.error.signature_invalid.hint"),
-        ) from error
-    expected = parse_checksums(sums.decode("utf-8", "replace")).get(artifact.name)
-    if expected is None:
-        raise UpdateError(
-            user_message=tr("update.error.no_checksum", name=artifact.name)
-        )
+    target = target_dir / name
 
     _remove_other_versions(root, keep=release.version)
     target_dir.mkdir(parents=True, exist_ok=True)
     # Podpisane sumy obok artefaktu: instalacja sprawdza plik jeszcze raz.
     _write_file(target_dir / CHECKSUMS_ASSET, sums)
-    _write_file(target_dir / SIGNATURE_ASSET, signature)
+    _write_file(target_dir / SIGNATURE_ASSET, release.signature.encode("utf-8"))
     if target.is_file() and sha256_of(target) == expected:
         size = target.stat().st_size
         progress(size, size)
@@ -134,7 +110,7 @@ def download_release(
     partial = target.with_name(target.name + PART_SUFFIX)
     try:
         digest = _stream_artifact(
-            artifact, release.version, client, partial, should_cancel, progress
+            release, name, client, partial, should_cancel, progress
         )
     except BaseException:
         partial.unlink(missing_ok=True)
@@ -149,9 +125,43 @@ def download_release(
     return target
 
 
+def _verified_checksums(
+    release: ReleaseInfo, client: httpx.Client, trusted_keys: Iterable[str] | None
+) -> bytes:
+    """``SHA256SUMS.txt`` wydania potwierdzony podpisem ze sprawdzenia wersji."""
+    result = fetch_small(client, release.asset_url(CHECKSUMS_ASSET))
+    if isinstance(result, httpx.Response):
+        raise UpdateError(
+            user_message=tr("update.error.checksums", status=result.status_code),
+            retry_hint=tr("update.error.later.hint"),
+        )
+    try:
+        verify_release_checksums(
+            result, release.signature, release.version, trusted_keys
+        )
+    except SignatureError as error:
+        raise UpdateError(
+            user_message=tr("update.error.signature_invalid", version=release.version),
+            retry_hint=tr("update.error.signature_invalid.hint"),
+        ) from error
+    return result
+
+
+def _platform_artifact(release: ReleaseInfo, sums: bytes) -> tuple[str, str]:
+    """Nazwa artefaktu bieżącej platformy i jego suma z podpisanych sum."""
+    suffix = release.artifact_suffix
+    entries = parse_checksums(sums.decode("utf-8", "replace"))
+    for name, digest in entries.items():
+        if suffix and name.endswith(suffix) and is_safe_asset_name(name):
+            return name, digest
+    raise UpdateError(
+        user_message=tr("update.error.no_artifact", version=release.version)
+    )
+
+
 def _stream_artifact(
-    artifact: Asset,
-    version: str,
+    release: ReleaseInfo,
+    name: str,
     client: httpx.Client,
     partial: Path,
     should_cancel: Callable[[], bool],
@@ -159,29 +169,25 @@ def _stream_artifact(
 ) -> str:
     """Zapisuje artefakt do ``partial`` i zwraca jego SHA-256.
 
-    Strumień dłuższy niż rozmiar zasobu z API GitHuba jest przerywany od
-    razu - serwer pośredni nie zapełni dysku, zanim suma odrzuci plik.
+    Strumień dłuższy niż zapowiedziany nagłówkiem ``Content-Length`` (albo
+    ``MAX_ARTIFACT_BYTES``) jest przerywany od razu - serwer pośredni nie
+    zapełni dysku, zanim suma odrzuci plik.
     """
     digest = hashlib.sha256()
-    with client.stream("GET", artifact.url) as stream:
+    with client.stream("GET", release.asset_url(name)) as stream:
         if stream.status_code != 200:
             raise UpdateError(
                 user_message=tr(
                     "update.error.download",
-                    version=version,
+                    version=release.version,
                     status=stream.status_code,
                 ),
                 retry_hint=tr("update.error.later.hint"),
             )
         total = _content_length(stream)
-        # Zapas 1 % na wypadek drobnej niezgodności rozmiaru w API.
-        limit = (
-            artifact.size + artifact.size // 100
-            if artifact.size > 0
-            else MAX_ARTIFACT_BYTES
-        )
-        if total is not None and total > limit:
-            raise _too_large(artifact.name)
+        if total is not None and total > MAX_ARTIFACT_BYTES:
+            raise too_large(name)
+        limit = total or MAX_ARTIFACT_BYTES
         done = 0
         progress(done, total)
         chunks = stream.iter_bytes(chunk_size=CHUNK_SIZE)
@@ -195,7 +201,7 @@ def _stream_artifact(
                     done += len(chunk)
                     progress(done, total)
         except SizeLimitError as error:
-            raise _too_large(artifact.name) from error
+            raise too_large(name) from error
     return digest.hexdigest()
 
 
@@ -234,33 +240,6 @@ def _content_length(response: httpx.Response) -> int | None:
     except ValueError:
         return None
     return total if total > 0 else None
-
-
-def _fetch(client: httpx.Client, url: str) -> bytes:
-    """Mały plik wydania (sumy, podpis); błąd HTTP → ``UpdateError``.
-
-    Odczyt jest strumieniowy z limitem ``MAX_SMALL_FILE_BYTES`` - plik
-    sum nie trafia w całości do pamięci, zanim podpis go odrzuci.
-    """
-    with client.stream("GET", url) as response:
-        if response.status_code != 200:
-            raise UpdateError(
-                user_message=tr("update.error.checksums", status=response.status_code),
-                retry_hint=tr("update.error.later.hint"),
-            )
-        # Porcje takie, jak przychodzą z sieci - bez buforowania 1 MB naraz.
-        chunks = response.iter_bytes()
-        try:
-            return b"".join(limited_chunks(chunks, MAX_SMALL_FILE_BYTES))
-        except SizeLimitError as error:
-            raise _too_large(url.rsplit("/", 1)[-1]) from error
-
-
-def _too_large(name: str) -> UpdateError:
-    return UpdateError(
-        user_message=tr("update.error.too_large", name=name),
-        retry_hint=tr("update.error.later.hint"),
-    )
 
 
 def _write_file(path: Path, data: bytes) -> None:

@@ -8,16 +8,16 @@ from dataclasses import replace
 import pytest
 
 from transkryptor.errors import UpdateError
+from transkryptor.update import download
 from transkryptor.update.download import (
     CHUNK_SIZE,
-    MAX_SMALL_FILE_BYTES,
     DownloadCancelled,
     clear_downloads,
     download_release,
     parse_checksums,
     verify_downloaded,
 )
-from transkryptor.update.releases import parse_release
+from transkryptor.update.releases import MAX_SMALL_FILE_BYTES, ReleaseInfo
 from transkryptor.update.signature import trusted_comment_for
 
 ASSET = "Transkryptor-1.0.0-x86_64.AppImage"
@@ -26,8 +26,9 @@ ASSET = "Transkryptor-1.0.0-x86_64.AppImage"
 SIGNED_SUMS = ["SHA256SUMS.txt", "SHA256SUMS.txt.minisig"]
 
 
-def release_from(github):
-    return parse_release(github.payload(), "linux")
+def release_from(github) -> ReleaseInfo:
+    """Wydanie tak, jak zwraca je sprawdzenie wersji (podpis z serwera)."""
+    return ReleaseInfo(github.version, github.signature(), "linux")
 
 
 def names_in(directory) -> list[str]:
@@ -120,6 +121,25 @@ def test_release_without_platform_artifact_is_an_error(github, tmp_path) -> None
     github.publish("1.0.0", {"Transkryptor-1.0.0-windows-x64-setup.exe": b"x"})
     with github.client() as client, pytest.raises(UpdateError):
         download_release(release_from(github), client, tmp_path)
+    assert github.downloads == []
+
+
+def test_artifact_name_comes_from_the_signed_checksums(github, tmp_path) -> None:
+    windows = "Transkryptor-1.0.0-windows-x64-setup.exe"
+    github.publish("1.0.0", {windows: b"instalator", ASSET: b"obraz"})
+    with github.client() as client:
+        path = download_release(
+            replace(release_from(github), platform="windows"), client, tmp_path
+        )
+    assert path.name == windows
+    assert github.downloads == [windows]
+
+
+def test_unsafe_name_in_checksums_is_ignored(github, tmp_path) -> None:
+    github.publish("1.0.0", {"../" + ASSET: b"obraz"})
+    with github.client() as client, pytest.raises(UpdateError):
+        download_release(release_from(github), client, tmp_path)
+    assert not (tmp_path / "1.0.0").exists()
 
 
 def test_signed_checksums_are_kept_next_to_the_artifact(github, tmp_path) -> None:
@@ -132,7 +152,7 @@ def test_signed_checksums_are_kept_next_to_the_artifact(github, tmp_path) -> Non
 
 def test_release_without_signature_is_not_downloaded(github, tmp_path) -> None:
     github.publish("1.0.0", {ASSET: b"obraz"})
-    release = replace(release_from(github), signature=None)
+    release = replace(release_from(github), signature="")
     with github.client() as client, pytest.raises(UpdateError):
         download_release(release, client, tmp_path)
     assert github.downloads == []
@@ -196,15 +216,18 @@ def endless(sent: list[int], chunk: bytes = b"x" * 4096):
     return stream
 
 
-def test_endless_artifact_stream_is_cut_at_the_announced_size(github, tmp_path) -> None:
-    github.publish("1.0.0", {ASSET: b"nowy obraz" * 1000})
+def test_endless_artifact_stream_is_cut_at_the_size_limit(
+    github, tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setattr(download, "MAX_ARTIFACT_BYTES", 10_000)
+    github.publish("1.0.0", {ASSET: b"nowy obraz"})
     sent: list[int] = []
     github.streams[ASSET] = endless(sent)
     with github.client() as client, pytest.raises(UpdateError) as info:
         download_release(release_from(github), client, tmp_path)
     assert "większy" in info.value.user_message
     # Klient buforuje najwyżej jedną porcję (CHUNK_SIZE) ponad limit.
-    assert sum(sent) <= 10_100 + CHUNK_SIZE + 4096
+    assert sum(sent) <= 10_000 + CHUNK_SIZE + 4096
     assert names_in(tmp_path / "1.0.0") == SIGNED_SUMS
 
 
