@@ -6,6 +6,47 @@ workflow „Wydanie” złoży je w sekcję z numerem wersji i datą, a jej tre�
 trafi do sekcji „Nowości w tej wersji” not wydania. Brak fragmentów blokuje
 wydanie.
 
+## 0.9.1 - 2026-11-16
+
+- **Jeden folder zapisu projektów i eksportów:** okna zapisu projektu,
+  eksportu i paczki startują teraz w jednym folderze - domyślnie
+  `Transkryptor` w Dokumentach, tworzonym przy pierwszym zapisie.
+  Inny folder wybierzesz w oknie zapisu albo w Ustawieniach, na zakładce
+  Projekt (pole „Folder zapisu”) - wybrany folder ma pierwszeństwo
+  i program zapisuje już tam projekty i eksporty, także dla projektu
+  otwartego z innego miejsca. Bez własnego wyboru eksport zapisanego
+  projektu trafia obok jego pliku `.transkr`. Wcześniej eksport trafiał
+  do katalogu programu, projekt - obok nagrania, a wybrany folder nie był
+  zapamiętywany.
+
+- **Transkrypcja nie staje, gdy odejdziesz od komputera:** na czas
+  transkrypcji program nie pozwala uśpić komputera ani włączyć wygaszacza
+  ekranu (Windows, a w systemie Linux - środowiska obsługujące
+  `org.freedesktop.ScreenSaver`, np. KDE i GNOME). Wcześniej wygaszacz
+  i uśpienie wstrzymywały transkrypcję, a szacowany czas rósł do
+  kilkudziesięciu godzin.
+
+- **Nowa transkrypcja bez zamykania programu:** polecenie „Nowy dokument”
+  nazywa się teraz „Nowa transkrypcja” i lepiej opisuje, co robi - kończy
+  bieżącą pracę (z propozycją zapisu) i czyści tekst, metryczkę, nagranie
+  i szkic ASR. Przycisk w wąskim oknie chowa się do menu „Więcej poleceń”
+  później niż przycisk zamykania, a samouczek „Projekt i eksport” ma nowy
+  krok o tym poleceniu.
+
+- **Bezpieczniejsze pobieranie modelu i aktualizacji:** program przerywa
+  pobieranie modelu rozpoznawania mowy albo nowej wersji, gdy serwer
+  wysyła więcej danych, niż powinien, zamiast zapisywać je do końca
+  i dopiero wtedy odrzucać. Uszkodzony albo podstawiony serwer nie zapełni
+  już dysku. Aktualizacja pobiera pliki tylko z serwerów GitHuba - inny
+  adres przerywa ją z komunikatem.
+- **Bezpieczniejsze otwieranie paczek:** paczka `.tkpack` jest teraz
+  rozpakowywana dopiero po zatwierdzeniu okna z ustawieniami z paczki.
+  „Anuluj” nie zostawia plików na dysku ani nie nadpisuje istniejących.
+  Spreparowana albo uszkodzona paczka (np. bardzo duża po rozpakowaniu)
+  jest odrzucana z komunikatem, zamiast zajmować całą pamięć, a nagranie
+  z paczki jest sprawdzane sumą kontrolną. Pliki o nazwach, których nie da
+  się zapisać w Windows (np. `CON`, `NUL`), dostają bezpieczną nazwę.
+
 ## 0.9.0 - 2026-11-14
 
 - **Profile notacji:** reguły fonetyczne, włączone reguły walidatora,
