@@ -1,13 +1,18 @@
 # Strona projektu na GitHub Pages: opis, pobieranie i historia zmian.
 #
-# Workflow „Wydanie” wywołuje go po publikacji wydania (z tagiem wydania
-# w `ref`), bo wydanie i commit z [skip ci] nie uruchamiają innych
-# workflow. Push nie wdraża strony - zmianę samej strony (pages/, generator)
-# wdraża się ręcznie: Actions → „Strona” → Run workflow.
+# Workflow „Wydanie” wywołuje go po publikacji wydania (wydanie z
+# release/X.Y - po scaleniu tej gałęzi do main), bo wydanie i commit
+# z [skip ci] nie uruchamiają innych workflow. Push nie wdraża strony -
+# zmianę samej strony (pages/, generator) wdraża się ręcznie: Actions →
+# „Strona” → Run workflow.
 #
-# Strona pokazuje najnowsze wydanie i jego historię zmian, a nie stan main
-# (src/transkryptor/packaging/site.py). Environment github-pages musi
-# dopuszczać gałąź main i tagi v* (Settings → Environments).
+# Strona powstaje zawsze z main, niezależnie od tego, skąd uruchomiono
+# workflow: gałęzie release/X.Y i ich tagi nie mają zmian strony zrobionych
+# na main, więc wdrożenie z nich cofnęłoby stronę. Treść strony to najnowsze
+# wydanie i jego historia zmian z CHANGELOG.md na main
+# (src/transkryptor/packaging/site.py); main ma je po commicie wydania albo
+# po scaleniu release/X.Y. Environment github-pages musi dopuszczać gałąź
+# main i tagi v* (Settings → Environments).
 #
 # Po wdrożeniu zgłoszenia strony (etykieta webpage) zamknięte jako zrobione
 # przed początkiem budowania dostają etykietę „Deployed” - strona statusu
@@ -16,11 +21,6 @@ name: Strona
 
 on:
   workflow_call:
-    inputs:
-      ref:
-        description: "Tag albo gałąź, z której powstaje strona"
-        type: string
-        required: false
   workflow_dispatch:
 
 permissions:
@@ -45,7 +45,7 @@ jobs:
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref }}
+          ref: main
           persist-credentials: false
 
       - name: Instalacja uv
@@ -85,8 +85,7 @@ jobs:
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
 
   # Błąd tutaj nie cofa wdrożenia; job można uruchomić ponownie (już
-  # oznaczone zgłoszenia zostają bez zmian). Skrypt z bieżącego commita,
-  # a nie z ref - starsze tagi go nie mają.
+  # oznaczone zgłoszenia zostają bez zmian).
   etykiety:
     name: Etykiety wdrożonych zgłoszeń strony
     needs: [budowanie, wdrozenie]
@@ -97,6 +96,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: main
           persist-credentials: false
 
       - name: Etykieta „Deployed”

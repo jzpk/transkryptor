@@ -613,18 +613,25 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           if ! git merge --no-ff "origin/$BRANCH" -m "chore: merge $BRANCH into main"; then
             git merge --abort
-            echo "::error::Konflikt przy scalaniu $BRANCH do main - wydanie jest opublikowane; scal lokalnie: ./merge-forward.sh ${BRANCH#release/}"
+            echo "::error::Konflikt przy scalaniu $BRANCH do main - wydanie jest opublikowane; scal lokalnie: ./merge-forward.sh ${BRANCH#release/}, wypchnij main i wdróż stronę (Actions → „Strona”)"
             exit 1
           fi
           git push origin HEAD:main
 
   # Strona projektu z nowymi linkami pobierania i historią zmian. Błąd tutaj
   # nie cofa wydania - stronę można wdrożyć ponownie z Actions → „Strona”.
+  # Strona powstaje z main (zmiany strony są tylko tam), więc wydanie
+  # z release/X.Y czeka na scalenie do main; bez scalenia (konflikt) strona
+  # nie jest wdrażana - inaczej pokazałaby poprzednie wydanie.
+  # Poprawka starszej serii nie zmienia strony najnowszego wydania.
   strona:
     name: Strona projektu
-    needs: [wersja, publikacja]
-    # Poprawka starszej serii nie zmienia strony najnowszego wydania.
-    if: needs.wersja.outputs.latest == 'true'
+    needs: [wersja, publikacja, scalenie]
+    if: >-
+      !cancelled()
+      && needs.publikacja.result == 'success'
+      && needs.wersja.outputs.latest == 'true'
+      && (needs.scalenie.result == 'success' || needs.wersja.outputs.release-branch == '')
     permissions:
       contents: read
       pages: write
@@ -632,5 +639,3 @@ jobs:
       # Job „etykiety” workflow strony oznacza wdrożone zgłoszenia strony.
       issues: write
     uses: ./.github/workflows/pages.yml
-    with:
-      ref: ${{ needs.wersja.outputs.tag }}
