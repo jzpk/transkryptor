@@ -300,6 +300,17 @@
     };
   }
 
+  // Czy długość pola mieści się w minlength/maxlength. Przeglądarka nie
+  // sprawdza minlength wartości ustawionej skryptem (po przycięciu spacji),
+  // a znaki liczy w jednostkach UTF-16 - tu liczymy je tak jak Worker
+  // (LIMITS w zgloszenia/worker.js), po znakach Unicode.
+  function lengthFits(field) {
+    var length = Array.from(field.value).length;
+    var min = field.minLength > 0 ? field.minLength : 0;
+    var max = field.maxLength >= 0 ? field.maxLength : Infinity;
+    return field.value === "" || (length >= min && length <= max);
+  }
+
   // Pola formularza bez białych znaków na brzegach; zwraca pierwsze błędne
   // pole albo null i oznacza błędne aria-invalid.
   function firstInvalid(form, names) {
@@ -307,7 +318,7 @@
     names.forEach(function (name) {
       var field = form.elements[name];
       field.value = field.value.trim();
-      var ok = field.checkValidity();
+      var ok = field.checkValidity() && lengthFits(field);
       field.setAttribute("aria-invalid", ok ? "false" : "true");
       if (!ok && !invalid) {
         invalid = field;
@@ -425,7 +436,7 @@
         say(
           "Uzupełnij wymagane pola zaznaczone na czerwono: tytuł (co najmniej " +
             "5 znaków), opis (co najmniej 10 znaków) i pozostałe pola " +
-            "tego rodzaju zgłoszenia.",
+            "tego rodzaju zgłoszenia (co najmniej 3 znaki).",
           true
         );
         invalid.focus();
