@@ -25,7 +25,7 @@ COPY icu-stub/icuuc_stub.c /tmp/icuuc_stub.c
 RUN x86_64-w64-mingw32-gcc -O2 -shared -s -static-libgcc \
         -o /tmp/icuuc.dll /tmp/icuuc_stub.c
 
-FROM tobix/pywine@sha256:b053219cba558a12a8a3df2401a653b2ab2fced6833accd1e5d72399d7da1ad3
+FROM tobix/pywine@sha256:adbb25c76313f5e4d29a9874ddc4ffd963504ac63e794d55ae52279d77cc2009
 
 # Ostatnie wydanie binarne linii 3.12.
 ARG PYTHON_VERSION=3.12.10
