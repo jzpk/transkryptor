@@ -51,10 +51,11 @@ import json
 import os
 import re
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from collections.abc import Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -70,6 +71,9 @@ DEPLOYED_LABEL = "Deployed"
 IN_PROGRESS_LABEL = "in progress"
 LABEL_COLOR = "2da44e"
 API_URL = "https://api.github.com"
+# Przerwy (s) przed ponowieniem zapytania po przejściowym błędzie API
+# (5xx, błąd sieci) - jeden 502 GitHuba nie może wywrócić wdrożenia.
+RETRY_DELAYS = (2.0, 10.0)
 
 _NEXT_LINK = re.compile(r'<([^>]+)>;\s*rel="next"')
 _CLOSING_REFERENCE = re.compile(
@@ -182,18 +186,45 @@ def _labelable_reference(issue: Issue, target: Target) -> bool:
     return target.applies_to(_label_names(issue))
 
 
+def _transient(error: OSError) -> bool:
+    """Czy błąd zapytania może minąć przy ponowieniu (5xx, błąd sieci)."""
+    if isinstance(error, urllib.error.HTTPError):
+        return error.code >= 500
+    return isinstance(error, urllib.error.URLError | TimeoutError)
+
+
 class GitHubIssues:
     """Zgłoszenia repozytorium przez REST API GitHuba."""
 
-    def __init__(self, repository: str, token: str, api_url: str = API_URL) -> None:
+    def __init__(
+        self,
+        repository: str,
+        token: str,
+        api_url: str = API_URL,
+        sleep: Callable[[float], None] = time.sleep,
+    ) -> None:
         if not api_url.startswith("https://"):
             raise LabelError(f"Adres API musi używać https: {api_url}.")
         self._base = f"{api_url}/repos/{repository}"
         self._token = token
+        self._sleep = sleep
 
     def _request(
-        self, method: str, url: str, body: object | None = None
+        self, method: str, url: str, body: object | None = None, *, retry: bool = True
     ) -> tuple[Any, str]:
+        """Zapytanie API; po przejściowym błędzie ponawiane (retry=False dla
+        zapytań, których powtórzenie zdublowałoby skutek)."""
+        delays = RETRY_DELAYS if retry else ()
+        for delay in delays:
+            try:
+                return self._send(method, url, body)
+            except OSError as error:  # HTTPError i URLError to podklasy OSError
+                if not _transient(error):
+                    raise
+            self._sleep(delay)
+        return self._send(method, url, body)
+
+    def _send(self, method: str, url: str, body: object | None) -> tuple[Any, str]:
         data = None if body is None else json.dumps(body).encode("utf-8")
         # Adresy pochodzą z api_url (sprawdzone https) albo z nagłówka Link API.
         request = urllib.request.Request(  # noqa: S310 - tylko https API GitHuba
@@ -251,8 +282,12 @@ class GitHubIssues:
             # 404: zgłoszenie nie ma tej etykiety.
             if error.code != 404:
                 raise
+        # Bez ponawiania: po 502 komentarz mógł już powstać.
         self._request(
-            "POST", f"{self._base}/issues/{number}/comments", {"body": comment}
+            "POST",
+            f"{self._base}/issues/{number}/comments",
+            {"body": comment},
+            retry=False,
         )
         self._request(
             "PATCH",

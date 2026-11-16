@@ -259,3 +259,68 @@ def test_github_close_removes_in_progress_comments_and_closes(monkeypatch) -> No
         ("PATCH", base),
     ]
     assert b'"state_reason": "completed"' in (requests[2][2] or b"")
+
+
+class _Response(io.BytesIO):
+    headers: dict[str, str] = {}
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
+
+
+def _http_error(request, code: int) -> urllib.error.HTTPError:
+    return urllib.error.HTTPError(request.full_url, code, "", Message(), None)
+
+
+def test_github_retries_transient_errors(monkeypatch) -> None:
+    failures = [502, None]
+    delays: list[float] = []
+
+    def fake_urlopen(request, timeout):
+        if failures:
+            code = failures.pop(0)
+            if code is None:
+                raise urllib.error.URLError("timeout")
+            raise _http_error(request, code)
+        return _Response(b'{"number": 7}')
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    issue = GitHubIssues("o/r", "t", sleep=delays.append).issue(7)
+
+    assert issue == {"number": 7}
+    assert len(delays) == 2
+
+
+def test_github_gives_up_after_repeated_server_errors(monkeypatch) -> None:
+    calls: list[str] = []
+
+    def fake_urlopen(request, timeout):
+        calls.append(request.full_url)
+        raise _http_error(request, 503)
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    tracker = GitHubIssues("o/r", "t", sleep=lambda _: None)
+    with pytest.raises(urllib.error.HTTPError):
+        tracker.add_label(7, "Deployed")
+    assert len(calls) == 3
+
+
+def test_github_does_not_retry_client_errors_or_comments(monkeypatch) -> None:
+    calls: list[str] = []
+
+    def fake_urlopen(request, timeout):
+        calls.append(request.get_method())
+        if request.get_method() == "DELETE":
+            return _Response(b"")
+        raise _http_error(request, 502 if request.get_method() == "POST" else 403)
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    tracker = GitHubIssues("o/r", "t", sleep=lambda _: None)
+    with pytest.raises(urllib.error.HTTPError):
+        tracker.close_issue(60, "Wydane.")
+    with pytest.raises(urllib.error.HTTPError):
+        tracker.issue(60)
+    assert calls == ["DELETE", "POST", "GET"]
