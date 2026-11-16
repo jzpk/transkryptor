@@ -7,6 +7,12 @@ Logika (sprawdzenie wersji, pobieranie, instalacja) jest w pakiecie
   (``ui/startup_screen.py``), który pokazuje etap i postęp pobierania.
   Wątek ekranu przejmuje potem :meth:`UpdateController.adopt` - także gdy
   użytkownik pominął ekran, a pobieranie trwa dalej w tle.
+- Potem, dopóki program jest otwarty, sprawdzenie powtarza się po cichu
+  co ``CHECK_INTERVAL_S`` (6 godzin) - kto nie zamyka programu przez kilka
+  dni, też dostanie nowe wydanie. Odstęp liczy zegar ścienny, sprawdzany
+  co ``CHECK_TICK_MS``: czas uśpienia komputera też się liczy, a po
+  wybudzeniu zaległe sprawdzenie rusza w ciągu kilku minut. Po pobraniu
+  gotowej aktualizacji kolejne sprawdzenia nie są potrzebne.
 - Wynik jest cichy: brak sieci albo błąd trafiają tylko do
   dziennika. Gotowa aktualizacja pokazuje baner z przyciskiem
   „Uruchom ponownie i zaktualizuj”, a nowsza wersja bez samoaktualizacji -
@@ -18,10 +24,11 @@ Logika (sprawdzenie wersji, pobieranie, instalacja) jest w pakiecie
 from __future__ import annotations
 
 import logging
+import time
 from collections.abc import Callable
 from pathlib import Path
 
-from PySide6.QtCore import QObject, Qt, QThread, Signal
+from PySide6.QtCore import QObject, Qt, QThread, QTimer, Signal
 from PySide6.QtWidgets import (
     QApplication,
     QHBoxLayout,
@@ -44,6 +51,10 @@ logger = logging.getLogger(__name__)
 
 # Zamykanie aplikacji czeka na wątek co najwyżej tyle (limit połączenia to 10 s).
 SHUTDOWN_WAIT_MS = 15_000
+# Ciche sprawdzenie w trakcie pracy: co 6 godzin, zegar ścienny odczytywany
+# co 10 minut (QTimer nie liczy czasu uśpienia systemu).
+CHECK_INTERVAL_S = 6 * 60 * 60
+CHECK_TICK_MS = 10 * 60 * 1000
 
 
 class UpdateThread(QThread):
@@ -92,14 +103,27 @@ class UpdateController(QObject):
         *,
         service_factory: Callable[[], UpdateService] = UpdateService,
         apply: Callable[[Path], None] = apply_update,
+        clock: Callable[[], float] = time.time,
     ) -> None:
         super().__init__(window)
         self._window = window
         self._service_factory = service_factory
         self._apply = apply
+        self._clock = clock
         self._thread: UpdateThread | None = None
         self._artifact: Path | None = None
+        self._last_check: float | None = None
 
+        self._build_banner(window)
+        self._periodic = QTimer(self)
+        self._periodic.setInterval(CHECK_TICK_MS)
+        self._periodic.timeout.connect(self.check_if_due)
+
+        app = QApplication.instance()
+        if app is not None:
+            app.aboutToQuit.connect(self.shutdown)
+
+    def _build_banner(self, window: QMainWindow) -> None:
         self.banner = QWidget()
         layout = QHBoxLayout(self.banner)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -113,10 +137,6 @@ class UpdateController(QObject):
         layout.addWidget(self.install_button)
         self.banner.setVisible(False)
         window.statusBar().addPermanentWidget(self.banner)
-
-        app = QApplication.instance()
-        if app is not None:
-            app.aboutToQuit.connect(self.shutdown)
 
     @property
     def is_running(self) -> bool:
@@ -134,14 +154,33 @@ class UpdateController(QObject):
         self.adopt(thread)
         thread.start()
 
+    @property
+    def periodic_checks_active(self) -> bool:
+        return self._periodic.isActive()
+
+    def check_if_due(self) -> None:
+        """Ciche sprawdzenie, gdy od poprzedniego minęło ``CHECK_INTERVAL_S``."""
+        if self._artifact is not None:
+            # Aktualizacja już czeka na instalację - nowe pobranie usunęłoby
+            # plik, na który wskazuje baner.
+            self._periodic.stop()
+            return
+        last = self._last_check
+        if last is None or self._clock() - last >= CHECK_INTERVAL_S:
+            self.start_automatic()
+
     def adopt(self, thread: UpdateThread) -> None:
         """Przejmuje przebieg uruchomiony gdzie indziej (ekran startowy).
 
         Wynik zakończonego przebiegu jest stosowany od razu; trwający
-        przebieg kończy się w tle i wtedy pokazuje baner.
+        przebieg kończy się w tle i wtedy pokazuje baner. Od pierwszego
+        przebiegu działa też okresowe sprawdzanie (``check_if_due``).
         """
         if self.is_running:
             return
+        self._last_check = self._clock()
+        if self._artifact is None and not self._periodic.isActive():
+            self._periodic.start()
         thread.setParent(self)
         self._thread = thread
         thread.finished_with.connect(self._on_thread_finished)
@@ -179,6 +218,7 @@ class UpdateController(QObject):
 
     def _show_ready(self, version: str, artifact: Path) -> None:
         self._artifact = artifact
+        self._periodic.stop()
         self.banner_label.setText(tr("update.ready", version=version))
         self.install_button.setVisible(True)
         self.banner.setVisible(True)
@@ -202,6 +242,7 @@ class UpdateController(QObject):
 
     def shutdown(self) -> None:
         """Przerywa pobieranie przy zamykaniu aplikacji i czeka na wątek."""
+        self._periodic.stop()
         thread = self._thread
         if thread is not None:
             thread.cancel()

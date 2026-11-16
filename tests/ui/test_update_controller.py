@@ -10,13 +10,18 @@ from typing import cast
 import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
+from PySide6.QtWidgets import QMainWindow
 
 from transkryptor.errors import UpdateError
 from transkryptor.i18n import tr
 from transkryptor.ui.main_window import MainWindow
 from transkryptor.ui.startup_screen import StartupScreen
 from transkryptor.ui.toolbar import COLLAPSE_ORDER
-from transkryptor.ui.update_controller import UpdateThread
+from transkryptor.ui.update_controller import (
+    CHECK_INTERVAL_S,
+    UpdateController,
+    UpdateThread,
+)
 from transkryptor.update.releases import ReleaseInfo
 from transkryptor.update.service import (
     UpdateOutcome,
@@ -229,3 +234,74 @@ def test_escape_skips_startup_screen(qtbot) -> None:
     with qtbot.waitSignal(screen.skipped):
         qtbot.keyClick(screen, Qt.Key.Key_Escape)
     assert screen.is_done
+
+
+class Clock:
+    def __init__(self) -> None:
+        self.now = 1_000_000.0
+
+    def __call__(self) -> float:
+        return self.now
+
+
+@pytest.fixture
+def periodic(qtbot):
+    """Kontroler z zegarem testowym; liczy przebiegi sprawdzania."""
+    host = QMainWindow()
+    qtbot.addWidget(host)
+    clock = Clock()
+    runs: list[FakeService] = []
+    outcome = [UpdateOutcome(UpdateStatus.UP_TO_DATE)]
+
+    def factory() -> UpdateService:
+        service = FakeService(outcome[0])
+        runs.append(service)
+        return as_service(service)
+
+    controller = UpdateController(host, service_factory=factory, clock=clock)
+
+    def check() -> None:
+        controller.check_if_due()
+        qtbot.waitUntil(lambda: not controller.is_running, timeout=5000)
+
+    return controller, clock, runs, outcome, check
+
+
+def test_periodic_checks_start_with_the_first_check(periodic) -> None:
+    controller, _clock, runs, _outcome, check = periodic
+    assert not controller.periodic_checks_active
+    check()  # pierwsze sprawdzenie (np. przy starcie)
+    assert len(runs) == 1
+    assert controller.periodic_checks_active
+    controller.shutdown()
+    assert not controller.periodic_checks_active
+
+
+def test_background_check_repeats_every_six_hours(periodic) -> None:
+    controller, clock, runs, _outcome, check = periodic
+    check()
+    clock.now += CHECK_INTERVAL_S - 1
+    check()
+    assert len(runs) == 1
+    # Także po uśpieniu komputera: liczy się zegar ścienny.
+    clock.now += 2
+    check()
+    assert len(runs) == 2
+    check()
+    assert len(runs) == 2
+
+
+def test_new_release_found_in_background_shows_the_banner(periodic) -> None:
+    controller, clock, runs, outcome, check = periodic
+    check()
+    assert not controller.banner.isVisibleTo(controller.parent())
+    outcome[0] = UpdateOutcome(UpdateStatus.READY, RELEASE, ARTIFACT)
+    clock.now += CHECK_INTERVAL_S
+    check()
+    assert controller.banner_label.text() == tr("update.ready", version="9.0.0")
+    assert controller.install_button.isVisibleTo(controller.parent())
+    # Gotowa aktualizacja kończy okresowe sprawdzanie.
+    assert not controller.periodic_checks_active
+    clock.now += CHECK_INTERVAL_S
+    check()
+    assert len(runs) == 2
