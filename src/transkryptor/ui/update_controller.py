@@ -1,13 +1,13 @@
 """Aktualizacje w oknie głównym: wątek tła i baner w pasku stanu.
 
-Logika (limit zapytań, API, pobieranie, instalacja) jest w pakiecie
+Logika (sprawdzenie wersji, pobieranie, instalacja) jest w pakiecie
 ``transkryptor.update`` bez Qt; ten moduł tylko ją uruchamia i prezentuje.
 
 - Sprawdzenie odbywa się przy starcie, na ekranie startowym
   (``ui/startup_screen.py``), który pokazuje etap i postęp pobierania.
   Wątek ekranu przejmuje potem :meth:`UpdateController.adopt` - także gdy
   użytkownik pominął ekran, a pobieranie trwa dalej w tle.
-- Wynik jest cichy: brak sieci, błąd albo wyczerpany limit trafiają tylko do
+- Wynik jest cichy: brak sieci albo błąd trafiają tylko do
   dziennika. Gotowa aktualizacja pokazuje baner z przyciskiem
   „Uruchom ponownie i zaktualizuj”, a nowsza wersja bez samoaktualizacji -
   sam komunikat w pasku stanu.

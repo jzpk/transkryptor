@@ -25,9 +25,7 @@ from transkryptor.update.service import (
     UpdateStatus,
 )
 
-RELEASE = ReleaseInfo(
-    "9.0.0", "https://github.com/jzpk/transkryptor/releases/tag/v9.0.0", None, None
-)
+RELEASE = ReleaseInfo("9.0.0", "podpis", "linux")
 ARTIFACT = Path("/tmp/Transkryptor-9.0.0-x86_64.AppImage")
 
 
@@ -104,7 +102,6 @@ def test_available_update_is_reported_without_download_link(qtbot, window) -> No
     "status",
     [
         UpdateStatus.OFFLINE,
-        UpdateStatus.QUOTA_EXHAUSTED,
         UpdateStatus.UP_TO_DATE,
         UpdateStatus.ERROR,
     ],

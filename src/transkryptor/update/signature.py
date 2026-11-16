@@ -11,6 +11,10 @@ minisign 0.11): podpis Ed25519 obejmuje BLAKE2b-512 treści, a podpis globalny
 ``transkryptor <wersja> SHA256SUMS.txt``; wersja musi zgadzać się z wydaniem,
 inaczej podpisane sumy starszego wydania dałoby się podstawić pod nowy tag.
 
+Podpis globalny obejmuje zaufany komentarz bez treści pliku, więc sam plik
+``.minisig`` wystarcza, żeby wiarygodnie poznać wersję najnowszego wydania
+(``verify_comment``) - sprawdzenie aktualizacji nie potrzebuje API GitHuba.
+
 Workflow wydania sprawdza podpis tym samym kodem::
 
     python -m transkryptor.update.signature SHA256SUMS.txt \\
@@ -95,32 +99,64 @@ def verify(
     odczytane przy wywołaniu.
     """
     signature = parse_signature(signature_text)
-    candidates = keys.TRUSTED_KEYS if trusted_keys is None else tuple(trusted_keys)
-    if not candidates:
-        raise SignatureError("brak zaufanego klucza publicznego")
-    public_key = None
-    for candidate in candidates:
-        key_id, key = parse_public_key(candidate)
-        if key_id == signature.key_id:
-            public_key = key
-            break
-    if public_key is None:
-        raise SignatureError("podpis złożony nieznanym kluczem")
+    public_key = _signing_key(signature, trusted_keys)
     digest = hashlib.blake2b(message, digest_size=64).digest()
     try:
         public_key.verify(signature.signature, digest)
+    except InvalidSignature as error:
+        raise SignatureError("podpis nie pasuje do treści") from error
+    _verify_global(signature, public_key)
+    return signature.trusted_comment
+
+
+def verify_comment(
+    signature_text: str, trusted_keys: Iterable[str] | None = None
+) -> str:
+    """Sprawdza sam podpis globalny i zwraca zaufany komentarz.
+
+    Potwierdza, że komentarz (z wersją wydania) pochodzi od klucza wydań,
+    bez treści podpisanego pliku. Sumy kontrolne trzeba potem sprawdzić
+    pełnym ``verify`` - podpis globalny ich nie obejmuje.
+    """
+    signature = parse_signature(signature_text)
+    _verify_global(signature, _signing_key(signature, trusted_keys))
+    return signature.trusted_comment
+
+
+def _signing_key(
+    signature: _Signature, trusted_keys: Iterable[str] | None
+) -> Ed25519PublicKey:
+    candidates = keys.TRUSTED_KEYS if trusted_keys is None else tuple(trusted_keys)
+    if not candidates:
+        raise SignatureError("brak zaufanego klucza publicznego")
+    for candidate in candidates:
+        key_id, key = parse_public_key(candidate)
+        if key_id == signature.key_id:
+            return key
+    raise SignatureError("podpis złożony nieznanym kluczem")
+
+
+def _verify_global(signature: _Signature, public_key: Ed25519PublicKey) -> None:
+    try:
         public_key.verify(
             signature.global_signature,
             signature.signature + signature.trusted_comment.encode("utf-8"),
         )
     except InvalidSignature as error:
-        raise SignatureError("podpis nie pasuje do treści") from error
-    return signature.trusted_comment
+        raise SignatureError("zaufany komentarz nie pasuje do podpisu") from error
 
 
 def trusted_comment_for(version: str) -> str:
     """Zaufany komentarz, którym workflow wydania podpisuje sumy wersji."""
     return f"{COMMENT_PRODUCT} {version} {COMMENT_FILE}"
+
+
+def version_from_comment(comment: str) -> str:
+    """Wersja z zaufanego komentarza ``transkryptor <wersja> SHA256SUMS.txt``."""
+    parts = comment.split(" ")
+    if len(parts) != 3 or parts[0] != COMMENT_PRODUCT or parts[2] != COMMENT_FILE:
+        raise SignatureError(f"nieznany zaufany komentarz: {comment!r}")
+    return parts[1]
 
 
 def verify_release_checksums(

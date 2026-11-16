@@ -1,5 +1,5 @@
-"""Wspólne imitacje GitHub Releases: odpowiedź API, serwer plików i klucz
-podpisujący wydania (format minisign)."""
+"""Wspólne imitacje GitHub Releases: serwer plików wydania (z przekierowaniem
+``latest/download``) i klucz podpisujący wydania (format minisign)."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from transkryptor.update import keys
-from transkryptor.update.releases import LATEST_RELEASE_URL
+from transkryptor.update.releases import LATEST_SIGNATURE_URL
 from transkryptor.update.signature import trusted_comment_for
 
 DOWNLOAD_BASE = "https://github.com/jzpk/transkryptor/releases/download"
@@ -48,19 +48,20 @@ class ReleaseKey:
 
 
 class FakeGitHub:
-    """Serwer imitujący API wydań i pliki wydania; liczy zapytania."""
+    """Serwer imitujący pliki wydań GitHub; liczy sprawdzenia wersji."""
 
     def __init__(self, key: ReleaseKey) -> None:
         self.key = key
         self.version = "9.9.9"
-        self.api_status = 200
+        # Kod odpowiedzi na ``latest/download`` (404: brak wydań).
+        self.latest_status = 302
         self.files: dict[str, bytes] = {}
         self.checksums_override: str | None = None
         self.signature_override: str | None = None
         # Treść podstawiana zamiast pliku (np. strumień bez końca).
         self.streams: dict[str, Callable[[], Iterator[bytes]]] = {}
         self.offline = False
-        self.api_calls = 0
+        self.latest_calls = 0
         self.downloads: list[str] = []
         self.requests: list[httpx.Request] = []
 
@@ -70,23 +71,6 @@ class FakeGitHub:
 
     def asset_url(self, name: str) -> str:
         return f"{DOWNLOAD_BASE}/v{self.version}/{name}"
-
-    def payload(self) -> dict:
-        sizes = {name: len(data) for name, data in self.files.items()}
-        sizes["SHA256SUMS.txt"] = len(self.checksums().encode())
-        sizes["SHA256SUMS.txt.minisig"] = len(self.signature().encode())
-        return {
-            "tag_name": f"v{self.version}",
-            "html_url": f"https://github.com/jzpk/transkryptor/releases/tag/v{self.version}",
-            "assets": [
-                {
-                    "name": name,
-                    "browser_download_url": self.asset_url(name),
-                    "size": size,
-                }
-                for name, size in sizes.items()
-            ],
-        }
 
     def checksums(self) -> str:
         if self.checksums_override is not None:
@@ -108,12 +92,15 @@ class FakeGitHub:
         if self.offline:
             raise httpx.ConnectError("brak sieci", request=request)
         url = str(request.url)
-        if url == LATEST_RELEASE_URL:
-            self.api_calls += 1
-            if self.api_status != 200:
-                return httpx.Response(self.api_status, json={"message": "x"})
-            return httpx.Response(200, json=self.payload())
-        name = url.rsplit("/", 1)[-1]
+        if url == LATEST_SIGNATURE_URL:
+            self.latest_calls += 1
+            if self.latest_status != 302:
+                return httpx.Response(self.latest_status, text="Not Found")
+            location = self.asset_url("SHA256SUMS.txt.minisig")
+            return httpx.Response(302, headers={"Location": location})
+        prefix, _, name = url.rpartition("/")
+        if prefix != f"{DOWNLOAD_BASE}/v{self.version}":
+            return httpx.Response(404)
         if name in self.streams:
             return httpx.Response(200, content=self.streams[name]())
         if name == "SHA256SUMS.txt":
@@ -126,7 +113,9 @@ class FakeGitHub:
         return httpx.Response(404)
 
     def client(self) -> httpx.Client:
-        return httpx.Client(transport=httpx.MockTransport(self.handler))
+        return httpx.Client(
+            transport=httpx.MockTransport(self.handler), follow_redirects=True
+        )
 
 
 @pytest.fixture(scope="session")

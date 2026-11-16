@@ -2,8 +2,8 @@
 
 Podział odpowiedzialności:
 
-- ``releases`` - zapytanie do GitHub Releases API i porównanie wersji;
-- ``quota`` - dzienny limit zapytań do API z trwałym stanem w pliku;
+- ``releases`` - wersja najnowszego wydania z jego podpisu (bez API GitHuba)
+  i porównanie wersji;
 - ``download`` - pobranie artefaktu, weryfikacja podpisu sum i sumy SHA256;
 - ``signature``, ``keys`` - podpis minisign sum kontrolnych i wbudowane
   klucze publiczne wydań;

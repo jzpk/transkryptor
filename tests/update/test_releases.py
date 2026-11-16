@@ -1,4 +1,4 @@
-"""Testy zapytania o najnowsze wydanie i porównania wersji."""
+"""Testy odczytu najnowszego wydania z jego podpisu i porównania wersji."""
 
 from __future__ import annotations
 
@@ -8,15 +8,16 @@ from transkryptor.errors import UpdateError
 from transkryptor.packaging.metadata import targets
 from transkryptor.update import releases
 from transkryptor.update.releases import (
+    LATEST_SIGNATURE_URL,
+    MAX_SMALL_FILE_BYTES,
     ReleaseInfo,
     fetch_latest,
     is_newer,
-    parse_release,
     parse_version,
 )
+from transkryptor.update.signature import trusted_comment_for
 
 LINUX_ASSET = "Transkryptor-1.2.3-x86_64.AppImage"
-WINDOWS_ASSET = "Transkryptor-1.2.3-windows-x64-setup.exe"
 DOWNLOADS = "https://github.com/jzpk/transkryptor/releases/download/v1.2.3"
 
 
@@ -49,111 +50,91 @@ def test_asset_suffixes_match_release_artifact_names() -> None:
         assert target.artifact_name.endswith(releases.ASSET_SUFFIXES[key])
 
 
-def payload(*names: str) -> dict:
-    return {
-        "tag_name": "v1.2.3",
-        "html_url": "https://github.com/jzpk/transkryptor/releases/tag/v1.2.3",
-        "assets": [
-            {"name": n, "browser_download_url": f"{DOWNLOADS}/{n}", "size": 10}
-            for n in names
-        ],
-    }
-
-
-@pytest.mark.parametrize(
-    ("platform", "expected"), [("linux", LINUX_ASSET), ("windows", WINDOWS_ASSET)]
-)
-def test_parse_release_picks_the_platform_artifact(platform, expected) -> None:
-    release = parse_release(
-        payload(LINUX_ASSET, WINDOWS_ASSET, "SHA256SUMS.txt"), platform
-    )
-    assert release.version == "1.2.3"
-    assert release.artifact is not None
-    assert release.artifact.name == expected
-    assert release.checksums is not None
-    assert release.checksums.name == "SHA256SUMS.txt"
-
-
-def test_parse_release_without_platform_artifact() -> None:
-    release = parse_release(payload(WINDOWS_ASSET), "linux")
-    assert release.artifact is None
-    assert release.checksums is None
-
-
-def test_parse_release_rejects_unversioned_tag() -> None:
-    with pytest.raises(UpdateError):
-        parse_release({"tag_name": "nightly", "assets": []}, "linux")
-
-
-def test_release_round_trips_through_dict() -> None:
-    release = parse_release(payload(LINUX_ASSET, "SHA256SUMS.txt"), "linux")
-    assert ReleaseInfo.from_dict(release.to_dict()) == release
-    with pytest.raises(ValueError):
-        ReleaseInfo.from_dict({"version": "1.0.0"})
-
-
-def test_fetch_latest_sends_no_identifying_data(github) -> None:
+def test_fetch_latest_reads_the_signed_version(github) -> None:
     github.publish("1.2.3", {LINUX_ASSET: b"x"})
     with github.client() as client:
         release = fetch_latest(client, "linux")
     assert release is not None
     assert release.version == "1.2.3"
-    (request,) = github.requests
-    assert request.method == "GET"
-    assert request.url.query == b""
-    assert request.content == b""
-    assert "authorization" not in request.headers
-    assert "cookie" not in request.headers
+    assert release.signature == github.signature()
+    assert release.page_url == (
+        "https://github.com/jzpk/transkryptor/releases/tag/v1.2.3"
+    )
+    assert release.asset_url("SHA256SUMS.txt") == f"{DOWNLOADS}/SHA256SUMS.txt"
+    assert release.artifact_suffix == "-x86_64.AppImage"
+
+
+def test_fetch_latest_does_not_use_the_rate_limited_api(github) -> None:
+    """Jedno małe pobranie z github.com: bez api.github.com i bez danych."""
+    github.publish("1.2.3", {LINUX_ASSET: b"x"})
+    with github.client() as client:
+        fetch_latest(client, "linux")
+    assert [str(request.url) for request in github.requests] == [
+        LATEST_SIGNATURE_URL,
+        f"{DOWNLOADS}/SHA256SUMS.txt.minisig",
+    ]
+    for request in github.requests:
+        assert request.method == "GET"
+        assert request.url.host == "github.com"
+        assert request.url.query == b""
+        assert request.content == b""
+        assert "authorization" not in request.headers
+        assert "cookie" not in request.headers
+    assert github.downloads == []
 
 
 def test_fetch_latest_without_any_release_returns_none(github) -> None:
-    github.api_status = 404
+    github.latest_status = 404
     with github.client() as client:
         assert fetch_latest(client, "linux") is None
 
 
 def test_fetch_latest_reports_server_errors(github) -> None:
-    github.api_status = 403  # np. przekroczony limit API
+    github.latest_status = 503
     with github.client() as client, pytest.raises(UpdateError):
         fetch_latest(client, "linux")
 
 
-def test_parse_release_finds_the_signature() -> None:
-    release = parse_release(
-        payload(LINUX_ASSET, "SHA256SUMS.txt", "SHA256SUMS.txt.minisig"), "linux"
-    )
-    assert release.signature is not None
-    assert release.signature.name == "SHA256SUMS.txt.minisig"
-    assert ReleaseInfo.from_dict(release.to_dict()) == release
-
-
 @pytest.mark.parametrize(
-    ("name", "url"),
-    [
-        ("../" + LINUX_ASSET, f"{DOWNLOADS}/a"),
-        ("katalog\\" + LINUX_ASSET, f"{DOWNLOADS}/a"),
-        (LINUX_ASSET, "http://github.com/a"),
-        (LINUX_ASSET, "https://evil.example/a"),
-        (LINUX_ASSET, "https://user@github.com/a"),
-    ],
+    "forgery", ["foreign_key", "garbage", "foreign_comment", "path_version"]
 )
-def test_parse_release_skips_unsafe_assets(name, url) -> None:
-    data = {
-        "tag_name": "v1.2.3",
-        "assets": [{"name": name, "browser_download_url": url, "size": 1}],
-    }
-    assert parse_release(data, "linux").artifact is None
+def test_fetch_latest_rejects_unverified_versions(github, foreign_key, forgery) -> None:
+    github.publish("1.2.3", {LINUX_ASSET: b"x"})
+    sums = github.checksums().encode()
+    github.signature_override = {
+        "foreign_key": lambda: foreign_key.sign(sums, trusted_comment_for("1.2.3")),
+        "garbage": lambda: "śmieci",
+        "foreign_comment": lambda: github.key.sign(sums, "inny 1.2.3 plik"),
+        "path_version": lambda: github.key.sign(sums, trusted_comment_for("../x")),
+    }[forgery]()
+    with github.client() as client, pytest.raises(UpdateError):
+        fetch_latest(client, "linux")
 
 
-def test_parse_release_replaces_foreign_page_url() -> None:
-    data = {"tag_name": "v1.2.3", "html_url": "javascript:alert(1)", "assets": []}
-    assert parse_release(data, "linux").page_url == releases.RELEASES_PAGE_URL
+def test_endless_signature_is_not_read_into_memory(github) -> None:
+    sent: list[int] = []
+
+    def endless():
+        while True:
+            sent.append(4096)
+            yield b"x" * 4096
+
+    github.streams["SHA256SUMS.txt.minisig"] = endless
+    with github.client() as client, pytest.raises(UpdateError):
+        fetch_latest(client, "linux")
+    assert sum(sent) <= MAX_SMALL_FILE_BYTES + 4096
 
 
 @pytest.mark.parametrize("version", ["../../x", "1.2", "v1.2.3", "01.2.3"])
 def test_release_info_rejects_versions_unusable_as_paths(version) -> None:
     with pytest.raises(ValueError):
-        ReleaseInfo(version, releases.RELEASES_PAGE_URL, None, None)
+        ReleaseInfo(version, "podpis")
+
+
+@pytest.mark.parametrize("name", ["../plik", "a/b", "a\\b", ".."])
+def test_release_asset_url_rejects_paths(name) -> None:
+    with pytest.raises(ValueError):
+        ReleaseInfo("1.2.3", "podpis").asset_url(name)
 
 
 @pytest.mark.parametrize(

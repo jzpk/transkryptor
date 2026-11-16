@@ -1,41 +1,49 @@
-"""Najnowsze wydanie z GitHub Releases API i porównanie wersji.
+"""Najnowsze wydanie z plików wydania GitHub i porównanie wersji.
 
-Zapytanie zawiera wyłącznie standardowe nagłówki HTTP (``User-Agent`` z wersją
-aplikacji wymaga GitHub) - bez identyfikatora instalacji i bez telemetrii.
-Endpoint ``/releases/latest`` sam pomija wydania wstępne i szkice.
+Sprawdzenie nie korzysta z REST API GitHuba (limit 60 zapytań na godzinę
+z jednego adresu IP, wspólny dla instalacji w sieci instytucji). Adres
+``releases/latest/download/<plik>`` przekierowuje do pliku z najnowszego
+wydania - pobierany jest tylko podpis sum kontrolnych (kilkaset bajtów),
+a wersję wydania podaje jego zaufany komentarz potwierdzony kluczem wydań
+(``signature.verify_comment``). Pozostałe pliki mają stałe adresy
+``releases/download/v<wersja>/<plik>``.
 
-Dane wydania (z API albo z pliku stanu) są walidowane, zanim trafią do
-ścieżek i adresów: wersja ``X.Y.Z``, nazwa pliku bez separatorów ścieżki,
-adresy wyłącznie ``https`` z hostów GitHub. Autentyczność plików potwierdza
-dopiero podpis sum kontrolnych (``update/signature.py``).
+Zapytanie zawiera wyłącznie standardowe nagłówki HTTP (``User-Agent``
+z wersją aplikacji) - bez identyfikatora instalacji i bez telemetrii.
+Wydania wstępne i szkice nie są „najnowsze”, więc nie trafiają do aktualizacji.
 """
 
 from __future__ import annotations
 
 import re
 import sys
-from collections.abc import Mapping
-from dataclasses import asdict, dataclass
-from typing import Any
-from urllib.parse import urlsplit
+from collections.abc import Iterable
+from dataclasses import dataclass
 
 import httpx
 
 from transkryptor import __version__
 from transkryptor.errors import UpdateError
+from transkryptor.fileio import SizeLimitError, limited_chunks
 from transkryptor.i18n import tr
+from transkryptor.update.signature import (
+    SignatureError,
+    verify_comment,
+    version_from_comment,
+)
 
 # Jedyne miejsce z adresem repozytorium. GitHub przekierowuje stare adresy po
 # zmianie nazwy, a klient podąża za przekierowaniami.
 GITHUB_REPO = "jzpk/transkryptor"
-LATEST_RELEASE_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
-RELEASES_PAGE_URL = f"https://github.com/{GITHUB_REPO}/releases/latest"
+RELEASES_URL = f"https://github.com/{GITHUB_REPO}/releases"
 USER_AGENT = f"Transkryptor/{__version__}"
 
 CHECKSUMS_ASSET = "SHA256SUMS.txt"
 SIGNATURE_ASSET = f"{CHECKSUMS_ASSET}.minisig"
-# Pliki wydań: adres z API (github.com) i hosty, na które GitHub przekierowuje.
-DOWNLOAD_HOSTS = frozenset(
+LATEST_SIGNATURE_URL = f"{RELEASES_URL}/latest/download/{SIGNATURE_ASSET}"
+# Hosty, z którymi klient aktualizacji w ogóle rozmawia: github.com i hosty,
+# na które GitHub przekierowuje pobranie plików wydania.
+UPDATE_HOSTS = frozenset(
     {
         "github.com",
         "objects.githubusercontent.com",
@@ -48,6 +56,9 @@ ASSET_SUFFIXES = {
     "windows": "-windows-x64-setup.exe",
     "linux": "-x86_64.AppImage",
 }
+# Podpis i sumy mają po kilkaset bajtów; limit chroni pamięć przed
+# nieskończoną odpowiedzią serwera.
+MAX_SMALL_FILE_BYTES = 64 * 1024
 
 Version = tuple[int, int, int]
 _VERSION_RE = re.compile(r"^v?(\d+)\.(\d+)\.(\d+)$")
@@ -77,44 +88,18 @@ def is_safe_asset_name(name: str) -> bool:
     )
 
 
-def is_safe_url(url: str, hosts: frozenset[str] = DOWNLOAD_HOSTS) -> bool:
-    """Adres ``https`` na jednym z podanych hostów (bez danych logowania)."""
-    try:
-        parts = urlsplit(url)
-    except ValueError:
-        return False
-    return (
-        parts.scheme == "https"
-        and parts.hostname in hosts
-        and parts.username is None
-        and parts.password is None
-    )
-
-
-# Hosty, z którymi klient aktualizacji w ogóle rozmawia: API i pliki wydań.
-UPDATE_HOSTS = DOWNLOAD_HOSTS | {"api.github.com"}
-
-
 def check_request_host(request: httpx.Request) -> None:
     """Hak żądań klienta aktualizacji: tylko ``https`` na ``UPDATE_HOSTS``.
 
     Klient podąża za przekierowaniami, a hak widzi każde żądanie, także
     przekierowane - adres spoza listy kończy się ``UpdateError``, zanim
-    cokolwiek zostanie pobrane. Autentyczność plików i tak potwierdza podpis;
-    hak domyka listę hostów sprawdzaną dla adresów z API.
+    cokolwiek zostanie pobrane. Autentyczność plików i tak potwierdza podpis.
     """
     if request.url.scheme != "https" or request.url.host not in UPDATE_HOSTS:
         raise UpdateError(
             user_message=tr("update.error.host", host=request.url.host),
             retry_hint=tr("update.error.later.hint"),
         )
-
-
-def safe_page_url(url: object) -> str:
-    """Strona wydania do pokazania użytkownikowi; inny adres → lista wydań."""
-    if isinstance(url, str) and is_safe_url(url, frozenset({"github.com"})):
-        return url
-    return RELEASES_PAGE_URL
 
 
 def current_platform(platform: str = sys.platform) -> str | None:
@@ -127,126 +112,88 @@ def current_platform(platform: str = sys.platform) -> str | None:
 
 
 @dataclass(frozen=True)
-class Asset:
-    """Plik dołączony do wydania."""
-
-    name: str
-    url: str
-    size: int
-
-    def __post_init__(self) -> None:
-        if not is_safe_asset_name(self.name):
-            raise ValueError(f"niebezpieczna nazwa pliku wydania: {self.name!r}")
-        if not is_safe_url(self.url):
-            raise ValueError(f"niedozwolony adres pliku wydania: {self.url!r}")
-
-
-@dataclass(frozen=True)
 class ReleaseInfo:
-    """Najnowsze wydanie z plikami potrzebnymi bieżącej platformie."""
+    """Najnowsze wydanie widziane z bieżącej platformy.
+
+    ``signature`` to treść ``SHA256SUMS.txt.minisig``, której zaufany
+    komentarz wskazał ``version``; pobranie sprawdza nią sumy kontrolne.
+    """
 
     version: str
-    page_url: str
-    artifact: Asset | None
-    checksums: Asset | None
-    signature: Asset | None = None
+    signature: str
+    platform: str | None = None
 
     def __post_init__(self) -> None:
-        # Wersja trafia do ścieżki katalogu pobrań - tylko postać X.Y.Z.
+        # Wersja trafia do adresów i ścieżki katalogu pobrań - tylko X.Y.Z.
         parsed = parse_version(self.version)
         if parsed is None or ".".join(map(str, parsed)) != self.version:
             raise ValueError(f"niepoprawna wersja wydania: {self.version!r}")
-        if safe_page_url(self.page_url) != self.page_url:
-            raise ValueError(f"niedozwolony adres strony wydania: {self.page_url!r}")
 
-    def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+    @property
+    def page_url(self) -> str:
+        return f"{RELEASES_URL}/tag/v{self.version}"
 
-    @classmethod
-    def from_dict(cls, data: Mapping[str, Any]) -> ReleaseInfo:
-        """Odtwarza wydanie zapisane przez ``to_dict``.
+    @property
+    def artifact_suffix(self) -> str | None:
+        """Końcówka nazwy artefaktu dla platformy (None: brak samoaktualizacji)."""
+        return ASSET_SUFFIXES.get(self.platform or "")
 
-        Błędne albo niebezpieczne dane (np. wersja ``../x``) → ValueError.
-        """
+    def asset_url(self, name: str) -> str:
+        if not is_safe_asset_name(name):
+            raise ValueError(f"niebezpieczna nazwa pliku wydania: {name!r}")
+        return f"{RELEASES_URL}/download/v{self.version}/{name}"
+
+
+def fetch_small(client: httpx.Client, url: str) -> httpx.Response | bytes:
+    """Mały plik wydania: treść albo odpowiedź z kodem innym niż 200.
+
+    Odczyt jest strumieniowy z limitem ``MAX_SMALL_FILE_BYTES`` - plik nie
+    trafia w całości do pamięci, zanim podpis go odrzuci. Błędy połączenia
+    (``httpx.TransportError``) przechodzą bez zmian.
+    """
+    with client.stream("GET", url) as response:
+        if response.status_code != 200:
+            return response
+        # Porcje takie, jak przychodzą z sieci - bez buforowania 1 MB naraz.
         try:
-
-            def asset(raw: object) -> Asset | None:
-                if raw is None:
-                    return None
-                if not isinstance(raw, Mapping):
-                    raise ValueError("zasób wydania nie jest słownikiem")
-                return Asset(str(raw["name"]), str(raw["url"]), int(raw["size"]))
-
-            return cls(
-                version=str(data["version"]),
-                page_url=str(data["page_url"]),
-                artifact=asset(data.get("artifact")),
-                checksums=asset(data.get("checksums")),
-                signature=asset(data.get("signature")),
-            )
-        except (KeyError, TypeError, AttributeError) as error:
-            raise ValueError(f"niepoprawny zapis wydania: {error}") from error
+            return b"".join(limited_chunks(response.iter_bytes(), MAX_SMALL_FILE_BYTES))
+        except SizeLimitError as error:
+            raise too_large(url.rsplit("/", 1)[-1]) from error
 
 
-def parse_release(payload: Mapping[str, Any], platform: str | None) -> ReleaseInfo:
-    """Wydanie z odpowiedzi API; brak wersji w ``tag_name`` → UpdateError."""
-    tag = payload.get("tag_name")
-    version = parse_version(tag) if isinstance(tag, str) else None
-    if version is None:
-        raise UpdateError(user_message=tr("update.error.version", tag=repr(tag)))
-    assets: list[Asset] = []
-    for raw in payload.get("assets") or ():
-        if not isinstance(raw, Mapping):
-            continue
-        name, url = raw.get("name"), raw.get("browser_download_url")
-        if not isinstance(name, str) or not isinstance(url, str):
-            continue
-        if not is_safe_asset_name(name) or not is_safe_url(url):
-            continue  # zasób spoza GitHub albo z nazwą-ścieżką jest pomijany
-        size = raw.get("size")
-        assets.append(Asset(name, url, size if isinstance(size, int) else 0))
-
-    suffix = ASSET_SUFFIXES.get(platform or "")
-    artifact = next(
-        (a for a in assets if suffix and a.name.endswith(suffix)),
-        None,
-    )
-    checksums = next((a for a in assets if a.name == CHECKSUMS_ASSET), None)
-    signature = next((a for a in assets if a.name == SIGNATURE_ASSET), None)
-    return ReleaseInfo(
-        version=".".join(str(part) for part in version),
-        page_url=safe_page_url(payload.get("html_url")),
-        artifact=artifact,
-        checksums=checksums,
-        signature=signature,
+def too_large(name: str) -> UpdateError:
+    return UpdateError(
+        user_message=tr("update.error.too_large", name=name),
+        retry_hint=tr("update.error.later.hint"),
     )
 
 
-def fetch_latest(client: httpx.Client, platform: str | None) -> ReleaseInfo | None:
-    """Jedno zapytanie o najnowsze wydanie.
+def fetch_latest(
+    client: httpx.Client,
+    platform: str | None,
+    trusted_keys: Iterable[str] | None = None,
+) -> ReleaseInfo | None:
+    """Jedno pobranie podpisu najnowszego wydania i odczyt jego wersji.
 
     Zwraca None, gdy repozytorium nie ma jeszcze żadnego wydania (404).
     Błędy połączenia (``httpx.TransportError``) przechodzą bez zmian - wołający
     odróżnia brak sieci od błędnej odpowiedzi serwera (``UpdateError``).
+    ``trusted_keys=None`` oznacza klucze wbudowane w aplikację.
     """
-    response = client.get(
-        LATEST_RELEASE_URL,
-        headers={
-            "Accept": "application/vnd.github+json",
-            "X-GitHub-Api-Version": "2022-11-28",
-        },
-    )
-    if response.status_code == 404:
-        return None
-    if response.status_code != 200:
+    result = fetch_small(client, LATEST_SIGNATURE_URL)
+    if isinstance(result, httpx.Response):
+        if result.status_code == 404:
+            return None
         raise UpdateError(
-            user_message=tr("update.error.server", status=response.status_code),
+            user_message=tr("update.error.server", status=result.status_code),
             retry_hint=tr("update.error.later.hint"),
         )
+    signature = result.decode("utf-8", "replace")
     try:
-        payload = response.json()
-    except ValueError as error:
-        raise UpdateError(user_message=tr("update.error.unreadable")) from error
-    if not isinstance(payload, Mapping):
-        raise UpdateError(user_message=tr("update.error.unreadable"))
-    return parse_release(payload, platform)
+        version = version_from_comment(verify_comment(signature, trusted_keys))
+        return ReleaseInfo(version, signature, platform)
+    except (SignatureError, ValueError) as error:
+        raise UpdateError(
+            user_message=tr("update.error.latest_signature"),
+            retry_hint=tr("update.error.later.hint"),
+        ) from error
