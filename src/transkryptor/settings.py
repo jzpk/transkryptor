@@ -262,12 +262,18 @@ def encode_snippets(snippets: Iterable[Snippet]) -> str:
 
 @dataclass(frozen=True)
 class ProjectSettings:
-    """Autozapis bieżącej pracy (sekundy) i dzienny cel pracy."""
+    """Autozapis bieżącej pracy (sekundy), dzienny cel pracy i folder zapisu.
+
+    ``save_dir`` - folder zapisu wybrany przez użytkownika, nadrzędny wobec
+    folderu projektu; pusty = ``Dokumenty/Transkryptor`` (``ui.save_location``).
+    Zmienia się na folder, w którym użytkownik zapisał plik.
+    """
 
     autosave_enabled: bool = True
     autosave_interval_s: int = 60
     # Dzienny cel: minuty nagrania przetranskrybowane w ciągu dnia (0 - bez celu).
     daily_goal_min: int = 0
+    save_dir: str = ""
 
 
 @dataclass(frozen=True)
@@ -474,6 +480,7 @@ _FIELDS: tuple[_Field, ...] = (
     _Field("project", "autosave_enabled", bool),
     _Field("project", "autosave_interval_s", int, *AUTOSAVE_INTERVAL_RANGE_S),
     _Field("project", "daily_goal_min", int, *DAILY_GOAL_RANGE_MIN, allow_zero=True),
+    _Field("project", "save_dir", str),
     _Field(
         "metadata",
         "fields_spec",

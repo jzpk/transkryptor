@@ -28,7 +28,6 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QPushButton,
     QScrollArea,
-    QSpinBox,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -54,8 +53,6 @@ from transkryptor.i18n import tr
 from transkryptor.notation.ellipsis import EllipsisStyle
 from transkryptor.notation.validator import SEVERITY_HINT, VALIDATOR_RULES
 from transkryptor.settings import (
-    AUTOSAVE_INTERVAL_RANGE_S,
-    DAILY_GOAL_RANGE_MIN,
     Settings,
     encode_bool_map,
     encode_shortcut_map,
@@ -233,47 +230,6 @@ class ShortcutPages:
 
     def _update_conflicts(self) -> None:
         self.shortcuts_editor.conflicts_label.setText("\n".join(self.conflicts()))
-
-
-class ProjectPage(FormPage):
-    """Autozapis projektu i dzienny cel pracy."""
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.autosave_check = QCheckBox(tr("settings.autosave"))
-        self.autosave_check.setToolTip(tr("settings.autosave.tooltip"))
-        self.autosave_spin = QSpinBox()
-        self.autosave_spin.setRange(*AUTOSAVE_INTERVAL_RANGE_S)
-        self.autosave_spin.setSingleStep(30)
-        self.autosave_spin.setSuffix(" s")
-        self.autosave_check.toggled.connect(self.autosave_spin.setEnabled)
-        self.form.addRow(self.autosave_check)
-        self.form.addRow(tr("settings.autosave.interval"), self.autosave_spin)
-        # Dzienny cel: 0 (pozycja „Bez celu”) wyłącza podgląd w pasku stanu.
-        self.daily_goal_spin = QSpinBox()
-        self.daily_goal_spin.setRange(0, DAILY_GOAL_RANGE_MIN[1])
-        self.daily_goal_spin.setSingleStep(5)
-        self.daily_goal_spin.setSuffix(tr("settings.daily_goal.suffix"))
-        self.daily_goal_spin.setSpecialValueText(tr("settings.daily_goal.off"))
-        self.daily_goal_spin.setToolTip(tr("settings.daily_goal.tooltip"))
-        self.form.addRow(tr("settings.daily_goal"), self.daily_goal_spin)
-
-    def load(self, settings: Settings) -> None:
-        self.autosave_check.setChecked(settings.project.autosave_enabled)
-        self.autosave_spin.setValue(settings.project.autosave_interval_s)
-        self.autosave_spin.setEnabled(settings.project.autosave_enabled)
-        self.daily_goal_spin.setValue(settings.project.daily_goal_min)
-
-    def apply(self, settings: Settings) -> Settings:
-        return replace(
-            settings,
-            project=replace(
-                settings.project,
-                autosave_enabled=self.autosave_check.isChecked(),
-                autosave_interval_s=self.autosave_spin.value(),
-                daily_goal_min=self.daily_goal_spin.value(),
-            ),
-        )
 
 
 class MetadataPage(QWidget):

@@ -61,7 +61,7 @@ def _isolate_user_dirs() -> Path:
     global _real_settings_location
     from PySide6.QtCore import QSettings
 
-    from transkryptor.ui import settings_store
+    from transkryptor.ui import save_location, settings_store
 
     _real_settings_location = settings_store.default_qsettings().fileName()
     root = Path(tempfile.mkdtemp(prefix="transkryptor-tests-"))
@@ -79,6 +79,8 @@ def _isolate_user_dirs() -> Path:
         return QSettings(ini, QSettings.Format.IniFormat)
 
     settings_store.default_qsettings = sandbox_qsettings
+    # Folder zapisu nie może powstać w Dokumentach dewelopera.
+    save_location.default_save_dir = lambda: root / "documents" / "Transkryptor"
     return root
 
 

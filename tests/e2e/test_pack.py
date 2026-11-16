@@ -18,7 +18,7 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 from transkryptor.notation.rules import PhoneticRule
 from transkryptor.settings import Snippet, encode_snippets
-from transkryptor.ui import rules_store
+from transkryptor.ui import rules_store, save_location
 from transkryptor.ui.main_window import MainWindow
 from transkryptor.ui.pack_dialogs import PackExportDialog, PackImportDialog
 from transkryptor.ui.settings_store import SettingsStore
@@ -159,7 +159,7 @@ def test_pack_without_audio_binds_own_copy_by_checksum(
     assert not (tmp_path / "od-transkrybenta" / "WP-0042.mp3").exists()
 
 
-def test_pack_save_dialog_starts_next_to_project_or_audio(
+def test_pack_save_dialog_starts_next_to_project_or_in_save_folder(
     qtbot, add_window, tmp_path, monkeypatch
 ) -> None:
     window = transcriber_window(qtbot, add_window, tmp_path)
@@ -180,6 +180,6 @@ def test_pack_save_dialog_starts_next_to_project_or_audio(
     window.packs.export()
 
     assert defaults == [
-        str(tmp_path / "transkrybent" / "WP-0042.tkpack"),
+        str(save_location.default_save_dir() / "WP-0042.tkpack"),
         str(tmp_path / "projekty" / "AdK 1954.tkpack"),
     ]
