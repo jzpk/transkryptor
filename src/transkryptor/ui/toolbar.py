@@ -100,8 +100,8 @@ COLLAPSE_ORDER = (
     "comments",
     "asr",
     "settings",
-    "new",
     "close",
+    "new",
     "open",
     "save",
 )
