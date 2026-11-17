@@ -1,6 +1,6 @@
 """Narzędzie wydania: od kodu źródłowego do podpisanego sumą artefaktu.
 
-Jedno polecenie wykonuje kroki procesu wydania z ``specs/delivery.md``:
+Jedno polecenie wykonuje kroki procesu wydania:
 budowanie runtime PyInstallerem, dołożenie kompletu licencji, spakowanie
 artefaktu dla bieżącej platformy, sumy kontrolne i noty wydania.
 
@@ -62,7 +62,7 @@ def detect_target(platform: str = sys.platform) -> str:
         return "linux"
     raise RuntimeError(
         f"System „{platform}” nie jest platformą wydania. Zbuduj artefakt na "
-        "Windows albo Linuxie (patrz docs/release-process.md)."
+        "Windows albo Linuxie."
     )
 
 

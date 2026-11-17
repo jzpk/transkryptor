@@ -1,8 +1,7 @@
 """Zapis wielokropka: styl ``…`` (U+2026) albo ``...`` (trzy kropki).
 
 Pauza i urwane słowo mogą być zapisane oboma znakami; konwencję zespołu
-wyznacza ustawienie użytkownika (domyślnie ``…`` - decyzja w
-``specs/transcription-rules.md``). Moduł nie zależy od Qt: wyszukuje
+wyznacza ustawienie użytkownika (domyślnie ``…``). Moduł nie zależy od Qt: wyszukuje
 wielokropki, wskazuje te w zapisie innym niż wybrany i normalizuje tekst.
 
 Dopisek ``[...]`` i marker pominięcia ``[…?]`` mają stałą postać, więc ich

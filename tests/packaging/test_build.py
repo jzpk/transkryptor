@@ -17,7 +17,7 @@ def test_target_is_detected_from_the_build_machine() -> None:
 def test_unsupported_build_machine_is_reported() -> None:
     with pytest.raises(RuntimeError) as error:
         build_module.detect_target("darwin")
-    assert "docs/release-process.md" in str(error.value)
+    assert "darwin" in str(error.value)
 
 
 @pytest.fixture

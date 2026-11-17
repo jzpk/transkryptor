@@ -1,7 +1,7 @@
 """Noty wydania: co jest w paczce, jak to sprawdzić i czego się spodziewać.
 
 Nota jest jedynym dokumentem, który trafia do użytkownika razem z plikami,
-więc musi zawierać komplet wymagany przez ``specs/phases/05-release.md``:
+więc musi zawierać komplet wymagany przy wydaniu:
 sumy kontrolne, zasady prywatności, instrukcję pobrania modelu, wymagania
 sprzętowe i znane ograniczenia ASR. Treść powstaje z tych samych stałych,
 z których korzystają instalator i dokumentacja (``packaging.metadata``);
@@ -30,7 +30,7 @@ from transkryptor.packaging.metadata import (
 RELEASE_NOTES_FILE = "RELEASE-NOTES.md"
 
 # Ograniczenia, o których użytkownik musi wiedzieć przed pierwszym użyciem.
-# Pochodzą z ryzyk planu implementacji i z zakresu MVP w specs/requirements.md.
+# Pochodzą z ryzyk planu implementacji i z zakresu MVP.
 KNOWN_LIMITATIONS = (
     "Szkic ASR jest hipotezą **ortograficzną**, a nie zapisem fonetycznym "
     "według notacji projektu. Każdy fragment wymaga korekty transkrybenta.",

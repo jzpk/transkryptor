@@ -57,7 +57,7 @@ def self_test(stream=None) -> int:
 
     Zwraca 0, gdy wszystko jest na miejscu. Brak pobranego modelu ASR **nie**
     jest błędem: aplikacja ma się uruchamiać i pozwalać na pracę ręczną także
-    bez niego (wymaganie wydania z specs/acceptance.md).
+    bez niego (wymaganie wydania).
     """
     from importlib import import_module
 

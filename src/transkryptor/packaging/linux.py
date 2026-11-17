@@ -118,7 +118,7 @@ def build_appimage(
     if executable is None:
         raise FileNotFoundError(
             "Nie znaleziono „appimagetool”. Zainstaluj narzędzie albo wskaż je "
-            "opcją --appimagetool; instrukcja: docs/release-process.md."
+            "opcją --appimagetool."
         )
     output.parent.mkdir(parents=True, exist_ok=True)
     environment = dict(os.environ)

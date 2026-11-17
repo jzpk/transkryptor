@@ -1,7 +1,7 @@
 """Testy kompletu licencji dołączanego do artefaktu wydania.
 
 Wymaganie wydania: „licencje aplikacji, zależności i modelu są dołączone do
-artefaktu” (specs/acceptance.md).
+artefaktu”.
 """
 
 from importlib import metadata as importlib_metadata

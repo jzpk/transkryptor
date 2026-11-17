@@ -1,6 +1,6 @@
 """Regułowe kandydaty zapisu fonetycznego dla tekstu ortograficznego.
 
-Realizuje „Reguły ASR” z ``specs/transcription-rules.md``: silnik generuje
+Realizuje „Reguły ASR” zasad transkrypcji: silnik generuje
 kandydatów dla znanych zjawisk z informacją o źródle i pewności. Kandydaci
 są wyłącznie propozycjami - funkcja jest czysta, nie mutuje dokumentu.
 Zastosowanie wykonuje UI: automatycznie tylko dla reguł wybranych przez

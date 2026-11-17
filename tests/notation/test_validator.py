@@ -17,7 +17,7 @@ def codes(text: str) -> list[str]:
 
 
 class TestPauseRule:
-    """VAL-01 i VAL-04 z acceptance.md i transcription-rules.md."""
+    """VAL-01 i VAL-04."""
 
     def test_acc04_cut_off_words_are_not_reported(self) -> None:
         """ACC-04: `jeż... kam... kamionka` - brak błędu pauzy."""

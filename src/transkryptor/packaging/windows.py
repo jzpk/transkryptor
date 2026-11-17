@@ -176,8 +176,7 @@ def build(
     if compiler is None:
         raise FileNotFoundError(
             "Nie znaleziono kompilatora Inno Setup (ISCC.exe). Zainstaluj "
-            "Inno Setup 6 albo wskaż go opcją --iscc; instrukcja: "
-            "docs/release-process.md."
+            "Inno Setup 6 albo wskaż go opcją --iscc."
         )
     output_dir.mkdir(parents=True, exist_ok=True)
     script = write_iss(

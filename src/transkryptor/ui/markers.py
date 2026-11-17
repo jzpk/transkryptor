@@ -1,7 +1,7 @@
 """Definicje markerów notacji i skrótów klawiaturowych edytora.
 
 Jedno źródło prawdy dla przycisków paska narzędzi, skrótów oraz testów UI.
-Teksty wstawiane do dokumentu pochodzą z ``specs/transcription-rules.md``.
+Teksty wstawiane do dokumentu pochodzą z zasad transkrypcji.
 """
 
 from __future__ import annotations

@@ -1,6 +1,6 @@
 """Nieblokujący walidator struktury notacji transkrypcji.
 
-Realizuje reguły VAL-01 do VAL-12 z ``specs/transcription-rules.md``:
+Realizuje reguły VAL-01 do VAL-12 zasad transkrypcji:
 
 - VAL-01: pauza ``...`` lub ``…`` z odstępem przed, ale bez odstępu po.
 - VAL-02: dopisek otwarty przez ``[`` bez zamykającego ``]``.

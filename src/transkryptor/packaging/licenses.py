@@ -1,6 +1,6 @@
 """Zbieranie licencji aplikacji, zależności i bibliotek natywnych.
 
-Wymaganie wydania z ``specs/acceptance.md``: „licencje aplikacji, zależności
+Wymaganie wydania: „licencje aplikacji, zależności
 i modelu są dołączone do artefaktu wydania”. Moduł buduje katalog
 ``licenses/`` wkładany do artefaktu: tekst licencji aplikacji, teksty licencji
 każdej zależności runtime odczytane z metadanych zainstalowanych pakietów,

@@ -1,6 +1,6 @@
 """Sumy kontrolne artefaktów wydania.
 
-Lista kontrolna z ``specs/delivery.md`` wymaga opublikowania sum kontrolnych
+Lista kontrolna wydania wymaga opublikowania sum kontrolnych
 razem z artefaktami. Format pliku jest zgodny z ``sha256sum`` (GNU
 coreutils), więc odbiorca sprawdza wydanie jednym poleceniem:
 
