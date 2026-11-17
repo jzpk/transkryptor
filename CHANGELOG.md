@@ -6,6 +6,21 @@ workflow „Wydanie” złoży je w sekcję z numerem wersji i datą, a jej tre�
 trafi do sekcji „Nowości w tej wersji” not wydania. Brak fragmentów blokuje
 wydanie.
 
+## 0.9.2 - 2026-11-17
+
+- **Łączenie transkrypcji w polach tematycznych:** okno „Pola
+  tematyczne” ma przycisk „Dołącz transkrypcje…”, który dodaje inne
+  projekty (.transkr) do zestawienia. Nowa kolumna „Informatorzy”
+  pokazuje, którzy informatorzy użyli słowa (według etykiety mówcy,
+  a bez niej - klucza i nazwy projektu), a lista „Pole” zawęża tabelę
+  i zapis do CSV/XLSX do wybranego pola: słowo i informatorzy.
+
+- **Aktualizacje w trakcie pracy:** gdy program jest otwarty dłużej,
+  co kilka godzin automatycznie sprawdza, czy jest nowa wersja do pobrania.
+
+- **Sprawdzanie aktualizacji:** program sprawdza, czy jest nowa wersja,
+  przy każdym uruchomieniu - także gdy otwierasz go wiele razy dziennie.
+
 ## 0.9.1 - 2026-11-16
 
 - **Jeden folder zapisu projektów i eksportów:** okna zapisu projektu,
