@@ -44,9 +44,6 @@ dev = [
     "ruff>=0.16.10",
     "types-regex>=2026.9.29.20261005",
 ]
-docs = [
-    "reportlab>=4.2",
-]
 packaging = [
     "pyinstaller>=6.11",
 ]
@@ -115,5 +112,5 @@ disallow_incomplete_defs = true
 
 # Biblioteki bez wskazówek typów (brak py.typed i pakietu stubów w uv.lock).
 [[tool.mypy.overrides]]
-module = ["faster_whisper", "faster_whisper.*", "ctranslate2", "reportlab", "reportlab.*", "sherpa_onnx", "sherpa_onnx.*", "morfeusz2"]
+module = ["faster_whisper", "faster_whisper.*", "ctranslate2", "sherpa_onnx", "sherpa_onnx.*", "morfeusz2"]
 ignore_missing_imports = true
