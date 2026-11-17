@@ -1,10 +1,14 @@
 """Pola tematyczne: słowa kluczowe w tematach (zgłoszenie #51)."""
 
+from transkryptor.document.speakers import INFORMANT, RESEARCHER, Speaker
 from transkryptor.document.themes import (
+    TextSource,
     Theme,
     builtin_themes,
+    combined_fields,
     morfeusz_lemmatizer,
     plain_lemmatizer,
+    speaker_sources,
     thematic_fields,
 )
 
@@ -57,3 +61,34 @@ def test_morfeusz_finds_themes_in_inflected_words() -> None:
     assert {"agriculture", "funeral", "family", "baptism"} <= set(found)
     lemmas = {word.lemma for word in found["agriculture"].words}
     assert {"krowa", "łąka"} <= lemmas
+
+
+def test_combined_sources_list_informants_by_first_use() -> None:
+    sources = [
+        TextSource("Krowy i pogrzeb.", speaker="Jan"),
+        TextSource("Pogrzeb?\nKrowę.", [(9, 15)], "Anna"),
+        TextSource("krowa", speaker="Jan"),
+    ]
+    farm, funeral = combined_fields(sources, fake_lemmatizer, (FARM, FUNERAL))
+    (cow,) = farm.words
+    assert (cow.count, cow.speakers) == (3, ("Jan", "Anna"))
+    assert funeral.words[0].speakers == ("Jan",)
+
+
+def test_speaker_sources_split_informants_and_name_them() -> None:
+    speakers = (
+        Speaker("B", "", RESEARCHER),
+        Speaker("I", "Anna", INFORMANT),
+        Speaker("I2", "", INFORMANT),
+    )
+    text = "Pytanie\nOdpowiedź\nInna\nDalej"
+    sources = speaker_sources(text, {0: "B", 1: "I", 2: "I2", 3: "I"}, speakers, "w1")
+    assert [(s.speaker, list(s.ranges or ())) for s in sources] == [
+        ("Anna", [(8, 17), (23, 28)]),
+        ("I2 (w1)", [(18, 22)]),
+    ]
+
+
+def test_speaker_sources_without_informants_use_whole_text() -> None:
+    (source,) = speaker_sources("Krowa", {}, (), "w1")
+    assert (source.text, source.ranges, source.speaker) == ("Krowa", None, "w1")
