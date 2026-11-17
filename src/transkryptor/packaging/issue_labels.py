@@ -7,13 +7,15 @@ więc dostają inne etykiety (tryb wywołania):
   etykietę z numerem wersji (``0.8.0``) zgłoszeniom zamkniętym jako zrobione
   (``state_reason`` „completed”) przed granicą, bez etykiety żadnej wersji.
   Pomija zgłoszenia z etykietą ``webpage`` - strona nie czeka na wydanie.
-- ``site`` - po wdrożeniu strony workflow „Strona” nadaje etykietę
+- ``site`` - po wdrożeniu strony workflow „Strona” repozytorium strony
+  (``transkryptor-webpage``, z checkoutem tego repozytorium) nadaje etykietę
   ``Deployed`` zrobionym zgłoszeniom z etykietą ``webpage``, które jej
-  jeszcze nie mają.
+  jeszcze nie mają. Zgłoszenia strony są w tym repozytorium, razem
+  ze zgłoszeniami programu.
 
-Wydania i strona powstają z ``main``, więc zamknięte zgłoszenie jest już
-w kodzie najbliższego wydania albo wdrożenia. Strona statusu zgłoszeń
-(``pages/site.js``) pokazuje wersję albo „Wdrożone”, a zrobione zgłoszenie
+Wydania i strona powstają z ``main`` swoich repozytoriów, więc zamknięte
+zgłoszenie jest już w kodzie najbliższego wydania albo wdrożenia. Strona
+statusu zgłoszeń pokazuje wersję albo „Wdrożone”, a zrobione zgłoszenie
 bez etykiety - jako niewydane albo niewdrożone.
 
 Wydanie poprawkowe z gałęzi ``release/X.Y`` nie może brać granicy czasowej:
