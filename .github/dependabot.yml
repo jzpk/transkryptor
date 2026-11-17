@@ -1,7 +1,6 @@
 # Aktualizacje zależności: akcje GitHub (przypięte do SHA - Dependabot
 # podmienia SHA i komentarz z wersją), pakiety z uv.lock oraz obrazy bazowe
-# Dockerfile'ów (przypięte do digestu) i wrangler Workera zgłoszeń
-# (zgloszenia/package-lock.json).
+# Dockerfile'ów (przypięte do digestu).
 #
 # Sumy narzędzi pobieranych w workflow wydania i Dockerfile'ach
 # (appimagetool, Inno Setup, minisign, Python NuGet) aktualizuje się ręcznie
@@ -30,14 +29,6 @@ updates:
       # nie jest wersją, więc tu też zmienia się tylko digest.
       - dependency-name: ubuntu
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
-
-  - package-ecosystem: npm
-    directory: /zgloszenia
-    schedule:
-      interval: weekly
-    groups:
-      worker:
-        patterns: ["*"]
 
   - package-ecosystem: uv
     directory: /

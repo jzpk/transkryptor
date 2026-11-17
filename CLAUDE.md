@@ -3,7 +3,7 @@
 ## Styl tekstu: zawsze „-” zamiast pauzy i półpauzy
 
 W każdym tekście, który piszesz - kodzie, komentarzach, docstringach,
-tłumaczeniach (`i18n/locales/*.json`), `CHANGELOG.md`, stronie (`pages/`),
+tłumaczeniach (`i18n/locales/*.json`), `CHANGELOG.md`,
 dokumentacji, opisach commitów i PR - używaj zwykłego łącznika `-`
 (U+002D). Nigdy nie wstawiaj pauzy (U+2014) ani półpauzy (U+2013),
 także w zakresach (`A-B`, `0.0-1.0`).
@@ -72,15 +72,20 @@ któryś limit, najpierw wydziel część kodu, potem dopisuj funkcję.
 - Gdy funkcja zmienia coś, co opisuje istniejący krok (np. nowe pozycje
   w menu przycisku), popraw też jego tekst.
 
-**Formularz zgłoszeń**
+**Strona projektu i formularz zgłoszeń**
 
-- Lista „Czego dotyczy?” w formularzu zgłoszeń (`pages/zglos.html`,
-  pole `obszar`) obejmuje główne obszary programu. Gdy dodajesz nowy
-  obszar funkcji (albo zmieniasz nazwę lub usuwasz istniejący), popraw
-  listę w tej samej zmianie - zawsze w obu miejscach: `<option>`
-  w `pages/zglos.html` i `CHOICES.area` w `zgloszenia/worker.js`
-  (wartości muszą się zgadzać). Po zmianie Workera przypomnij
-  użytkownikowi o jego ponownym wdrożeniu (`npm ci && npm run deploy` w `zgloszenia/`).
+- Strona projektu (`transkryptorapp.pl`) i Worker formularza zgłoszeń mają
+  osobne, prywatne repozytorium `jzpk/transkryptor-webpage`. Zgłoszenia
+  (także strony, z etykietą `webpage`) zostają w tym repozytorium.
+- Kontrakt z repozytorium strony: dane z `packaging/site_data.py`
+  (`SCHEMA`; zmiana znaczenia lub usunięcie pola - podbij `SCHEMA` i zgłoś
+  potrzebną zmianę w repozytorium strony), tryb `site` w
+  `packaging/issue_labels.py` (uruchamia go workflow strony) oraz adres
+  i parametry formularza w `feedback.py`.
+- Lista „Czego dotyczy?” w formularzu zgłoszeń obejmuje główne obszary
+  programu. Gdy dodajesz nowy obszar funkcji (albo zmieniasz nazwę lub
+  usuwasz istniejący), przypomnij użytkownikowi o poprawce listy
+  w repozytorium strony (`pages/zglos.html` i `zgloszenia/worker.js`).
 
 **Higiena kodu**
 
@@ -115,7 +120,7 @@ Gdy zaczynasz pracę nad zgłoszeniem, od razu nadaj mu etykietę
 gh issue edit <numer> --add-label "in progress"
 ```
 
-Strona statusu zgłoszeń (`pages/site.js`) pokazuje je wtedy jako „W toku”.
+Strona statusu zgłoszeń (repozytorium strony) pokazuje je wtedy jako „W toku”.
 Etykiety nie zdejmuj ręcznie przy zamknięciu - robi to workflow
 `.github/workflows/issues.yml`. Jeśli porzucasz zgłoszenie bez zamknięcia,
 usuń ją (`--remove-label "in progress"`).

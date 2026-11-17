@@ -225,13 +225,5 @@ specs/
 # Specyfikacja PyInstallera jest częścią procesu wydania.
 !packaging/transkryptor.spec
 
-# Strona projektu zbudowana lokalnie (python -m transkryptor.packaging.site).
-_site/
-
 # Worktree agentów Claude Code (praca równoległa).
 .claude/worktrees/
-
-# Worker zgłoszeń (zgloszenia/): lokalne sekrety i pliki wranglera.
-zgloszenia/.dev.vars
-zgloszenia/.wrangler/
-zgloszenia/node_modules/

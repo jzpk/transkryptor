@@ -552,7 +552,8 @@ jobs:
   # gałęzi - granica czasowa objęłaby też zgłoszenia zrobione tylko na main.
   # Otwarte spośród nich job zamyka (GitHub nie zamyka ich przy scaleniu do
   # main wypchniętym tokenem workflow). Zgłoszenia strony (etykieta webpage) nie
-  # czekają na wydanie: etykietę „Deployed” nadaje im workflow „Strona”.
+  # czekają na wydanie: etykietę „Deployed” nadaje im workflow „Strona”
+  # w repozytorium strony.
   # Błąd tutaj nie cofa wydania; job można uruchomić ponownie (już
   # oznaczone zgłoszenia zostają bez zmian).
   etykiety:
@@ -613,17 +614,21 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           if ! git merge --no-ff "origin/$BRANCH" -m "chore: merge $BRANCH into main"; then
             git merge --abort
-            echo "::error::Konflikt przy scalaniu $BRANCH do main - wydanie jest opublikowane; scal lokalnie: ./merge-forward.sh ${BRANCH#release/}, wypchnij main i wdróż stronę (Actions → „Strona”)"
+            echo "::error::Konflikt przy scalaniu $BRANCH do main - wydanie jest opublikowane; scal lokalnie: ./merge-forward.sh ${BRANCH#release/}, wypchnij main i wdróż stronę w repozytorium strony (Actions → „Strona”)"
             exit 1
           fi
           git push origin HEAD:main
 
-  # Strona projektu z nowymi linkami pobierania i historią zmian. Błąd tutaj
-  # nie cofa wydania - stronę można wdrożyć ponownie z Actions → „Strona”.
-  # Strona powstaje z main (zmiany strony są tylko tam), więc wydanie
+  # Strona projektu (prywatne repozytorium transkryptor-webpage) z nowymi
+  # linkami pobierania i historią zmian. Workflow strony buduje ją z danych
+  # programu na main (src/transkryptor/packaging/site_data.py), więc wydanie
   # z release/X.Y czeka na scalenie do main; bez scalenia (konflikt) strona
-  # nie jest wdrażana - inaczej pokazałaby poprzednie wydanie.
-  # Poprawka starszej serii nie zmienia strony najnowszego wydania.
+  # nie jest przebudowywana - pokazałaby poprzednie wydanie. Poprawka
+  # starszej serii nie zmienia strony najnowszego wydania. Sekret
+  # SITE_DISPATCH_TOKEN: token z uprawnieniem „Contents: write” wyłącznie do
+  # repozytorium strony (wymagane przez repository_dispatch). Błąd tutaj nie
+  # cofa wydania - stronę wdraża się wtedy w repozytorium strony (Actions →
+  # „Strona” → Run workflow).
   strona:
     name: Strona projektu
     needs: [wersja, publikacja, scalenie]
@@ -632,10 +637,18 @@ jobs:
       && needs.publikacja.result == 'success'
       && needs.wersja.outputs.latest == 'true'
       && (needs.scalenie.result == 'success' || needs.wersja.outputs.release-branch == '')
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
-      # Job „etykiety” workflow strony oznacza wdrożone zgłoszenia strony.
-      issues: write
-    uses: ./.github/workflows/pages.yml
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Przebudowa strony
+        env:
+          GH_TOKEN: ${{ secrets.SITE_DISPATCH_TOKEN }}
+          SITE_REPO: ${{ vars.SITE_REPO || 'jzpk/transkryptor-webpage' }}
+          VERSION: ${{ needs.wersja.outputs.version }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::Brak sekretu SITE_DISPATCH_TOKEN - wdróż stronę ręcznie w $SITE_REPO (Actions → „Strona”)."
+            exit 1
+          fi
+          gh api "repos/$SITE_REPO/dispatches" \
+            -f event_type=release-published \
+            -f "client_payload[version]=$VERSION"

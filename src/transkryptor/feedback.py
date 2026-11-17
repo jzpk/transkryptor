@@ -13,7 +13,8 @@ from urllib.parse import urlencode
 
 from transkryptor import __version__
 
-# Adres strony bez końcowego ukośnika (tak jak w packaging.site).
+# Adres strony bez końcowego ukośnika. Strona ma osobne repozytorium
+# (transkryptor-webpage); formularz zglos.html czyta parametry wersja i system.
 SITE_URL = "https://transkryptorapp.pl"
 REPORT_PAGE = "zglos.html"
 REPORT_FORM_URL = f"{SITE_URL}/{REPORT_PAGE}"
