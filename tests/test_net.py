@@ -9,7 +9,12 @@ import httpx
 import pytest
 
 from transkryptor.fileio import SizeLimitError
-from transkryptor.net import DownloadCancelled, content_length, stream_to_file
+from transkryptor.net import (
+    DownloadCancelled,
+    content_length,
+    host_matches,
+    stream_to_file,
+)
 
 DATA = b"dane pliku " * 1000
 
@@ -75,3 +80,13 @@ def test_stream_stops_at_the_limit_and_on_cancel(tmp_path) -> None:
                 limit=len(DATA),
                 should_cancel=lambda: True,
             )
+
+
+def test_host_patterns_cover_subdomains_only() -> None:
+    allowed = ("huggingface.co", "*.hf.co")
+    assert host_matches("huggingface.co", allowed)
+    assert host_matches("cdn-lfs.hf.co", allowed)
+    assert host_matches("CAS-BRIDGE.XETHUB.HF.CO", allowed)
+    assert not host_matches("hf.co.evil.example", allowed)
+    assert not host_matches("evilhf.co", allowed)
+    assert not host_matches("www.huggingface.co", allowed)

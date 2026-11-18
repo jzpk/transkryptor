@@ -32,7 +32,13 @@ from transkryptor.asr.models import (
 from transkryptor.errors import ModelDownloadError
 from transkryptor.fileio import SizeLimitError
 from transkryptor.i18n import tr
-from transkryptor.net import DownloadCancelled, content_length, stream_to_file
+from transkryptor.net import (
+    DownloadCancelled,
+    content_length,
+    host_check,
+    make_client,
+    stream_to_file,
+)
 
 if TYPE_CHECKING:
     import httpx
@@ -43,6 +49,12 @@ PARTIAL_SUFFIX = ".part"
 # Wywołanie postępu: (pobrane_bajty, całkowite_bajty lub None, nazwa_pliku).
 ProgressCallback = Callable[[int, int | None, str], None]
 CancelCheck = Callable[[], bool]
+
+# Hosty Hugging Face: strona z plikami (resolve) i serwery, na które
+# przekierowuje (CDN plików LFS i Xet: cdn-lfs*.hf.co, cas-bridge.xethub.hf.co).
+# Integralność i tak potwierdzają przypięte sumy - lista porządkuje ruch
+# i ułatwia konfigurację zapór w instytucjach.
+MODEL_HOSTS = ("huggingface.co", "*.huggingface.co", "hf.co", "*.hf.co")
 
 # Sygnatura wstrzykiwanego downloadera: pobiera pliki modelu do dest_dir.
 Downloader = Callable[[AsrModelInfo, Path, ProgressCallback, CancelCheck], None]
@@ -186,7 +198,6 @@ def hf_streaming_download(
     porcjami danych. Plik trafia pod docelową nazwę dopiero po zgodności
     rozmiaru i SHA-256. ``transport`` podstawiają testy.
     """
-    import httpx
 
     total = sum(file.size for file in model.files) or None
     downloaded = 0
@@ -196,8 +207,8 @@ def hf_streaming_download(
         downloaded += length
         on_progress(downloaded, total, file.name)
 
-    with httpx.Client(
-        follow_redirects=True, timeout=60.0, transport=transport
+    with make_client(
+        host_check(MODEL_HOSTS, _blocked_host), timeout=60.0, transport=transport
     ) as client:
         for file in model.files:
             if should_cancel():
@@ -271,6 +282,13 @@ def _verify(file: ModelFile, size: int, sha256: str) -> None:
     """Rozmiar i suma pobranego pliku muszą zgadzać się z przypiętymi."""
     if size != file.size or sha256 != file.sha256:
         raise _mismatch(file)
+
+
+def _blocked_host(host: str) -> ModelDownloadError:
+    return ModelDownloadError(
+        user_message=tr("asr.error.host", host=host),
+        retry_hint=tr("asr.error.network.hint"),
+    )
 
 
 def _mismatch(file: ModelFile) -> ModelDownloadError:

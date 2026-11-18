@@ -186,6 +186,7 @@
   "player.error.unknown": "nieznany błąd",
   "player.error.read.hint": "Sprawdź, czy plik nie jest uszkodzony, i spróbuj ponownie.",
   "asr.error.download": "Nie udało się pobrać modelu {model}: {reason}",
+  "asr.error.host": "Pobieranie modelu przerwane: adres {host} nie należy do serwerów Hugging Face.",
   "asr.error.network.hint": "Sprawdź połączenie z Internetem i spróbuj ponownie.",
   "asr.error.incomplete": "Pobranie zakończyło się, ale model jest niekompletny (brak: {missing}).",
   "asr.error.incomplete.hint": "Ponów pobieranie modelu.",

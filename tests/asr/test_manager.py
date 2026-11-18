@@ -262,6 +262,38 @@ class TestVerifiedDownload:
         assert sum(sent) <= 10_000 + (1 << 20) + 4096
         assert not manager.model_dir.exists()
 
+    def test_redirect_outside_hugging_face_is_blocked(self, tmp_path) -> None:
+        model = small_model(("model.bin", b"wagi"))
+        seen: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            seen.append(request)
+            if request.url.host == "huggingface.co":
+                return httpx.Response(
+                    302, headers={"location": "https://cdn-lfs.hf.co/model.bin"}
+                )
+            if request.url.host == "cdn-lfs.hf.co":
+                return httpx.Response(
+                    302, headers={"location": "https://evil.example/model.bin"}
+                )
+            return httpx.Response(200, content=b"wagi")
+
+        manager = ModelManager(
+            model=model,
+            models_root=tmp_path,
+            downloader=partial(
+                hf_streaming_download, transport=httpx.MockTransport(handler)
+            ),
+        )
+        with pytest.raises(ModelDownloadError, match="evil.example"):
+            manager.download()
+        assert [request.url.host for request in seen] == [
+            "huggingface.co",
+            "cdn-lfs.hf.co",
+        ]
+        assert seen[0].headers["user-agent"].startswith("Transkryptor/")
+        assert not manager.model_dir.exists()
+
     def test_wrong_content_length_is_rejected_before_download(self, tmp_path) -> None:
         model = small_model(("model.bin", b"wagi"))
         manager = self._manager(tmp_path, model, {"model.bin": b"dluzsze wagi"}, [])

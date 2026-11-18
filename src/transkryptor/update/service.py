@@ -26,7 +26,7 @@ import httpx
 from transkryptor import __version__
 from transkryptor.errors import UpdateError
 from transkryptor.i18n import tr
-from transkryptor.net import DownloadCancelled
+from transkryptor.net import DownloadCancelled, make_client
 from transkryptor.update.download import (
     DownloadProgress,
     clear_downloads,
@@ -34,7 +34,6 @@ from transkryptor.update.download import (
 )
 from transkryptor.update.install import can_self_update
 from transkryptor.update.releases import (
-    USER_AGENT,
     ReleaseInfo,
     check_request_host,
     current_platform,
@@ -75,12 +74,7 @@ class UpdateOutcome:
 
 
 def default_client() -> httpx.Client:
-    return httpx.Client(
-        follow_redirects=True,
-        timeout=TIMEOUT,
-        headers={"User-Agent": USER_AGENT},
-        event_hooks={"request": [check_request_host]},
-    )
+    return make_client(check_request_host, timeout=TIMEOUT)
 
 
 class UpdateService:

@@ -26,6 +26,7 @@ from transkryptor import __version__
 from transkryptor.errors import UpdateError
 from transkryptor.fileio import SizeLimitError, limited_chunks
 from transkryptor.i18n import tr
+from transkryptor.net import host_check
 from transkryptor.update.signature import (
     SignatureError,
     verify_comment,
@@ -36,7 +37,6 @@ from transkryptor.update.signature import (
 # zmianie nazwy, a klient podąża za przekierowaniami.
 GITHUB_REPO = "jzpk/transkryptor"
 RELEASES_URL = f"https://github.com/{GITHUB_REPO}/releases"
-USER_AGENT = f"Transkryptor/{__version__}"
 
 CHECKSUMS_ASSET = "SHA256SUMS.txt"
 SIGNATURE_ASSET = f"{CHECKSUMS_ASSET}.minisig"
@@ -88,18 +88,18 @@ def is_safe_asset_name(name: str) -> bool:
     )
 
 
-def check_request_host(request: httpx.Request) -> None:
-    """Hak żądań klienta aktualizacji: tylko ``https`` na ``UPDATE_HOSTS``.
+def _blocked_host(host: str) -> UpdateError:
+    return UpdateError(
+        user_message=tr("update.error.host", host=host),
+        retry_hint=tr("update.error.later.hint"),
+    )
 
-    Klient podąża za przekierowaniami, a hak widzi każde żądanie, także
-    przekierowane - adres spoza listy kończy się ``UpdateError``, zanim
-    cokolwiek zostanie pobrane. Autentyczność plików i tak potwierdza podpis.
-    """
-    if request.url.scheme != "https" or request.url.host not in UPDATE_HOSTS:
-        raise UpdateError(
-            user_message=tr("update.error.host", host=request.url.host),
-            retry_hint=tr("update.error.later.hint"),
-        )
+
+# Hak żądań klienta aktualizacji: tylko ``https`` na ``UPDATE_HOSTS``. Klient
+# podąża za przekierowaniami, a hak widzi każde żądanie, także przekierowane -
+# adres spoza listy kończy się ``UpdateError``, zanim cokolwiek zostanie
+# pobrane. Autentyczność plików i tak potwierdza podpis.
+check_request_host = host_check(UPDATE_HOSTS, _blocked_host)
 
 
 def current_platform(platform: str = sys.platform) -> str | None:

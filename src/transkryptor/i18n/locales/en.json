@@ -186,6 +186,7 @@
   "player.error.unknown": "unknown error",
   "player.error.read.hint": "Check that the file is not damaged and try again.",
   "asr.error.download": "Could not download the model {model}: {reason}",
+  "asr.error.host": "Model download stopped: {host} is not a Hugging Face server.",
   "asr.error.network.hint": "Check your Internet connection and try again.",
   "asr.error.incomplete": "The download finished, but the model is incomplete (missing: {missing}).",
   "asr.error.incomplete.hint": "Download the model again.",
