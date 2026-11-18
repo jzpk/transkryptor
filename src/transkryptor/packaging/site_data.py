@@ -24,10 +24,10 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from transkryptor.packaging.changelog import (
-    _HEADING,
     CHANGELOG_FILE,
+    HEADING_RE,
     ChangelogError,
-    _heading_key,
+    heading_key,
     section,
 )
 from transkryptor.packaging.metadata import (
@@ -61,10 +61,10 @@ def released_sections(text: str) -> list[Release]:
     """Wydane wersje w kolejności z pliku (najnowsza pierwsza)."""
     releases = []
     for line in text.splitlines():
-        match = _HEADING.match(line)
+        match = HEADING_RE.match(line)
         if not match:
             continue
-        version = _heading_key(match["title"])
+        version = heading_key(match["title"])
         dated = _VERSION_DATE.match(match["title"].strip())
         releases.append(
             Release(

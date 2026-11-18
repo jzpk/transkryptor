@@ -78,8 +78,10 @@ któryś limit, najpierw wydziel część kodu, potem dopisuj funkcję.
   osobne, prywatne repozytorium `jzpk/transkryptor-webpage`. Zgłoszenia
   (także strony, z etykietą `webpage`) zostają w tym repozytorium.
 - Kontrakt z repozytorium strony: dane z `packaging/site_data.py`
-  (`SCHEMA`; zmiana znaczenia lub usunięcie pola - podbij `SCHEMA` i zgłoś
-  potrzebną zmianę w repozytorium strony), tryb `site` w
+  (`SCHEMA`; zmiana znaczenia lub usunięcie pola - podbij `SCHEMA`
+  dopiero wtedy, gdy generator strony przyjmuje już nową wersję
+  (`DATA_SCHEMAS` w `site.py` repozytorium strony), i zgłoś tam potrzebną
+  zmianę; nowe pola dopisuj bez podbijania), tryb `site` w
   `packaging/issue_labels.py` (uruchamia go workflow strony) oraz adres
   i parametry formularza w `feedback.py`.
 - Lista „Czego dotyczy?” w formularzu zgłoszeń obejmuje główne obszary

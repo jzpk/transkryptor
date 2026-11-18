@@ -30,7 +30,9 @@ from transkryptor.packaging.metadata import REPO_ROOT
 
 CHANGELOG_FILE = REPO_ROOT / "CHANGELOG.md"
 
-_HEADING = re.compile(r"^## (?P<title>.+?)\s*$")
+# Nagłówek sekcji wersji (``## 0.2.3 - 2026-10-09``); używa go też
+# packaging/site_data.py.
+HEADING_RE = re.compile(r"^## (?P<title>.+?)\s*$")
 _DATE_SUFFIX = re.compile(r"\s+-\s+.*$")
 
 
@@ -38,7 +40,7 @@ class ChangelogError(Exception):
     """Historia zmian nie pozwala złożyć not ani wydać wersji."""
 
 
-def _heading_key(title: str) -> str:
+def heading_key(title: str) -> str:
     """Nagłówek bez daty: ``0.2.3 - 2026-10-09`` → ``0.2.3``."""
     return _DATE_SUFFIX.sub("", title.strip())
 
@@ -47,12 +49,12 @@ def _locate(lines: list[str], title: str) -> tuple[int, int] | None:
     """Indeks nagłówka sekcji i koniec jej treści (wyłącznie)."""
     start = None
     for index, line in enumerate(lines):
-        match = _HEADING.match(line)
+        match = HEADING_RE.match(line)
         if not match:
             continue
         if start is not None:
             return start, index
-        if _heading_key(match["title"]) == title:
+        if heading_key(match["title"]) == title:
             start = index
     return (start, len(lines)) if start is not None else None
 
@@ -121,7 +123,7 @@ def release(
         )
     when = release_date or date_type.today()
     index = next(
-        (i for i, line in enumerate(lines) if _HEADING.match(line)), len(lines)
+        (i for i, line in enumerate(lines) if HEADING_RE.match(line)), len(lines)
     )
     lines[index:index] = [f"## {version} - {when.isoformat()}", "", content, ""]
     Path(path).write_text("\n".join(lines).rstrip("\n") + "\n", encoding="utf-8")
@@ -160,9 +162,11 @@ def main(argv: list[str] | None = None) -> int:
 
 __all__ = [
     "CHANGELOG_FILE",
+    "HEADING_RE",
     "ChangelogError",
     "check",
     "fragments_dir",
+    "heading_key",
     "release",
     "section",
     "whats_new",
