@@ -22,7 +22,9 @@
 #
 # Droga awaryjna: ręcznie wypchnięty tag v* (na commit bez [skip ci], np.
 # poprawkę po commicie wydania) - workflow sprawdza, że tag zgadza się
-# z wersją w kodzie, a CHANGELOG.md ma sekcję tej wersji, i publikuje wydanie.
+# z wersją w kodzie, a CHANGELOG.md ma sekcję tej wersji, a commit taga należy
+# do main albo release/X.Y, i publikuje wydanie. Tagi v* chroni ruleset
+# (tworzenie, przesuwanie i usuwanie tylko z wyjątkiem dla admina).
 #
 # Łańcuch zaufania: job „podpis” podpisuje SHA256SUMS.txt kluczem
 # minisign z sekretu environment „Release” (wymagane zatwierdzenie). Job ten
@@ -140,6 +142,22 @@ jobs:
         with:
           token: ${{ secrets.RELEASE_PAT }}
           fetch-depth: 0
+
+      # Droga awaryjna: tag musi wskazywać commit zawarty w main albo
+      # w którejś gałęzi release/X.Y, a nie np. w gałęzi roboczej. Tworzenie,
+      # przesuwanie i usuwanie tagów v* blokuje ruleset tagów (wyjątek: admin).
+      - name: Pochodzenie taga
+        if: github.event_name == 'push'
+        run: |
+          for BRANCH in $(git for-each-ref --format='%(refname:short)' \
+              refs/remotes/origin/main 'refs/remotes/origin/release/*'); do
+            if git merge-base --is-ancestor "$GITHUB_SHA" "$BRANCH"; then
+              echo "Tag $GITHUB_REF_NAME wskazuje commit z gałęzi $BRANCH."
+              exit 0
+            fi
+          done
+          echo "::error::Tag $GITHUB_REF_NAME wskazuje commit spoza main i release/*."
+          exit 1
 
       # Bez klucza publicznego w aplikacji żadna instalacja nie przyjmie
       # aktualizacji - wydanie zatrzymuje się przed commitem i tagiem.
