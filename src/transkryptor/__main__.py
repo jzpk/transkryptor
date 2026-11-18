@@ -14,7 +14,7 @@ import multiprocessing
 import sys
 from pathlib import Path
 
-from transkryptor import __version__, diagnostics
+from transkryptor import __version__, diagnostics, fileio
 from transkryptor.i18n import (
     ENGLISH,
     current_language,
@@ -223,6 +223,9 @@ def main(argv: list[str] | None = None) -> int:
     # Proces roboczy ASR (``asr/worker.py``) w wydaniu PyInstaller startuje
     # z tego samego pliku wykonywalnego - freeze_support go obsługuje i kończy.
     multiprocessing.freeze_support()
+    # Odczyt umask zmienia ją na chwilę - poza Linuksem robimy to raz, zanim
+    # powstaną wątki (fileio.process_umask).
+    fileio.remember_umask()
     configure_language()
     parser = argparse.ArgumentParser(
         prog="transkryptor",

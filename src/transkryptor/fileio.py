@@ -4,6 +4,7 @@ i odczyt danych z limitem rozmiaru (pobrania, elementy archiwów)."""
 from __future__ import annotations
 
 import contextlib
+import functools
 import hashlib
 import os
 import stat
@@ -101,9 +102,36 @@ def _target_mode(target: Path) -> int:
     try:
         return stat.S_IMODE(target.stat().st_mode)
     except FileNotFoundError:
-        umask = os.umask(0)
-        os.umask(umask)
-        return 0o666 & ~umask
+        return 0o666 & ~process_umask()
+
+
+_PROC_STATUS = Path("/proc/self/status")
+
+
+def process_umask() -> int:
+    """Maska umask procesu, odczytana bez jej zmieniania.
+
+    ``os.umask`` odczytuje maskę tylko przez ustawienie nowej, a maska
+    dotyczy całego procesu - plik tworzony w tym czasie przez inny wątek
+    (pobieranie modelu, kopia nagrania) dostałby prawa ``0666``. W Linuksie
+    maskę podaje ``/proc/self/status``; gdzie indziej obowiązuje odczyt
+    z :func:`remember_umask` przy starcie programu, przed wątkami.
+    """
+    try:
+        for line in _PROC_STATUS.read_text(encoding="ascii").splitlines():
+            if line.startswith("Umask:"):
+                return int(line.split()[1], 8)
+    except (OSError, ValueError, IndexError):
+        pass
+    return remember_umask()
+
+
+@functools.cache
+def remember_umask() -> int:
+    """Maska umask z pierwszego wywołania (``__main__`` - przed wątkami)."""
+    umask = os.umask(0)
+    os.umask(umask)
+    return umask
 
 
 def _fsync_directory(directory: Path) -> None:

@@ -4,10 +4,12 @@ import hashlib
 import json
 import os
 import shutil
+import sys
 from pathlib import Path
 
 import pytest
 
+from transkryptor import fileio
 from transkryptor.document.anchors import MANUAL, SEGMENT, WORD, Anchor
 from transkryptor.document.project import (
     SCHEMA_VERSION,
@@ -344,6 +346,16 @@ class TestFilePermissions:
         path = tmp_path / "kopia.transkr"
         write_atomic(path, b"{}", mode=0o600)
         assert path.stat().st_mode & 0o777 == 0o600
+
+    @pytest.mark.skipif(not sys.platform.startswith("linux"), reason="/proc w Linuksie")
+    def test_reading_the_umask_does_not_change_it(self, umask_022, monkeypatch) -> None:
+        # Zmiana maski na chwilę to wyścig z wątkami, które tworzą pliki.
+        def forbidden(mask: int) -> int:
+            raise AssertionError("os.umask zmienia maskę całego procesu")
+
+        with monkeypatch.context() as patch:
+            patch.setattr(os, "umask", forbidden)
+            assert fileio.process_umask() == 0o022
 
 
 def test_file_sha256_can_be_interrupted(tmp_path) -> None:
