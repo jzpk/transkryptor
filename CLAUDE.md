@@ -85,7 +85,7 @@ któryś limit, najpierw wydziel część kodu, potem dopisuj funkcję.
 - Lista „Czego dotyczy?” w formularzu zgłoszeń obejmuje główne obszary
   programu. Gdy dodajesz nowy obszar funkcji (albo zmieniasz nazwę lub
   usuwasz istniejący), przypomnij użytkownikowi o poprawce listy
-  w repozytorium strony (`pages/zglos.html` i `zgloszenia/worker.js`).
+  w repozytorium strony (`choices.area` w `zgloszenia/contract.json`).
 
 **Higiena kodu**
 
