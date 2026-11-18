@@ -58,6 +58,38 @@ def slow_factory(model_dir, device="cpu"):
     return _Backend(prepare_s=30.0)
 
 
+class _StreamingBackend:
+    """Segment co ``pause_s`` - anulowanie trafia między segmenty."""
+
+    def __init__(self, pause_s: float) -> None:
+        self._pause_s = pause_s
+
+    def transcribe(self, audio_path, language, vad_filter):
+        _log("transcribe")
+
+        def segments():
+            for index in range(100):
+                yield SimpleNamespace(
+                    start=float(index),
+                    end=index + 1.0,
+                    text=f" S{index}.",
+                    avg_logprob=-0.1,
+                )
+                time.sleep(self._pause_s)
+
+        return segments(), SimpleNamespace(language=language, duration=100.0)
+
+
+def streaming_factory(model_dir, device="cpu"):
+    _log("load")
+    return _StreamingBackend(pause_s=0.05)
+
+
+def stuck_factory(model_dir, device="cpu"):
+    _log("load")
+    return _StreamingBackend(pause_s=30.0)
+
+
 def crashing_factory(model_dir, device="cpu"):
     return _Backend(crash=True)
 
@@ -160,6 +192,51 @@ def test_cancel_before_first_segment_is_immediate(
     assert "transcribe" in events(log_file)
     # Zakończenie procesu, nie czekanie na 30 s przygotowania.
     assert time.monotonic() - cancelled_at < 3
+
+
+def test_cancel_after_a_segment_keeps_the_model_loaded(
+    log_file, model_dir, audio, make_worker
+) -> None:
+    worker = make_worker(streaming_factory)
+    cancel = threading.Event()
+    with pytest.raises(TranscriptionCancelled):
+        worker.transcribe(
+            audio,
+            model_dir,
+            should_cancel=cancel.is_set,
+            on_segment=lambda _s: cancel.set(),
+        )
+    # Proces przerwał pracę sam - model zostaje w pamięci.
+    assert worker.is_running()
+    second = threading.Event()
+    with pytest.raises(TranscriptionCancelled):
+        worker.transcribe(
+            audio,
+            model_dir,
+            should_cancel=second.is_set,
+            on_segment=lambda _s: second.set(),
+        )
+    assert events(log_file) == ["load", "transcribe", "transcribe"]
+
+
+def test_unresponsive_worker_is_killed_after_the_grace_period(
+    log_file, model_dir, audio, make_worker
+) -> None:
+    worker = make_worker(stuck_factory)
+    cancel = threading.Event()
+    cancelled_at: list[float] = []
+
+    def on_segment(_segment) -> None:
+        cancelled_at.append(time.monotonic())
+        cancel.set()
+
+    with pytest.raises(TranscriptionCancelled):
+        worker.transcribe(
+            audio, model_dir, should_cancel=cancel.is_set, on_segment=on_segment
+        )
+    assert not worker.is_running()
+    # Najwyżej CANCEL_GRACE_S czekania i zakończenie procesu, nie 30 s pauzy.
+    assert time.monotonic() - cancelled_at[0] < 4
 
 
 def test_next_transcription_after_cancel_starts_new_process(

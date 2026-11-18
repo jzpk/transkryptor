@@ -8,8 +8,13 @@ kontekst ``spawn`` - ten sam na Linuksie i Windows):
 
 - proces trzyma wczytany backend między transkrypcjami (bufor po katalogu
   modelu i urządzeniu), więc kolejna transkrypcja nie wczytuje modelu od nowa;
-- „Anuluj” kończy proces od razu (``terminate``) - następna transkrypcja
-  uruchomi nowy proces i wczyta model ponownie;
+- „Anuluj” po pierwszym segmencie najpierw prosi proces o przerwanie
+  (``multiprocessing.Event`` sprawdzany między segmentami) i czeka do
+  ``CANCEL_GRACE_S`` - model zostaje wtedy w pamięci, a kolejna transkrypcja
+  nie wczytuje go od nowa. Przed pierwszym segmentem (dekodowanie i wykrywanie
+  mowy bez punktu anulowania) albo gdy proces nie odpowie w tym czasie,
+  proces jest kończony od razu (``terminate``) i następna transkrypcja
+  uruchomi nowy proces;
 - po ``IDLE_TIMEOUT_S`` bez pracy proces sam się kończy i zwalnia pamięć.
 
 :meth:`AsrWorker.transcribe` ma kontrakt ``engine.transcribe`` (te same
@@ -27,6 +32,7 @@ import contextlib
 import logging
 import multiprocessing
 import threading
+import time
 from collections.abc import Callable
 from multiprocessing.connection import Connection
 from multiprocessing.process import BaseProcess
@@ -56,6 +62,7 @@ logger = logging.getLogger(__name__)
 IDLE_TIMEOUT_S = 600.0
 POLL_INTERVAL_S = 0.1
 STOP_TIMEOUT_S = 2.0
+CANCEL_GRACE_S = 1.0
 
 # Błędy przekazywane z procesu roboczego: nazwa klasy → klasa.
 _ERRORS: dict[str, type[AppError]] = {
@@ -80,6 +87,7 @@ class AsrWorker:
         self._idle_timeout_s = idle_timeout_s
         self._process: BaseProcess | None = None
         self._conn: Connection | None = None
+        self._cancel_event: Any = None
         self._lock = threading.Lock()
 
     def is_running(self) -> bool:
@@ -150,15 +158,18 @@ class AsrWorker:
         on_progress: ProgressCallback | None,
     ) -> TranscriptionResult:
         conn = self._ensure_started()
+        if self._cancel_event is not None:
+            self._cancel_event.clear()
         try:
             conn.send(request)
         except OSError as error:
             self._kill()
             raise _WorkerExited() from error
         received = False
+        segments_seen = False
         while True:
             if cancel():
-                self._kill()
+                self._cancel(conn, graceful=segments_seen)
                 raise TranscriptionCancelled()
             try:
                 if not conn.poll(POLL_INTERVAL_S):
@@ -173,21 +184,33 @@ class AsrWorker:
                     raise _crash_error() from error
                 raise _WorkerExited() from error
             received = True
-            if kind == "segment":
-                if on_segment is not None:
-                    on_segment(payload)
-            elif kind == "progress":
-                if on_progress is not None:
-                    on_progress(payload)
-            elif kind == "done":
-                result: TranscriptionResult = payload
+            segments_seen = segments_seen or kind == "segment"
+            result = _handle_message(kind, payload, on_segment, on_progress)
+            if result is not None:
                 return result
-            elif kind == "error":
-                name, user_message, retry_hint, details = payload
-                logger.error("ASR worker reported %s:\n%s", name, details)
-                raise _ERRORS.get(name, TranscriptionError)(
-                    user_message=user_message, retry_hint=retry_hint
-                )
+
+    def _cancel(self, conn: Connection, *, graceful: bool) -> None:
+        """Przerywa transkrypcję; proces zostaje, gdy przerwie ją sam.
+
+        Po pierwszym segmencie proces sprawdza zdarzenie anulowania między
+        segmentami - czekamy na jego odpowiedź najwyżej ``CANCEL_GRACE_S``.
+        Inaczej (albo bez odpowiedzi) proces jest kończony.
+        """
+        if not graceful or self._cancel_event is None:
+            self._kill()
+            return
+        self._cancel_event.set()
+        deadline = time.monotonic() + CANCEL_GRACE_S
+        try:
+            while (left := deadline - time.monotonic()) > 0:
+                if not conn.poll(left):
+                    break
+                kind, _payload = conn.recv()
+                if kind in {"cancelled", "done", "error"}:
+                    return
+        except (EOFError, OSError):
+            pass
+        self._kill()
 
     def _ensure_started(self) -> Connection:
         if self._conn is not None and self.is_running():
@@ -195,6 +218,7 @@ class AsrWorker:
         self._kill()
         context = multiprocessing.get_context("spawn")
         parent_conn, child_conn = context.Pipe()
+        cancel_event = context.Event()
         process = context.Process(
             target=_serve,
             args=(
@@ -203,6 +227,7 @@ class AsrWorker:
                 current_language(),
                 self._idle_timeout_s,
                 _crash_log_dir(),
+                cancel_event,
             ),
             name="transkryptor-asr",
             daemon=True,
@@ -211,6 +236,7 @@ class AsrWorker:
         child_conn.close()
         self._process = process
         self._conn = parent_conn
+        self._cancel_event = cancel_event
         return parent_conn
 
     def _log_exit(self) -> None:
@@ -230,7 +256,33 @@ class AsrWorker:
         conn, process = self._conn, self._process
         self._conn = None
         self._process = None
+        self._cancel_event = None
         _terminate(process, conn)
+
+
+def _handle_message(
+    kind: str,
+    payload: Any,
+    on_segment: SegmentCallback | None,
+    on_progress: ProgressCallback | None,
+) -> TranscriptionResult | None:
+    """Wiadomość z procesu roboczego; wynik albo None, gdy praca trwa dalej."""
+    if kind == "segment" and on_segment is not None:
+        on_segment(payload)
+    elif kind == "progress" and on_progress is not None:
+        on_progress(payload)
+    elif kind == "done":
+        result: TranscriptionResult = payload
+        return result
+    elif kind == "cancelled":
+        raise TranscriptionCancelled()
+    elif kind == "error":
+        name, user_message, retry_hint, details = payload
+        logger.error("ASR worker reported %s:\n%s", name, details)
+        raise _ERRORS.get(name, TranscriptionError)(
+            user_message=user_message, retry_hint=retry_hint
+        )
+    return None
 
 
 class _WorkerExited(Exception):
@@ -270,8 +322,14 @@ def _serve(
     language: str,
     idle_timeout_s: float,
     crash_log_dir: str | None = None,
+    cancel_event: Any = None,
 ) -> None:
-    """Pętla procesu roboczego: zlecenia z potoku, bufor backendu."""
+    """Pętla procesu roboczego: zlecenia z potoku, bufor backendu.
+
+    ``cancel_event`` (``multiprocessing.Event``) ustawia rodzic, gdy
+    użytkownik anuluje transkrypcję po pierwszym segmencie.
+    """
+    should_cancel = cancel_event.is_set if cancel_event is not None else (lambda: False)
     set_language(language)
     if crash_log_dir is not None:
         # Awaria natywna (np. CTranslate2) kończy proces bez odpowiedzi -
@@ -311,6 +369,7 @@ def _serve(
                     model,
                     request_language,
                     options,
+                    should_cancel,
                 )
             )
 
@@ -323,18 +382,22 @@ def _transcribe_request(
     model: AsrModelInfo,
     language: str,
     options: DecodingOptions,
+    should_cancel: CancelCheck,
 ) -> tuple[str, Any]:
     try:
         result = engine.transcribe(
             audio_path,
             model_dir,
             model=model,
+            should_cancel=should_cancel,
             on_segment=lambda segment: conn.send(("segment", segment)),
             on_progress=lambda fraction: conn.send(("progress", fraction)),
             backend_factory=factory,
             language=language,
             options=options,
         )
+    except TranscriptionCancelled:
+        return "cancelled", None
     except AppError as error:
         return "error", (
             type(error).__name__,
