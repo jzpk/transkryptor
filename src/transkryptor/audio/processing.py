@@ -21,12 +21,12 @@ from __future__ import annotations
 import contextlib
 import hashlib
 import os
-import tempfile
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from transkryptor.fileio import atomic_path
 from transkryptor.paths import user_cache_dir
 
 CHANNEL_BOTH = "both"
@@ -126,15 +126,9 @@ def process_audio(
     Częściowy plik nigdy nie zostaje pod nazwą docelową.
     """
     target.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.NamedTemporaryFile(
-        dir=target.parent, prefix=f".{target.stem}.", suffix=".flac", delete=False
-    ) as handle:
-        temp = Path(handle.name)
-    try:
+    # Kopia w pamięci podręcznej: bez fsync; koder rozpoznaje format po .flac.
+    with atomic_path(target, 0o600, suffix=".flac", durable=False) as temp:
         _process(Path(source), temp, filters, should_cancel, on_progress)
-        temp.replace(target)
-    finally:
-        temp.unlink(missing_ok=True)
 
 
 def _process(

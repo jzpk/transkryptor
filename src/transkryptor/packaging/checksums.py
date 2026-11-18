@@ -9,13 +9,13 @@ coreutils), więc odbiorca sprawdza wydanie jednym poleceniem:
 
 from __future__ import annotations
 
-import hashlib
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
+from transkryptor.fileio import file_sha256
+
 CHECKSUM_FILE = "SHA256SUMS.txt"
-_CHUNK = 1 << 20
 
 
 @dataclass(frozen=True)
@@ -27,20 +27,11 @@ class Checksum:
     size_bytes: int
 
 
-def sha256_file(path: Path) -> str:
-    """Suma SHA-256 pliku, liczona strumieniowo (artefakty mają setki MB)."""
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        while chunk := handle.read(_CHUNK):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
 def checksums_for(paths: Iterable[Path]) -> tuple[Checksum, ...]:
     """Sumy kontrolne podanych plików, posortowane po nazwie."""
     results = [
         Checksum(
-            name=path.name, digest=sha256_file(path), size_bytes=path.stat().st_size
+            name=path.name, digest=file_sha256(path), size_bytes=path.stat().st_size
         )
         for path in paths
     ]
@@ -72,7 +63,7 @@ def verify_checksums(checksum_file: Path, base_dir: Path | None = None) -> list[
         if not path.is_file():
             problems.append(f"brak pliku: {name.strip()}")
             continue
-        if sha256_file(path) != digest.strip():
+        if file_sha256(path) != digest.strip():
             problems.append(f"niezgodna suma kontrolna: {name.strip()}")
     return problems
 
@@ -82,7 +73,6 @@ __all__ = [
     "Checksum",
     "checksums_for",
     "render_checksums",
-    "sha256_file",
     "verify_checksums",
     "write_checksums",
 ]

@@ -92,7 +92,10 @@ któryś limit, najpierw wydziel część kodu, potem dopisuj funkcję.
 **Higiena kodu**
 
 - Używaj istniejących pomocników zamiast kopii: `ui.messages.show_error`,
-  `MainWindow.show_status`, `fileio.write_atomic`.
+  `MainWindow.show_status`, `fileio.write_atomic` (strumień:
+  `atomic_output` z `ProjectError`, `atomic_output_raw` z `OSError`, plik
+  otwierany przez bibliotekę: `atomic_path`), `fileio.file_sha256`,
+  pobieranie przez HTTP: `net.make_client` i `net.stream_to_file`.
 - Bez martwego kodu: usuwaj nieużywane moduły i nie zostawiaj
   re-eksportów „dla zgodności importów” - popraw importy.
 - Nie nadawaj nazw przesłaniających wbudowane (`Warning`, `type`, `id`...).

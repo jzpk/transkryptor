@@ -14,7 +14,6 @@ katalogi innych wersji są usuwane.
 
 from __future__ import annotations
 
-import hashlib
 import shutil
 from collections.abc import Callable, Iterable
 from pathlib import Path
@@ -22,7 +21,7 @@ from pathlib import Path
 import httpx
 
 from transkryptor.errors import UpdateError
-from transkryptor.fileio import SizeLimitError
+from transkryptor.fileio import SizeLimitError, file_sha256
 from transkryptor.i18n import tr
 from transkryptor.net import content_length, stream_to_file
 from transkryptor.paths import user_cache_dir
@@ -37,7 +36,6 @@ from transkryptor.update.releases import (
 )
 from transkryptor.update.signature import SignatureError, verify_release_checksums
 
-CHUNK_SIZE = 1 << 20
 PART_SUFFIX = ".part"
 # Górna granica artefaktu, gdy serwer nie podał jego rozmiaru.
 MAX_ARTIFACT_BYTES = 2 * 1024**3
@@ -59,14 +57,6 @@ def parse_checksums(text: str) -> dict[str, str]:
             digest, name = parts
             sums[name.lstrip("*").strip()] = digest.lower()
     return sums
-
-
-def sha256_of(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(CHUNK_SIZE), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def download_release(
@@ -99,7 +89,7 @@ def download_release(
     # Podpisane sumy obok artefaktu: instalacja sprawdza plik jeszcze raz.
     _write_file(target_dir / CHECKSUMS_ASSET, sums)
     _write_file(target_dir / SIGNATURE_ASSET, release.signature.encode("utf-8"))
-    if target.is_file() and sha256_of(target) == expected:
+    if target.is_file() and file_sha256(target) == expected:
         size = target.stat().st_size
         progress(size, size)
         return target
@@ -221,7 +211,7 @@ def verify_downloaded(artifact: Path, trusted_keys: Iterable[str] | None = None)
         signature = (artifact.parent / SIGNATURE_ASSET).read_text(encoding="utf-8")
         verify_release_checksums(sums, signature, version, trusted_keys)
         expected = parse_checksums(sums.decode("utf-8", "replace")).get(artifact.name)
-        if expected is None or sha256_of(artifact) != expected:
+        if expected is None or file_sha256(artifact) != expected:
             raise SignatureError("suma pliku nie zgadza się z podpisanymi sumami")
     except (OSError, ValueError) as error:
         # Zmieniony albo uszkodzony plik nie zostaje - następny start pobierze

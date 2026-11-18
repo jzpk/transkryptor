@@ -1,17 +1,6 @@
 """Testy sum kontrolnych publikowanych razem z artefaktami."""
 
-import hashlib
-
 from transkryptor.packaging import checksums
-
-
-def test_digest_matches_reference_implementation(tmp_path) -> None:
-    artifact = tmp_path / "artefakt.bin"
-    artifact.write_bytes(b"transkryptor" * 1000)
-    assert (
-        checksums.sha256_file(artifact)
-        == hashlib.sha256(artifact.read_bytes()).hexdigest()
-    )
 
 
 def test_file_format_is_readable_by_sha256sum(tmp_path) -> None:

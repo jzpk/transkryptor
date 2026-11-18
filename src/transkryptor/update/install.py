@@ -30,8 +30,9 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
 from transkryptor.errors import UpdateError
+from transkryptor.fileio import file_sha256
 from transkryptor.i18n import tr
-from transkryptor.update.download import sha256_of, verify_downloaded
+from transkryptor.update.download import verify_downloaded
 
 # /SILENT pokazuje tylko pasek postępu (użytkownik widzi, że coś się dzieje);
 # /SUPPRESSMSGBOXES przyjmuje domyślne odpowiedzi na pytania instalatora.
@@ -82,7 +83,7 @@ def replace_appimage(new: Path, current: Path, expected_sha256: str) -> None:
     staged = current.with_name(f".{current.name}.new")
     try:
         shutil.copyfile(new, staged)
-        if sha256_of(staged) != expected_sha256:
+        if file_sha256(staged) != expected_sha256:
             staged.unlink(missing_ok=True)
             raise UpdateError(
                 user_message=tr("update.error.verify_failed", version=new.parent.name),

@@ -8,10 +8,9 @@ from dataclasses import replace
 import pytest
 
 from transkryptor.errors import UpdateError
-from transkryptor.net import DownloadCancelled
+from transkryptor.net import CHUNK_SIZE, DownloadCancelled
 from transkryptor.update import download
 from transkryptor.update.download import (
-    CHUNK_SIZE,
     clear_downloads,
     download_release,
     parse_checksums,

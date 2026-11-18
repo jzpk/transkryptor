@@ -69,22 +69,12 @@ def atomic_output(target: Path, mode: int | None = None) -> Iterator[IO[bytes]]:
 
     Plik docelowy powstaje dopiero po udanym zakończeniu bloku ``with``;
     wyjątek w bloku zostawia poprzednią wersję i usuwa plik tymczasowy.
-    Błąd systemu plików → ``ProjectError``.
+    Błąd systemu plików → ``ProjectError`` (zapis projektu, eksportu,
+    paczki); bez tej zamiany - :func:`atomic_output_raw`.
     """
-    temp_name: str | None = None
     try:
-        with tempfile.NamedTemporaryFile(
-            dir=target.parent, prefix=f".{target.name}.", suffix=".tmp", delete=False
-        ) as handle:
-            temp_name = handle.name
+        with atomic_output_raw(target, mode) as handle:
             yield handle
-            handle.flush()
-            os.fsync(handle.fileno())
-        if os.name == "posix":
-            Path(temp_name).chmod(_target_mode(target) if mode is None else mode)
-        Path(temp_name).replace(target)
-        temp_name = None
-        _fsync_directory(target.parent)
     except OSError as exc:
         raise ProjectError(
             user_message=tr(
@@ -92,9 +82,56 @@ def atomic_output(target: Path, mode: int | None = None) -> Iterator[IO[bytes]]:
             ),
             retry_hint=tr("project.error.save.hint"),
         ) from exc
+
+
+@contextlib.contextmanager
+def atomic_output_raw(
+    target: Path, mode: int | None = None, *, durable: bool = True
+) -> Iterator[IO[bytes]]:
+    """Strumień zapisu atomowego; błąd systemu plików przechodzi jako ``OSError``."""
+    with atomic_path(target, mode, durable=durable) as temp, temp.open("wb") as handle:
+        yield handle
+
+
+@contextlib.contextmanager
+def atomic_path(
+    target: Path,
+    mode: int | None = None,
+    *,
+    suffix: str = ".tmp",
+    durable: bool = True,
+) -> Iterator[Path]:
+    """Ścieżka pliku tymczasowego obok ``target`` dla kodu, który sam otwiera
+    plik (np. koder FLAC); po udanym bloku plik zastępuje ``target``.
+
+    Plik tymczasowy dostaje prawa ``mode`` (bez niego - prawa istniejącego
+    pliku albo domyślne dla nowego), a przy ``durable`` jest utrwalany
+    (``fsync`` pliku i katalogu) - pamięć podręczna, którą da się odtworzyć,
+    może z tego zrezygnować. ``suffix`` zachowuje rozszerzenie, po którym
+    biblioteki rozpoznają format. Wyjątek w bloku usuwa plik tymczasowy
+    i zostawia poprzednią wersję; błąd systemu plików → ``OSError``.
+    """
+    fd, name = tempfile.mkstemp(
+        dir=target.parent, prefix=f".{target.name}.", suffix=suffix
+    )
+    os.close(fd)
+    temp = Path(name)
+    try:
+        yield temp
+        if durable:
+            _fsync_file(temp)
+        if os.name == "posix":
+            temp.chmod(_target_mode(target) if mode is None else mode)
+        temp.replace(target)
+        if durable:
+            _fsync_directory(target.parent)
     finally:
-        if temp_name is not None:
-            Path(temp_name).unlink(missing_ok=True)
+        temp.unlink(missing_ok=True)
+
+
+def _fsync_file(path: Path) -> None:
+    with path.open("rb") as handle:
+        os.fsync(handle.fileno())
 
 
 def _target_mode(target: Path) -> int:

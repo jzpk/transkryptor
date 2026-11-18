@@ -16,11 +16,11 @@ od nowa. Uszkodzony albo niezgodny plik cache jest pomijany.
 from __future__ import annotations
 
 import struct
-import tempfile
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
+from transkryptor.fileio import atomic_output_raw
 from transkryptor.paths import user_cache_dir
 
 STEP_MS = 10
@@ -167,19 +167,11 @@ def save_cached(sha256: str, envelope: Envelope, directory: Path | None = None) 
         _HEADER.pack(_MAGIC, _VERSION, envelope.step_ms, len(envelope.peaks))
         + envelope.peaks
     )
-    temp_name: str | None = None
     try:
         target.parent.mkdir(parents=True, exist_ok=True)
-        with tempfile.NamedTemporaryFile(
-            dir=target.parent, prefix=f".{target.name}.", suffix=".tmp", delete=False
-        ) as handle:
-            temp_name = handle.name
+        # Pamięć podręczna: bez fsync, odtworzy się z nagrania.
+        with atomic_output_raw(target, 0o600, durable=False) as handle:
             handle.write(payload)
-        Path(temp_name).replace(target)
-        temp_name = None
     except OSError:
         return False
-    finally:
-        if temp_name is not None:
-            Path(temp_name).unlink(missing_ok=True)
     return True

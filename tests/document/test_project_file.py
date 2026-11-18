@@ -364,3 +364,30 @@ def test_file_sha256_can_be_interrupted(tmp_path) -> None:
     with pytest.raises(InterruptedError):
         file_sha256(path, should_cancel=lambda: True)
     assert file_sha256(path) == hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def test_atomic_path_replaces_only_after_success(tmp_path) -> None:
+    target = tmp_path / "kopia.flac"
+    target.write_bytes(b"stara")
+    with (
+        pytest.raises(RuntimeError),
+        fileio.atomic_path(target, suffix=".flac") as temp,
+    ):
+        assert temp.suffix == ".flac"
+        temp.write_bytes(b"nowa, ale przerwana")
+        raise RuntimeError("koder")
+    assert target.read_bytes() == b"stara"
+    assert [p.name for p in tmp_path.iterdir()] == ["kopia.flac"]
+
+    with fileio.atomic_path(target, durable=False) as temp:
+        temp.write_bytes(b"nowa")
+    assert target.read_bytes() == b"nowa"
+    assert [p.name for p in tmp_path.iterdir()] == ["kopia.flac"]
+
+
+def test_raw_atomic_output_reports_os_errors(tmp_path) -> None:
+    # Pamięć podręczna obsługuje OSError sama - bez komunikatu o projekcie.
+    target = tmp_path / "brak" / "plik.bin"
+    with pytest.raises(OSError) as info, fileio.atomic_output_raw(target) as handle:
+        handle.write(b"x")
+    assert not isinstance(info.value, ProjectError)
