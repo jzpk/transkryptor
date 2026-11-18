@@ -227,12 +227,7 @@ def read_manifest(path: Path) -> PackManifest:
 
 def conflicts(manifest: PackManifest, directory: Path) -> list[str]:
     """Pliki paczki, które już istnieją w ``directory`` (zostałyby nadpisane)."""
-    names = [manifest.project]
-    if manifest.audio_included:
-        names.append(manifest.audio_name)
-    if manifest.template:
-        names.append(manifest.template)
-    return [name for name in names if (directory / name).exists()]
+    return [name for name in _extracted_names(manifest) if (directory / name).exists()]
 
 
 @contextlib.contextmanager
@@ -365,7 +360,7 @@ def _manifest(archive: zipfile.ZipFile) -> PackManifest:
     audio = data.get("audio")
     audio = audio if isinstance(audio, dict) else {}
     template = data.get("template") or ""
-    return PackManifest(
+    manifest = PackManifest(
         version=version,
         project=project,
         audio_name=_checked_name(audio["name"]) if audio else "",
@@ -375,6 +370,29 @@ def _manifest(archive: zipfile.ZipFile) -> PackManifest:
         created=str(data.get("created", "")),
         app_version=str(data.get("app_version", "")),
     )
+    _check_unique_names(manifest)
+    return manifest
+
+
+def _check_unique_names(manifest: PackManifest) -> None:
+    """Pliki paczki trafiają do jednego katalogu - nazwa nie może się powtarzać.
+
+    Porównanie bez wielkości liter (``casefold``), bo w Windows i macOS
+    ``Wywiad.mp3`` i ``wywiad.MP3`` to ten sam plik - jeden nadpisałby drugi.
+    """
+    names = [name.casefold() for name in _extracted_names(manifest)]
+    if len(names) != len(set(names)):
+        raise ValueError("powtórzona nazwa pliku w paczce")
+
+
+def _extracted_names(manifest: PackManifest) -> list[str]:
+    """Nazwy plików, które paczka zapisuje w katalogu docelowym."""
+    names = [manifest.project]
+    if manifest.audio_included:
+        names.append(manifest.audio_name)
+    if manifest.template:
+        names.append(manifest.template)
+    return names
 
 
 def _read_settings(archive: zipfile.ZipFile) -> PackSettings:

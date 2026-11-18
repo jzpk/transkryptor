@@ -157,6 +157,26 @@ def test_invalid_or_unsafe_pack_is_rejected(tmp_path, manifest) -> None:
         read_manifest(pack)
 
 
+@pytest.mark.parametrize(
+    ("audio_name", "template"),
+    [("a.transkr", ""), ("Nagranie.mp3", "nagranie.MP3"), ("x.mp3", "A.TRANSKR")],
+)
+def test_pack_files_with_the_same_name_are_rejected(
+    tmp_path, audio_name, template
+) -> None:
+    pack = tmp_path / "zla.tkpack"
+    manifest = {
+        "format": "transkryptor-pack",
+        "version": 1,
+        "project": "a.transkr",
+        "audio": {"name": audio_name, "included": True},
+        "template": template,
+    }
+    write_zip(pack, manifest)
+    with pytest.raises(ProjectError):
+        read_manifest(pack)
+
+
 def test_not_a_zip_is_rejected(tmp_path) -> None:
     pack = tmp_path / "tekst.tkpack"
     pack.write_text("to nie jest zip", encoding="utf-8")
