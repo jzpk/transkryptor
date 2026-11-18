@@ -26,8 +26,8 @@ import httpx
 from transkryptor import __version__
 from transkryptor.errors import UpdateError
 from transkryptor.i18n import tr
+from transkryptor.net import DownloadCancelled
 from transkryptor.update.download import (
-    DownloadCancelled,
     DownloadProgress,
     clear_downloads,
     download_release,

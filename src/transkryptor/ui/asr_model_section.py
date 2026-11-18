@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from transkryptor.asr.manager import DownloadCancelled, ModelManager
+from transkryptor.asr.manager import ModelManager
 from transkryptor.asr.models import (
     DIARIZATION_MODEL,
     MODELS,
@@ -32,6 +32,7 @@ from transkryptor.asr.models import (
 )
 from transkryptor.errors import AppError
 from transkryptor.i18n import tr
+from transkryptor.net import DownloadCancelled
 from transkryptor.settings import AsrSettings
 from transkryptor.ui import icons
 from transkryptor.ui.asr_widgets import step

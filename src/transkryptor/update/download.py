@@ -22,8 +22,9 @@ from pathlib import Path
 import httpx
 
 from transkryptor.errors import UpdateError
-from transkryptor.fileio import SizeLimitError, limited_chunks
+from transkryptor.fileio import SizeLimitError
 from transkryptor.i18n import tr
+from transkryptor.net import content_length, stream_to_file
 from transkryptor.paths import user_cache_dir
 from transkryptor.update.releases import (
     CHECKSUMS_ASSET,
@@ -43,10 +44,6 @@ MAX_ARTIFACT_BYTES = 2 * 1024**3
 
 # Postęp pobierania: (pobrane bajty, całość albo None, gdy serwer jej nie podał).
 DownloadProgress = Callable[[int, int | None], None]
-
-
-class DownloadCancelled(Exception):
-    """Pobieranie przerwane, bo aplikacja się zamyka (nie jest błędem)."""
 
 
 def default_download_root() -> Path:
@@ -173,7 +170,6 @@ def _stream_artifact(
     ``MAX_ARTIFACT_BYTES``) jest przerywany od razu - serwer pośredni nie
     zapełni dysku, zanim suma odrzuci plik.
     """
-    digest = hashlib.sha256()
     with client.stream("GET", release.asset_url(name)) as stream:
         if stream.status_code != 200:
             raise UpdateError(
@@ -184,25 +180,30 @@ def _stream_artifact(
                 ),
                 retry_hint=tr("update.error.later.hint"),
             )
-        total = _content_length(stream)
+        # Bez długości (albo przy kodowanej treści, np. gzip - nagłówek podaje
+        # wtedy długość po kompresji) obowiązuje MAX_ARTIFACT_BYTES.
+        total = content_length(stream) or None
         if total is not None and total > MAX_ARTIFACT_BYTES:
             raise too_large(name)
-        limit = total or MAX_ARTIFACT_BYTES
         done = 0
         progress(done, total)
-        chunks = stream.iter_bytes(chunk_size=CHUNK_SIZE)
+
+        def on_chunk(length: int) -> None:
+            nonlocal done
+            done += length
+            progress(done, total)
+
         try:
-            with partial.open("wb") as handle:
-                for chunk in limited_chunks(chunks, limit):
-                    if should_cancel():
-                        raise DownloadCancelled()
-                    handle.write(chunk)
-                    digest.update(chunk)
-                    done += len(chunk)
-                    progress(done, total)
+            _size, digest = stream_to_file(
+                stream,
+                partial,
+                limit=total or MAX_ARTIFACT_BYTES,
+                should_cancel=should_cancel,
+                on_chunk=on_chunk,
+            )
         except SizeLimitError as error:
             raise too_large(name) from error
-    return digest.hexdigest()
+    return digest
 
 
 def verify_downloaded(artifact: Path, trusted_keys: Iterable[str] | None = None) -> str:
@@ -232,14 +233,6 @@ def verify_downloaded(artifact: Path, trusted_keys: Iterable[str] | None = None)
             retry_hint=tr("update.error.verify_failed.hint"),
         ) from error
     return expected
-
-
-def _content_length(response: httpx.Response) -> int | None:
-    try:
-        total = int(response.headers.get("content-length", ""))
-    except ValueError:
-        return None
-    return total if total > 0 else None
 
 
 def _write_file(path: Path, data: bytes) -> None:

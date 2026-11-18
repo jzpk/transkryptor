@@ -10,7 +10,6 @@ import pytest
 
 from transkryptor.asr.manager import (
     COMPLETE_MARKER,
-    DownloadCancelled,
     ModelManager,
     hf_streaming_download,
     model_file_path,
@@ -22,6 +21,7 @@ from transkryptor.asr.models import (
     ModelFile,
 )
 from transkryptor.errors import ModelDownloadError
+from transkryptor.net import DownloadCancelled
 
 
 def fake_downloader(

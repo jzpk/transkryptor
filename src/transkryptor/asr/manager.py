@@ -17,7 +17,6 @@ w katalogu modelu (SEC-05).
 
 from __future__ import annotations
 
-import hashlib
 import shutil
 from collections.abc import Callable
 from pathlib import Path
@@ -31,8 +30,9 @@ from transkryptor.asr.models import (
     format_size,
 )
 from transkryptor.errors import ModelDownloadError
-from transkryptor.fileio import SizeLimitError, limited_chunks
+from transkryptor.fileio import SizeLimitError
 from transkryptor.i18n import tr
+from transkryptor.net import DownloadCancelled, content_length, stream_to_file
 
 if TYPE_CHECKING:
     import httpx
@@ -46,10 +46,6 @@ CancelCheck = Callable[[], bool]
 
 # Sygnatura wstrzykiwanego downloadera: pobiera pliki modelu do dest_dir.
 Downloader = Callable[[AsrModelInfo, Path, ProgressCallback, CancelCheck], None]
-
-
-class DownloadCancelled(Exception):
-    """Pobieranie przerwane na życzenie użytkownika (nie jest błędem)."""
 
 
 class ModelManager:
@@ -245,37 +241,18 @@ def _stream_file(
     weryfikacja odrzuci plik. Nagłówek ``Content-Length`` niezgodny
     z rozmiarem odrzuca plik przed pobraniem.
     """
-    digest = hashlib.sha256()
-    size = 0
     with client.stream("GET", url) as response:
         response.raise_for_status()
-        length = _content_length(response)
+        length = content_length(response)
         if length is not None and length != file.size:
             raise _mismatch(file)
-        with partial.open("wb") as handle:
-            chunks = response.iter_bytes(chunk_size=1 << 20)
-            for chunk in limited_chunks(chunks, file.size):
-                if should_cancel():
-                    raise DownloadCancelled()
-                handle.write(chunk)
-                digest.update(chunk)
-                size += len(chunk)
-                on_chunk(file, len(chunk))
-    return size, digest.hexdigest()
-
-
-def _content_length(response: httpx.Response) -> int | None:
-    """Długość treści z nagłówka; None, gdy jej nie ma albo treść jest kodowana.
-
-    Przy ``Content-Encoding`` (np. gzip) nagłówek podaje długość po
-    kompresji, więc nie da się go porównać z rozmiarem pliku.
-    """
-    if response.headers.get("content-encoding", "identity") != "identity":
-        return None
-    try:
-        return int(response.headers["content-length"])
-    except (KeyError, ValueError):
-        return None
+        return stream_to_file(
+            response,
+            partial,
+            limit=file.size,
+            should_cancel=should_cancel,
+            on_chunk=lambda size: on_chunk(file, size),
+        )
 
 
 def model_file_path(dest_dir: Path, name: str) -> Path:
@@ -304,7 +281,6 @@ def _mismatch(file: ModelFile) -> ModelDownloadError:
 
 
 __all__ = [
-    "DownloadCancelled",
     "ModelManager",
     "hf_streaming_download",
     "model_file_path",

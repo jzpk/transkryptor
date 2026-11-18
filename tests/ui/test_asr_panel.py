@@ -15,11 +15,12 @@ from transkryptor.asr.engine import (
     SegmentResult,
     TranscriptionResult,
 )
-from transkryptor.asr.manager import DownloadCancelled, ModelManager
+from transkryptor.asr.manager import ModelManager
 from transkryptor.asr.models import DIARIZATION_MODEL, WHISPER_SMALL, AsrModelInfo
 from transkryptor.document.speakers import INFORMANT, RESEARCHER, Speaker
 from transkryptor.export.docx_export import export_docx
 from transkryptor.i18n import tr
+from transkryptor.net import DownloadCancelled
 from transkryptor.notation.suggestions import default_rules, rule_infos
 from transkryptor.settings import AsrSettings, Settings
 from transkryptor.ui.asr_panel import AsrPanel

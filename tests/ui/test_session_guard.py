@@ -8,7 +8,8 @@ import pytest
 from PySide6.QtWidgets import QMessageBox
 
 from transkryptor.asr.engine import SegmentResult, TranscriptionResult
-from transkryptor.asr.manager import DownloadCancelled, ModelManager
+from transkryptor.asr.manager import ModelManager
+from transkryptor.net import DownloadCancelled
 from transkryptor.ui.main_window import MainWindow
 
 SAMPLE_MP3 = "tests/fixtures/audio/sample.mp3"
