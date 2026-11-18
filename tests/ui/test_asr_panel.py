@@ -10,13 +10,10 @@ from PySide6.QtGui import QTextCursor
 from PySide6.QtTest import QSignalSpy
 from PySide6.QtWidgets import QMessageBox, QScrollArea, QWidget
 
-from transkryptor.asr.engine import (
-    VERBATIM_PROMPT,
-    SegmentResult,
-    TranscriptionResult,
-)
+from transkryptor.asr.engine import VERBATIM_PROMPT
 from transkryptor.asr.manager import ModelManager
 from transkryptor.asr.models import DIARIZATION_MODEL, WHISPER_SMALL, AsrModelInfo
+from transkryptor.asr.results import SegmentResult, TranscriptionResult
 from transkryptor.document.speakers import INFORMANT, RESEARCHER, Speaker
 from transkryptor.export.docx_export import export_docx
 from transkryptor.i18n import tr

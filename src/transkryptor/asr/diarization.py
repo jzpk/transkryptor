@@ -26,15 +26,15 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
 
+from transkryptor.asr.backend import SAMPLE_RATE
 from transkryptor.asr.models import DIARIZATION_EMBEDDING_FILE
 
 if TYPE_CHECKING:
     import numpy as np
     import numpy.typing as npt
 
-    from transkryptor.asr.engine import SegmentResult, WordResult
+    from transkryptor.asr.results import SegmentResult, WordResult
 
-SAMPLE_RATE = 16_000
 MAX_SPEAKERS = 8
 # Okno modelu głosu i krok, co który okno jest przesuwane (sekundy):
 # krótsze okno szybciej reaguje na zmianę mówcy, ale niesie mniej głosu.

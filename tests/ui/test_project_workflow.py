@@ -11,8 +11,8 @@ from PySide6.QtCore import QCoreApplication
 from PySide6.QtGui import QTextCharFormat, QTextCursor
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
-from transkryptor.asr.engine import SegmentResult, TranscriptionResult
 from transkryptor.asr.manager import ModelManager
+from transkryptor.asr.results import SegmentResult, TranscriptionResult
 from transkryptor.document.metadata import DEFAULT_FIELDS, encode_fields
 from transkryptor.document.model import Document
 from transkryptor.document.project import (

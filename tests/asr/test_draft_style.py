@@ -4,7 +4,7 @@ import pytest
 
 from transkryptor.asr.abbreviations import expand_text
 from transkryptor.asr.draft_style import DraftStyle, apply_style, style_text
-from transkryptor.asr.engine import SegmentResult, TranscriptionResult, WordResult
+from transkryptor.asr.results import SegmentResult, TranscriptionResult, WordResult
 from transkryptor.document.inflection import morfeusz_inflector
 from transkryptor.document.proper_names import morfeusz_proper_names
 

@@ -31,9 +31,10 @@ from pathlib import Path
 from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtWidgets import QFrame, QScrollArea, QVBoxLayout, QWidget
 
-from transkryptor.asr.engine import DecodingOptions, TranscriptionResult
+from transkryptor.asr.engine import DecodingOptions
 from transkryptor.asr.manager import ModelManager
 from transkryptor.asr.models import AsrModelInfo
+from transkryptor.asr.results import TranscriptionResult
 from transkryptor.notation.suggestions import RuleInfo, Suggestion
 from transkryptor.settings import AsrSettings
 from transkryptor.ui.asr_model_section import ModelSection

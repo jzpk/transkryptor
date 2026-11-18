@@ -5,7 +5,7 @@ from PySide6.QtCore import QPoint
 from PySide6.QtGui import QTextCursor
 from PySide6.QtWidgets import QLabel, QMenu, QTableWidgetItem
 
-from transkryptor.asr.engine import SegmentResult, TranscriptionResult
+from transkryptor.asr.results import SegmentResult, TranscriptionResult
 from transkryptor.document.speakers import INFORMANT, Speaker
 from transkryptor.export.docx_export import export_docx
 from transkryptor.notation.validator import VAL_12

@@ -23,6 +23,7 @@ from types import SimpleNamespace
 import pytest
 
 from transkryptor.asr import engine
+from transkryptor.asr.backend import Backend, faster_whisper_backend
 from transkryptor.asr.manager import ModelManager
 from transkryptor.asr.models import DEFAULT_MODEL
 
@@ -41,7 +42,7 @@ def make_model_dir(tmp_path: Path) -> Path:
     return model_dir
 
 
-def fake_backend_factory(model_dir: Path, device: str = "cpu") -> engine.Backend:
+def fake_backend_factory(model_dir: Path, device: str = "cpu") -> Backend:
     """Imitacja faster-whisper: jeden segment, bez modelu i bez sieci."""
 
     class FakeBackend:
@@ -86,7 +87,7 @@ class TestBackendContract:
             "faster_whisper",
             SimpleNamespace(WhisperModel=FakeWhisperModel),
         )
-        engine.faster_whisper_backend(Path("/katalog/modelu"))
+        faster_whisper_backend(Path("/katalog/modelu"))
 
         assert captured["model_path"] == "/katalog/modelu"
         assert captured["local_files_only"] is True

@@ -15,11 +15,11 @@ import pytest
 
 from transkryptor.asr.engine import (
     DecodingOptions,
-    SegmentResult,
     TranscriptionCancelled,
     TranscriptionError,
 )
 from transkryptor.asr.models import DEFAULT_MODEL
+from transkryptor.asr.results import SegmentResult
 from transkryptor.asr.worker import AsrWorker
 from transkryptor.errors import ModelDownloadError
 

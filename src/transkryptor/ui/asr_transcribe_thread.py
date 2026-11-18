@@ -8,8 +8,9 @@ from pathlib import Path
 from PySide6.QtCore import QThread, Signal
 
 from transkryptor.asr import engine
-from transkryptor.asr.engine import DecodingOptions, TranscriptionResult
+from transkryptor.asr.engine import DecodingOptions
 from transkryptor.asr.models import AsrModelInfo
+from transkryptor.asr.results import TranscriptionResult
 from transkryptor.errors import AppError
 
 

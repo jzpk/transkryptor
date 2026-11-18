@@ -21,8 +21,8 @@ from dataclasses import dataclass, replace
 
 import regex
 
-from transkryptor.asr.engine import SegmentResult, TranscriptionResult, WordResult
 from transkryptor.asr.phatic import ends_with_phatic_tag
+from transkryptor.asr.results import SegmentResult, TranscriptionResult, WordResult
 from transkryptor.document.questionnaire import QuestionMatcher
 
 QUESTION = 0

@@ -16,15 +16,17 @@ from transkryptor.asr.diarization import (
 from transkryptor.asr.engine import (
     DIARIZED_ASR_SHARE,
     DecodingOptions,
-    SegmentResult,
     TranscriptionCancelled,
+    transcribe,
+)
+from transkryptor.asr.models import DEFAULT_MODEL, DIARIZATION_MODEL
+from transkryptor.asr.results import (
+    SegmentResult,
     TranscriptionResult,
     WordResult,
     draft_line_speakers,
     draft_text,
-    transcribe,
 )
-from transkryptor.asr.models import DEFAULT_MODEL, DIARIZATION_MODEL
 
 
 def words(*spans: tuple[float, float, str]) -> tuple[WordResult, ...]:

@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from PySide6.QtCore import QPoint, Qt
 
-from transkryptor.asr.engine import SegmentResult, TranscriptionResult
+from transkryptor.asr.results import SegmentResult, TranscriptionResult
 from transkryptor.ui import waveform as waveform_module
 from transkryptor.ui.main_window import MainWindow
 

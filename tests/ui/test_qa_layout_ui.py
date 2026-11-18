@@ -2,7 +2,7 @@
 
 import pytest
 
-from transkryptor.asr.engine import SegmentResult, TranscriptionResult
+from transkryptor.asr.results import SegmentResult, TranscriptionResult
 from transkryptor.ui.main_window import MainWindow
 
 TEXT = " Imię i nazwisko? Krystyna Adamek. Zajęcie? Rolnik, nie? Tak."

@@ -26,7 +26,7 @@ from PySide6.QtCore import QObject, Signal
 from PySide6.QtWidgets import QFileDialog, QMessageBox, QWidget
 
 from transkryptor import diagnostics
-from transkryptor.asr.engine import SegmentResult, TranscriptionResult, WordResult
+from transkryptor.asr.results import SegmentResult, TranscriptionResult, WordResult
 from transkryptor.audio.player import AudioPlayer
 from transkryptor.audio.player import file_dialog_filter as audio_filter
 from transkryptor.document.metadata import (

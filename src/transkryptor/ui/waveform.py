@@ -27,7 +27,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from transkryptor.asr.engine import SegmentResult
+from transkryptor.asr.results import SegmentResult
 from transkryptor.audio.envelope import (
     Envelope,
     compute_envelope,

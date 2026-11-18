@@ -6,24 +6,25 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+from transkryptor.asr import backend as backend_module
 from transkryptor.asr import engine
-from transkryptor.asr import engine as engine_module
+from transkryptor.asr.chunked import ChunkedWhisperBackend, chunk_bounds
 from transkryptor.asr.engine import (
     PROMPT_MAX_CHARS,
-    ChunkedWhisperBackend,
     DecodingOptions,
-    SegmentResult,
     TranscriptionCancelled,
     TranscriptionError,
-    TranscriptionResult,
-    WordResult,
     build_hotwords,
-    chunk_bounds,
-    draft_text,
-    format_timestamp,
     transcribe,
 )
 from transkryptor.asr.models import DEFAULT_MODEL
+from transkryptor.asr.results import (
+    SegmentResult,
+    TranscriptionResult,
+    WordResult,
+    draft_text,
+    format_timestamp,
+)
 from transkryptor.errors import ModelDownloadError
 
 
@@ -482,7 +483,7 @@ class TestChunking:
 
     def test_engine_chunks_when_option_enabled(self, tmp_path, monkeypatch) -> None:
         samples = np.ones(self.RATE * 700, dtype=np.float32)
-        monkeypatch.setattr(engine, "_decode_audio", lambda path: samples)
+        monkeypatch.setattr(backend_module, "decode_audio", lambda path: samples)
         model = ChunkModel()
         result = transcribe(
             make_audio(tmp_path),
@@ -619,7 +620,7 @@ class TestClip:
     ) -> None:
         model = ChunkModel()
         samples = np.ones(self.RATE * 30, dtype=np.float32)
-        monkeypatch.setattr(engine_module, "_decode_audio", lambda path: samples)
+        monkeypatch.setattr(backend_module, "decode_audio", lambda path: samples)
         progress: list[float] = []
         result = transcribe(
             make_audio(tmp_path),
@@ -641,7 +642,7 @@ class TestClip:
                 return iter([]), SimpleNamespace(language=kwargs["language"])
 
         samples = np.ones(self.RATE * 900, dtype=np.float32)
-        monkeypatch.setattr(engine_module, "_decode_audio", lambda path: samples)
+        monkeypatch.setattr(backend_module, "decode_audio", lambda path: samples)
         progress: list[float] = []
         result = transcribe(
             make_audio(tmp_path),

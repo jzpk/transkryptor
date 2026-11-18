@@ -41,19 +41,18 @@ from typing import Any
 
 from transkryptor import diagnostics
 from transkryptor.asr import engine
+from transkryptor.asr.backend import Backend, BackendFactory, faster_whisper_backend
 from transkryptor.asr.engine import (
     LANGUAGE,
-    Backend,
-    BackendFactory,
     CancelCheck,
     DecodingOptions,
     ProgressCallback,
     SegmentCallback,
     TranscriptionCancelled,
     TranscriptionError,
-    TranscriptionResult,
 )
 from transkryptor.asr.models import DEFAULT_MODEL, AsrModelInfo
+from transkryptor.asr.results import TranscriptionResult
 from transkryptor.errors import AppError, ModelDownloadError
 from transkryptor.i18n import current_language, set_language, tr
 
@@ -336,7 +335,7 @@ def _serve(
         # ślad stosu zostaje w ``crash.log`` dla dziennika procesu głównego.
         diagnostics.enable_crash_log(Path(crash_log_dir))
     cached: dict[tuple[Path, str], Backend] = {}
-    factory = backend_factory or engine.faster_whisper_backend
+    factory = backend_factory or faster_whisper_backend
 
     def cached_factory(model_dir: Path, device: str) -> Backend:
         key = (model_dir, device)

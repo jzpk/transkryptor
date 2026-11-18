@@ -15,12 +15,12 @@ from dataclasses import replace
 
 from PySide6.QtCore import QObject
 
-from transkryptor.asr.engine import (
+from transkryptor.asr.qa_layout import question_answer_layout, question_detector
+from transkryptor.asr.results import (
     TranscriptionResult,
     draft_line_speakers,
     draft_text,
 )
-from transkryptor.asr.qa_layout import question_answer_layout, question_detector
 from transkryptor.document.model import Document
 from transkryptor.document.speakers import speakers_for_clusters
 from transkryptor.i18n import tr

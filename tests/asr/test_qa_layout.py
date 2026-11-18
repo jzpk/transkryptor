@@ -1,17 +1,17 @@
 """Układ szkicu „pytanie - odpowiedź” według znaków zapytania (zgłoszenie #41)."""
 
-from transkryptor.asr.engine import (
-    SegmentResult,
-    TranscriptionResult,
-    WordResult,
-    draft_line_speakers,
-    draft_text,
-)
 from transkryptor.asr.qa_layout import (
     ANSWER,
     QUESTION,
     ends_with_question,
     question_answer_layout,
+)
+from transkryptor.asr.results import (
+    SegmentResult,
+    TranscriptionResult,
+    WordResult,
+    draft_line_speakers,
+    draft_text,
 )
 
 

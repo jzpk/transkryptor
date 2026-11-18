@@ -12,7 +12,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from transkryptor.asr.draft_style import DraftStyle, apply_style, style_text
-from transkryptor.asr.engine import TranscriptionResult
+from transkryptor.asr.results import TranscriptionResult
 from transkryptor.document.inflection import Inflector, morfeusz_inflector
 from transkryptor.document.parts_of_speech import AnalyserUnavailable
 from transkryptor.document.proper_names import ProperNames, morfeusz_proper_names

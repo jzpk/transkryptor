@@ -41,14 +41,16 @@ from transkryptor.asr.engine import (
     DIARIZED_ASR_SHARE,
     PROMPT_MAX_CHARS,
     DecodingOptions,
-    SegmentResult,
-    TranscriptionResult,
     build_hotwords,
     compose_prompt,
+)
+from transkryptor.asr.models import DIARIZATION_MODEL, AsrModelInfo, format_size
+from transkryptor.asr.results import (
+    SegmentResult,
+    TranscriptionResult,
     draft_text,
     format_timestamp,
 )
-from transkryptor.asr.models import DIARIZATION_MODEL, AsrModelInfo, format_size
 from transkryptor.asr.system import total_memory_bytes
 from transkryptor.asr.worker import AsrWorker
 from transkryptor.errors import AppError

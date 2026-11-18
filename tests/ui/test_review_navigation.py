@@ -7,7 +7,7 @@ import pytest
 from PySide6.QtGui import QTextCursor
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
-from transkryptor.asr.engine import SegmentResult, TranscriptionResult, WordResult
+from transkryptor.asr.results import SegmentResult, TranscriptionResult, WordResult
 from transkryptor.document.project import ProjectState
 from transkryptor.ui.main_window import MainWindow
 from transkryptor.ui.navigation import BACKWARD, FORWARD, step

@@ -11,7 +11,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QTextCursor
 from PySide6.QtWidgets import QFileDialog
 
-from transkryptor.asr.engine import SegmentResult, TranscriptionResult, WordResult
+from transkryptor.asr.results import SegmentResult, TranscriptionResult, WordResult
 from transkryptor.document.anchors import MANUAL, SEGMENT
 from transkryptor.ui.highlights import ACTIVE_LAYER, UNCERTAIN_LAYER
 from transkryptor.ui.main_window import MainWindow

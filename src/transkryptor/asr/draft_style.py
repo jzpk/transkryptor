@@ -23,7 +23,7 @@ from dataclasses import dataclass, replace
 import regex
 
 from transkryptor.asr.abbreviations import TOKEN_RE, Agree, expand_tokens, tokenize
-from transkryptor.asr.engine import SegmentResult, TranscriptionResult
+from transkryptor.asr.results import SegmentResult, TranscriptionResult
 
 # Interpunkcja usuwana w zapisie mowy (zostają ? ! i wielokropki).
 _DROPPED = str.maketrans("", "", ",;:")
