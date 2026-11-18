@@ -26,6 +26,9 @@ któryś limit, najpierw wydziel część kodu, potem dopisuj funkcję.
 - Jedna klasa = jedna odpowiedzialność. Moduł powyżej ~500 linii albo klasa
   z kilkoma niezależnymi obszarami (np. pobieranie modelu i transkrypcja)
   to sygnał do podziału na osobne moduły/klasy.
+  Limit modułu (500 linii) i funkcji (100 linii) pilnuje
+  `tests/test_code_size.py`; moduły już większe są tam na liście wyjątków
+  z obecnym rozmiarem - mogą się tylko zmniejszać (po podziale obniż wpis).
 - Widżet z kilkoma częściami składaj z sekcji (wzorzec: `AsrPanel` +
   `ModelSection`/`TranscriptionSection`/`ReviewSection`); kontener tylko
   układa sekcje i przekazuje ich sygnały.

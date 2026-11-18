@@ -20,17 +20,15 @@ pozostałe - z plików. Otwieranie projektów i zaznaczanie tekstu robi
 
 from __future__ import annotations
 
-import threading
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
 import regex
-from PySide6.QtCore import QObject, Qt, QThread, QTimer, Signal
-from PySide6.QtGui import QCloseEvent, QFont, QHideEvent
+from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QCloseEvent, QHideEvent
 from PySide6.QtWidgets import (
-    QAbstractItemView,
     QApplication,
     QCheckBox,
     QComboBox,
@@ -43,7 +41,6 @@ from PySide6.QtWidgets import (
     QMenu,
     QPushButton,
     QSplitter,
-    QTableWidget,
     QTableWidgetItem,
     QTabWidget,
     QToolButton,
@@ -69,6 +66,8 @@ from transkryptor.document.search import SearchError, SearchOptions, compile_que
 from transkryptor.errors import AppError
 from transkryptor.i18n import tr
 from transkryptor.ui.busy_overlay import BusyOverlay, InputBlocker
+from transkryptor.ui.corpus_table import HitTable, count_item, table_widget
+from transkryptor.ui.corpus_task import CorpusTask, Progress
 from transkryptor.ui.file_dialogs import ask_save_path
 from transkryptor.ui.messages import show_error
 from transkryptor.ui.player_bar import format_ms
@@ -80,43 +79,6 @@ SEARCH_TAB, FORMS_TAB, CATALOG_TAB = range(3)
 SCOPE_CURRENT, SCOPE_FOLDER = "current", "folder"
 # Nakładka pojawia się dopiero po tym czasie - krótka praca nie miga.
 BUSY_DELAY_MS = 150
-
-# ``progress(done, total)`` z wątku w tle; False - przerwij pracę.
-Progress = Callable[[int, int], bool]
-
-
-class _Task(QThread):
-    """Praca w wątku w tle z postępem i przerwaniem.
-
-    ``work`` dostaje funkcję postępu - zwraca ona False po :meth:`cancel`.
-    Wynik albo wyjątek odbiera wątek UI po sygnale ``finished``.
-    """
-
-    progressed = Signal(int, int)
-
-    def __init__(self, work: Callable[[Progress], object], parent: QObject) -> None:
-        super().__init__(parent)
-        self._work = work
-        self._cancel = threading.Event()
-        self.result: object = None
-        self.error: BaseException | None = None
-
-    @property
-    def cancelled(self) -> bool:
-        return self._cancel.is_set()
-
-    def cancel(self) -> None:
-        self._cancel.set()
-
-    def run(self) -> None:
-        try:
-            self.result = self._work(self._progress)
-        except Exception as error:  # noqa: BLE001 - przekazywany do wątku UI
-            self.error = error
-
-    def _progress(self, done: int, total: int) -> bool:
-        self.progressed.emit(done, total)
-        return not self._cancel.is_set()
 
 
 @dataclass(frozen=True)
@@ -144,102 +106,11 @@ class CorpusHost:
     pause_main: Callable[[], None]
 
 
-class HitTable(QTableWidget):
-    """Konkordancja: projekt, mówca, kontekst, trafienie, kontekst, czas."""
-
-    PROJECT, SPEAKER, LEFT, MATCH, RIGHT, TIME = range(6)
-
-    def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__(0, 6, parent)
-        self.setHorizontalHeaderLabels(
-            [
-                tr("corpus.hits.project"),
-                tr("corpus.hits.speaker"),
-                tr("corpus.hits.left"),
-                tr("corpus.hits.match"),
-                tr("corpus.hits.right"),
-                tr("corpus.hits.time"),
-            ]
-        )
-        self.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
-        self.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.setWordWrap(False)
-        self.verticalHeader().setVisible(False)
-        header = self.horizontalHeader()
-        for column in (self.PROJECT, self.SPEAKER, self.MATCH, self.TIME):
-            header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
-        for column in (self.LEFT, self.RIGHT):
-            header.setSectionResizeMode(column, QHeaderView.ResizeMode.Stretch)
-        self._hits: list[Hit] = []
-
-    @property
-    def hits(self) -> list[Hit]:
-        return list(self._hits)
-
-    def set_hits(self, hits: Sequence[Hit], folder: Path | None) -> None:
-        self._hits = list(hits)
-        self.setUpdatesEnabled(False)
-        self.clearContents()
-        self.setRowCount(len(self._hits))
-        bold = QFont(self.font())
-        bold.setBold(True)
-        for row, hit in enumerate(self._hits):
-            project = QTableWidgetItem(hit.project.relative_name(folder))
-            if hit.project.path is not None:
-                project.setToolTip(str(hit.project.path))
-            left = QTableWidgetItem(hit.left)
-            left.setTextAlignment(
-                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
-            )
-            match = QTableWidgetItem(hit.match)
-            match.setFont(bold)
-            time = QTableWidgetItem(
-                "" if hit.time_ms is None else format_ms(hit.time_ms[0])
-            )
-            for column, item in (
-                (self.PROJECT, project),
-                (self.SPEAKER, QTableWidgetItem(hit.speaker)),
-                (self.LEFT, left),
-                (self.MATCH, match),
-                (self.RIGHT, QTableWidgetItem(hit.right)),
-                (self.TIME, time),
-            ):
-                self.setItem(row, column, item)
-        self.setUpdatesEnabled(True)
-        if self._hits:
-            self.selectRow(0)
-
-    def current_hit(self) -> Hit | None:
-        row = self.currentRow()
-        if 0 <= row < len(self._hits):
-            return self._hits[row]
-        return None
-
-
-def _table_widget(columns: Sequence[str]) -> QTableWidget:
-    table = QTableWidget(0, len(columns))
-    table.setHorizontalHeaderLabels(list(columns))
-    table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-    table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
-    table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-    table.setWordWrap(False)
-    table.verticalHeader().setVisible(False)
-    return table
-
-
 def _muted(text: str = "") -> QLabel:
     label = QLabel(text)
     label.setWordWrap(True)
     set_props(label, role="muted")
     return label
-
-
-def _item(value: str | int) -> QTableWidgetItem:
-    item = QTableWidgetItem()
-    # Liczby jako liczby - sortowanie kolumny po wartości, nie po tekście.
-    item.setData(Qt.ItemDataRole.DisplayRole, value)
-    return item
 
 
 class CorpusDialog(QDialog):
@@ -257,7 +128,7 @@ class CorpusDialog(QDialog):
         self._similar: dict[str, tuple[str, ...]] = {}
         self._forms_project: CorpusProject | None = None
         self._catalog: Table | None = None
-        self._task: _Task | None = None
+        self._task: CorpusTask | None = None
         self._busy_title = ""
         self._done: Callable[[object], None] = lambda _result: None
         self._progress: tuple[int, int] | None = None
@@ -397,7 +268,7 @@ class CorpusDialog(QDialog):
         options.addWidget(self.forms_filter_edit, stretch=1)
         options.addWidget(self.export_forms_button)
 
-        self.forms_table = _table_widget(
+        self.forms_table = table_widget(
             [
                 tr("corpus.forms.form"),
                 tr("corpus.forms.count"),
@@ -448,7 +319,7 @@ class CorpusDialog(QDialog):
         row.addWidget(self.export_csv_button)
         row.addWidget(self.export_xlsx_button)
         row.addWidget(self.export_tei_button)
-        self.catalog_table = _table_widget([])
+        self.catalog_table = table_widget([])
         self.catalog_label = _muted(tr("corpus.catalog.hint"))
         page = QWidget()
         layout = QVBoxLayout(page)
@@ -558,7 +429,7 @@ class CorpusDialog(QDialog):
         if self._task is not None:
             return False
         self.player.pause()
-        task = _Task(work, self)
+        task = CorpusTask(work, self)
         # Sloty obiektów wątku UI - wywołania z wątku w tle idą przez kolejkę.
         task.progressed.connect(self._on_progress)
         task.finished.connect(self._finish)
@@ -729,12 +600,14 @@ class CorpusDialog(QDialog):
         table.clearContents()
         table.setRowCount(len(forms))
         for row, entry in enumerate(forms):
-            form = _item(entry.form)
+            form = count_item(entry.form)
             form.setData(Qt.ItemDataRole.UserRole, entry.form)
             table.setItem(row, 0, form)
-            table.setItem(row, 1, _item(entry.count))
-            table.setItem(row, 2, _item(entry.project_count))
-            table.setItem(row, 3, _item(", ".join(self._similar.get(entry.form, ()))))
+            table.setItem(row, 1, count_item(entry.count))
+            table.setItem(row, 2, count_item(entry.project_count))
+            table.setItem(
+                row, 3, count_item(", ".join(self._similar.get(entry.form, ())))
+            )
         table.setUpdatesEnabled(True)
         table.setSortingEnabled(True)
         total = sum(entry.count for entry in self._forms)
@@ -834,7 +707,9 @@ class CorpusDialog(QDialog):
         for row, values in enumerate(catalog.rows):
             for column, value in enumerate(values):
                 table.setItem(
-                    row, column, _item(value if isinstance(value, int) else str(value))
+                    row,
+                    column,
+                    count_item(value if isinstance(value, int) else str(value)),
                 )
         table.resizeColumnsToContents()
         table.setSortingEnabled(True)

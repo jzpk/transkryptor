@@ -40,7 +40,15 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from transkryptor import __version__
-from transkryptor.document.project import PROJECT_SUFFIX, ProjectState, dumps, loads
+from transkryptor.document.pack_checks import (
+    audio_mismatch,
+    check_project_audio,
+    check_unique_names,
+    checked_name,
+    invalid_pack,
+    safe_name,
+)
+from transkryptor.document.project import PROJECT_SUFFIX, ProjectState, dumps
 from transkryptor.errors import ProjectError
 from transkryptor.fileio import (
     SizeLimitError,
@@ -69,12 +77,6 @@ MAX_PROJECT_BYTES = 256 * 1024 * 1024
 MAX_TEMPLATE_BYTES = 64 * 1024 * 1024
 _STAGING_PREFIX = ".tkpack-"
 _SHA256 = re.compile(r"[0-9a-f]{64}")
-# Nazwy urządzeń w Windows - pliku o takim rdzeniu nazwy nie da się zapisać.
-_RESERVED_NAMES = frozenset(
-    {"CON", "PRN", "AUX", "NUL"}
-    | {f"COM{n}" for n in range(1, 10)}
-    | {f"LPT{n}" for n in range(1, 10)}
-)
 
 
 def file_dialog_filter() -> str:
@@ -196,7 +198,7 @@ def write_pack(target: Path, source: PackSource) -> None:
     audio = _audio(source)
     source = _with_audio_sha(source, audio)
     template = source.template_path if _is_file(source.template_path) else None
-    template_name = _safe_name(template.name) if template is not None else ""
+    template_name = safe_name(template.name) if template is not None else ""
     manifest: dict[str, Any] = {
         "format": PACK_FORMAT,
         "version": PACK_VERSION,
@@ -215,7 +217,7 @@ def write_pack(target: Path, source: PackSource) -> None:
         if audio is not None:
             # Nazwa jak w manifeście (bezpieczna), bo po niej szuka odczyt.
             # Nagrania (MP3, AAC…) są już skompresowane.
-            audio_name = (manifest["audio"] or {}).get("name") or _safe_name(audio.name)
+            audio_name = (manifest["audio"] or {}).get("name") or safe_name(audio.name)
             archive.write(
                 audio, f"audio/{audio_name}", compress_type=zipfile.ZIP_STORED
             )
@@ -230,7 +232,7 @@ def read_manifest(path: Path) -> PackManifest:
         with zipfile.ZipFile(path) as archive:
             return _manifest(archive)
     except (OSError, zipfile.BadZipFile, ValueError, KeyError, TypeError) as exc:
-        raise _invalid(path) from exc
+        raise invalid_pack(path) from exc
 
 
 def conflicts(manifest: PackManifest, directory: Path) -> list[str]:
@@ -267,13 +269,13 @@ def _unpack(path: Path, directory: Path, staging: Path) -> StagedPack:
         with zipfile.ZipFile(path) as archive:
             manifest = _manifest(archive)
             _extract(archive, f"project/{manifest.project}", staging, MAX_PROJECT_BYTES)
-            _check_project_audio(staging / manifest.project, manifest, path)
+            check_project_audio(staging / manifest.project, manifest.audio_sha256, path)
             if manifest.audio_included:
                 member = f"audio/{manifest.audio_name}"
                 _check_audio_entry(archive.getinfo(member), staging, path)
                 digest = _extract(archive, member, staging)
                 if digest != manifest.audio_sha256.lower():
-                    raise _audio_mismatch(path)
+                    raise audio_mismatch(path)
             if manifest.template:
                 _extract(
                     archive,
@@ -285,7 +287,7 @@ def _unpack(path: Path, directory: Path, staging: Path) -> StagedPack:
     except ProjectError:
         raise
     except (OSError, zipfile.BadZipFile, ValueError, KeyError, TypeError) as exc:
-        raise _invalid(path) from exc
+        raise invalid_pack(path) from exc
     return StagedPack(manifest, settings, directory, staging)
 
 
@@ -316,7 +318,7 @@ def _is_file(path: Path | None) -> bool:
 
 
 def _project_name(name: str) -> str:
-    stem = _safe_name(Path(name).stem) or "projekt"
+    stem = safe_name(Path(name).stem) or "projekt"
     return f"{stem}{PROJECT_SUFFIX}"
 
 
@@ -336,7 +338,7 @@ def _project_json(source: PackSource) -> str:
         return _last_project_json[1]
     packed = state
     if state.audio is not None:
-        audio = replace(state.audio, relative_path=_safe_name(state.audio.name))
+        audio = replace(state.audio, relative_path=safe_name(state.audio.name))
         packed = replace(state, audio=audio)
     text = dumps(packed)
     _last_project_json = (state, text)
@@ -348,7 +350,7 @@ def _audio_manifest(source: PackSource, audio: Path | None) -> dict[str, Any] | 
     if ref is None:
         return None
     return {
-        "name": _safe_name(ref.name),
+        "name": safe_name(ref.name),
         "sha256": ref.sha256,
         "included": audio is not None,
     }
@@ -397,29 +399,6 @@ def _check_audio_entry(info: zipfile.ZipInfo, staging: Path, path: Path) -> None
         )
 
 
-def _check_project_audio(project: Path, manifest: PackManifest, path: Path) -> None:
-    """Suma nagrania w projekcie z paczki musi się zgadzać z manifestem.
-
-    Inaczej projekt wskazywałby inne nagranie niż to, które paczka zawiera
-    (albo, bez nagrania, niż to, z którym manifest każe go powiązać).
-    """
-    if not manifest.audio_sha256:
-        return
-    try:
-        audio = loads(project.read_text(encoding="utf-8")).audio
-    except ProjectError as exc:
-        raise _invalid(path) from exc
-    if audio is None or audio.sha256.lower() != manifest.audio_sha256.lower():
-        raise _audio_mismatch(path)
-
-
-def _audio_mismatch(path: Path) -> ProjectError:
-    return ProjectError(
-        user_message=tr("pack.error.audio_mismatch", name=path.name),
-        retry_hint=tr("pack.error.invalid.hint"),
-    )
-
-
 def _manifest(archive: zipfile.ZipFile) -> PackManifest:
     data = json.loads(_read_member(archive, MANIFEST, MAX_MANIFEST_BYTES))
     if not isinstance(data, dict) or data.get("format") != PACK_FORMAT:
@@ -434,7 +413,7 @@ def _manifest(archive: zipfile.ZipFile) -> PackManifest:
             ),
             retry_hint=tr("pack.error.newer.hint"),
         )
-    project = _checked_name(data["project"])
+    project = checked_name(data["project"])
     if not project.endswith(PROJECT_SUFFIX):
         raise ValueError("nieprawidłowa nazwa projektu")
     audio = data.get("audio")
@@ -443,28 +422,17 @@ def _manifest(archive: zipfile.ZipFile) -> PackManifest:
     manifest = PackManifest(
         version=version,
         project=project,
-        audio_name=_checked_name(audio["name"]) if audio else "",
+        audio_name=checked_name(audio["name"]) if audio else "",
         audio_sha256=str(audio.get("sha256", "")),
         audio_included=bool(audio.get("included", False)),
-        template=_checked_name(template) if template else "",
+        template=checked_name(template) if template else "",
         created=str(data.get("created", "")),
         app_version=str(data.get("app_version", "")),
     )
     if manifest.audio_included and not _SHA256.fullmatch(manifest.audio_sha256.lower()):
         raise ValueError("nagranie w paczce bez sumy SHA-256")
-    _check_unique_names(manifest)
+    check_unique_names(_extracted_names(manifest))
     return manifest
-
-
-def _check_unique_names(manifest: PackManifest) -> None:
-    """Pliki paczki trafiają do jednego katalogu - nazwa nie może się powtarzać.
-
-    Porównanie bez wielkości liter (``casefold``), bo w Windows i macOS
-    ``Wywiad.mp3`` i ``wywiad.MP3`` to ten sam plik - jeden nadpisałby drugi.
-    """
-    names = [name.casefold() for name in _extracted_names(manifest)]
-    if len(names) != len(set(names)):
-        raise ValueError("powtórzona nazwa pliku w paczce")
 
 
 def _extracted_names(manifest: PackManifest) -> list[str]:
@@ -530,30 +498,3 @@ def _extract(
             handle.write(chunk)
             digest.update(chunk)
     return digest.hexdigest()
-
-
-def _safe_name(name: str) -> str:
-    """Sama nazwa pliku, bez katalogów i znaków niedozwolonych w Windows.
-
-    Nazwa urządzenia Windows (``CON``, ``NUL.txt``, ``com1.mp3``...) dostaje
-    przedrostek ``_`` - inaczej zapis kończy się niezrozumiałym błędem.
-    """
-    base = PurePosixPath(name.replace("\\", "/")).name
-    cleaned = "".join("_" if ch in '<>:"|?*' or ord(ch) < 32 else ch for ch in base)
-    cleaned = cleaned.strip(" .")
-    if cleaned.split(".", 1)[0].rstrip(" ").upper() in _RESERVED_NAMES:
-        cleaned = f"_{cleaned}"
-    return cleaned
-
-
-def _checked_name(value: Any) -> str:
-    if not isinstance(value, str) or not value or _safe_name(value) != value:
-        raise ValueError("nieprawidłowa nazwa pliku w paczce")
-    return value
-
-
-def _invalid(path: Path) -> ProjectError:
-    return ProjectError(
-        user_message=tr("pack.error.invalid", name=path.name),
-        retry_hint=tr("pack.error.invalid.hint"),
-    )

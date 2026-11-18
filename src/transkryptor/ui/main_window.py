@@ -166,9 +166,25 @@ class MainWindow(QMainWindow):
         self.settings_store = settings_store
         self._ui_locked = False
 
+        self._build_widgets()
+        self._build_editing_controllers()
+        self._build_session()
+        self._build_document_controllers()
+        self._build_timers()
+        self._build_window()
+        self._connect_signals()
+        self._apply_settings(settings_store.current)
+        self.speakers.refresh()
+        self._update_title()
+        self.notation.update_warning_count()
+        # Czytniki ekranu: nazwy przycisków z samą ikoną z ich podpowiedzi.
+        accessibility.describe(self)
+
+    def _build_widgets(self) -> None:
+        """Widżety okna: metryczka, edytory, odtwarzacz, ostrzeżenia, panel ASR."""
         self.author_edit = author_field()
         self.date_edit = date_field()
-        self.metadata_form = MetadataForm(settings_store.current.metadata.fields)
+        self.metadata_form = MetadataForm(self.settings_store.current.metadata.fields)
 
         self.editor = TranscriptionEditor()
         # Prawa kolumna porównania wersji (tylko do odczytu, faza 14).
@@ -177,13 +193,13 @@ class MainWindow(QMainWindow):
         self.compare_view.setReadOnly(True)
         self.compare_view.setPlaceholderText("")
         self.search_bar = SearchBar()
-        self.player_bar = PlayerBar(self.player, settings_store.current.player)
+        self.player_bar = PlayerBar(self.player, self.settings_store.current.player)
         self.audio_filters = AudioFilterController(self.player, self)
         self.warnings_panel = WarningsPanel()
         self.warnings_panel.set_warnings([])
         self.warning_count_label = label("", "badge")
 
-        asr_settings = settings_store.current.asr
+        asr_settings = self.settings_store.current.asr
         self.asr_panel = AsrPanel(
             ModelManager(
                 model_by_key(asr_settings.model_key),
@@ -199,9 +215,11 @@ class MainWindow(QMainWindow):
         # Profile notacji: przy pierwszym starcie obecne ustawienia stają się
         # profilem „Domyślny”.
         self.profiles = ProfileController(
-            self, settings_store, self.rules_store, self.show_status
+            self, self.settings_store, self.rules_store, self.show_status
         )
 
+    def _build_editing_controllers(self) -> None:
+        """Kontrolery pracy na tekście i nagraniu (synchronizacja, przegląd, komentarze)."""
         self.sync = SyncController(
             self.editor,
             self.player,
@@ -252,6 +270,9 @@ class MainWindow(QMainWindow):
             self.player, lambda: covered_ms(self.document.text, self.sync.entries())
         )
         self.work_time.watch(self.editor.cursorPositionChanged, self.editor.textChanged)
+
+    def _build_session(self) -> None:
+        """Sesja: dokument, projekt i nagranie; zdarzenia sesji dla okna."""
         self.session = SessionController(
             self,
             SessionViews(
@@ -271,7 +292,7 @@ class MainWindow(QMainWindow):
                 verification=self.verification,
                 work=self.work_time,
             ),
-            settings_store,
+            self.settings_store,
         )
         self.session.events.reset.connect(self._on_session_reset)
         self.session.events.profile_requested.connect(self.profiles.use_project_profile)
@@ -299,6 +320,9 @@ class MainWindow(QMainWindow):
             # Późne wiązanie: kontroler notacji powstaje niżej.
             confirm=lambda: self.readiness.confirm_export(),
         )
+
+    def _build_document_controllers(self) -> None:
+        """Eksport, porównanie, korpus, wyszukiwanie, mówcy i notacja."""
         self.compare = CompareController(
             self.editor,
             self.compare_view,
@@ -363,12 +387,17 @@ class MainWindow(QMainWindow):
             self._on_learned_rule,
             self,
         )
+
+    def _build_timers(self) -> None:
+        """Odroczone odświeżanie tytułu i komentarzy po edycji."""
         self._sync_timer = QTimer(self)
         self._sync_timer.setSingleShot(True)
         self._sync_timer.setInterval(SYNC_DEBOUNCE_MS)
         self._sync_timer.timeout.connect(self._update_title)
         self._sync_timer.timeout.connect(self.comments.refresh)
 
+    def _build_window(self) -> None:
+        """Układ, paski narzędzi, akcje, skróty i kontrolery zależne od układu."""
         self._build_layout()
         # Bez połączeń sieciowych przy tworzeniu okna: sprawdzanie (także
         # okresowe) startuje punkt wejścia (``__main__.main``) przez
@@ -390,7 +419,10 @@ class MainWindow(QMainWindow):
         self.speaker_actions = self.speakers.create_actions(self)
         self.review_actions = self._create_review_actions()
         self.zoom = ZoomController(
-            self, (self.editor, self.compare_view), settings_store, self.show_status
+            self,
+            (self.editor, self.compare_view),
+            self.settings_store,
+            self.show_status,
         )
         self.snippets = SnippetController(
             self, self.editor, self.main_toolbar.snippets_menu, self._on_settings
@@ -399,7 +431,7 @@ class MainWindow(QMainWindow):
             self.main_toolbar.highlights_menu, (self.phrases, self.parts_of_speech)
         )
         self.shortcut_actions = self._collect_shortcut_actions()
-        self.tutorials = TutorialController(self, settings_store, self)
+        self.tutorials = TutorialController(self, self.settings_store, self)
         self._build_status_bar()
         self.loading_overlay = LoadingOverlay(self)
         self.asr = AsrController(
@@ -408,7 +440,7 @@ class MainWindow(QMainWindow):
             self.speakers,
             self.compare,
             lambda: self.document,
-            settings_store,
+            self.settings_store,
             self.waveform,
             self.loading_overlay,
             self.session.autosave,
@@ -421,17 +453,10 @@ class MainWindow(QMainWindow):
             self.asr_panel,
             lambda: self.document,
             self.session.flush_editor,
-            lambda: settings_store.current.asr,
+            lambda: self.settings_store.current.asr,
             self.learning.refresh,
             self.show_status,
         )
-        self._connect_signals()
-        self._apply_settings(settings_store.current)
-        self.speakers.refresh()
-        self._update_title()
-        self.notation.update_warning_count()
-        # Czytniki ekranu: nazwy przycisków z samą ikoną z ich podpowiedzi.
-        accessibility.describe(self)
 
     @property
     def document(self) -> Document:
