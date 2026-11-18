@@ -242,6 +242,59 @@ def test_audio_with_wrong_checksum_is_rejected(tmp_path, source) -> None:
     assert list(target.iterdir()) == []
 
 
+def test_included_audio_needs_a_checksum(tmp_path) -> None:
+    pack = tmp_path / "zla.tkpack"
+    for audio in (
+        {"name": "a.mp3", "included": True},
+        {"name": "a.mp3", "sha256": "x", "included": True},
+    ):
+        write_zip(
+            pack,
+            {
+                "format": "transkryptor-pack",
+                "version": 1,
+                "project": "a.transkr",
+                "audio": audio,
+            },
+        )
+        with pytest.raises(ProjectError):
+            read_manifest(pack)
+
+
+def test_project_audio_must_match_the_manifest(tmp_path, source) -> None:
+    pack = tmp_path / "p.tkpack"
+    write_pack(pack, source)
+    with zipfile.ZipFile(pack) as archive:
+        members = {
+            name: archive.read(name).decode("latin-1")
+            for name in archive.namelist()
+            if name != MANIFEST
+        }
+        manifest = json.loads(archive.read(MANIFEST))
+    project = json.loads(members["project/wywiad.transkr"].encode("latin-1"))
+    project["audio"]["sha256"] = "1" * 64
+    members["project/wywiad.transkr"] = json.dumps(project)
+    write_zip(pack, manifest, members)
+    target = tmp_path / "odbiorca"
+    with pytest.raises(ProjectError) as info:
+        open_pack(pack, target)
+    assert "sumę kontrolną" in info.value.user_message
+    assert list(target.iterdir()) == []
+
+
+def test_pack_computes_a_missing_audio_checksum(tmp_path, source) -> None:
+    from dataclasses import replace
+
+    audio = replace(source.state.audio, sha256="")
+    pack = tmp_path / "p.tkpack"
+    write_pack(pack, replace(source, state=replace(source.state, audio=audio)))
+    assert read_manifest(pack).audio_sha256 == AUDIO_SHA
+    opened = open_pack(pack, tmp_path / "odbiorca")
+    loaded = load_project(opened.project_path).audio
+    assert loaded is not None
+    assert loaded.sha256 == AUDIO_SHA
+
+
 @pytest.mark.parametrize(
     ("limit", "member"),
     [

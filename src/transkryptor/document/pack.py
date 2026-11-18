@@ -19,7 +19,7 @@ archiwum są czytane z limitem rozmiaru (bomba ZIP nie wyczerpie pamięci),
 a pliki trafiają najpierw do katalogu tymczasowego obok celu
 (:func:`stage_pack`) - pod docelowe nazwy przenosi je dopiero
 :meth:`StagedPack.commit` po zgodzie użytkownika. Nagranie musi mieć sumę
-SHA-256 z manifestu. Zapis paczki przechodzi przez ``fileio.atomic_output``.
+SHA-256 z manifestu, zgodną z sumą w projekcie z paczki. Zapis paczki przechodzi przez ``fileio.atomic_output``.
 Scalanie ustawień z paczki z własnymi jest w ``document/pack_settings.py``.
 """
 
@@ -28,6 +28,7 @@ from __future__ import annotations
 import contextlib
 import hashlib
 import json
+import re
 import shutil
 import tempfile
 import zipfile
@@ -38,11 +39,12 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from transkryptor import __version__
-from transkryptor.document.project import PROJECT_SUFFIX, ProjectState, dumps
+from transkryptor.document.project import PROJECT_SUFFIX, ProjectState, dumps, loads
 from transkryptor.errors import ProjectError
 from transkryptor.fileio import (
     SizeLimitError,
     atomic_output,
+    file_sha256,
     limited_chunks,
     read_limited,
 )
@@ -62,6 +64,7 @@ MAX_SETTINGS_BYTES = 16 * 1024 * 1024
 MAX_PROJECT_BYTES = 256 * 1024 * 1024
 MAX_TEMPLATE_BYTES = 64 * 1024 * 1024
 _STAGING_PREFIX = ".tkpack-"
+_SHA256 = re.compile(r"[0-9a-f]{64}")
 # Nazwy urządzeń w Windows - pliku o takim rdzeniu nazwy nie da się zapisać.
 _RESERVED_NAMES = frozenset(
     {"CON", "PRN", "AUX", "NUL"}
@@ -187,6 +190,7 @@ def audio_size(source: PackSource) -> int:
 def write_pack(target: Path, source: PackSource) -> None:
     """Zapisuje paczkę atomowo; błąd zapisu → ``ProjectError``."""
     audio = _audio(source)
+    source = _with_audio_sha(source, audio)
     template = source.template_path if _is_file(source.template_path) else None
     template_name = _safe_name(template.name) if template is not None else ""
     manifest: dict[str, Any] = {
@@ -259,13 +263,11 @@ def _unpack(path: Path, directory: Path, staging: Path) -> StagedPack:
         with zipfile.ZipFile(path) as archive:
             manifest = _manifest(archive)
             _extract(archive, f"project/{manifest.project}", staging, MAX_PROJECT_BYTES)
+            _check_project_audio(staging / manifest.project, manifest, path)
             if manifest.audio_included:
                 digest = _extract(archive, f"audio/{manifest.audio_name}", staging)
-                if manifest.audio_sha256 and digest != manifest.audio_sha256.lower():
-                    raise ProjectError(
-                        user_message=tr("pack.error.audio_mismatch", name=path.name),
-                        retry_hint=tr("pack.error.invalid.hint"),
-                    )
+                if digest != manifest.audio_sha256.lower():
+                    raise _audio_mismatch(path)
             if manifest.template:
                 _extract(
                     archive,
@@ -282,6 +284,19 @@ def _unpack(path: Path, directory: Path, staging: Path) -> StagedPack:
 
 
 # --- zapis -------------------------------------------------------------------
+
+
+def _with_audio_sha(source: PackSource, audio: Path | None) -> PackSource:
+    """Źródło z sumą nagrania w projekcie - paczka z nagraniem musi ją mieć.
+
+    Suma bywa jeszcze pusta, gdy program liczy ją w tle (``HashThread``);
+    wtedy liczy ją zapis paczki.
+    """
+    ref = source.state.audio
+    if audio is None or ref is None or ref.sha256:
+        return source
+    state = replace(source.state, audio=replace(ref, sha256=file_sha256(audio)))
+    return replace(source, state=state)
 
 
 def _audio(source: PackSource) -> Path | None:
@@ -340,6 +355,29 @@ def _write_settings(archive: zipfile.ZipFile, settings: PackSettings) -> None:
 # --- odczyt ------------------------------------------------------------------
 
 
+def _check_project_audio(project: Path, manifest: PackManifest, path: Path) -> None:
+    """Suma nagrania w projekcie z paczki musi się zgadzać z manifestem.
+
+    Inaczej projekt wskazywałby inne nagranie niż to, które paczka zawiera
+    (albo, bez nagrania, niż to, z którym manifest każe go powiązać).
+    """
+    if not manifest.audio_sha256:
+        return
+    try:
+        audio = loads(project.read_text(encoding="utf-8")).audio
+    except ProjectError as exc:
+        raise _invalid(path) from exc
+    if audio is None or audio.sha256.lower() != manifest.audio_sha256.lower():
+        raise _audio_mismatch(path)
+
+
+def _audio_mismatch(path: Path) -> ProjectError:
+    return ProjectError(
+        user_message=tr("pack.error.audio_mismatch", name=path.name),
+        retry_hint=tr("pack.error.invalid.hint"),
+    )
+
+
 def _manifest(archive: zipfile.ZipFile) -> PackManifest:
     data = json.loads(_read_member(archive, MANIFEST, MAX_MANIFEST_BYTES))
     if not isinstance(data, dict) or data.get("format") != PACK_FORMAT:
@@ -370,6 +408,8 @@ def _manifest(archive: zipfile.ZipFile) -> PackManifest:
         created=str(data.get("created", "")),
         app_version=str(data.get("app_version", "")),
     )
+    if manifest.audio_included and not _SHA256.fullmatch(manifest.audio_sha256.lower()):
+        raise ValueError("nagranie w paczce bez sumy SHA-256")
     _check_unique_names(manifest)
     return manifest
 
