@@ -4,6 +4,7 @@ import hashlib
 import json
 import zipfile
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -279,6 +280,43 @@ def test_project_audio_must_match_the_manifest(tmp_path, source) -> None:
     with pytest.raises(ProjectError) as info:
         open_pack(pack, target)
     assert "sumę kontrolną" in info.value.user_message
+    assert list(target.iterdir()) == []
+
+
+def test_compressed_or_too_large_audio_is_rejected(
+    tmp_path, source, monkeypatch
+) -> None:
+    pack = tmp_path / "p.tkpack"
+    write_pack(pack, source)
+    with zipfile.ZipFile(pack) as archive:
+        members = {name: archive.read(name) for name in archive.namelist()}
+    with zipfile.ZipFile(pack, "w", zipfile.ZIP_DEFLATED) as archive:
+        for name, data in members.items():
+            archive.writestr(name, data)
+    with pytest.raises(ProjectError):
+        open_pack(pack, tmp_path / "skompresowane")
+
+    write_pack(pack, source)
+    monkeypatch.setattr(pack_module, "MAX_AUDIO_BYTES", len(AUDIO) - 1)
+    target = tmp_path / "odbiorca"
+    with pytest.raises(ProjectError):
+        open_pack(pack, target)
+    assert list(target.iterdir()) == []
+
+
+def test_audio_needs_free_disk_space(tmp_path, source, monkeypatch) -> None:
+    pack = tmp_path / "p.tkpack"
+    write_pack(pack, source)
+    monkeypatch.setattr(pack_module, "DISK_MARGIN_BYTES", 0)
+    monkeypatch.setattr(
+        pack_module.shutil,
+        "disk_usage",
+        lambda path: SimpleNamespace(free=len(AUDIO) - 1),
+    )
+    target = tmp_path / "odbiorca"
+    with pytest.raises(ProjectError) as info:
+        open_pack(pack, target)
+    assert "wolnego miejsca" in info.value.user_message
     assert list(target.iterdir()) == []
 
 

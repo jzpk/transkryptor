@@ -1300,6 +1300,8 @@
   "pack.group.notation": "Notacja i walidator",
   "pack.error.invalid": "Plik {name} nie jest poprawną paczką Transkryptora.",
   "pack.error.invalid.hint": "Sprawdź, czy plik nie jest uszkodzony albo niepełny (np. przerwane pobieranie).",
+  "pack.error.no_space": "Za mało wolnego miejsca na dysku, żeby rozpakować nagranie z paczki {name} (potrzeba około {size} MB).",
+  "pack.error.no_space.hint": "Zwolnij miejsce na dysku albo wybierz folder na innym dysku.",
   "pack.error.audio_mismatch": "Nagranie w paczce {name} ma inną sumę kontrolną niż zapisana w manifeście - paczka jest uszkodzona.",
   "pack.error.newer": "Paczkę zapisano nowszą wersją programu (format {version}, obsługiwany: {supported}).",
   "pack.error.newer.hint": "Zaktualizuj Transkryptora, żeby otworzyć tę paczkę.",

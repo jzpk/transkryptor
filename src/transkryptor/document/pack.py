@@ -28,6 +28,7 @@ from __future__ import annotations
 import contextlib
 import hashlib
 import json
+import math
 import re
 import shutil
 import tempfile
@@ -57,8 +58,11 @@ MANIFEST = "manifest.json"
 # Powyżej tego rozmiaru nagrania okno eksportu ostrzega o dużej paczce.
 LARGE_AUDIO_BYTES = 500 * 1024 * 1024
 _COPY_CHUNK = 1 << 20
-# Limity rozmiaru elementów archiwum po rozpakowaniu. Nagranie nie ma
-# stałego limitu - jego rozmiar musi zgadzać się z nagłówkiem ZIP.
+# Limity rozmiaru elementów archiwum po rozpakowaniu. Nagranie musi się
+# zgadzać z rozmiarem z nagłówka ZIP i zmieścić w MAX_AUDIO_BYTES oraz
+# w wolnym miejscu na dysku (z zapasem DISK_MARGIN_BYTES).
+MAX_AUDIO_BYTES = 16 * 1024**3
+DISK_MARGIN_BYTES = 256 * 1024 * 1024
 MAX_MANIFEST_BYTES = 1024 * 1024
 MAX_SETTINGS_BYTES = 16 * 1024 * 1024
 MAX_PROJECT_BYTES = 256 * 1024 * 1024
@@ -265,7 +269,9 @@ def _unpack(path: Path, directory: Path, staging: Path) -> StagedPack:
             _extract(archive, f"project/{manifest.project}", staging, MAX_PROJECT_BYTES)
             _check_project_audio(staging / manifest.project, manifest, path)
             if manifest.audio_included:
-                digest = _extract(archive, f"audio/{manifest.audio_name}", staging)
+                member = f"audio/{manifest.audio_name}"
+                _check_audio_entry(archive.getinfo(member), staging, path)
+                digest = _extract(archive, member, staging)
                 if digest != manifest.audio_sha256.lower():
                     raise _audio_mismatch(path)
             if manifest.template:
@@ -353,6 +359,28 @@ def _write_settings(archive: zipfile.ZipFile, settings: PackSettings) -> None:
 
 
 # --- odczyt ------------------------------------------------------------------
+
+
+def _check_audio_entry(info: zipfile.ZipInfo, staging: Path, path: Path) -> None:
+    """Nagranie musi być zapisane bez kompresji (tak zapisuje ``write_pack``),
+    nie większe niż ``MAX_AUDIO_BYTES`` i mieścić się na dysku.
+
+    Rozmiar z nagłówka ZIP podaje autor paczki - spreparowana paczka
+    zapełniłaby dysk w katalogu docelowym, zanim odczyt wykryje oszustwo.
+    """
+    if info.compress_type != zipfile.ZIP_STORED:
+        raise ValueError("nagranie w paczce musi być zapisane bez kompresji")
+    if info.file_size > MAX_AUDIO_BYTES:
+        raise SizeLimitError(MAX_AUDIO_BYTES)
+    if info.file_size + DISK_MARGIN_BYTES > shutil.disk_usage(staging).free:
+        raise ProjectError(
+            user_message=tr(
+                "pack.error.no_space",
+                name=path.name,
+                size=math.ceil(info.file_size / (1024 * 1024)),
+            ),
+            retry_hint=tr("pack.error.no_space.hint"),
+        )
 
 
 def _check_project_audio(project: Path, manifest: PackManifest, path: Path) -> None:
