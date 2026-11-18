@@ -130,7 +130,9 @@ def atomic_path(
 
 
 def _fsync_file(path: Path) -> None:
-    with path.open("rb") as handle:
+    # Z prawem zapisu: w Windows ``fsync`` (``_commit``) na deskryptorze
+    # tylko do odczytu kończy się EBADF.
+    with path.open("r+b") as handle:
         os.fsync(handle.fileno())
 
 
