@@ -320,13 +320,27 @@ def _project_name(name: str) -> str:
     return f"{stem}{PROJECT_SUFFIX}"
 
 
+# Ostatnio zserializowany projekt: (stan, JSON). Okno eksportu liczy rozmiar
+# paczki przy każdej zmianie opcji, a zapis paczki potrzebuje tego samego
+# JSON-a - projekt (do 256 MB) jest serializowany raz. Stan jest niezmienny
+# (frozen; słowniki w nim po ``capture_state`` nikt nie zmienia), więc ten sam
+# obiekt oznacza tę samą treść.
+_last_project_json: tuple[ProjectState, str] | None = None
+
+
 def _project_json(source: PackSource) -> str:
     """Projekt z nagraniem wskazanym względnie - obok pliku projektu."""
+    global _last_project_json
     state = source.state
+    if _last_project_json is not None and _last_project_json[0] is state:
+        return _last_project_json[1]
+    packed = state
     if state.audio is not None:
         audio = replace(state.audio, relative_path=_safe_name(state.audio.name))
-        state = replace(state, audio=audio)
-    return dumps(state)
+        packed = replace(state, audio=audio)
+    text = dumps(packed)
+    _last_project_json = (state, text)
+    return text
 
 
 def _audio_manifest(source: PackSource, audio: Path | None) -> dict[str, Any] | None:

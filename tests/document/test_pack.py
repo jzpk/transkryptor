@@ -120,6 +120,25 @@ def test_without_audio(tmp_path, source) -> None:
     assert estimated_size(replace(source, include_audio=False)) < estimated_size(source)
 
 
+def test_project_is_serialized_once_for_size_and_pack(
+    tmp_path, source, monkeypatch
+) -> None:
+    from dataclasses import replace
+
+    calls: list[object] = []
+    real = pack_module.dumps
+
+    def counting(state):
+        calls.append(state)
+        return real(state)
+
+    monkeypatch.setattr(pack_module, "dumps", counting)
+    estimated_size(source)
+    estimated_size(replace(source, include_audio=False))
+    write_pack(tmp_path / "p.tkpack", source)
+    assert len(calls) == 1
+
+
 def test_conflicts(tmp_path, source) -> None:
     pack = tmp_path / "p.tkpack"
     write_pack(pack, source)
