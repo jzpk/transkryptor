@@ -6,6 +6,22 @@ workflow „Wydanie” złoży je w sekcję z numerem wersji i datą, a jej tre�
 trafi do sekcji „Nowości w tej wersji” not wydania. Brak fragmentów blokuje
 wydanie.
 
+## 0.10.0 - 2026-11-18
+
+- **Szybszy start po anulowaniu transkrypcji:** gdy przerwiesz transkrypcję
+  w trakcie, model zostaje w pamięci i kolejna transkrypcja zaczyna się
+  od razu, bez ponownego wczytywania modelu.
+
+- **Bezpieczniejsze pobieranie modelu:** model rozpoznawania mowy jest
+  pobierany tylko z serwerów Hugging Face - inny adres przerywa pobieranie
+  z komunikatem.
+
+- **Bezpieczniejsze otwieranie paczek:** program odrzuca uszkodzone albo
+  spreparowane paczki `.tkpack` - z nagraniem bez sumy kontrolnej albo
+  innym niż w projekcie, z dwoma plikami o tej samej nazwie czy
+  z nagraniem większym niż 16 GB. Gdy na dysku brakuje miejsca na
+  nagranie, program mówi o tym od razu, zamiast zapełniać dysk.
+
 ## 0.9.2 - 2026-11-17
 
 - **Łączenie transkrypcji w polach tematycznych:** okno „Pola
