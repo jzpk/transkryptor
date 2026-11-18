@@ -19,16 +19,13 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from dataclasses import dataclass, replace
+from dataclasses import replace
 from pathlib import Path
 
 from PySide6.QtCore import QObject, Signal
 from PySide6.QtWidgets import QFileDialog, QMessageBox, QWidget
 
 from transkryptor import diagnostics
-from transkryptor.asr.results import SegmentResult, TranscriptionResult, WordResult
-from transkryptor.audio.player import AudioPlayer
-from transkryptor.audio.player import file_dialog_filter as audio_filter
 from transkryptor.document.metadata import (
     SIGNATURE,
     MetadataField,
@@ -39,54 +36,36 @@ from transkryptor.document.metadata import (
 from transkryptor.document.model import Document
 from transkryptor.document.project import (
     PROJECT_SUFFIX,
-    AsrContext,
-    AsrDraft,
-    AsrSegment,
-    AsrWord,
-    AudioRef,
     ProjectState,
     file_dialog_filter,
     load_project,
-    resolve_audio,
     save_project,
 )
 from transkryptor.errors import AppError
 from transkryptor.export.docx_import import import_docx
-from transkryptor.fileio import file_sha256
 from transkryptor.i18n import tr
-from transkryptor.ui.asr_panel import AsrPanel
-from transkryptor.ui.audio_hash import HashFunction, HashThread, wait_for
-from transkryptor.ui.autosave import AutosaveController, RecoveryDialog, find_orphans
-from transkryptor.ui.comments_controller import CommentsController
-from transkryptor.ui.editor import TranscriptionEditor
+from transkryptor.ui.audio_hash import AudioHashing
+from transkryptor.ui.audio_locator import AudioLocator
+from transkryptor.ui.autosave import AutosaveController
 from transkryptor.ui.messages import show_error
-from transkryptor.ui.metadata_form import MetadataWidgets
-from transkryptor.ui.notation_controller import IgnoredWarnings
-from transkryptor.ui.player_bar import PlayerBar
-from transkryptor.ui.review import ReviewController
+from transkryptor.ui.project_state import ProjectAnnotations, ProjectStateMapper
+from transkryptor.ui.recovery import RecoveryController
 from transkryptor.ui.save_location import SaveLocation
+from transkryptor.ui.session_prompts import (
+    Discard,
+    ask_discard,
+    confirm_audio_change,
+    confirm_stop_download,
+    tell_download_busy,
+    tell_transcribing,
+)
+from transkryptor.ui.session_views import SessionViews
 from transkryptor.ui.settings_store import SettingsStore
-from transkryptor.ui.sync_controller import SyncController
-from transkryptor.ui.verification import VerificationController
-from transkryptor.ui.work_time import WorkTimeTracker
 
 logger = logging.getLogger(__name__)
 
 # Ile zamknięcie okna czeka na przerwanie pobierania modelu.
 DOWNLOAD_SHUTDOWN_WAIT_MS = 5000
-
-
-@dataclass(frozen=True)
-class ProjectAnnotations:
-    """Dane projektu poza tekstem: przegląd reguł, zignorowane ostrzeżenia,
-    kotwice czasowe, komentarze, sprawdzone zakresy nagrania i czas pracy."""
-
-    review: ReviewController
-    ignored_warnings: IgnoredWarnings
-    sync: SyncController
-    comments: CommentsController
-    verification: VerificationController
-    work: WorkTimeTracker
 
 
 class SessionEvents(QObject):
@@ -110,12 +89,8 @@ class SessionController(QObject):
     def __init__(
         self,
         dialog_parent: QWidget,
-        editor: TranscriptionEditor,
-        player: AudioPlayer,
-        player_bar: PlayerBar,
-        asr_panel: AsrPanel,
+        views: SessionViews,
         annotations: ProjectAnnotations,
-        metadata: MetadataWidgets,
         settings_store: SettingsStore,
     ) -> None:
         super().__init__(dialog_parent)
@@ -123,32 +98,38 @@ class SessionController(QObject):
         # Edytor zmienił się od ostatniej synchronizacji z ``_document``.
         self._editor_pending = False
         self.project_path: Path | None = None
-        self._audio: AudioRef | None = None
+        # Bieżące nagranie i jego suma SHA-256 liczona w tle.
+        self.hashing = AudioHashing(dialog_parent, self)
         self._parent = dialog_parent
-        self._editor = editor
-        self._player = player
-        self._player_bar = player_bar
-        self._asr_panel = asr_panel
+        self._editor = views.editor
+        self._player = views.player
+        self._player_bar = views.player_bar
+        self._asr_panel = views.asr
         self._review = annotations.review
-        self._ignored_warnings = annotations.ignored_warnings
         self._sync = annotations.sync
-        self._comments = annotations.comments
         self._verification = annotations.verification
-        self._work = annotations.work
-        self._metadata = metadata
+        self._metadata = views.metadata
         self._settings_store = settings_store
+        self._state = ProjectStateMapper(
+            views, annotations, lambda: settings_store.current.profiles.active
+        )
+        self._locator = AudioLocator(dialog_parent, self.hashing.hash_now)
         # Wspólny folder okien zapisu i otwierania (projekt, eksport, paczka).
         self.save_location = SaveLocation(settings_store, lambda: self.project_path)
         self.events = SessionEvents(self)
         # Wołane przed zastąpieniem treści edytora (nowy dokument, projekt,
         # import DOCX, odzyskanie) - np. koniec porównania wersji.
         self.before_replace: Callable[[], None] = lambda: None
-        # Liczenie sumy nagrania w tle; testy podstawiają wolną imitację.
-        self.hash_impl: HashFunction = file_sha256
-        self._hash_thread: HashThread | None = None
-        self._hash_threads: set[HashThread] = set()
         self.autosave = AutosaveController(
             self.capture_state, lambda: self.document, self
+        )
+        self._recovery = RecoveryController(
+            dialog_parent,
+            self.autosave,
+            self._locator.locate,
+            lambda state, audio, sha256: self.apply_state(
+                state, None, audio, saved=False, audio_sha256=sha256
+            ),
         )
 
     @property
@@ -182,7 +163,8 @@ class SessionController(QObject):
     @property
     def audio_sha256(self) -> str | None:
         """Suma SHA-256 bieżącego nagrania (None - brak albo jeszcze liczona)."""
-        return self._audio.sha256 if self._audio is not None else None
+        audio = self.hashing.audio
+        return audio.sha256 if audio is not None else None
 
     @property
     def project_name(self) -> str | None:
@@ -208,24 +190,11 @@ class SessionController(QObject):
         """
         if not self.has_unsaved_work:
             return True
-        if self.project_path is not None:
-            title = tr("session.unsaved.title")
-            text = tr("session.unsaved.text", name=self.project_name)
-        else:
-            title = tr("session.discard.title")
-            text = tr("session.discard.text")
-        answer = QMessageBox.question(
-            self._parent,
-            title,
-            text,
-            QMessageBox.StandardButton.Save
-            | QMessageBox.StandardButton.Discard
-            | QMessageBox.StandardButton.Cancel,
-            QMessageBox.StandardButton.Cancel,
-        )
-        if answer == QMessageBox.StandardButton.Save:
+        name = self.project_name if self.project_path is not None else None
+        answer = ask_discard(self._parent, name)
+        if answer is Discard.SAVE:
             return self.save_project()
-        return answer == QMessageBox.StandardButton.Discard
+        return answer is Discard.DISCARD
 
     def sync_metadata(self) -> None:
         self.document.set_metadata(
@@ -263,20 +232,10 @@ class SessionController(QObject):
         self._player.stop_and_unload()
         self._player_bar.reset()
         self._asr_panel.set_audio_available(False)
-        self._asr_panel.restore_result(None)
-        self._asr_panel.set_asr_context("", ())
-        self._asr_panel.set_questionnaire(())
-        self._editor.blockSignals(True)
-        self._editor.clear()
-        self._editor.blockSignals(False)
-        self._sync.clear()
-        self._comments.clear()
-        self._verification.clear()
-        self._work.clear()
-        self._metadata.clear()
+        self._state.clear()
         self.document = Document()
         self.project_path = None
-        self._set_audio(None)
+        self.hashing.set(None)
         self.autosave.discard()
         self.events.reset.emit()
 
@@ -300,7 +259,7 @@ class SessionController(QObject):
         # Kotwice i sprawdzone zakresy wskazują czasy poprzedniego nagrania.
         self._sync.clear()
         self._verification.clear()
-        self._set_audio(Path(path))
+        self.hashing.set(Path(path))
         if self.project_path is not None:
             self.document.touch()  # projekt wskazuje teraz inne nagranie
         if not self._metadata.form.value(SIGNATURE).strip():
@@ -324,31 +283,19 @@ class SessionController(QObject):
             and not has_verified
         ):
             return True
-        text = tr("session.change_audio.text", name=Path(path).name)
-        if has_asr:
-            text = f"{text}\n\n{tr('session.change_audio.asr')}"
-        if has_anchors:
-            text = f"{text}\n\n{tr('session.change_audio.anchors')}"
-        if has_verified:
-            text = f"{text}\n\n{tr('session.change_audio.verified')}"
-        answer = QMessageBox.question(
+        return confirm_audio_change(
             self._parent,
-            tr("session.change_audio.title"),
-            text,
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
-            QMessageBox.StandardButton.Cancel,
+            Path(path).name,
+            has_asr=has_asr,
+            has_anchors=has_anchors,
+            has_verified=has_verified,
         )
-        return answer == QMessageBox.StandardButton.Yes
 
     def can_close(self) -> bool:
         """ACC-10: zamknięcie po potwierdzeniu i bez działającej transkrypcji."""
         if self._asr_panel.is_transcribing():
             # Działający QThread nie może zostać zniszczony razem z oknem.
-            QMessageBox.information(
-                self._parent,
-                tr("session.transcribing.title"),
-                tr("session.transcribing.text"),
-            )
+            tell_transcribing(self._parent)
             return False
         if not self.maybe_discard_changes():
             return False
@@ -356,7 +303,7 @@ class SessionController(QObject):
             return False
         self._player.stop_and_unload()
         self.autosave.shutdown()
-        self._stop_hashing()
+        self.hashing.stop()
         self._asr_panel.shutdown()
         return True
 
@@ -364,96 +311,19 @@ class SessionController(QObject):
         """BUG-01: pobieranie modelu przerwane za zgodą, zanim okno zniknie."""
         if not self._asr_panel.is_downloading():
             return True
-        answer = QMessageBox.question(
-            self._parent,
-            tr("session.downloading.title"),
-            tr("session.downloading.text"),
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No,
-        )
-        if answer != QMessageBox.StandardButton.Yes:
+        if not confirm_stop_download(self._parent):
             return False
         if self._asr_panel.cancel_download_and_wait(DOWNLOAD_SHUTDOWN_WAIT_MS):
             return True
         # Działający QThread nie może zostać zniszczony razem z oknem.
-        QMessageBox.information(
-            self._parent,
-            tr("session.downloading.title"),
-            tr("session.downloading.busy"),
-        )
+        tell_download_busy(self._parent)
         return False
 
     # --- suma nagrania ---------------------------------------------------------
 
-    def _set_audio(self, path: Path | None, sha256: str | None = None) -> None:
-        """Bieżące nagranie; nieznana suma jest liczona w tle (PERF-03)."""
-        self._cancel_hashing()
-        if path is None:
-            self._audio = None
-            return
-        absolute = path.resolve()
-        self._audio = AudioRef(absolute_path=str(absolute), sha256=sha256 or "")
-        if sha256 is None:
-            self._hash_thread = self._start_hash(absolute)
-
-    def _start_hash(self, path: Path) -> HashThread:
-        # Bez rodzica Qt: wątek żyje, dopóki trzyma go ``_hash_threads`` albo
-        # czekający ``wait_for`` (deleteLater usuwałby go w trakcie czekania).
-        thread = HashThread(path, self.hash_impl)
-        self._hash_threads.add(thread)
-        # Metoda QObject (nie lambda): slot wykona się w wątku UI.
-        thread.finished.connect(self._on_hash_thread_finished)
-        thread.start()
-        return thread
-
-    def _on_hash_thread_finished(self) -> None:
-        thread = self.sender()
-        if not isinstance(thread, HashThread):
-            return
-        thread.wait()  # ``finished`` pada tuż przed końcem wątku
-        self._hash_threads.discard(thread)
-        if self._hash_thread is thread:
-            self._apply_hash(thread)
-            self._hash_thread = None
-
-    def _apply_hash(self, thread: HashThread) -> None:
-        """Wpisuje sumę, gdy wątek dotyczy bieżącego nagrania."""
-        audio = self._audio
-        if (
-            thread.digest
-            and audio is not None
-            and not audio.sha256
-            and audio.absolute_path == str(thread.path)
-        ):
-            self._audio = replace(audio, sha256=thread.digest)
-
-    def _cancel_hashing(self) -> None:
-        """Porzuca liczenie dla poprzedniego nagrania (wynik zostanie pominięty)."""
-        thread = self._hash_thread
-        self._hash_thread = None
-        if thread is not None:
-            thread.requestInterruption()
-
-    def _stop_hashing(self) -> None:
-        """Przerywa wszystkie wątki sumy i czeka na nie (zamknięcie okna)."""
-        self._cancel_hashing()
-        for thread in list(self._hash_threads):
-            thread.requestInterruption()
-            thread.wait()
-
     def wait_for_audio_hash(self) -> None:
         """Zapis projektu czeka na sumę nagrania liczoną w tle."""
-        thread = self._hash_thread
-        if thread is None:
-            return
-        wait_for(thread, self._parent, tr("session.audio_hash.progress"))
-        self._apply_hash(thread)
-
-    def _hash_now(self, path: Path) -> str | None:
-        """Suma pliku od razu potrzebna (okno odświeża się w trakcie)."""
-        thread = self._start_hash(path)
-        wait_for(thread, self._parent, tr("session.audio_hash.progress"))
-        return thread.digest
+        self.hashing.wait()
 
     # --- zapis projektu --------------------------------------------------------
 
@@ -506,57 +376,7 @@ class SessionController(QObject):
 
     def capture_state(self) -> ProjectState:
         """Bieżący stan pracy w formacie projektu."""
-        document = self.document
-        result = self._asr_panel.last_result
-        prompt, vocabulary = self._asr_panel.asr_context()
-        has_audio = self._player.source_path is not None
-        return ProjectState(
-            text=document.text,
-            superscript_ranges=tuple(document.superscript_ranges),
-            author=document.author,
-            date=document.date,
-            metadata=dict(document.metadata),
-            exported=not document.is_dirty,
-            audio=self._audio if has_audio else None,
-            player=self._player_bar.state(),
-            asr=(
-                None
-                if result is None
-                else AsrDraft(
-                    text=result.text,
-                    language=result.language,
-                    segments=tuple(
-                        AsrSegment(
-                            s.start_s,
-                            s.end_s,
-                            s.text,
-                            s.confidence,
-                            tuple(
-                                AsrWord(w.start_s, w.end_s, w.text, w.probability)
-                                for w in s.words
-                            ),
-                            speaker=s.speaker,
-                        )
-                        for s in result.segments
-                    ),
-                    model=self._asr_panel.last_model_key,
-                )
-            ),
-            review=tuple(self._review.entries()),
-            asr_context=AsrContext(
-                prompt=prompt,
-                vocabulary=vocabulary,
-                questionnaire=self._asr_panel.questionnaire(),
-            ),
-            ignored_warnings=tuple(self._ignored_warnings.entries()),
-            anchors=tuple(self._sync.entries()),
-            speakers=tuple(document.speakers),
-            paragraph_speakers=dict(document.paragraph_speakers),
-            comments=tuple(self._comments.entries()),
-            verified=self._verification.entries(),
-            work=self._work.entries(),
-            profile=self._settings_store.current.profiles.active,
-        )
+        return self._state.capture(self.document, self.hashing.audio)
 
     # --- otwieranie projektu ---------------------------------------------------
 
@@ -591,65 +411,12 @@ class SessionController(QObject):
             if not project_path.exists():
                 self._settings_store.remove_recent_project(str(project_path))
             return False
-        audio, sha256 = self._locate_audio(state, project_path)
+        audio, sha256 = self._locator.locate(state, project_path)
         if not use_profile:
             state = replace(state, profile="")
         self.apply_state(state, project_path, audio, saved=True, audio_sha256=sha256)
         self._settings_store.add_recent_project(str(project_path))
         return True
-
-    def _locate_audio(
-        self, state: ProjectState, project_path: Path | None
-    ) -> tuple[Path | None, str | None]:
-        """Nagranie projektu: ścieżka względna, bezwzględna albo wskazane ręcznie.
-
-        Przy innej sumie SHA-256 użytkownik decyduje, czy użyć nagrania.
-        Pusta suma w projekcie (np. autozapis przed jej policzeniem) oznacza
-        brak weryfikacji. Zwraca nagranie i jego policzoną sumę (albo None).
-        """
-        ref = state.audio
-        if ref is None:
-            return None, None
-        found = resolve_audio(ref, project_path)
-        if found is None:
-            answer = QMessageBox.question(
-                self._parent,
-                tr("session.audio_missing.title"),
-                tr(
-                    "session.audio_missing.text",
-                    name=ref.name,
-                    path=ref.absolute_path,
-                ),
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.Yes,
-            )
-            if answer != QMessageBox.StandardButton.Yes:
-                return None, None
-            start = str(project_path.parent) if project_path else ""
-            chosen, _selected_filter = QFileDialog.getOpenFileName(
-                self._parent,
-                tr("session.audio_locate.dialog", name=ref.name),
-                start,
-                audio_filter(),
-            )
-            if not chosen:
-                return None, None
-            found = Path(chosen)
-        if not ref.sha256:
-            return found, None
-        digest = self._hash_now(found)
-        if digest == ref.sha256:
-            return found, digest
-        answer = QMessageBox.question(
-            self._parent,
-            tr("session.audio_changed.title"),
-            tr("session.audio_changed.text", name=found.name),
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No,
-        )
-        if answer != QMessageBox.StandardButton.Yes:
-            return None, None
-        return found, digest
 
     def apply_state(
         self,
@@ -671,18 +438,9 @@ class SessionController(QObject):
         self._player_bar.reset()
         self._asr_panel.set_audio_available(False)
         self._review.finish()
-        self._editor.load_content(
-            state.text, state.superscript_ranges, state.paragraph_speakers
-        )
-        self._ignored_warnings.restore(state.ignored_warnings)
-        self._comments.restore(state.comments)
-        date_valid = self._metadata.restore(state.author, state.date, state.metadata)
-        self._asr_panel.set_asr_context(
-            state.asr_context.prompt, state.asr_context.vocabulary
-        )
-        self._asr_panel.set_questionnaire(state.asr_context.questionnaire)
+        date_valid = self._state.restore_content(state)
 
-        self._set_audio(None)
+        self.hashing.set(None)
         if audio_path is not None:
             try:
                 self._player.load(audio_path)
@@ -692,15 +450,8 @@ class SessionController(QObject):
                 self._player_bar.reset()
                 self._asr_panel.set_audio_available(True)
                 self._player_bar.restore_state(state.player)
-                self._set_audio(audio_path, audio_sha256)
-        self._asr_panel.restore_result(
-            _transcription_result(state.asr),
-            model_key=state.asr.model if state.asr is not None else None,
-        )
-        self._review.restore(state.review)
-        self._sync.restore(state.anchors)
-        self._verification.restore(state.verified)
-        self._work.restore(state.work)
+                self.hashing.set(audio_path, audio_sha256)
+        self._state.restore_annotations(state)
 
         document = Document(
             text=state.text,
@@ -764,24 +515,7 @@ class SessionController(QObject):
 
     def offer_recovery(self) -> bool:
         """ACC-30: przy starcie proponuje odzyskanie osieroconych autozapisów."""
-        candidates = find_orphans(self.autosave.directory, self.autosave.session_id)
-        if not candidates:
-            return False
-        dialog = RecoveryDialog(candidates, self._parent)
-        dialog.exec()
-        chosen = dialog.chosen
-        for candidate in dialog.candidates:
-            if candidate is not chosen:
-                candidate.release()
-        if chosen is None or chosen.state is None:
-            return False
-        state = chosen.state
-        audio, sha256 = self._locate_audio(state, None)
-        self.apply_state(state, None, audio, saved=False, audio_sha256=sha256)
-        # Odzyskana praca ma swój autozapis w bieżącej sesji.
-        chosen.remove()
-        self.autosave.save_now()
-        return True
+        return self._recovery.offer()
 
 
 def import_summary(name: str, skipped: list[str]) -> str:
@@ -792,26 +526,3 @@ def import_summary(name: str, skipped: list[str]) -> str:
         else tr("session.import_docx.lossless")
     )
     return f"{tr('session.import_docx.summary', name=name)}\n\n{summary}"
-
-
-def _transcription_result(draft: AsrDraft | None) -> TranscriptionResult | None:
-    if draft is None:
-        return None
-    return TranscriptionResult(
-        text=draft.text,
-        language=draft.language,
-        segments=tuple(
-            SegmentResult(
-                s.start_s,
-                s.end_s,
-                s.text,
-                s.confidence,
-                tuple(
-                    WordResult(w.start_s, w.end_s, w.text, w.probability)
-                    for w in s.words
-                ),
-                speaker=s.speaker,
-            )
-            for s in draft.segments
-        ),
-    )

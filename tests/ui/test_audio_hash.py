@@ -42,7 +42,7 @@ def accept_audio_change(monkeypatch) -> None:
 
 
 def current_sha(window: MainWindow) -> str | None:
-    audio = window.session._audio
+    audio = window.session.hashing.audio
     return audio.sha256 if audio is not None else None
 
 
@@ -53,7 +53,7 @@ def test_hash_is_computed_outside_ui_thread(qtbot, window, audio) -> None:
         threads.append(threading.current_thread())
         return "suma"
 
-    window.session.hash_impl = fake_hash
+    window.session.hashing.hash_impl = fake_hash
     window._on_import_audio(str(audio))
     qtbot.waitUntil(lambda: current_sha(window) == "suma", timeout=5000)
     assert threads and threads[0] is not threading.main_thread()
@@ -74,7 +74,7 @@ def test_save_waits_for_pending_hash(
         release.wait(10)
         return "policzona"
 
-    window.session.hash_impl = slow_hash
+    window.session.hashing.hash_impl = slow_hash
     window._on_import_audio(str(audio))
     assert current_sha(window) == ""  # liczenie trwa
     target = tmp_path / "projekt.transkr"
@@ -101,16 +101,16 @@ def test_stale_hash_does_not_overwrite_new_recording(
             return "stara"
         return "nowa"
 
-    window.session.hash_impl = fake_hash
+    window.session.hashing.hash_impl = fake_hash
     window._on_import_audio(str(audio))
     accept_audio_change(monkeypatch)
     window._on_import_audio(str(SAMPLE_AAC))
     qtbot.waitUntil(lambda: current_sha(window) == "nowa", timeout=5000)
     release_first.set()
-    qtbot.waitUntil(lambda: not window.session._hash_threads, timeout=5000)
+    qtbot.waitUntil(lambda: not window.session.hashing.running(), timeout=5000)
     assert current_sha(window) == "nowa"
-    assert window.session._audio is not None
-    assert window.session._audio.absolute_path == str(SAMPLE_AAC.resolve())
+    assert window.session.hashing.audio is not None
+    assert window.session.hashing.audio.absolute_path == str(SAMPLE_AAC.resolve())
 
 
 def test_project_with_empty_hash_opens_without_question(
@@ -144,9 +144,9 @@ def test_open_project_reuses_verified_hash(qtbot, window, audio, tmp_path) -> No
         calls.append(Path(path))
         return file_sha256(path)
 
-    window.session.hash_impl = counting_hash
+    window.session.hashing.hash_impl = counting_hash
     assert window.session.open_project(project)
-    qtbot.waitUntil(lambda: not window.session._hash_threads, timeout=5000)
+    qtbot.waitUntil(lambda: not window.session.hashing.running(), timeout=5000)
     assert len(calls) == 1  # tylko weryfikacja, bez drugiego liczenia
     assert current_sha(window) == file_sha256(audio)
 
@@ -160,9 +160,9 @@ def test_close_stops_hashing(qtbot, window, audio) -> None:
             threading.Event().wait(0.01)
         raise InterruptedError(str(path))
 
-    window.session.hash_impl = endless_hash
+    window.session.hashing.hash_impl = endless_hash
     window._on_import_audio(str(audio))
     assert started.wait(5)
-    threads = list(window.session._hash_threads)
+    threads = list(window.session.hashing.running())
     assert window.session.can_close()
     assert all(thread.isFinished() for thread in threads)

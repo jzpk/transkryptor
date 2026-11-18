@@ -89,6 +89,7 @@ from transkryptor.ui.player_bar import PlayerBar
 from transkryptor.ui.player_controller import PlayerController
 from transkryptor.ui.pos_highlights import PosHighlighter
 from transkryptor.ui.profile_controller import ProfileController
+from transkryptor.ui.project_state import ProjectAnnotations
 from transkryptor.ui.readiness_dialog import ReadinessController
 from transkryptor.ui.recheck_controller import RecheckController
 from transkryptor.ui.review import (
@@ -99,7 +100,8 @@ from transkryptor.ui.review import (
 from transkryptor.ui.rules_store import RulesStore
 from transkryptor.ui.search_bar import SearchBar
 from transkryptor.ui.search_controller import SearchController
-from transkryptor.ui.session import ProjectAnnotations, SessionController
+from transkryptor.ui.session import SessionController
+from transkryptor.ui.session_views import SessionViews
 from transkryptor.ui.settings_dialog import SettingsDialog
 from transkryptor.ui.settings_store import SettingsStore
 from transkryptor.ui.shortcuts import (
@@ -252,10 +254,15 @@ class MainWindow(QMainWindow):
         self.work_time.watch(self.editor.cursorPositionChanged, self.editor.textChanged)
         self.session = SessionController(
             self,
-            self.editor,
-            self.player,
-            self.player_bar,
-            self.asr_panel,
+            SessionViews(
+                editor=self.editor,
+                player=self.player,
+                player_bar=self.player_bar,
+                asr=self.asr_panel,
+                metadata=MetadataWidgets(
+                    self.author_edit, self.date_edit, self.metadata_form
+                ),
+            ),
             ProjectAnnotations(
                 review=self.review,
                 ignored_warnings=self.ignored_warnings,
@@ -264,7 +271,6 @@ class MainWindow(QMainWindow):
                 verification=self.verification,
                 work=self.work_time,
             ),
-            MetadataWidgets(self.author_edit, self.date_edit, self.metadata_form),
             settings_store,
         )
         self.session.events.reset.connect(self._on_session_reset)
