@@ -24,8 +24,9 @@ Logika (sprawdzenie wersji, pobieranie, instalacja) jest w pakiecie
   (podpisane ``advisory.json``, ``update/advisory.py``). Wtedy nowa wersja
   pobiera się sama, a po pobraniu okno (``ui/update_advisory.py``) pyta,
   czy zainstalować ją od razu. Bez możliwości pobrania okno tylko ostrzega.
-  Okno pojawia się raz na sesję dla danego numeru ostrzeżenia, a napis
-  banera dostaje ton ostrzeżenia.
+  Okno pojawia się raz na sesję dla danego numeru ostrzeżenia, w kolejce
+  komunikatów okna (``ui/notice_queue.py``), więc nie przykrywa innych
+  okien, a napis banera dostaje ton ostrzeżenia.
 """
 
 from __future__ import annotations
@@ -42,6 +43,7 @@ from transkryptor import __version__
 from transkryptor.errors import UpdateError
 from transkryptor.i18n import tr
 from transkryptor.ui.messages import show_error
+from transkryptor.ui.notice_queue import NoticeQueue
 from transkryptor.ui.theme import set_props
 from transkryptor.ui.update_advisory import warn_about_advisory
 from transkryptor.ui.update_banner import UpdateBanner
@@ -120,12 +122,14 @@ class UpdateController(QObject):
         service_factory: Callable[[], UpdateService] = UpdateService,
         apply: Callable[[Path], None] = apply_update,
         clock: Callable[[], float] = time.time,
+        notices: NoticeQueue | None = None,
     ) -> None:
         super().__init__(window)
         self._window = window
         self._service_factory = service_factory
         self._apply = apply
         self._clock = clock
+        self._notices = notices or NoticeQueue(self)
         self._thread: UpdateThread | None = None
         self._download: UpdateThread | None = None
         self._offer: ReleaseInfo | None = None
@@ -241,8 +245,8 @@ class UpdateController(QObject):
         self._warn_later(advisory)
 
     def _warn_later(self, advisory: Advisory) -> None:
-        # Po bieżącym zdarzeniu: przy starcie okno jest wtedy już widoczne.
-        QTimer.singleShot(0, lambda: self._show_advisory(advisory))
+        # W kolejce komunikatów okna: po odzyskaniu pracy i innych oknach.
+        self._notices.post(lambda: self._show_advisory(advisory))
 
     def _show_advisory(self, advisory: Advisory) -> None:
         if warn_about_advisory(

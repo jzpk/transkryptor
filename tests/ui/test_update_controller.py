@@ -425,3 +425,15 @@ def test_advisory_is_shown_once_per_session(qtbot, window, no_blocking_dialogs) 
     run_check(qtbot, window, outcome)
     qtbot.wait(50)
     assert len(no_blocking_dialogs) == 1
+
+
+def test_advisory_waits_for_the_running_tutorial(
+    qtbot, window, no_blocking_dialogs
+) -> None:
+    window.tutorials.start_first_run()
+    assert window.tutorials.is_running()
+    run_check(qtbot, window, UpdateOutcome(UpdateStatus.OFFLINE, advisory=ADVISORY))
+    qtbot.wait(100)
+    assert no_blocking_dialogs == []  # okno nie przykrywa samouczka
+    window.tutorials.overlay.skip()
+    wait_dialogs(qtbot, no_blocking_dialogs)
