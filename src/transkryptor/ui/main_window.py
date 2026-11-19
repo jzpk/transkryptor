@@ -28,7 +28,6 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QSplitter,
-    QToolBar,
     QToolButton,
     QVBoxLayout,
     QWidget,
@@ -135,6 +134,7 @@ from transkryptor.ui.theme import apply_theme, resolve_tokens, set_props, tokens
 from transkryptor.ui.themes_controller import ThemesController
 from transkryptor.ui.toolbar import MainToolbar, ToolbarHandlers
 from transkryptor.ui.tutorial_controller import TutorialController
+from transkryptor.ui.ui_lock import lock_window
 from transkryptor.ui.update_controller import UpdateController
 from transkryptor.ui.verification import VerificationController
 from transkryptor.ui.warnings_panel import WarningsCard, WarningsPanel
@@ -1073,47 +1073,7 @@ class MainWindow(QMainWindow):
 
     def _set_ui_locked(self, locked: bool) -> None:
         self._ui_locked = locked
-        self._central.setEnabled(not locked)
-        self.asr_panel.setEnabled(not locked)
-        for toolbar in self.findChildren(QToolBar):
-            toolbar.setEnabled(not locked)
-        for action in (
-            self.superscript_action,
-            *self.marker_actions.values(),
-            self.new_action,
-            self.open_action,
-            self.save_action,
-            self.save_as_action,
-            self.import_docx_action,
-            self.compare_action,
-            self.corpus_action,
-            self.comments.add_action,
-            *(
-                action
-                for action_id, action in self.review_actions.items()
-                if action_id not in (MARK_VERIFIED_ID, NEXT_UNVERIFIED_ID)
-            ),
-            self.export_action,
-            self.export_anonymized_action,
-            self.export_as_action,
-            self.readiness_action,
-            self.settings_action,
-            self.unify_ellipses_action,
-            *self.search_actions.values(),
-            *self.snapshots.actions,
-            self.progress.stats_action,
-            self.themes.action,
-        ):
-            action.setEnabled(not locked)
-        self.player_controller.set_locked(locked)
-        self.snippets.set_locked(locked)
-        self.speakers.set_locked(locked)
-        self.verification.set_locked(locked)
-        self.corpus.set_locked(locked)
-        self.learning.set_locked(locked)
-        self.packs.set_locked(locked)
-        self.coverage.set_locked(locked)
-        self.profiles.set_locked(locked)
+        lock_window(self, locked)
 
     # --- stan --------------------------------------------------------------
 
