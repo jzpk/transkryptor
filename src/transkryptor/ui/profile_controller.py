@@ -20,7 +20,12 @@ from PySide6.QtWidgets import QComboBox, QSizePolicy, QWidget
 from transkryptor import paths
 from transkryptor.errors import AppError
 from transkryptor.i18n import tr
-from transkryptor.notation.rules import builtin_codes, dumps_rules, parse_rules
+from transkryptor.notation.rules import (
+    builtin_codes,
+    dumps_rules,
+    parse_dismissed,
+    parse_rules,
+)
 from transkryptor.profiles import (
     NotationProfile,
     ProfileLibrary,
@@ -99,11 +104,11 @@ class ProfileController(QObject):
 
     def current_profile(self, name: str | None = None) -> NotationProfile:
         """Profil z bieżących ustawień i reguł (pod nazwą aktywnego profilu)."""
-        rules = self._rules_store.user_rules
+        rules, dismissed = self._rules_store.user_rules, self._rules_store.dismissed
         return capture(
             self.active if name is None else name,
             self._settings_store.current,
-            dumps_rules(rules) if rules else "",
+            dumps_rules(rules, dismissed) if rules or dismissed else "",
         )
 
     def ensure_active(self) -> None:
@@ -162,10 +167,12 @@ class ProfileController(QObject):
         rules = parse_rules(
             profile.rules_toml, "rules.toml", taken_codes=builtin_codes()
         ).rules
+        dismissed = parse_dismissed(profile.rules_toml)
         self._switching = True
         try:
-            if rules != self._rules_store.user_rules:
-                self._rules_store.save_user_rules(rules)
+            store = self._rules_store
+            if rules != store.user_rules or dismissed != store.dismissed:
+                store.save_user_rules(rules, dismissed)
             self._settings_store.save(
                 apply_profile(profile, self._settings_store.current)
             )

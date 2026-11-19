@@ -1,8 +1,9 @@
 """Menu przycisku „Otwórz” na pasku narzędzi.
 
 Ostatnie projekty, import DOCX, polecenia dokładane przez kontrolery
-(``add_actions``, np. otwarcie paczki), porównanie wersji i czyszczenie
-listy ostatnich. Menu odświeża się przy każdym rozwinięciu.
+(``add_actions``, np. otwarcie paczki), porównanie wersji z poleceniami
+porównania (``add_compare_actions``, np. wnioski z poprawek szkicu)
+i czyszczenie listy ostatnich. Menu odświeża się przy każdym rozwinięciu.
 """
 
 from __future__ import annotations
@@ -34,6 +35,7 @@ class OpenMenu:
         self._handlers = handlers
         # Dodatkowe polecenia menu (``add_actions``).
         self._extras: list[QAction] = []
+        self._compare_extras: list[QAction] = []
         self.import_docx_action = QAction(tr("toolbar.import_docx"), window)
         self.import_docx_action.setToolTip(tr("toolbar.import_docx.tooltip"))
         self.import_docx_action.triggered.connect(
@@ -71,10 +73,16 @@ class OpenMenu:
         menu.addAction(self.import_docx_action)
         menu.addActions(self._extras)
         menu.addAction(self.compare_action)
+        menu.addActions(self._compare_extras)
         menu.addAction(self.clear_recent_action)
         self.clear_recent_action.setEnabled(bool(recent))
 
     def add_actions(self, actions: Sequence[QAction]) -> None:
         """Polecenia za importem DOCX."""
         self._extras.extend(actions)
+        self.refresh()
+
+    def add_compare_actions(self, actions: Sequence[QAction]) -> None:
+        """Polecenia zaraz za „Porównaj z…”."""
+        self._compare_extras.extend(actions)
         self.refresh()

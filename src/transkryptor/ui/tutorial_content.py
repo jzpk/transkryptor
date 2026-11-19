@@ -210,6 +210,7 @@ TUTORIALS: tuple[Tutorial, ...] = (
                 shortcuts=(("uncertain", NEXT_UNCERTAIN_ID),),
             ),
             _step("style", "toolbar_settings", MORE),
+            _step("insights", "toolbar_open", MORE),
         ),
     ),
     Tutorial(

@@ -4,6 +4,12 @@
 autora, śledzi każde dopasowanie kursorem edytora i synchronizuje listę
 przeglądu w panelu ASR. Reguły pozostają w ``notation``; kontroler tylko je
 uruchamia i prezentuje.
+
+Zapamiętuje też szkic tuż po wstawieniu i regułach (``baseline``, zapisywany
+w projekcie) - z nim „Wnioski z poprawek szkicu” porównują tekst
+(zgłoszenie #74). Fragment z transkrypcji A-B i propozycja przyjęta później
+w przeglądzie trafiają do tego szkicu (``document/draft_baseline.py``), bo nie
+są poprawkami transkrybenta.
 """
 
 from __future__ import annotations
@@ -16,6 +22,9 @@ from PySide6.QtGui import QTextCharFormat, QTextCursor
 from PySide6.QtWidgets import QMessageBox, QWidget
 
 from transkryptor.document.anchors import TimedSegment, build_draft
+from transkryptor.document.diff import Version
+from transkryptor.document.draft_baseline import absorb
+from transkryptor.document.model import Document
 from transkryptor.document.project import ReviewEntry
 from transkryptor.i18n import tr
 from transkryptor.notation.ellipsis import EllipsisStyle, normalize_ellipses
@@ -71,6 +80,7 @@ class ReviewController(QObject):
         self._ask_placement = ask_placement
         self._ellipsis_style = ellipsis_style
         self.items: list[ReviewItem] = []
+        self.baseline: Version | None = None
 
     def insert_draft(
         self,
@@ -136,6 +146,7 @@ class ReviewController(QObject):
         if self._sync is not None:
             self._sync.settle()
         self.refresh()
+        self.baseline = self.current_version()
         self.editor.setFocus()
         if proposal.failed:
             QMessageBox.warning(
@@ -198,6 +209,8 @@ class ReviewController(QObject):
             ]
         )
         cursor.endEditBlock()
+        end = self.editor.position_map().to_py(cursor.position())
+        self._absorb(start, end)
         if self._sync is not None:
             self._sync.settle()
         self.items.extend(items)
@@ -292,6 +305,9 @@ class ReviewController(QObject):
         if self._sync is not None:
             self._sync.settle()
         item.applied = True
+        self._absorb(
+            *self.editor.selection_range(item.cursor, self.editor.position_map())
+        )
         self.refresh()
         self.editor.setFocus()
 
@@ -338,6 +354,23 @@ class ReviewController(QObject):
             for entry in entries
         ]
         self.refresh()
+
+    # --- szkic odniesienia (#74) ---------------------------------------------
+
+    def current_version(self) -> Version:
+        """Tekst edytora z indeksem górnym i mówcami akapitów."""
+        document = Document()
+        self.editor.sync_to_document(document)
+        return Version.from_document(document)
+
+    def _absorb(self, start: int, end: int) -> None:
+        """Zmiany w ``[start, end)`` należą do szkicu, nie są poprawkami."""
+        if self.baseline is not None:
+            self.baseline = absorb(self.baseline, self.current_version(), start, end)
+
+    def restore_baseline(self, baseline: Version | None) -> None:
+        """Szkic odniesienia z projektu (None - nowy dokument albo brak)."""
+        self.baseline = baseline
 
     def finish(self) -> None:
         """Usuwa podświetlenia i listę przeglądu; tekst się nie zmienia."""

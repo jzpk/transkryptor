@@ -1,7 +1,9 @@
-"""Okna analizy słownictwa w menu eksportu: pola tematyczne i słowa według pytań.
+"""Okna analizy tekstu: pola tematyczne, słowa według pytań i wnioski z poprawek.
 
-Oba polecenia liczą słowa bieżącej transkrypcji (i projektów dołączonych
-w oknie) - ``AnalysisTools`` tylko je składa z zależności okna, żeby
+Pola tematyczne i słowa według pytań (menu eksportu) liczą słowa bieżącej
+transkrypcji (i projektów dołączonych w oknie), a wnioski z poprawek szkicu
+(menu „Otwórz” za porównaniem wersji) porównują tekst ze szkiciem ASR.
+``AnalysisTools`` tylko składa ich kontrolery z zależności okna, żeby
 ``MainWindow`` nie rosło z każdym kolejnym zestawieniem.
 """
 
@@ -13,6 +15,7 @@ from typing import TYPE_CHECKING
 from PySide6.QtGui import QAction
 
 from transkryptor.i18n import tr
+from transkryptor.ui.insights_controller import InsightsController
 from transkryptor.ui.question_words_controller import QuestionWordsController
 from transkryptor.ui.themes_controller import ThemesController
 
@@ -34,6 +37,7 @@ class AnalysisTools:
         self.question_words = QuestionWordsController(
             window, session, window.asr_panel, window.editor, window.sync
         )
+        self.insights = InsightsController(window)
 
     @property
     def actions(self) -> list[QAction]:
@@ -42,3 +46,4 @@ class AnalysisTools:
     def set_locked(self, locked: bool) -> None:
         self.themes.action.setEnabled(not locked)
         self.question_words.set_locked(locked)
+        self.insights.set_locked(locked)

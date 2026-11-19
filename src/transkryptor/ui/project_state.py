@@ -84,6 +84,7 @@ class ProjectStateMapper:
             verified=notes.verification.entries(),
             work=notes.work.entries(),
             profile=self._active_profile(),
+            draft_baseline=notes.review.baseline,
         )
 
     def restore_content(self, state: ProjectState) -> bool:
@@ -114,6 +115,7 @@ class ProjectStateMapper:
             model_key=state.asr.model if state.asr is not None else None,
         )
         notes.review.restore(state.review)
+        notes.review.restore_baseline(state.draft_baseline)
         notes.sync.restore(state.anchors)
         notes.verification.restore(state.verified)
         notes.work.restore(state.work)
@@ -128,6 +130,7 @@ class ProjectStateMapper:
         views.editor.clear()
         views.editor.blockSignals(False)
         notes.sync.clear()
+        notes.review.restore_baseline(None)
         notes.comments.clear()
         notes.verification.clear()
         notes.work.clear()

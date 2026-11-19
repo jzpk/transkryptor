@@ -7,6 +7,11 @@ sąsiednich słów oraz zamiennik w składni ``^x`` (znak ``x`` w indeksie
 górnym), ``\\^`` (dosłowny ``^``), ``\\\\`` (dosłowny ``\\``) i ``\\1``…``\\9``
 (grupa wzorca).
 
+Plik reguł użytkownika przechowuje też propozycje reguł z poprawek odrzucone
+przez transkrybenta (tablice ``[[dismissed]]`` z polami ``before``,
+``after``, ``place`` - klucz zmiany z ``notation/learning.py``), więc
+odrzucenie trafia do profilu notacji razem z regułami (zgłoszenie #74).
+
 Ładowanie nigdy nie rzuca wyjątku: błędna reguła trafia do listy błędów
 z nazwą pliku, numerem i kodem reguły oraz polem, a pozostałe działają.
 Wzorce kompiluje pakiet ``regex`` (składnia zgodna z ``re``) - pozwala to
@@ -36,6 +41,9 @@ MAX_PATTERN_LENGTH = 200
 BUILTIN_SOURCE = "builtin_rules.toml"
 # Tekst bez języka (reguły użytkownika) - pokazywany w każdym języku.
 ANY_LANGUAGE = "*"
+# Odrzucona propozycja reguły: (przed, po, miejsce w słowie).
+DismissedKey = tuple[str, str, str]
+_DISMISSED_FIELDS = ("before", "after", "place")
 
 _CODE_RE = re.compile(r"^[A-Z0-9][A-Z0-9-]*$")
 _GROUP_RE = re.compile(r"[1-9]")
@@ -404,15 +412,45 @@ def _text_value(texts: Mapping[str, str]) -> str | dict[str, str]:
     return dict(texts)
 
 
-def dumps_rules(rules: Iterable[PhoneticRule]) -> str:
-    """Zestaw reguł jako TOML (prosty generator - ``tomllib`` tylko czyta)."""
+def dumps_rules(
+    rules: Iterable[PhoneticRule], dismissed: Iterable[DismissedKey] = ()
+) -> str:
+    """Zestaw reguł (i odrzuconych propozycji) jako TOML (prosty generator -
+    ``tomllib`` tylko czyta)."""
     lines = [f"# {tr('rules.file_header')}", ""]
     for rule in rules:
         lines.append("[[rule]]")
         for key, value in rule_to_dict(rule).items():
             lines.append(f"{key} = {_toml_value(value)}")
         lines.append("")
+    for change in dismissed:
+        lines.append("[[dismissed]]")
+        for key, value in zip(_DISMISSED_FIELDS, change, strict=True):
+            lines.append(f"{key} = {_toml_string(value)}")
+        lines.append("")
     return "\n".join(lines)
+
+
+def parse_dismissed(raw: str) -> tuple[DismissedKey, ...]:
+    """Odrzucone propozycje reguł z pliku reguł (błędne wpisy są pomijane)."""
+    try:
+        entries = tomllib.loads(raw).get("dismissed", [])
+    except tomllib.TOMLDecodeError:
+        return ()
+    if not isinstance(entries, list):
+        return ()
+    found: dict[DismissedKey, None] = {}
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        before, after, place = (entry.get(name) for name in _DISMISSED_FIELDS)
+        if (
+            isinstance(before, str)
+            and isinstance(after, str)
+            and isinstance(place, str)
+        ):
+            found.setdefault((before, after, place), None)
+    return tuple(found)
 
 
 def _toml_value(value: Any) -> str:

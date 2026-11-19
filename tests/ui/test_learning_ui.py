@@ -77,6 +77,10 @@ def test_dismissed_change_is_not_suggested_again(window) -> None:
     window.learning.dismiss_action.trigger()
     assert window.learning.candidate is None
     assert window.learning.button.isHidden()
+    # Odrzucenie zapisuje się w pliku reguł, a więc w profilu notacji (#74).
+    assert window.rules_store.dismissed[0][:2] == ("e", "y")
+    window.rules_store.load()
+    assert window.rules_store.dismissed[0][:2] == ("e", "y")
 
 
 def test_superscript_in_correction_goes_to_replacement(window) -> None:

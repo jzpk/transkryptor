@@ -7,6 +7,7 @@ from pathlib import Path, PurePosixPath
 
 from transkryptor.document.anchors import Anchor
 from transkryptor.document.comments import Comment
+from transkryptor.document.diff import Version
 from transkryptor.document.questionnaire import QuestionMark
 from transkryptor.document.speakers import DEFAULT_SPEAKERS, Speaker
 from transkryptor.document.work_log import WorkLog
@@ -149,6 +150,10 @@ class ProjectState:
     work: WorkLog = field(default_factory=WorkLog)
     # Profil notacji, z którym zapisano projekt (schemat 8; pusty - brak).
     profile: str = ""
+    # Szkic ASR tuż po wstawieniu i regułach - wersja, z którą porównuje
+    # „Wnioski z poprawek szkicu” (zgłoszenie #74; None - brak, np. projekt
+    # sprzed 0.11).
+    draft_baseline: Version | None = None
 
     @property
     def word_count(self) -> int:

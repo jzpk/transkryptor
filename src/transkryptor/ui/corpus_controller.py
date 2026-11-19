@@ -20,6 +20,7 @@ from transkryptor.corpus.projects import CorpusProject
 from transkryptor.document.metadata import MetadataField
 from transkryptor.i18n import tr
 from transkryptor.ui.corpus_dialog import CorpusDialog, CorpusHost
+from transkryptor.ui.corpus_insights_tab import CorpusInsightsHost
 from transkryptor.ui.editor import TranscriptionEditor
 from transkryptor.ui.session import SessionController
 
@@ -45,6 +46,11 @@ class CorpusController(QObject):
         self._window = window
         self.dialog: CorpusDialog | None = None
         self._locked = False
+        self._insights: CorpusInsightsHost | None = None
+
+    def set_insights(self, host: CorpusInsightsHost) -> None:
+        """Dane i akcje zakładki „Wnioski” (kontroler wniosków z poprawek)."""
+        self._insights = host
 
     def open_dialog(self) -> CorpusDialog:
         """Pokazuje okno korpusu (przy pierwszym otwarciu skanuje folder)."""
@@ -56,6 +62,7 @@ class CorpusController(QObject):
                     fields=self._fields,
                     go_to=self.go_to,
                     pause_main=self._player.pause,
+                    insights=self._insights,
                 ),
                 self._window,
             )

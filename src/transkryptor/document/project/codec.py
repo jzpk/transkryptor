@@ -8,6 +8,7 @@ from typing import Any
 
 from transkryptor.document.anchors import Anchor, check_anchor
 from transkryptor.document.comments import Comment, Reply, check_comment
+from transkryptor.document.diff import Version
 from transkryptor.document.project.errors import invalid
 from transkryptor.document.project.migrations import SCHEMA_VERSION, migrate
 from transkryptor.document.project.model import (
@@ -110,6 +111,19 @@ def to_dict(state: ProjectState, project_path: Path | None = None) -> dict[str, 
         "verified": [list(r) for r in state.verified],
         "work": _work_dict(state.work),
         "profile": state.profile,
+        "draft_baseline": _baseline_dict(state.draft_baseline),
+    }
+
+
+def _baseline_dict(baseline: Version | None) -> dict[str, Any] | None:
+    if baseline is None:
+        return None
+    return {
+        "text": baseline.text,
+        "superscript_ranges": [list(r) for r in baseline.superscript_ranges],
+        "paragraph_speakers": [
+            [index, key] for index, key in sorted(baseline.paragraph_speakers.items())
+        ],
     }
 
 
@@ -371,7 +385,25 @@ def _parse(data: dict[str, Any]) -> ProjectState:
         verified=verified_ranges(_ranges(data.get("verified", []))),
         work=_parse_work(_dict(data.get("work", {}))),
         profile=_str(data.get("profile", "")),
+        draft_baseline=_parse_baseline(data.get("draft_baseline")),
     )
+
+
+def _parse_baseline(value: Any) -> Version | None:
+    """Szkic po wstawieniu (opcjonalny, #74); uszkodzony nie blokuje projektu."""
+    if value is None:
+        return None
+    try:
+        baseline = _dict(value)
+        text = _str(baseline.get("text", ""))
+        speakers = {
+            _int(index): _str(key)
+            for index, key in map(_list, _list(baseline.get("paragraph_speakers", [])))
+        }
+        ranges = _ranges(baseline.get("superscript_ranges", []))
+    except (TypeError, ValueError):
+        return None
+    return Version(text, ranges, speakers)
 
 
 def _parse_context(context: dict[str, Any]) -> AsrContext:

@@ -63,6 +63,13 @@ def label(text: str, role: str) -> QLabel:
     return widget
 
 
+def muted_label(text: str = "") -> QLabel:
+    """Zawijany napis pomocniczy (wyciszony kolor)."""
+    widget = label(text, "muted")
+    widget.setWordWrap(True)
+    return widget
+
+
 def shrinkable(widget: QLabel) -> QLabel:
     """Napis, który w wąskim oknie ucina się zamiast poszerzać okno."""
     policy = widget.sizePolicy()

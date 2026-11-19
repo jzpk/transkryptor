@@ -1,6 +1,6 @@
 """Okno „Korpus”: praca na wszystkich projektach folderu.
 
-Trzy zakładki:
+Cztery zakładki:
 
 - **Wyszukiwanie** - słowo, forma albo wyrażenie regularne we wszystkich
   projektach folderu (``corpus/concordance.py``): konkordancja z kontekstem,
@@ -9,7 +9,8 @@ Trzy zakładki:
   z liczbą wystąpień, formami podobnymi (``corpus/forms.py``) i listą
   wystąpień wybranej formy; lista form trafia do CSV albo XLSX;
 - **Metryczki** - katalog nagrań (``corpus/catalog.py``) do CSV, XLSX albo
-  TEI XML (``corpus/tei.py``), także w wersji anonimizowanej.
+  TEI XML (``corpus/tei.py``), także w wersji anonimizowanej;
+- **Wnioski** - wnioski z poprawek szkiców ASR (``ui/corpus_insights_tab.py``).
 
 Okno nie jest modalne. Ma własny odtwarzacz (odsłuch fragmentów innych
 projektów nie zmienia nagrania okna głównego - to na czas odsłuchu pauzuje).
@@ -66,12 +67,13 @@ from transkryptor.document.search import SearchError, SearchOptions, compile_que
 from transkryptor.errors import AppError
 from transkryptor.i18n import tr
 from transkryptor.ui.busy_overlay import BusyOverlay, InputBlocker
+from transkryptor.ui.corpus_insights_tab import CorpusInsightsHost, CorpusInsightsTab
 from transkryptor.ui.corpus_table import HitTable, count_item, table_widget
 from transkryptor.ui.corpus_task import CorpusTask, Progress
 from transkryptor.ui.file_dialogs import ask_save_path
+from transkryptor.ui.layout import muted_label
 from transkryptor.ui.messages import show_error
 from transkryptor.ui.player_bar import format_ms
-from transkryptor.ui.theme import set_props
 
 # Margines odsłuchu przed i po fragmencie (czasy słów są ciasne).
 CLIP_MARGIN_MS = 400
@@ -104,13 +106,7 @@ class CorpusHost:
     fields: Callable[[], tuple[MetadataField, ...]]
     go_to: Callable[[CorpusProject, int, int], object]
     pause_main: Callable[[], None]
-
-
-def _muted(text: str = "") -> QLabel:
-    label = QLabel(text)
-    label.setWordWrap(True)
-    set_props(label, role="muted")
-    return label
+    insights: CorpusInsightsHost | None = None
 
 
 class CorpusDialog(QDialog):
@@ -136,13 +132,13 @@ class CorpusDialog(QDialog):
         self._forms_case = False
         self._forms_informant = False
 
-        self.folder_label = _muted(tr("corpus.folder.none"))
+        self.folder_label = muted_label(tr("corpus.folder.none"))
         self.choose_button = QPushButton(tr("corpus.folder.choose"))
         self.choose_button.clicked.connect(self.choose_folder)
         self.refresh_button = QPushButton(tr("corpus.folder.refresh"))
         self.refresh_button.setToolTip(tr("corpus.folder.refresh.tooltip"))
         self.refresh_button.clicked.connect(self.refresh)
-        self.summary_label = _muted()
+        self.summary_label = muted_label()
         top = QHBoxLayout()
         top.addWidget(QLabel(tr("corpus.folder")))
         top.addWidget(self.folder_label, stretch=1)
@@ -154,6 +150,8 @@ class CorpusDialog(QDialog):
         self.tabs.addTab(self._build_search_tab(), tr("corpus.tab.search"))
         self.tabs.addTab(self._build_forms_tab(), tr("corpus.tab.forms"))
         self.tabs.addTab(self._build_catalog_tab(), tr("corpus.tab.catalog"))
+        self.insights = CorpusInsightsTab(host.insights, self, self._run)
+        self.tabs.addTab(self.insights, tr("corpus.tab.insights"))
         self.tabs.currentChanged.connect(self._on_tab_changed)
 
         self.play_button = QPushButton(tr("corpus.play"))
@@ -162,7 +160,7 @@ class CorpusDialog(QDialog):
         self.go_button = QPushButton(tr("corpus.go_to"))
         self.go_button.setToolTip(tr("corpus.go_to.tooltip"))
         self.go_button.clicked.connect(self.go_to_selected)
-        self.status_label = _muted()
+        self.status_label = muted_label()
         close_button = QPushButton(tr("corpus.close"))
         close_button.clicked.connect(self.close)
         bottom = QHBoxLayout()
@@ -220,7 +218,7 @@ class CorpusDialog(QDialog):
         self.hits_table = HitTable()
         self.hits_table.itemSelectionChanged.connect(self._update_buttons)
         self.hits_table.itemActivated.connect(lambda _item: self.go_to_selected())
-        self.hits_label = _muted(tr("corpus.search.hint"))
+        self.hits_label = muted_label(tr("corpus.search.hint"))
         page = QWidget()
         layout = QVBoxLayout(page)
         layout.addLayout(row)
@@ -282,7 +280,7 @@ class CorpusDialog(QDialog):
         header.setStretchLastSection(True)
         self.forms_table.itemSelectionChanged.connect(self._on_form_selected)
         self.forms_table.itemActivated.connect(self._on_form_activated)
-        self.forms_label = _muted()
+        self.forms_label = muted_label()
         self.occurrences_table = HitTable()
         self.occurrences_table.itemSelectionChanged.connect(self._update_buttons)
         self.occurrences_table.itemActivated.connect(
@@ -320,7 +318,7 @@ class CorpusDialog(QDialog):
         row.addWidget(self.export_xlsx_button)
         row.addWidget(self.export_tei_button)
         self.catalog_table = table_widget([])
-        self.catalog_label = _muted(tr("corpus.catalog.hint"))
+        self.catalog_label = muted_label(tr("corpus.catalog.hint"))
         page = QWidget()
         layout = QVBoxLayout(page)
         layout.addLayout(row)
@@ -389,6 +387,7 @@ class CorpusDialog(QDialog):
 
     def _apply_refresh(self, result: _Refresh) -> None:
         self.scan = result.scan
+        self.insights.invalidate()
         self._show_summary(result.scan)
         self._show_hits(result.hits)
         self._apply_forms(result.forms)

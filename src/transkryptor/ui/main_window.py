@@ -383,8 +383,8 @@ class MainWindow(QMainWindow):
             self.editor,
             self.sync,
             lambda: self.document,
-            lambda: self.rules_store.rules,
-            self._on_learned_rule,
+            self.rules_store,
+            self.edit_new_rule,
             self,
         )
 
@@ -751,7 +751,7 @@ class MainWindow(QMainWindow):
             profiles=self.profiles,
         )
 
-    def _on_learned_rule(self, rule: PhoneticRule) -> None:
+    def edit_new_rule(self, rule: PhoneticRule) -> None:
         """Ustawienia na zakładce reguł z regułą zaproponowaną z poprawek."""
         dialog = self.create_settings_dialog()
         dialog.open_rules_with(rule)

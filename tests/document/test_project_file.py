@@ -11,6 +11,7 @@ import pytest
 
 from transkryptor import fileio
 from transkryptor.document.anchors import MANUAL, SEGMENT, WORD, Anchor
+from transkryptor.document.diff import Version
 from transkryptor.document.project import (
     SCHEMA_VERSION,
     AsrContext,
@@ -61,6 +62,8 @@ def full_state(audio: AudioRef | None = None) -> ProjectState:
             # Akapit pytania wskazany ręcznie (zgłoszenie #72).
             question_marks=(QuestionMark(0, "A kiedy pani się urodziła?"),),
         ),
+        # Szkic po wstawieniu - odniesienie wniosków z poprawek (zgłoszenie #74).
+        draft_baseline=Version("od tego czasu … są\nżółć", ((0, 1),), {1: "I"}),
         review=(
             ReviewEntry(
                 start=0,
@@ -396,3 +399,11 @@ def test_raw_atomic_output_reports_os_errors(tmp_path) -> None:
     with pytest.raises(OSError) as info, fileio.atomic_output_raw(target) as handle:
         handle.write(b"x")
     assert not isinstance(info.value, ProjectError)
+
+
+def test_damaged_draft_baseline_does_not_block_the_project() -> None:
+    data = json.loads(dumps(full_state()))
+    data["draft_baseline"] = {"text": 5}
+    assert loads(json.dumps(data)).draft_baseline is None
+    data["draft_baseline"] = None
+    assert loads(json.dumps(data)).draft_baseline is None

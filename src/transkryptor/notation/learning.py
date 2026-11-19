@@ -99,11 +99,15 @@ def _template(text: str, superscript: Iterable[int]) -> str:
 
 def _occurrence(correction: Correction) -> _Occurrence | None:
     original, corrected = correction.original, correction.corrected
-    if original == corrected or original.casefold() == corrected.casefold():
-        return None
     marked = {
         index for start, end in correction.superscript for index in range(start, end)
     }
+    # Sama zmiana wielkości liter to nie zapis gwary - ale ten sam tekst
+    # z nowym indeksem górnym (``bendzie → beⁿdzie``) już tak.
+    if original.casefold() == corrected.casefold() and (
+        original != corrected or not marked
+    ):
+        return None
     prefix = 0
     limit = min(len(original), len(corrected))
     while prefix < limit and original[prefix] == corrected[prefix]:
