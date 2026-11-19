@@ -22,6 +22,7 @@ from transkryptor.document.project.model import (
     ReviewEntry,
 )
 from transkryptor.document.project.paths import relative_audio_path
+from transkryptor.document.questionnaire import QuestionMark
 from transkryptor.document.speakers import Speaker, check_speakers, paragraph_count
 from transkryptor.document.verification import normalized as verified_ranges
 from transkryptor.document.work_log import WorkDay, WorkLog
@@ -95,6 +96,10 @@ def to_dict(state: ProjectState, project_path: Path | None = None) -> dict[str, 
             "prompt": state.asr_context.prompt,
             "vocabulary": list(state.asr_context.vocabulary),
             "questionnaire": list(state.asr_context.questionnaire),
+            "question_marks": [
+                {"question": m.question, "paragraph": m.paragraph}
+                for m in state.asr_context.question_marks
+            ],
         },
         "ignored_warnings": [
             {"code": w.code, "start": w.start, "end": w.end, "text": w.text}
@@ -357,12 +362,7 @@ def _parse(data: dict[str, Any]) -> ProjectState:
         ),
         asr=asr,
         review=review,
-        asr_context=AsrContext(
-            prompt=_str(context.get("prompt", "")),
-            vocabulary=tuple(map(_str, _list(context.get("vocabulary", [])))),
-            # Pole opcjonalne - projekty sprzed kwestionariusza go nie mają.
-            questionnaire=tuple(map(_str, _list(context.get("questionnaire", [])))),
-        ),
+        asr_context=_parse_context(context),
         ignored_warnings=ignored,
         anchors=anchors,
         speakers=speakers,
@@ -371,6 +371,21 @@ def _parse(data: dict[str, Any]) -> ProjectState:
         verified=verified_ranges(_ranges(data.get("verified", []))),
         work=_parse_work(_dict(data.get("work", {}))),
         profile=_str(data.get("profile", "")),
+    )
+
+
+def _parse_context(context: dict[str, Any]) -> AsrContext:
+    """Kontekst nagrania; kwestionariusz i wskazania pytań są opcjonalne -
+    projekty sprzed zgłoszeń #47 i #72 ich nie mają."""
+    marks = map(_dict, _list(context.get("question_marks", [])))
+    return AsrContext(
+        prompt=_str(context.get("prompt", "")),
+        vocabulary=tuple(map(_str, _list(context.get("vocabulary", [])))),
+        questionnaire=tuple(map(_str, _list(context.get("questionnaire", [])))),
+        question_marks=tuple(
+            QuestionMark(_int(mark.get("question")), _str(mark.get("paragraph", "")))
+            for mark in marks
+        ),
     )
 
 

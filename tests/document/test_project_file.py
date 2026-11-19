@@ -30,6 +30,7 @@ from transkryptor.document.project import (
     resolve_audio,
     save_project,
 )
+from transkryptor.document.questionnaire import QuestionMark
 from transkryptor.errors import ProjectError
 from transkryptor.fileio import file_sha256, write_atomic
 
@@ -54,7 +55,11 @@ def full_state(audio: AudioRef | None = None) -> ProjectState:
             model="large-v3",
         ),
         asr_context=AsrContext(
-            prompt="Wywiad w Ocieszynie", vocabulary=("Ocieszyn", "Oborniki")
+            prompt="Wywiad w Ocieszynie",
+            vocabulary=("Ocieszyn", "Oborniki"),
+            questionnaire=("Rok i miejsce urodzenia",),
+            # Akapit pytania wskazany ręcznie (zgłoszenie #72).
+            question_marks=(QuestionMark(0, "A kiedy pani się urodziła?"),),
         ),
         review=(
             ReviewEntry(

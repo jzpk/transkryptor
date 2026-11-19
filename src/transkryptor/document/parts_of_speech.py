@@ -140,6 +140,8 @@ PRIORITY = (
 # homonimów).
 Interpretation = tuple[str, Sequence[str], str]
 Analyser = Callable[[str], Iterable[Interpretation]]
+# Odczytanie słowa: część mowy i lemat (bez rozróżnienia homonimów).
+Reading = tuple[PartOfSpeech, str]
 
 
 class AnalyserUnavailable(RuntimeError):
@@ -168,13 +170,20 @@ class PartOfSpeechTagger:
 
     def __init__(self, analyser: Analyser) -> None:
         self._analyse = analyser
-        self._cache: dict[str, PartOfSpeech | None] = {}
+        self._cache: dict[str, tuple[Reading, ...]] = {}
+
+    def readings(self, word: str) -> tuple[Reading, ...]:
+        """Wszystkie odczytania słowa (bez rzadkich, gdy są inne).
+
+        Pusta krotka - słowo spoza słownika albo interpunkcja.
+        """
+        if word not in self._cache:
+            self._cache[word] = readings_of(list(self._analyse(word)))
+        return self._cache[word]
 
     def part_of(self, word: str) -> PartOfSpeech | None:
         """Część mowy słowa; None - słowo spoza słownika albo interpunkcja."""
-        if word not in self._cache:
-            self._cache[word] = _choose(list(self._analyse(word)))
-        return self._cache[word]
+        return choose_part(self.readings(word))
 
     def spans(
         self, text: str, wanted: Sequence[PartOfSpeech]
@@ -190,10 +199,20 @@ class PartOfSpeechTagger:
         return found
 
 
-def _choose(interpretations: list[Interpretation]) -> PartOfSpeech | None:
-    """Jedna część mowy z interpretacji (bez rzadkich, gdy są inne)."""
+def readings_of(interpretations: Sequence[Interpretation]) -> tuple[Reading, ...]:
+    """Odczytania z interpretacji Morfeusza (bez rzadkich, gdy są inne)."""
     plain = [entry for entry in interpretations if not entry[1]]
-    parts = {_part(tag, lemma) for tag, _, lemma in plain or interpretations}
+    found: dict[Reading, None] = {}
+    for tag, _, lemma in plain or interpretations:
+        part = _part(tag, lemma)
+        if part is not None:
+            found.setdefault((part, lemma.split(":", 1)[0]), None)
+    return tuple(found)
+
+
+def choose_part(readings: Iterable[Reading]) -> PartOfSpeech | None:
+    """Jedna część mowy słowa: pierwsza z odczytań w kolejności ``PRIORITY``."""
+    parts = {part for part, _ in readings}
     return next((part for part in PRIORITY if part in parts), None)
 
 

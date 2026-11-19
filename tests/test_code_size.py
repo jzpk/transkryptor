@@ -21,7 +21,7 @@ MODULE_EXCEPTIONS = {
     "ui/asr_transcription_section.py": 681,
     "ui/corpus_dialog.py": 862,
     "ui/editor.py": 678,
-    "ui/main_window.py": 1119,
+    "ui/main_window.py": 1118,
     "ui/player_bar.py": 630,
     "ui/session.py": 528,
     "ui/settings_pages.py": 518,

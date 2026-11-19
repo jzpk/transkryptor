@@ -74,6 +74,7 @@ class ProjectStateMapper:
                 prompt=prompt,
                 vocabulary=vocabulary,
                 questionnaire=views.asr.questionnaire(),
+                question_marks=views.asr.question_marks(),
             ),
             ignored_warnings=tuple(notes.ignored_warnings.entries()),
             anchors=tuple(notes.sync.entries()),
@@ -97,7 +98,9 @@ class ProjectStateMapper:
         views.asr.set_asr_context(
             state.asr_context.prompt, state.asr_context.vocabulary
         )
-        views.asr.set_questionnaire(state.asr_context.questionnaire)
+        views.asr.set_questionnaire(
+            state.asr_context.questionnaire, state.asr_context.question_marks
+        )
         return date_valid
 
     def restore_annotations(self, state: ProjectState) -> None:

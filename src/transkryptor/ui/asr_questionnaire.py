@@ -2,7 +2,9 @@
 
 Pytania z kwestionariusza są zapisywane w projekcie razem z kontekstem
 nagrania i słownikiem. Układ szkicu „pytanie - odpowiedź” rozpoznaje dzięki
-nim wypowiedzi badacza także bez znaku zapytania.
+nim wypowiedzi badacza także bez znaku zapytania. Razem z pytaniami pole
+przechowuje akapity pytań wskazane ręcznie w oknie „Słowa według pytań”
+(zgłoszenie #72) - nowy kwestionariusz je usuwa.
 """
 
 from __future__ import annotations
@@ -19,7 +21,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from transkryptor.document.questionnaire import read_questionnaire
+from transkryptor.document.questionnaire import QuestionMark, read_questionnaire
 from transkryptor.errors import AppError
 from transkryptor.i18n import tr, tr_plural
 from transkryptor.ui import icons
@@ -35,6 +37,7 @@ class QuestionnaireBox(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._questions: tuple[str, ...] = ()
+        self._marks: tuple[QuestionMark, ...] = ()
         self.status_label = QLabel()
         set_props(self.status_label, role="muted")
         self.load_button = QPushButton(tr("asr.questionnaire.load"))
@@ -56,12 +59,26 @@ class QuestionnaireBox(QWidget):
     def questions(self) -> tuple[str, ...]:
         return self._questions
 
+    def marks(self) -> tuple[QuestionMark, ...]:
+        return self._marks
+
     def set_questions(
-        self, questions: tuple[str, ...], *, notify: bool = False
+        self,
+        questions: tuple[str, ...],
+        marks: tuple[QuestionMark, ...] = (),
+        *,
+        notify: bool = False,
     ) -> None:
         self._questions = tuple(questions)
+        self._marks = tuple(marks)
         self._show_state()
         if notify:
+            self.changed.emit()
+
+    def set_marks(self, marks: tuple[QuestionMark, ...]) -> None:
+        """Nowe wskazania akapitów pytań (zgłasza zmianę projektu)."""
+        if tuple(marks) != self._marks:
+            self._marks = tuple(marks)
             self.changed.emit()
 
     def load(self, path: Path) -> bool:

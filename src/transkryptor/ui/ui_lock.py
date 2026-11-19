@@ -48,7 +48,6 @@ def lock_window(window: MainWindow, locked: bool) -> None:
         *window.search_actions.values(),
         *window.snapshots.actions,
         window.progress.stats_action,
-        window.themes.action,
     ):
         action.setEnabled(not locked)
     window.player_controller.set_locked(locked)
@@ -60,3 +59,4 @@ def lock_window(window: MainWindow, locked: bool) -> None:
     window.packs.set_locked(locked)
     window.coverage.set_locked(locked)
     window.profiles.set_locked(locked)
+    window.analysis.set_locked(locked)

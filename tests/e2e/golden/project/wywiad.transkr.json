@@ -67,6 +67,7 @@
  },
  "asr_context": {
   "prompt": "",
+  "question_marks": [],
   "questionnaire": [],
   "vocabulary": []
  },

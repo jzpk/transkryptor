@@ -16,6 +16,7 @@ from typing import Protocol
 from transkryptor.asr.results import TranscriptionResult
 from transkryptor.document.model import Document
 from transkryptor.document.project import PlayerState
+from transkryptor.document.questionnaire import QuestionMark
 from transkryptor.ui.metadata_form import MetadataWidgets
 
 
@@ -68,7 +69,11 @@ class AsrView(Protocol):
 
     def questionnaire(self) -> tuple[str, ...]: ...
 
-    def set_questionnaire(self, questions: tuple[str, ...]) -> None: ...
+    def question_marks(self) -> tuple[QuestionMark, ...]: ...
+
+    def set_questionnaire(
+        self, questions: tuple[str, ...], marks: tuple[QuestionMark, ...] = ()
+    ) -> None: ...
 
     def set_context_default(self, text: str) -> None: ...
 

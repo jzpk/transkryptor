@@ -52,6 +52,7 @@ from transkryptor.notation.rules import PhoneticRule
 from transkryptor.notation.suggestions import rule_infos
 from transkryptor.settings import ExportSettings, PlayerSettings, Settings
 from transkryptor.ui import accessibility, icons
+from transkryptor.ui.analysis_tools import AnalysisTools
 from transkryptor.ui.asr_controller import AsrController
 from transkryptor.ui.asr_panel import AsrPanel
 from transkryptor.ui.audio_filters import AudioFilterController
@@ -131,7 +132,6 @@ from transkryptor.ui.speaker_controller import SpeakerController
 from transkryptor.ui.stats_dialog import ProgressController
 from transkryptor.ui.sync_controller import SyncController
 from transkryptor.ui.theme import apply_theme, resolve_tokens, set_props, tokens
-from transkryptor.ui.themes_controller import ThemesController
 from transkryptor.ui.toolbar import MainToolbar, ToolbarHandlers
 from transkryptor.ui.tutorial_controller import TutorialController
 from transkryptor.ui.ui_lock import lock_window
@@ -590,7 +590,7 @@ class MainWindow(QMainWindow):
         self.main_toolbar = bar
 
     def _build_work_tools(self) -> None:
-        """Statystyki, pola tematyczne, mapa pokrycia, migawki i paczka."""
+        """Statystyki, zestawienia słów, mapa pokrycia, migawki i paczka."""
         self.progress = ProgressController(
             self,
             self.session.capture_state,
@@ -599,12 +599,7 @@ class MainWindow(QMainWindow):
             lambda: Path(self.session.project_name or tr("stats.default_name")).stem,
             silence=self.waveform.silence,
         )
-        self.themes = ThemesController(
-            self,
-            lambda: self.document,
-            lambda: Path(self.session.project_name or tr("stats.default_name")).stem,
-            lambda: self.session.project_path,
-        )
+        self.analysis = AnalysisTools(self)
         # Mapa pokrycia na fali - ta sama definicja pokrycia co statystyki.
         self.coverage = CoverageController(
             self.waveform,
@@ -640,7 +635,11 @@ class MainWindow(QMainWindow):
         self.main_toolbar.open_menu.add_actions([self.packs.open_action])
         self.main_toolbar.add_save_actions(self.snapshots.actions)
         self.main_toolbar.add_export_actions(
-            [self.progress.stats_action, self.themes.action, self.packs.export_action]
+            [
+                self.progress.stats_action,
+                *self.analysis.actions,
+                self.packs.export_action,
+            ]
         )
 
     def _build_status_bar(self) -> None:

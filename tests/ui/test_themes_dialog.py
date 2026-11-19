@@ -62,13 +62,13 @@ def test_only_informants_count_when_speakers_are_assigned(window) -> None:
         [Speaker("B", "Badacz", RESEARCHER), Speaker("I", "Informator", INFORMANT)]
     )
     window.editor.load_content("Czy był pogrzeb?\nKrowy pasłam.", [], {0: "B", 1: "I"})
-    rows = shown_dialog(window.themes).rows
+    rows = shown_dialog(window.analysis.themes).rows
     assert {row[1] for row in rows} == {"krowa", "paść"}
     assert {row[4] for row in rows} == {"Informator"}
 
 
 def test_empty_text_has_no_rows(window) -> None:
-    dialog = shown_dialog(window.themes)
+    dialog = shown_dialog(window.analysis.themes)
     assert dialog.rows == ()
     assert not dialog.empty_label.isHidden()
     assert not dialog.csv_button.isEnabled()
@@ -87,7 +87,7 @@ def test_without_analyser_dictionary_forms_still_count(window) -> None:
 
 
 def test_action_is_in_export_menu(window) -> None:
-    assert window.themes.action in window.main_toolbar.export_menu.actions()
+    assert window.analysis.themes.action in window.main_toolbar.export_menu.actions()
 
 
 def informant_project(path, text: str, label: str) -> None:
@@ -109,7 +109,7 @@ def test_joined_transcriptions_show_which_informants_used_a_word(
     window.editor.load_content("Krowy pasłam.", [], {0: "I"})
     informant_project(tmp_path / "drugi.transkr", "Krowa i pogrzeb.", "Jan")
     informant_project(tmp_path / "trzeci.transkr", "Krowę doiłam.", "")
-    dialog = shown_dialog(window.themes)
+    dialog = shown_dialog(window.analysis.themes)
 
     monkeypatch.setattr(
         QFileDialog,
@@ -143,9 +143,9 @@ def test_joining_skips_repeated_and_unreadable_projects(
         "transkryptor.ui.themes_controller.show_error",
         lambda _parent, title, _error: errors.append(title),
     )
-    dialog = shown_dialog(window.themes)
+    dialog = shown_dialog(window.analysis.themes)
     paths = [tmp_path / "drugi.transkr", tmp_path / "zepsuty.transkr"]
-    assert window.themes.join_projects(dialog, paths) == 1
-    assert window.themes.join_projects(dialog, paths[:1]) == 0
+    assert window.analysis.themes.join_projects(dialog, paths) == 1
+    assert window.analysis.themes.join_projects(dialog, paths[:1]) == 0
     assert errors == ["Nie udało się dołączyć transkrypcji"]
     assert [row[1] for row in dialog.rows] == ["krowa"]

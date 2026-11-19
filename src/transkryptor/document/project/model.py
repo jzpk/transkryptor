@@ -7,6 +7,7 @@ from pathlib import Path, PurePosixPath
 
 from transkryptor.document.anchors import Anchor
 from transkryptor.document.comments import Comment
+from transkryptor.document.questionnaire import QuestionMark
 from transkryptor.document.speakers import DEFAULT_SPEAKERS, Speaker
 from transkryptor.document.work_log import WorkLog
 from transkryptor.i18n import tr
@@ -75,12 +76,14 @@ class AsrDraft:
 class AsrContext:
     """Kontekst nagrania i słownik projektu przekazywane do ASR (REQ-21).
 
-    ``questionnaire`` - pytania kwestionariusza wywiadu (zgłoszenie #47).
+    ``questionnaire`` - pytania kwestionariusza wywiadu (zgłoszenie #47),
+    ``question_marks`` - akapity pytań wskazane ręcznie (zgłoszenie #72).
     """
 
     prompt: str = ""
     vocabulary: tuple[str, ...] = ()
     questionnaire: tuple[str, ...] = ()
+    question_marks: tuple[QuestionMark, ...] = ()
 
 
 @dataclass(frozen=True)

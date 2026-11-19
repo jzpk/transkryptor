@@ -50,3 +50,14 @@ def test_matcher_recognises_questions_without_question_mark() -> None:
     )
     assert not matcher.matches("Rolnik.")
     assert not QuestionMatcher([])
+
+
+def test_best_question_and_similarity_keep_questionnaire_numbers() -> None:
+    questions = parse_questionnaire(TEXT)
+    matcher = QuestionMatcher(("Rok", *questions))  # „Rok” - za krótkie pytanie
+    best = matcher.best("A zajęcie osoby nagrywanej?")
+    assert best is not None and best[0] == 4
+    assert matcher.best("Rolnik.") is None
+    assert matcher.similarity("Rok i miejsce urodzenia", 3) == 1.0
+    assert 0 < matcher.similarity("A gdzie pani się urodziła?", 3) < 1
+    assert matcher.similarity("Rok i miejsce urodzenia", 0) == 0.0

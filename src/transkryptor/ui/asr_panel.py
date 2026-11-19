@@ -35,6 +35,7 @@ from transkryptor.asr.engine import DecodingOptions
 from transkryptor.asr.manager import ModelManager
 from transkryptor.asr.models import AsrModelInfo
 from transkryptor.asr.results import TranscriptionResult
+from transkryptor.document.questionnaire import QuestionMark
 from transkryptor.notation.suggestions import RuleInfo, Suggestion
 from transkryptor.settings import AsrSettings
 from transkryptor.ui.asr_model_section import ModelSection
@@ -224,9 +225,19 @@ class AsrPanel(QWidget):
         """Pytania kwestionariusza wywiadu (zapisywane w projekcie)."""
         return self.transcription.questionnaire_box.questions()
 
-    def set_questionnaire(self, questions: tuple[str, ...]) -> None:
+    def question_marks(self) -> tuple[QuestionMark, ...]:
+        """Akapity pytań wskazane ręcznie (zapisywane w projekcie)."""
+        return self.transcription.questionnaire_box.marks()
+
+    def set_question_marks(self, marks: tuple[QuestionMark, ...]) -> None:
+        """Nowe wskazania akapitów pytań (zmiana projektu)."""
+        self.transcription.questionnaire_box.set_marks(marks)
+
+    def set_questionnaire(
+        self, questions: tuple[str, ...], marks: tuple[QuestionMark, ...] = ()
+    ) -> None:
         """Odtwarza kwestionariusz projektu bez zgłaszania zmiany."""
-        self.transcription.questionnaire_box.set_questions(questions)
+        self.transcription.questionnaire_box.set_questions(questions, marks)
 
     def set_speakers_legend(self, text: str) -> None:
         """Legenda mówców dokumentu w kroku „Szkic” (``B - Badacz; …``)."""
