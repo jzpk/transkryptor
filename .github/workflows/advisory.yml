@@ -1,0 +1,197 @@
+# Ostrzeżenie bezpieczeństwa: podpisany advisory.json w wydaniu „advisory”.
+#
+# Actions → „Ostrzeżenie bezpieczeństwa” → Run workflow, z najniższą
+# bezpieczną wersją i opisem luki (po polsku i angielsku). Zainstalowane
+# programy sprawdzają plik przy każdym sprawdzeniu aktualizacji
+# (src/transkryptor/update/advisory.py) i w wersjach starszych niż
+# min_version pokazują ostrzeżenie z propozycją aktualizacji. Ostrzeżenie
+# można opublikować bez nowego wydania programu - zwykle zaraz po wydaniu
+# poprawki, z min_version równym jej wersji.
+#
+# Wydanie „advisory” ma stały tag i jest oznaczone jako pre-release, więc
+# nigdy nie zostaje „najnowszym wydaniem” (sprawdzanie aktualizacji go nie
+# widzi), a tag nie pasuje do v* i nie uruchamia workflow „Wydanie”. Każda
+# publikacja dostaje numer o jeden większy od poprzedniego - programy
+# odrzucają ostrzeżenie o niższym numerze niż już znane. Żeby odwołać
+# ostrzeżenie, opublikuj nowe z min_version 0.0.0.
+#
+# Łańcuch zaufania jak w workflow „Wydanie”: job „tresc” składa plik kodem
+# aplikacji (bez sekretów), job „podpis” podpisuje go kluczem minisign
+# z environment „Release” (wymagane zatwierdzenie, bez kodu repozytorium),
+# a job „publikacja” sprawdza podpis kodem aplikacji i dopiero wtedy
+# podmienia pliki wydania.
+name: Ostrzeżenie bezpieczeństwa
+
+on:
+  workflow_dispatch:
+    inputs:
+      min_version:
+        description: "Najniższa bezpieczna wersja (starsze dostaną ostrzeżenie), np. 0.10.1"
+        required: true
+        type: string
+      message_pl:
+        description: "Opis dla użytkownika po polsku (pusty: tekst domyślny)"
+        required: false
+        type: string
+      message_en:
+        description: "Opis dla użytkownika po angielsku (pusty: tekst domyślny)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  MINISIGN_VERSION: "0.12"
+  MINISIGN_SHA256: 9a599b48ba6eb7b1e80f12f36b94ceca7c00b7a5173c95c3efc88d9822957e73
+  ADVISORY_TAG: advisory
+
+concurrency:
+  group: ostrzezenie
+  cancel-in-progress: false
+
+jobs:
+  tresc:
+    name: Treść ostrzeżenia
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Instalacja uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: true
+
+      - name: Środowisko z uv.lock
+        run: uv sync --locked
+
+      # Numer następny po opublikowanym. Brak wydania „advisory” to numer 1;
+      # każdy inny błąd przerywa workflow - numer 1 przy istniejącym
+      # ostrzeżeniu zostałby przez programy odrzucony jako starszy.
+      - name: Numer i treść
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MIN_VERSION: ${{ inputs.min_version }}
+          MESSAGE_PL: ${{ inputs.message_pl }}
+          MESSAGE_EN: ${{ inputs.message_en }}
+        run: |
+          mkdir -p current dist
+          if gh release view "$ADVISORY_TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release download "$ADVISORY_TAG" --repo "$GITHUB_REPOSITORY" \
+              --pattern advisory.json --dir current
+          fi
+          SEQUENCE="$(uv run python -m transkryptor.update.advisory next current/advisory.json)"
+          uv run python -m transkryptor.update.advisory build \
+            --sequence "$SEQUENCE" --min-version "$MIN_VERSION" \
+            --message-pl "$MESSAGE_PL" --message-en "$MESSAGE_EN" \
+            --out dist/advisory.json > dist/comment.txt
+          cat dist/advisory.json
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ostrzezenie-tresc
+          path: dist
+          if-no-files-found: error
+
+  podpis:
+    name: Podpis ostrzeżenia
+    needs: [tresc]
+    runs-on: ubuntu-22.04
+    environment: Release
+    permissions: {}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ostrzezenie-tresc
+          path: dist
+
+      # Jak w workflow „Wydanie” (job „podpis”): odtworzenie pliku klucza
+      # z sekretu i podpis z zaufanym komentarzem. Komentarz musi mieć postać
+      # „transkryptor advisory <numer>” - inny (np. komentarz sum wydania)
+      # zatrzymuje podpis.
+      - name: Podpis (minisign)
+        env:
+          MINISIGN_SECRET_KEY: ${{ secrets.MINISIGN_SECRET_KEY }}
+        run: |
+          if [ -z "$MINISIGN_SECRET_KEY" ]; then
+            echo "::error::Brak sekretu MINISIGN_SECRET_KEY w environment Release."
+            exit 1
+          fi
+          COMMENT="$(cat dist/comment.txt)"
+          if ! printf '%s' "$COMMENT" | grep -Eq '^transkryptor advisory [0-9]+$'; then
+            echo "::error::Nieoczekiwany zaufany komentarz: $COMMENT"
+            exit 1
+          fi
+          curl -fsSL -o "$RUNNER_TEMP/minisign.tar.gz" \
+            "https://github.com/jedisct1/minisign/releases/download/$MINISIGN_VERSION/minisign-$MINISIGN_VERSION-linux.tar.gz"
+          echo "$MINISIGN_SHA256  $RUNNER_TEMP/minisign.tar.gz" | sha256sum --check --strict
+          tar -xzf "$RUNNER_TEMP/minisign.tar.gz" -C "$RUNNER_TEMP" minisign-linux/x86_64/minisign
+          umask 077
+          KEY="$(printf '%s\n' "$MINISIGN_SECRET_KEY" | tr -d '\r' \
+            | grep -v '^[[:space:]]*$' | grep -v '^untrusted comment:' || true)"
+          if [ -z "$KEY" ]; then
+            KEY="$(printf '%s\n' "$MINISIGN_SECRET_KEY" | tr -d '\r' | awk 'NF { k = $NF } END { print k }')"
+          fi
+          KEY="$(printf '%s' "$KEY" | tr -d '[:space:]')"
+          if ! printf '%s' "$KEY" | grep -Eq '^[A-Za-z0-9+/]{100,}={0,2}$'; then
+            echo "::error::MINISIGN_SECRET_KEY nie jest kluczem prywatnym minisign."
+            exit 1
+          fi
+          printf 'untrusted comment: minisign secret key\n%s\n' "$KEY" > "$RUNNER_TEMP/minisign.key"
+          "$RUNNER_TEMP/minisign-linux/x86_64/minisign" -S \
+            -s "$RUNNER_TEMP/minisign.key" -m dist/advisory.json -t "$COMMENT"
+
+      - name: Usunięcie klucza podpisu
+        if: always()
+        run: rm -f "$RUNNER_TEMP/minisign.key"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ostrzezenie-podpis
+          path: dist/advisory.json.minisig
+          if-no-files-found: error
+
+  publikacja:
+    name: Publikacja ostrzeżenia
+    needs: [tresc, podpis]
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Instalacja uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: true
+
+      - name: Środowisko z uv.lock
+        run: uv sync --locked
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: dist
+          merge-multiple: true
+
+      # Ten sam kod, którym program sprawdza ostrzeżenie.
+      - name: Weryfikacja kodem aplikacji
+        run: |
+          uv run python -m transkryptor.update.advisory verify \
+            dist/advisory.json dist/advisory.json.minisig
+
+      - name: Publikacja w wydaniu „advisory”
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view "$ADVISORY_TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release create "$ADVISORY_TAG" --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" --prerelease --latest=false \
+              --title "Ostrzeżenia bezpieczeństwa" \
+              --notes "Podpisane ostrzeżenie o wersjach z lukami bezpieczeństwa, sprawdzane przez program. To nie jest wydanie programu."
+          fi
+          gh release upload "$ADVISORY_TAG" --repo "$GITHUB_REPOSITORY" --clobber \
+            dist/advisory.json dist/advisory.json.minisig

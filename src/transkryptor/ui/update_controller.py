@@ -20,6 +20,12 @@ Logika (sprawdzenie wersji, pobieranie, instalacja) jest w pakiecie
   ofertę. Instalacja zamyka okno zwykłą drogą (``close``), więc obowiązuje
   ochrona przed utratą niewyeksportowanej pracy (ACC-10); po odmowie baner
   zostaje z przyciskiem „Uruchom ponownie i zaktualizuj”.
+- Wyjątek od zgody na pobranie: ostrzeżenie o luce w bieżącej wersji
+  (podpisane ``advisory.json``, ``update/advisory.py``). Wtedy nowa wersja
+  pobiera się sama, a po pobraniu okno (``ui/update_advisory.py``) pyta,
+  czy zainstalować ją od razu. Bez możliwości pobrania okno tylko ostrzega.
+  Okno pojawia się raz na sesję dla danego numeru ostrzeżenia, a napis
+  banera dostaje ton ostrzeżenia.
 """
 
 from __future__ import annotations
@@ -36,7 +42,10 @@ from transkryptor import __version__
 from transkryptor.errors import UpdateError
 from transkryptor.i18n import tr
 from transkryptor.ui.messages import show_error
+from transkryptor.ui.theme import set_props
+from transkryptor.ui.update_advisory import warn_about_advisory
 from transkryptor.ui.update_banner import UpdateBanner
+from transkryptor.update.advisory import Advisory
 from transkryptor.update.download import DownloadProgress
 from transkryptor.update.install import apply_update
 from transkryptor.update.releases import ReleaseInfo, is_newer
@@ -122,6 +131,9 @@ class UpdateController(QObject):
         self._offer: ReleaseInfo | None = None
         self._artifact: Path | None = None
         self._ready_version = ""
+        # Ostrzeżenie, dla którego trwa samoczynne pobieranie.
+        self._urgent: Advisory | None = None
+        self._warned_sequence: int | None = None
         self._last_check: float | None = None
 
         self.banner = UpdateBanner()
@@ -198,6 +210,11 @@ class UpdateController(QObject):
         _dispose(self._thread)
         self._thread = None
         self._log_outcome("Update check", outcome)
+        self._show_offer(outcome)
+        if outcome.advisory is not None:
+            self._on_advisory(outcome.advisory)
+
+    def _show_offer(self, outcome: UpdateOutcome) -> None:
         release = outcome.release
         if self._artifact is not None or self.is_downloading or release is None:
             return
@@ -209,8 +226,36 @@ class UpdateController(QObject):
             # informacja, bez odnośnika do pobrania.
             self.banner.show_offer(release.version, can_download=False)
 
+    def _on_advisory(self, advisory: Advisory) -> None:
+        set_props(self.banner.label, tone="warning")
+        if self._warned_sequence == advisory.sequence or self.is_downloading:
+            # Trwające pobieranie kończy się instalacją albo pytaniem.
+            return
+        self._warned_sequence = advisory.sequence
+        if self._artifact is None and self._offer is not None:
+            # Luka w bieżącej wersji: pobranie bez czekania na kliknięcie,
+            # pytanie o instalację po pobraniu.
+            self._urgent = advisory
+            self.download_now()
+            return
+        self._warn_later(advisory)
+
+    def _warn_later(self, advisory: Advisory) -> None:
+        # Po bieżącym zdarzeniu: przy starcie okno jest wtedy już widoczne.
+        QTimer.singleShot(0, lambda: self._show_advisory(advisory))
+
+    def _show_advisory(self, advisory: Advisory) -> None:
+        if warn_about_advisory(
+            self._window, advisory, can_install=self._artifact is not None
+        ):
+            self.install_now()
+
     def download_now(self) -> None:
-        """Pobiera oferowaną wersję w tle; gotowy plik od razu instaluje."""
+        """Pobiera oferowaną wersję w tle; gotowy plik od razu instaluje.
+
+        Pobranie z powodu ostrzeżenia (``_on_advisory``) zamiast instalacji
+        kończy się pytaniem w oknie ostrzeżenia.
+        """
         release = self._offer
         if release is None or self.is_downloading:
             return
@@ -229,13 +274,21 @@ class UpdateController(QObject):
         self._download = None
         self._log_outcome("Update download", outcome)
         status = outcome.status
+        urgent, self._urgent = self._urgent, None
         if status is UpdateStatus.READY and outcome.artifact is not None:
             self._show_ready(outcome)
-            self.install_now()
+            if urgent is not None:
+                self._warn_later(urgent)
+            else:
+                self.install_now()
             return
         if self._offer is not None:
             self.banner.show_offer(self._offer.version, can_download=True)
         if status is UpdateStatus.CANCELLED:
+            return
+        if urgent is not None:
+            # Pobranie bez kliknięcia - zamiast błędu samo ostrzeżenie.
+            self._warn_later(urgent)
             return
         error = outcome.error or UpdateError(
             user_message=tr("update.error.offline"),

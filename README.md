@@ -126,6 +126,14 @@ buduje natywnie AppImage (Ubuntu 22.04) i instalator Windows (Inno Setup),
 podpisuje sumy kontrolne (minisign) i publikuje GitHub Release, a na koniec
 uruchamia przebudowę strony projektu.
 
+Ostrzeżenie o wersjach z lukami bezpieczeństwa publikuje workflow
+„Ostrzeżenie bezpieczeństwa” (`.github/workflows/advisory.yml`): Actions →
+Run workflow z najniższą bezpieczną wersją i opisem luki. Podpisany plik
+`advisory.json` trafia do wydania `advisory` (pre-release), a programy
+w starszych wersjach pokazują ostrzeżenie z propozycją aktualizacji
+(`src/transkryptor/update/advisory.py`). Odwołanie ostrzeżenia to nowe
+ostrzeżenie z wersją `0.0.0`.
+
 Artefakt dla bieżącej platformy można zbudować lokalnie:
 
 ```sh

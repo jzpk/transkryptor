@@ -10,7 +10,7 @@ from typing import cast
 import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QMainWindow
+from PySide6.QtWidgets import QMainWindow, QMessageBox
 
 from transkryptor.errors import UpdateError
 from transkryptor.i18n import tr
@@ -22,6 +22,7 @@ from transkryptor.ui.update_controller import (
     UpdateController,
     UpdateThread,
 )
+from transkryptor.update.advisory import Advisory
 from transkryptor.update.releases import ReleaseInfo
 from transkryptor.update.service import UpdateOutcome, UpdateService, UpdateStatus
 
@@ -359,3 +360,68 @@ def test_new_release_found_in_background_is_offered(periodic) -> None:
     assert runs[-1].downloads == []
     # Oferta nie wstrzymuje sprawdzania - może pojawić się nowsza wersja.
     assert controller.periodic_checks_active
+
+
+# --- ostrzeżenie o luce w bieżącej wersji ---------------------------------------
+
+ADVISORY = Advisory(1, "9.0.0", (("en", "Security hole."), ("pl", "Luka <b>x</b>.")))
+URGENT = UpdateOutcome(UpdateStatus.DOWNLOADABLE, RELEASE, advisory=ADVISORY)
+
+
+def wait_dialogs(qtbot, calls, count: int = 1):
+    qtbot.waitUntil(lambda: len(calls) >= count, timeout=5000)
+    return calls
+
+
+def test_advisory_downloads_without_a_click_and_asks(
+    qtbot, window, no_blocking_dialogs
+) -> None:
+    applied: list[Path] = []
+    window.updates._apply = applied.append
+    service = run_check(qtbot, window, URGENT)
+    [(kind, title, text)] = wait_dialogs(qtbot, no_blocking_dialogs)
+    assert service.downloads == [RELEASE]
+    assert kind == "question"
+    assert title == tr("update.advisory.title")
+    assert "Luka &lt;b&gt;x&lt;/b&gt;." in text  # treść z pliku bez HTML
+    assert applied == []  # odpowiedź „nie” - instalacja później z banera
+    assert window.updates.banner.install_button.isVisibleTo(window)
+
+
+def test_accepted_advisory_installs_now(qtbot, window, monkeypatch) -> None:
+    applied: list[Path] = []
+    window.updates._apply = applied.append
+    monkeypatch.setattr(
+        QMessageBox,
+        "question",
+        staticmethod(lambda *_args, **_kw: QMessageBox.StandardButton.Yes),
+    )
+    run_check(qtbot, window, URGENT)
+    qtbot.waitUntil(lambda: applied == [ARTIFACT], timeout=5000)
+
+
+def test_failed_urgent_download_only_warns(qtbot, window, no_blocking_dialogs) -> None:
+    failed = UpdateOutcome(UpdateStatus.ERROR, RELEASE, error=UpdateError("błąd"))
+    run_check(qtbot, window, URGENT, FakeService(URGENT, download=failed))
+    [(kind, title, _text)] = wait_dialogs(qtbot, no_blocking_dialogs)
+    assert (kind, title) == ("warning", tr("update.advisory.title"))
+    assert window.updates.banner.download_button.isVisibleTo(window)
+
+
+def test_advisory_without_self_update_only_warns(
+    qtbot, window, no_blocking_dialogs
+) -> None:
+    outcome = UpdateOutcome(UpdateStatus.AVAILABLE, RELEASE, advisory=ADVISORY)
+    service = run_check(qtbot, window, outcome)
+    [(kind, _title, _text)] = wait_dialogs(qtbot, no_blocking_dialogs)
+    assert kind == "warning"
+    assert service.downloads == []
+
+
+def test_advisory_is_shown_once_per_session(qtbot, window, no_blocking_dialogs) -> None:
+    outcome = UpdateOutcome(UpdateStatus.OFFLINE, advisory=ADVISORY)
+    run_check(qtbot, window, outcome)
+    wait_dialogs(qtbot, no_blocking_dialogs)
+    run_check(qtbot, window, outcome)
+    qtbot.wait(50)
+    assert len(no_blocking_dialogs) == 1

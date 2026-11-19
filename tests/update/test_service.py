@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from transkryptor.update.advisory import AdvisoryStore
 from transkryptor.update.service import UpdateService, UpdateStatus
 
 ASSET = "Transkryptor-1.0.0-x86_64.AppImage"
@@ -18,6 +19,7 @@ def make_service(tmp_path, client_factory):
             client_factory=client_factory,
             platform="linux",
             self_update=self_update,
+            advisory_store=AdvisoryStore(tmp_path / "advisory"),
         )
 
     return make
@@ -121,3 +123,36 @@ def test_closing_the_app_cancels_the_download(github, make_service) -> None:
     assert release is not None
     outcome = service.download(release, should_cancel=lambda: True)
     assert outcome.status is UpdateStatus.CANCELLED
+
+
+def test_advisory_for_the_current_version_is_reported(github, make_service) -> None:
+    github.publish("1.0.0", {ASSET: b"obraz"})
+    github.publish_advisory(1, "1.0.0", {"pl": "Luka."})
+    outcome = make_service(current="0.2.0").check()
+    assert outcome.status is UpdateStatus.DOWNLOADABLE
+    assert outcome.advisory is not None and outcome.advisory.message("pl") == "Luka."
+    assert github.downloads == []
+
+
+def test_advisory_for_older_versions_is_not_reported(github, make_service) -> None:
+    github.publish("1.0.0", {ASSET: b"obraz"})
+    github.publish_advisory(1, "0.2.0")
+    assert make_service(current="0.2.0").check().advisory is None
+
+
+def test_stored_advisory_is_reported_offline(github, make_service) -> None:
+    github.publish("0.2.0", {ASSET: b"obraz"})
+    github.publish_advisory(1, "1.0.0")
+    assert make_service().check().advisory is not None
+    github.offline = True
+    outcome = make_service().check()
+    assert outcome.status is UpdateStatus.OFFLINE
+    assert outcome.advisory is not None
+
+
+def test_broken_advisory_does_not_break_the_check(github, make_service) -> None:
+    github.publish("1.0.0", {ASSET: b"obraz"})
+    github.advisory_files = {"advisory.json": b"{}", "advisory.json.minisig": b"x"}
+    outcome = make_service().check()
+    assert outcome.status is UpdateStatus.DOWNLOADABLE
+    assert outcome.advisory is None
