@@ -19,7 +19,8 @@ Logika (sprawdzenie wersji, pobieranie, instalacja) jest w pakiecie
   sam komunikat w pasku stanu.
 - Ostrzeżenie o luce w bieżącej wersji (podpisane ``advisory.json``,
   ``update/advisory.py``) pokazuje okno (``ui/update_advisory.py``) raz na
-  sesję dla danego numeru ostrzeżenia - z propozycją instalacji, gdy nowa
+  sesję dla danego numeru ostrzeżenia, w kolejce komunikatów okna
+  (``ui/notice_queue.py``), więc nie przykrywa innych okien - z propozycją instalacji, gdy nowa
   wersja jest już pobrana. Napis banera dostaje wtedy ton ostrzeżenia.
 - Instalacja zamyka okno zwykłą drogą (``close``), więc obowiązuje ochrona
   przed utratą niewyeksportowanej pracy (ACC-10).
@@ -46,6 +47,7 @@ from transkryptor import __version__
 from transkryptor.errors import UpdateError
 from transkryptor.i18n import tr
 from transkryptor.ui.messages import show_error
+from transkryptor.ui.notice_queue import NoticeQueue
 from transkryptor.ui.theme import set_props
 from transkryptor.ui.update_advisory import warn_about_advisory
 from transkryptor.update.advisory import Advisory
@@ -110,12 +112,14 @@ class UpdateController(QObject):
         service_factory: Callable[[], UpdateService] = UpdateService,
         apply: Callable[[Path], None] = apply_update,
         clock: Callable[[], float] = time.time,
+        notices: NoticeQueue | None = None,
     ) -> None:
         super().__init__(window)
         self._window = window
         self._service_factory = service_factory
         self._apply = apply
         self._clock = clock
+        self._notices = notices or NoticeQueue(self)
         self._thread: UpdateThread | None = None
         self._artifact: Path | None = None
         self._last_check: float | None = None
@@ -230,8 +234,8 @@ class UpdateController(QObject):
         if self._warned_sequence == advisory.sequence:
             return
         self._warned_sequence = advisory.sequence
-        # Po bieżącym zdarzeniu: przy starcie okno jest wtedy już widoczne.
-        QTimer.singleShot(0, lambda: self._show_advisory(advisory))
+        # W kolejce komunikatów okna: po odzyskaniu pracy i innych oknach.
+        self._notices.post(lambda: self._show_advisory(advisory))
 
     def _show_advisory(self, advisory: Advisory) -> None:
         if warn_about_advisory(

@@ -246,8 +246,6 @@ def main(argv: list[str] | None = None) -> int:
 
     start_diagnostics()
     configure_ui_scale()
-    from PySide6.QtCore import QTimer
-
     from transkryptor.ui import qt_messages
     from transkryptor.ui.application import Application
     from transkryptor.ui.theme import apply_theme
@@ -262,13 +260,10 @@ def main(argv: list[str] | None = None) -> int:
     install_qt_translations(app)
     apply_theme(app)
     log_qt_environment(app)
+    # Odwołanie trzyma okno przy życiu do końca pętli zdarzeń.
     window = open_main_window(app)
-    # ACC-30: propozycja odzyskania pracy po awarii - gdy okno już widać.
-    QTimer.singleShot(0, window.session.offer_recovery)
-    QTimer.singleShot(0, window.report_rule_errors)
-    # Samouczek po komunikatach startowych: modalne okna mają pierwszeństwo.
-    QTimer.singleShot(0, window.tutorials.start_first_run)
     code = app.exec()
+    del window
     logger.info("Session ended (exit code %d)", code)
     return code
 
@@ -294,7 +289,13 @@ def open_main_window(app):
     thread.start()
     window = MainWindow()
     screen.wait()
+    # Komunikaty startowe po kolei, gdy okno już widać (ui/notice_queue.py):
+    # najpierw odzyskanie pracy po awarii (ACC-30) i błędne reguły, potem
+    # ostrzeżenie o luce z wyniku sprawdzenia, na końcu samouczek.
+    window.notices.post(window.session.offer_recovery)
+    window.notices.post(window.report_rule_errors)
     window.updates.adopt(thread)
+    window.notices.post(window.tutorials.start_first_run)
     window.show()
     screen.deleteLater()
     return window

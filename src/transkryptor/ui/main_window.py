@@ -41,10 +41,7 @@ from transkryptor.audio.player import AudioPlayer
 from transkryptor.document.model import Document
 from transkryptor.document.progress import covered_ms, covered_ranges
 from transkryptor.document.readiness import ReadinessReport, build_report
-from transkryptor.document.speakers import (
-    Speaker,
-    informant_spans,
-)
+from transkryptor.document.speakers import Speaker, informant_spans
 from transkryptor.errors import AppError
 from transkryptor.feedback import report_form_url
 from transkryptor.i18n import tr
@@ -83,6 +80,7 @@ from transkryptor.ui.messages import show_error
 from transkryptor.ui.metadata_form import MetadataForm, MetadataWidgets
 from transkryptor.ui.navigation import BACKWARD, FORWARD
 from transkryptor.ui.notation_controller import IgnoredWarnings, NotationController
+from transkryptor.ui.notice_queue import NoticeQueue
 from transkryptor.ui.pack_controller import PackController
 from transkryptor.ui.phrase_highlights import PhraseHighlighter, bind_search_bar
 from transkryptor.ui.player_bar import PlayerBar
@@ -402,7 +400,9 @@ class MainWindow(QMainWindow):
         # Bez połączeń sieciowych przy tworzeniu okna: sprawdzanie (także
         # okresowe) startuje punkt wejścia (``__main__.main``) przez
         # ``updates.adopt``.
-        self.updates = UpdateController(self)
+        # Komunikaty (start, ostrzeżenia) po kolei; samouczek wstrzymuje kolejne.
+        self.notices = NoticeQueue(self, busy=lambda: self.tutorials.is_running())
+        self.updates = UpdateController(self, notices=self.notices)
         self._build_toolbar()
         self._build_work_tools()
         self.player_controller = PlayerController(
