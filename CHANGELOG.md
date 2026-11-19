@@ -6,6 +6,20 @@ workflow „Wydanie” złoży je w sekcję z numerem wersji i datą, a jej tre�
 trafi do sekcji „Nowości w tej wersji” not wydania. Brak fragmentów blokuje
 wydanie.
 
+## 0.10.1 - 2026-11-19
+
+- **Ostrzeżenia o lukach bezpieczeństwa:** gdy w używanej wersji zostanie
+  wykryta luka, program przy sprawdzaniu aktualizacji pokaże ostrzeżenie
+  z opisem i propozycją natychmiastowej instalacji pobranej poprawki.
+  Ostrzeżenie jest podpisane tym samym kluczem co wydania i działa także
+  bez połączenia z siecią, gdy program raz je już pobrał.
+
+- **Komunikaty przy starcie po kolei:** propozycja odzyskania pracy po
+  awarii, informacja o błędnych regułach, ostrzeżenie o luce i samouczek
+  „Pierwsze kroki” pojawiają się jeden po drugim, zamiast nachodzić na
+  siebie. Komunikat, który przyjdzie w trakcie pracy, czeka, aż zamkniesz
+  otwarte okno albo skończysz samouczek.
+
 ## 0.10.0 - 2026-11-18
 
 - **Szybszy start po anulowaniu transkrypcji:** gdy przerwiesz transkrypcję
