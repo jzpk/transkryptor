@@ -9,7 +9,9 @@ import pytest
 from transkryptor.update import keys
 from transkryptor.update.signature import (
     SignatureError,
+    advisory_comment_for,
     main,
+    sequence_from_advisory_comment,
     trusted_comment_for,
     verify,
     verify_comment,
@@ -117,6 +119,35 @@ def test_tampered_comment_is_rejected(release_key) -> None:
 def test_comment_from_foreign_key_is_rejected(foreign_key) -> None:
     with pytest.raises(SignatureError):
         verify_comment(foreign_key.sign(SUMS, COMMENT))
+
+
+def test_extra_comment_fields_are_ignored(release_key) -> None:
+    """Przyszłe wydania mogą dopisać pola - ta wersja nadal widzi aktualizację."""
+    comment = f"{COMMENT} pilne=tak"
+    assert version_from_comment(comment) == "1.0.0"
+    verify_release_checksums(SUMS, release_key.sign(SUMS, comment), "1.0.0")
+
+
+def test_advisory_signature_is_not_a_release_signature(release_key) -> None:
+    signature = release_key.sign(SUMS, advisory_comment_for(1))
+    with pytest.raises(SignatureError):
+        verify_release_checksums(SUMS, signature, "1.0.0")
+    with pytest.raises(SignatureError):
+        sequence_from_advisory_comment(COMMENT)
+
+
+def test_advisory_comment_carries_the_sequence() -> None:
+    assert sequence_from_advisory_comment(advisory_comment_for(7)) == 7
+    assert sequence_from_advisory_comment("transkryptor advisory 7 nowe") == 7
+
+
+@pytest.mark.parametrize(
+    "comment",
+    ["transkryptor advisory", "transkryptor advisory -1", "transkryptor advisory ٣"],
+)
+def test_malformed_advisory_comment_is_rejected(comment) -> None:
+    with pytest.raises(SignatureError):
+        sequence_from_advisory_comment(comment)
 
 
 @pytest.mark.parametrize(

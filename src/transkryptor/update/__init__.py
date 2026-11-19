@@ -9,6 +9,8 @@ Podział odpowiedzialności:
   klucze publiczne wydań;
 - ``install`` - ponowna weryfikacja i uruchomienie instalatora (Windows)
   albo podmiana AppImage;
+- ``advisory`` - podpisane ostrzeżenie o wersjach z lukami bezpieczeństwa
+  (osobne wydanie ``advisory``) z lokalną kopią;
 - ``service`` - przebieg „sprawdź → pobierz” zwracający jeden wynik dla UI.
 
 Wątki i komunikaty należą do ``ui/update_controller.py``.

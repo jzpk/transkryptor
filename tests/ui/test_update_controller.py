@@ -10,7 +10,7 @@ from typing import cast
 import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QMainWindow
+from PySide6.QtWidgets import QMainWindow, QMessageBox
 
 from transkryptor.errors import UpdateError
 from transkryptor.i18n import tr
@@ -22,6 +22,7 @@ from transkryptor.ui.update_controller import (
     UpdateController,
     UpdateThread,
 )
+from transkryptor.update.advisory import Advisory
 from transkryptor.update.releases import ReleaseInfo
 from transkryptor.update.service import (
     UpdateOutcome,
@@ -305,3 +306,59 @@ def test_new_release_found_in_background_shows_the_banner(periodic) -> None:
     clock.now += CHECK_INTERVAL_S
     check()
     assert len(runs) == 2
+
+
+# --- ostrzeżenie o luce w bieżącej wersji ---------------------------------------
+
+ADVISORY = Advisory(1, "9.0.0", (("en", "Security hole."), ("pl", "Luka <b>x</b>.")))
+
+
+def advisory_dialogs(qtbot, calls, count: int = 1):
+    qtbot.waitUntil(lambda: len(calls) >= count, timeout=5000)
+    return calls
+
+
+def test_advisory_offers_installing_the_ready_update(
+    qtbot, window, no_blocking_dialogs
+) -> None:
+    applied: list[Path] = []
+    window.updates._apply = applied.append
+    outcome = UpdateOutcome(UpdateStatus.READY, RELEASE, ARTIFACT, advisory=ADVISORY)
+    run_check(qtbot, window, outcome)
+    [(kind, title, text)] = advisory_dialogs(qtbot, no_blocking_dialogs)
+    assert kind == "question"
+    assert title == tr("update.advisory.title")
+    assert "Luka &lt;b&gt;x&lt;/b&gt;." in text  # treść z pliku bez HTML
+    assert applied == []  # odpowiedź „nie” - instalacja później z banera
+    assert window.updates.install_button.isVisibleTo(window)
+
+
+def test_accepted_advisory_installs_now(qtbot, window, monkeypatch) -> None:
+    applied: list[Path] = []
+    window.updates._apply = applied.append
+    monkeypatch.setattr(
+        QMessageBox,
+        "question",
+        staticmethod(lambda *_args, **_kw: QMessageBox.StandardButton.Yes),
+    )
+    outcome = UpdateOutcome(UpdateStatus.READY, RELEASE, ARTIFACT, advisory=ADVISORY)
+    run_check(qtbot, window, outcome)
+    qtbot.waitUntil(lambda: applied == [ARTIFACT], timeout=5000)
+
+
+def test_advisory_without_ready_update_only_warns(
+    qtbot, window, no_blocking_dialogs
+) -> None:
+    run_check(qtbot, window, UpdateOutcome(UpdateStatus.OFFLINE, advisory=ADVISORY))
+    [(kind, _title, text)] = advisory_dialogs(qtbot, no_blocking_dialogs)
+    assert kind == "warning"
+    assert tr("update.advisory.manual").split(" - ")[0] in text
+
+
+def test_advisory_is_shown_once_per_session(qtbot, window, no_blocking_dialogs) -> None:
+    outcome = UpdateOutcome(UpdateStatus.UP_TO_DATE, advisory=ADVISORY)
+    run_check(qtbot, window, outcome)
+    advisory_dialogs(qtbot, no_blocking_dialogs)
+    run_check(qtbot, window, outcome)
+    qtbot.wait(50)
+    assert len(no_blocking_dialogs) == 1

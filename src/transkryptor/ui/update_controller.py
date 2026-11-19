@@ -17,6 +17,10 @@ Logika (sprawdzenie wersji, pobieranie, instalacja) jest w pakiecie
   dziennika. Gotowa aktualizacja pokazuje baner z przyciskiem
   „Uruchom ponownie i zaktualizuj”, a nowsza wersja bez samoaktualizacji -
   sam komunikat w pasku stanu.
+- Ostrzeżenie o luce w bieżącej wersji (podpisane ``advisory.json``,
+  ``update/advisory.py``) pokazuje okno (``ui/update_advisory.py``) raz na
+  sesję dla danego numeru ostrzeżenia - z propozycją instalacji, gdy nowa
+  wersja jest już pobrana. Napis banera dostaje wtedy ton ostrzeżenia.
 - Instalacja zamyka okno zwykłą drogą (``close``), więc obowiązuje ochrona
   przed utratą niewyeksportowanej pracy (ACC-10).
 """
@@ -43,6 +47,8 @@ from transkryptor.errors import UpdateError
 from transkryptor.i18n import tr
 from transkryptor.ui.messages import show_error
 from transkryptor.ui.theme import set_props
+from transkryptor.ui.update_advisory import warn_about_advisory
+from transkryptor.update.advisory import Advisory
 from transkryptor.update.install import apply_update
 from transkryptor.update.releases import is_newer
 from transkryptor.update.service import UpdateOutcome, UpdateService, UpdateStatus
@@ -113,6 +119,7 @@ class UpdateController(QObject):
         self._thread: UpdateThread | None = None
         self._artifact: Path | None = None
         self._last_check: float | None = None
+        self._warned_sequence: int | None = None
 
         self._build_banner(window)
         self._periodic = QTimer(self)
@@ -215,6 +222,22 @@ class UpdateController(QObject):
             # Nowsza wersja bez gotowego pliku (tryb deweloperski albo błąd
             # pobierania): tylko informacja, bez odnośnika do pobrania.
             self._show_available(release.version)
+        if outcome.advisory is not None:
+            self._warn(outcome.advisory)
+
+    def _warn(self, advisory: Advisory) -> None:
+        set_props(self.banner_label, tone="warning")
+        if self._warned_sequence == advisory.sequence:
+            return
+        self._warned_sequence = advisory.sequence
+        # Po bieżącym zdarzeniu: przy starcie okno jest wtedy już widoczne.
+        QTimer.singleShot(0, lambda: self._show_advisory(advisory))
+
+    def _show_advisory(self, advisory: Advisory) -> None:
+        if warn_about_advisory(
+            self._window, advisory, can_install=self._artifact is not None
+        ):
+            self.install_now()
 
     def _show_ready(self, version: str, artifact: Path) -> None:
         self._artifact = artifact

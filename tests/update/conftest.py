@@ -13,8 +13,9 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from transkryptor.update import keys
+from transkryptor.update.advisory import build_advisory
 from transkryptor.update.releases import LATEST_SIGNATURE_URL
-from transkryptor.update.signature import trusted_comment_for
+from transkryptor.update.signature import advisory_comment_for, trusted_comment_for
 
 DOWNLOAD_BASE = "https://github.com/jzpk/transkryptor/releases/download"
 
@@ -64,6 +65,23 @@ class FakeGitHub:
         self.latest_calls = 0
         self.downloads: list[str] = []
         self.requests: list[httpx.Request] = []
+        # Pliki wydania ``advisory`` (nazwa → treść).
+        self.advisory_files: dict[str, bytes] = {}
+
+    def publish_advisory(
+        self,
+        sequence: int,
+        min_version: str,
+        messages: dict[str, str] | None = None,
+        *,
+        key: ReleaseKey | None = None,
+    ) -> None:
+        payload = build_advisory(sequence, min_version, messages or {})
+        signature = (key or self.key).sign(payload, advisory_comment_for(sequence))
+        self.advisory_files = {
+            "advisory.json": payload,
+            "advisory.json.minisig": signature.encode(),
+        }
 
     def publish(self, version: str, files: dict[str, bytes]) -> None:
         self.version = version
@@ -99,6 +117,10 @@ class FakeGitHub:
             location = self.asset_url("SHA256SUMS.txt.minisig")
             return httpx.Response(302, headers={"Location": location})
         prefix, _, name = url.rpartition("/")
+        if prefix == f"{DOWNLOAD_BASE}/advisory":
+            if name in self.advisory_files:
+                return httpx.Response(200, content=self.advisory_files[name])
+            return httpx.Response(404)
         if prefix != f"{DOWNLOAD_BASE}/v{self.version}":
             return httpx.Response(404)
         if name in self.streams:

@@ -11,6 +11,14 @@ minisign 0.11): podpis Ed25519 obejmuje BLAKE2b-512 treści, a podpis globalny
 ``transkryptor <wersja> SHA256SUMS.txt``; wersja musi zgadzać się z wydaniem,
 inaczej podpisane sumy starszego wydania dałoby się podstawić pod nowy tag.
 
+Ostrzeżenie o wersjach z lukami (``update/advisory.py``) jest podpisywane tym
+samym kluczem z komentarzem ``transkryptor advisory <numer>``. Trzecie pole
+rozdziela oba rodzaje podpisów: podpis sum nie przejdzie jako podpis
+ostrzeżenia i odwrotnie. Po trzech pierwszych polach komentarz może mieć
+kolejne - starsze wersje programu je pomijają, więc przyszłe wydania mogą
+dopisywać do podpisu nowe informacje bez odcinania starszych instalacji
+od aktualizacji.
+
 Podpis globalny obejmuje zaufany komentarz bez treści pliku, więc sam plik
 ``.minisig`` wystarcza, żeby wiarygodnie poznać wersję najnowszego wydania
 (``verify_comment``) - sprawdzenie aktualizacji nie potrzebuje API GitHuba.
@@ -42,6 +50,7 @@ PREHASHED_ALGORITHM = b"ED"
 TRUSTED_COMMENT_PREFIX = "trusted comment: "
 COMMENT_PRODUCT = "transkryptor"
 COMMENT_FILE = "SHA256SUMS.txt"
+COMMENT_ADVISORY = "advisory"
 
 
 class SignatureError(ValueError):
@@ -152,11 +161,33 @@ def trusted_comment_for(version: str) -> str:
 
 
 def version_from_comment(comment: str) -> str:
-    """Wersja z zaufanego komentarza ``transkryptor <wersja> SHA256SUMS.txt``."""
+    """Wersja z zaufanego komentarza ``transkryptor <wersja> SHA256SUMS.txt``.
+
+    Dalsze pola komentarza są pomijane (zapas na przyszłe wydania).
+    """
     parts = comment.split(" ")
-    if len(parts) != 3 or parts[0] != COMMENT_PRODUCT or parts[2] != COMMENT_FILE:
+    if len(parts) < 3 or parts[0] != COMMENT_PRODUCT or parts[2] != COMMENT_FILE:
         raise SignatureError(f"nieznany zaufany komentarz: {comment!r}")
     return parts[1]
+
+
+def advisory_comment_for(sequence: int) -> str:
+    """Zaufany komentarz podpisu ostrzeżenia o numerze ``sequence``."""
+    return f"{COMMENT_PRODUCT} {COMMENT_ADVISORY} {sequence}"
+
+
+def sequence_from_advisory_comment(comment: str) -> int:
+    """Numer z komentarza ``transkryptor advisory <numer>`` (dalsze pola pomija)."""
+    parts = comment.split(" ")
+    if (
+        len(parts) < 3
+        or parts[0] != COMMENT_PRODUCT
+        or parts[1] != COMMENT_ADVISORY
+        or not parts[2].isascii()
+        or not parts[2].isdigit()
+    ):
+        raise SignatureError(f"nieznany zaufany komentarz ostrzeżenia: {comment!r}")
+    return int(parts[2])
 
 
 def verify_release_checksums(
@@ -167,7 +198,7 @@ def verify_release_checksums(
 ) -> None:
     """Podpis sum kontrolnych wydania ``version``; błąd → ``SignatureError``."""
     comment = verify(checksums, signature_text, trusted_keys)
-    if comment != trusted_comment_for(version):
+    if version_from_comment(comment) != version:
         raise SignatureError(
             f"podpis dotyczy innego wydania ({comment!r}, oczekiwano {version})"
         )
