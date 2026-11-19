@@ -9,7 +9,7 @@ Podział odpowiedzialności:
   klucze publiczne wydań;
 - ``install`` - ponowna weryfikacja i uruchomienie instalatora (Windows)
   albo podmiana AppImage;
-- ``service`` - przebieg „sprawdź → pobierz” zwracający jeden wynik dla UI.
+- ``service`` - osobne kroki „sprawdź” i „pobierz” z wynikiem dla UI.
 
 Wątki i komunikaty należą do ``ui/update_controller.py``.
 """

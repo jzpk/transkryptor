@@ -1,10 +1,10 @@
-"""Testy przebiegu „sprawdź → pobierz”."""
+"""Testy sprawdzenia i pobrania aktualizacji."""
 
 from __future__ import annotations
 
 import pytest
 
-from transkryptor.update.service import UpdateService, UpdateStage, UpdateStatus
+from transkryptor.update.service import UpdateService, UpdateStatus
 
 ASSET = "Transkryptor-1.0.0-x86_64.AppImage"
 
@@ -23,40 +23,33 @@ def make_service(tmp_path, client_factory):
     return make
 
 
-def test_newer_release_is_downloaded(github, make_service, tmp_path) -> None:
+def test_check_offers_newer_release_without_downloading(github, make_service) -> None:
     github.publish("1.0.0", {ASSET: b"obraz"})
-    outcome = make_service().run()
-    assert outcome.status is UpdateStatus.READY
-    assert outcome.artifact == tmp_path / "updates" / "1.0.0" / ASSET
+    outcome = make_service().check()
+    assert outcome.status is UpdateStatus.DOWNLOADABLE
     assert outcome.release is not None and outcome.release.version == "1.0.0"
+    assert outcome.artifact is None
+    assert github.downloads == []
 
 
-def test_stages_and_progress_reach_the_caller(github, make_service) -> None:
+def test_download_fetches_the_offered_release(github, make_service, tmp_path) -> None:
     github.publish("1.0.0", {ASSET: b"obraz"})
-    stages: list[tuple[UpdateStage, str | None]] = []
+    service = make_service()
+    release = service.check().release
+    assert release is not None
     progress: list[tuple[int, int | None]] = []
-    outcome = make_service().run(
-        on_progress=lambda done, total: progress.append((done, total)),
-        on_stage=lambda stage, release: stages.append(
-            (stage, release.version if release else None)
-        ),
+    outcome = service.download(
+        release, on_progress=lambda done, total: progress.append((done, total))
     )
     assert outcome.status is UpdateStatus.READY
-    assert stages == [(UpdateStage.CHECKING, None), (UpdateStage.DOWNLOADING, "1.0.0")]
+    assert outcome.artifact == tmp_path / "updates" / "1.0.0" / ASSET
     assert progress[-1] == (5, 5)
-
-
-def test_up_to_date_check_has_no_download_stage(github, make_service) -> None:
-    github.publish("0.2.0", {ASSET: b"obraz"})
-    stages: list[UpdateStage] = []
-    make_service().run(on_stage=lambda stage, _release: stages.append(stage))
-    assert stages == [UpdateStage.CHECKING]
 
 
 def test_current_version_is_up_to_date(github, make_service, tmp_path) -> None:
     (tmp_path / "updates" / "0.9.0").mkdir(parents=True)
     github.publish("0.2.0", {ASSET: b"obraz"})
-    outcome = make_service().run()
+    outcome = make_service().check()
     assert outcome.status is UpdateStatus.UP_TO_DATE
     assert github.downloads == []
     assert list((tmp_path / "updates").iterdir()) == []
@@ -64,7 +57,7 @@ def test_current_version_is_up_to_date(github, make_service, tmp_path) -> None:
 
 def test_development_mode_only_reports_new_version(github, make_service) -> None:
     github.publish("1.0.0", {ASSET: b"obraz"})
-    outcome = make_service(self_update=False).run()
+    outcome = make_service(self_update=False).check()
     assert outcome.status is UpdateStatus.AVAILABLE
     assert github.downloads == []
 
@@ -73,43 +66,58 @@ def test_every_run_checks_without_a_daily_limit(github, make_service) -> None:
     """Sprawdzenie nie korzysta z API GitHuba, więc nie ma dziennego limitu."""
     github.publish("0.2.0", {ASSET: b"obraz"})
     for _ in range(20):
-        assert make_service().run().status is UpdateStatus.UP_TO_DATE
+        assert make_service().check().status is UpdateStatus.UP_TO_DATE
     github.publish("1.0.0", {ASSET: b"obraz"})
-    assert make_service().run().status is UpdateStatus.READY
+    assert make_service().check().status is UpdateStatus.DOWNLOADABLE
     assert github.latest_calls == 21
 
 
 def test_offline_is_reported(github, make_service) -> None:
     github.offline = True
-    assert make_service().run().status is UpdateStatus.OFFLINE
+    assert make_service().check().status is UpdateStatus.OFFLINE
 
 
-def test_failed_download_is_retried_on_the_next_run(github, make_service) -> None:
+def test_offline_download_is_reported(github, make_service) -> None:
     github.publish("1.0.0", {ASSET: b"obraz"})
+    service = make_service()
+    release = service.check().release
+    assert release is not None
+    github.offline = True
+    assert service.download(release).status is UpdateStatus.OFFLINE
+
+
+def test_failed_download_can_be_retried(github, make_service) -> None:
+    github.publish("1.0.0", {ASSET: b"obraz"})
+    service = make_service()
+    release = service.check().release
+    assert release is not None
     github.checksums_override = f"{'0' * 64}  {ASSET}\n"
-    failed = make_service().run()
+    failed = service.download(release)
     assert failed.status is UpdateStatus.ERROR
     assert failed.release is not None and failed.release.version == "1.0.0"
 
     github.checksums_override = None
-    assert make_service().run().status is UpdateStatus.READY
+    assert service.download(release).status is UpdateStatus.READY
 
 
 def test_no_release_yet_is_up_to_date(github, make_service) -> None:
     github.latest_status = 404
-    outcome = make_service().run()
+    outcome = make_service().check()
     assert outcome.status is UpdateStatus.UP_TO_DATE
     assert outcome.release is None
 
 
 def test_server_error_is_reported(github, make_service) -> None:
     github.latest_status = 500
-    outcome = make_service().run()
+    outcome = make_service().check()
     assert outcome.status is UpdateStatus.ERROR
     assert outcome.error is not None
 
 
 def test_closing_the_app_cancels_the_download(github, make_service) -> None:
     github.publish("1.0.0", {ASSET: b"obraz"})
-    outcome = make_service().run(should_cancel=lambda: True)
+    service = make_service()
+    release = service.check().release
+    assert release is not None
+    outcome = service.download(release, should_cancel=lambda: True)
     assert outcome.status is UpdateStatus.CANCELLED

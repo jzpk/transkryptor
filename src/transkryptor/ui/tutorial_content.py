@@ -108,6 +108,7 @@ TUTORIALS: tuple[Tutorial, ...] = (
                 MORE,
                 shortcuts=(("settings", project_id("settings")),),
             ),
+            _step("updates", "update_banner"),
             _step("help", "tutorial_button"),
         ),
     ),

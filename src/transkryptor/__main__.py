@@ -276,9 +276,9 @@ def main(argv: list[str] | None = None) -> int:
 def open_main_window(app):
     """Ekran startowy ze sprawdzaniem aktualizacji, potem okno główne.
 
-    Okno powstaje, gdy ekran sprawdza aktualizacje (i ewentualnie pobiera
-    nową wersję). Po zakończeniu albo „Pomiń” przebieg przejmuje kontroler
-    aktualizacji okna - pominięte pobieranie kończy się w tle.
+    Okno powstaje, gdy ekran sprawdza aktualizacje. Po zakończeniu albo
+    „Pomiń” sprawdzenie przejmuje kontroler aktualizacji okna, który
+    proponuje pobranie nowej wersji - pobiera ją dopiero na polecenie.
     """
     from transkryptor.ui.main_window import MainWindow
     from transkryptor.ui.startup_screen import StartupScreen
@@ -286,7 +286,7 @@ def open_main_window(app):
     from transkryptor.update.service import UpdateService
 
     screen = StartupScreen()
-    thread = UpdateThread(UpdateService())
+    thread = UpdateThread.checking(UpdateService())
     screen.attach(thread)
     screen.skipped.connect(lambda: logger.info("Startup update check skipped"))
     screen.show()

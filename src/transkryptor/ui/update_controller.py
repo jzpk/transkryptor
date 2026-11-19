@@ -1,24 +1,25 @@
-"""Aktualizacje w oknie głównym: wątek tła i baner w pasku stanu.
+"""Aktualizacje w oknie głównym: wątki tła i baner w pasku stanu.
 
 Logika (sprawdzenie wersji, pobieranie, instalacja) jest w pakiecie
 ``transkryptor.update`` bez Qt; ten moduł tylko ją uruchamia i prezentuje.
 
 - Sprawdzenie odbywa się przy starcie, na ekranie startowym
-  (``ui/startup_screen.py``), który pokazuje etap i postęp pobierania.
-  Wątek ekranu przejmuje potem :meth:`UpdateController.adopt` - także gdy
-  użytkownik pominął ekran, a pobieranie trwa dalej w tle.
+  (``ui/startup_screen.py``). Wątek ekranu przejmuje potem
+  :meth:`UpdateController.adopt` - także gdy użytkownik pominął ekran.
 - Potem, dopóki program jest otwarty, sprawdzenie powtarza się po cichu
   co ``CHECK_INTERVAL_S`` (6 godzin) - kto nie zamyka programu przez kilka
-  dni, też dostanie nowe wydanie. Odstęp liczy zegar ścienny, sprawdzany
+  dni, też dowie się o nowym wydaniu. Odstęp liczy zegar ścienny, sprawdzany
   co ``CHECK_TICK_MS``: czas uśpienia komputera też się liczy, a po
-  wybudzeniu zaległe sprawdzenie rusza w ciągu kilku minut. Po pobraniu
-  gotowej aktualizacji kolejne sprawdzenia nie są potrzebne.
-- Wynik jest cichy: brak sieci albo błąd trafiają tylko do
-  dziennika. Gotowa aktualizacja pokazuje baner z przyciskiem
-  „Uruchom ponownie i zaktualizuj”, a nowsza wersja bez samoaktualizacji -
-  sam komunikat w pasku stanu.
-- Instalacja zamyka okno zwykłą drogą (``close``), więc obowiązuje ochrona
-  przed utratą niewyeksportowanej pracy (ACC-10).
+  wybudzeniu zaległe sprawdzenie rusza w ciągu kilku minut.
+- Sprawdzenie niczego nie pobiera i jest ciche: brak sieci albo błąd trafiają
+  tylko do dziennika. Nowsza wersja pokazuje baner (``ui/update_banner.py``)
+  z przyciskiem „Pobierz i zainstaluj” - o pobraniu decyduje użytkownik.
+  Bez samoaktualizacji (tryb deweloperski) baner jest samym komunikatem.
+- Po kliknięciu baner pokazuje postęp pobierania, a gotowy plik od razu
+  przechodzi do instalacji. Błąd pobierania pokazuje komunikat i przywraca
+  ofertę. Instalacja zamyka okno zwykłą drogą (``close``), więc obowiązuje
+  ochrona przed utratą niewyeksportowanej pracy (ACC-10); po odmowie baner
+  zostaje z przyciskiem „Uruchom ponownie i zaktualizuj”.
 """
 
 from __future__ import annotations
@@ -28,23 +29,17 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-from PySide6.QtCore import QObject, Qt, QThread, QTimer, Signal
-from PySide6.QtWidgets import (
-    QApplication,
-    QHBoxLayout,
-    QLabel,
-    QMainWindow,
-    QPushButton,
-    QWidget,
-)
+from PySide6.QtCore import QObject, QThread, QTimer, Signal
+from PySide6.QtWidgets import QApplication, QMainWindow
 
 from transkryptor import __version__
 from transkryptor.errors import UpdateError
 from transkryptor.i18n import tr
 from transkryptor.ui.messages import show_error
-from transkryptor.ui.theme import set_props
+from transkryptor.ui.update_banner import UpdateBanner
+from transkryptor.update.download import DownloadProgress
 from transkryptor.update.install import apply_update
-from transkryptor.update.releases import is_newer
+from transkryptor.update.releases import ReleaseInfo, is_newer
 from transkryptor.update.service import UpdateOutcome, UpdateService, UpdateStatus
 
 logger = logging.getLogger(__name__)
@@ -57,35 +52,47 @@ CHECK_INTERVAL_S = 6 * 60 * 60
 CHECK_TICK_MS = 10 * 60 * 1000
 
 
+# Zadanie wątku: (czy przerwać, postęp pobierania) -> wynik.
+UpdateJob = Callable[[Callable[[], bool], DownloadProgress], UpdateOutcome]
+
+
 class UpdateThread(QThread):
-    """Jeden przebieg ``UpdateService.run`` w tle z kooperacyjnym anulowaniem.
+    """Jedno zadanie serwisu w tle z kooperacyjnym anulowaniem.
 
     ``outcome`` zostaje po zakończeniu - odbiorca podłączony później (okno
     tworzone w trakcie sprawdzania) odczyta wynik bez sygnału.
     """
 
     finished_with = Signal(object)  # UpdateOutcome
-    stage_changed = Signal(object, object)  # UpdateStage, ReleaseInfo | None
     progressed = Signal(object, object)  # pobrane bajty, całość | None
 
-    def __init__(self, service: UpdateService, parent: QObject | None = None) -> None:
+    def __init__(self, job: UpdateJob, parent: QObject | None = None) -> None:
         super().__init__(parent)
-        self._service = service
+        self._job = job
         self._cancel_requested = False
         self.outcome: UpdateOutcome | None = None
+
+    @classmethod
+    def checking(cls, service: UpdateService) -> UpdateThread:
+        """Samo sprawdzenie wersji (start, okresowe sprawdzenie)."""
+        return cls(lambda _cancel, _progress: service.check())
+
+    @classmethod
+    def downloading(cls, service: UpdateService, release: ReleaseInfo) -> UpdateThread:
+        """Pobranie wydania na polecenie użytkownika."""
+        return cls(lambda cancel, progress: service.download(release, cancel, progress))
 
     def cancel(self) -> None:
         self._cancel_requested = True
 
     def run(self) -> None:
         try:
-            outcome = self._service.run(
+            outcome = self._job(
                 lambda: self._cancel_requested,
-                on_progress=lambda done, total: self.progressed.emit(done, total),
-                on_stage=lambda stage, release: self.stage_changed.emit(stage, release),
+                lambda done, total: self.progressed.emit(done, total),
             )
         except Exception as error:  # wątek nie może przepaść
-            logger.exception("Update check crashed")
+            logger.exception("Update task crashed")
             outcome = UpdateOutcome(
                 UpdateStatus.ERROR,
                 error=UpdateError(user_message=tr("update.error.check", reason=error)),
@@ -95,7 +102,7 @@ class UpdateThread(QThread):
 
 
 class UpdateController(QObject):
-    """Wynik sprawdzenia przy starcie i instalacja nowej wersji z poziomu okna."""
+    """Sprawdzenie w tle, pobranie na życzenie i instalacja nowej wersji."""
 
     def __init__(
         self,
@@ -111,10 +118,16 @@ class UpdateController(QObject):
         self._apply = apply
         self._clock = clock
         self._thread: UpdateThread | None = None
+        self._download: UpdateThread | None = None
+        self._offer: ReleaseInfo | None = None
         self._artifact: Path | None = None
+        self._ready_version = ""
         self._last_check: float | None = None
 
-        self._build_banner(window)
+        self.banner = UpdateBanner()
+        self.banner.download_button.clicked.connect(self.download_now)
+        self.banner.install_button.clicked.connect(self.install_now)
+        window.statusBar().addPermanentWidget(self.banner)
         self._periodic = QTimer(self)
         self._periodic.setInterval(CHECK_TICK_MS)
         self._periodic.timeout.connect(self.check_if_due)
@@ -123,28 +136,17 @@ class UpdateController(QObject):
         if app is not None:
             app.aboutToQuit.connect(self.shutdown)
 
-    def _build_banner(self, window: QMainWindow) -> None:
-        self.banner = QWidget()
-        layout = QHBoxLayout(self.banner)
-        layout.setContentsMargins(0, 0, 0, 0)
-        self.banner_label = QLabel()
-        self.banner_label.setTextFormat(Qt.TextFormat.PlainText)
-        set_props(self.banner_label, role="status", tone="accent")
-        self.install_button = QPushButton(tr("update.install"))
-        set_props(self.install_button, variant="primary")
-        self.install_button.clicked.connect(self.install_now)
-        layout.addWidget(self.banner_label)
-        layout.addWidget(self.install_button)
-        self.banner.setVisible(False)
-        window.statusBar().addPermanentWidget(self.banner)
-
     @property
     def is_running(self) -> bool:
         return self._thread is not None
 
+    @property
+    def is_downloading(self) -> bool:
+        return self._download is not None
+
     def create_thread(self) -> UpdateThread:
-        """Nowy (nieuruchomiony) przebieg sprawdzenia, np. dla ekranu startowego."""
-        return UpdateThread(self._service_factory())
+        """Nowe (nieuruchomione) sprawdzenie, np. dla ekranu startowego."""
+        return UpdateThread.checking(self._service_factory())
 
     def start_automatic(self) -> None:
         """Sprawdzenie w tle bez ekranu startowego i bez komunikatów."""
@@ -165,16 +167,18 @@ class UpdateController(QObject):
             # plik, na który wskazuje baner.
             self._periodic.stop()
             return
+        if self.is_downloading:
+            return
         last = self._last_check
         if last is None or self._clock() - last >= CHECK_INTERVAL_S:
             self.start_automatic()
 
     def adopt(self, thread: UpdateThread) -> None:
-        """Przejmuje przebieg uruchomiony gdzie indziej (ekran startowy).
+        """Przejmuje sprawdzenie uruchomione gdzie indziej (ekran startowy).
 
-        Wynik zakończonego przebiegu jest stosowany od razu; trwający
-        przebieg kończy się w tle i wtedy pokazuje baner. Od pierwszego
-        przebiegu działa też okresowe sprawdzanie (``check_if_due``).
+        Wynik zakończonego sprawdzenia jest stosowany od razu; trwające
+        kończy się w tle i wtedy pokazuje baner. Od pierwszego sprawdzenia
+        działa też okresowe sprawdzanie (``check_if_due``).
         """
         if self.is_running:
             return
@@ -183,52 +187,67 @@ class UpdateController(QObject):
             self._periodic.start()
         thread.setParent(self)
         self._thread = thread
-        thread.finished_with.connect(self._on_thread_finished)
+        thread.finished_with.connect(self._on_check_thread_finished)
         if thread.outcome is not None:
-            self._on_thread_finished(thread.outcome)
+            self._on_check_thread_finished(thread.outcome)
 
-    def _on_thread_finished(self, outcome: UpdateOutcome) -> None:
+    def _on_check_thread_finished(self, outcome: UpdateOutcome) -> None:
         # Wynik bywa odczytany z wątku, zanim dotrze jego sygnał - raz.
         if self._thread is None:
             return
-        self._on_finished(outcome)
-
-    def _on_finished(self, outcome: UpdateOutcome) -> None:
-        self._release_thread()
+        _dispose(self._thread)
+        self._thread = None
+        self._log_outcome("Update check", outcome)
         release = outcome.release
-        status = outcome.status
-        logger.info(
-            "Update check finished: %s (latest release %s)",
-            status.name,
-            release.version if release else "unknown",
-        )
-        if outcome.error is not None:
-            logger.warning(
-                "Update check error: %s",
-                type(outcome.error).__name__,
-                exc_info=outcome.error,
-            )
-
-        if status is UpdateStatus.READY and outcome.artifact is not None:
-            self._show_ready(release.version if release else "", outcome.artifact)
-        elif release is not None and is_newer(release.version, __version__):
-            # Nowsza wersja bez gotowego pliku (tryb deweloperski albo błąd
-            # pobierania): tylko informacja, bez odnośnika do pobrania.
-            self._show_available(release.version)
-
-    def _show_ready(self, version: str, artifact: Path) -> None:
-        self._artifact = artifact
-        self._periodic.stop()
-        self.banner_label.setText(tr("update.ready", version=version))
-        self.install_button.setVisible(True)
-        self.banner.setVisible(True)
-
-    def _show_available(self, version: str) -> None:
-        if self._artifact is not None:
+        if self._artifact is not None or self.is_downloading or release is None:
             return
-        self.banner_label.setText(tr("update.available", version=version))
-        self.install_button.setVisible(False)
-        self.banner.setVisible(True)
+        if outcome.status is UpdateStatus.DOWNLOADABLE:
+            self._offer = release
+            self.banner.show_offer(release.version, can_download=True)
+        elif is_newer(release.version, __version__):
+            # Nowsza wersja bez samoaktualizacji (tryb deweloperski): tylko
+            # informacja, bez odnośnika do pobrania.
+            self.banner.show_offer(release.version, can_download=False)
+
+    def download_now(self) -> None:
+        """Pobiera oferowaną wersję w tle; gotowy plik od razu instaluje."""
+        release = self._offer
+        if release is None or self.is_downloading:
+            return
+        thread = UpdateThread.downloading(self._service_factory(), release)
+        thread.setParent(self)
+        thread.progressed.connect(self.banner.set_progress)
+        thread.finished_with.connect(self._on_download_finished)
+        self._download = thread
+        self.banner.show_downloading(release.version)
+        thread.start()
+
+    def _on_download_finished(self, outcome: UpdateOutcome) -> None:
+        if self._download is None:
+            return
+        _dispose(self._download)
+        self._download = None
+        self._log_outcome("Update download", outcome)
+        status = outcome.status
+        if status is UpdateStatus.READY and outcome.artifact is not None:
+            self._show_ready(outcome)
+            self.install_now()
+            return
+        if self._offer is not None:
+            self.banner.show_offer(self._offer.version, can_download=True)
+        if status is UpdateStatus.CANCELLED:
+            return
+        error = outcome.error or UpdateError(
+            user_message=tr("update.error.offline"),
+            retry_hint=tr("update.error.later.hint"),
+        )
+        show_error(self._window, tr("update.title"), error)
+
+    def _show_ready(self, outcome: UpdateOutcome) -> None:
+        self._artifact = outcome.artifact
+        self._ready_version = outcome.release.version if outcome.release else ""
+        self._periodic.stop()
+        self.banner.show_ready(self._ready_version)
 
     def install_now(self) -> None:
         """Zamyka okno (z ochroną pracy) i uruchamia instalację nowej wersji."""
@@ -238,20 +257,41 @@ class UpdateController(QObject):
         try:
             self._apply(artifact)
         except UpdateError as error:
+            # Plik bywa odrzucony przy ponownej weryfikacji - kolejna próba
+            # zaczyna się od pobrania.
+            self._artifact = None
+            if self._offer is not None:
+                self.banner.show_offer(self._offer.version, can_download=True)
             show_error(self._window, tr("update.title"), error)
 
     def shutdown(self) -> None:
-        """Przerywa pobieranie przy zamykaniu aplikacji i czeka na wątek."""
+        """Przerywa pobieranie przy zamykaniu aplikacji i czeka na wątki."""
         self._periodic.stop()
-        thread = self._thread
-        if thread is not None:
-            thread.cancel()
-            thread.wait(SHUTDOWN_WAIT_MS)
+        for thread in (self._thread, self._download):
+            if thread is not None:
+                thread.cancel()
+                thread.wait(SHUTDOWN_WAIT_MS)
 
-    def _release_thread(self) -> None:
-        thread = self._thread
-        self._thread = None
-        if thread is not None:
-            if not thread.isFinished():
-                thread.wait(5000)
-            thread.deleteLater()
+    @staticmethod
+    def _log_outcome(task: str, outcome: UpdateOutcome) -> None:
+        release = outcome.release
+        logger.info(
+            "%s finished: %s (latest release %s)",
+            task,
+            outcome.status.name,
+            release.version if release else "unknown",
+        )
+        if outcome.error is not None:
+            logger.warning(
+                "%s error: %s",
+                task,
+                type(outcome.error).__name__,
+                exc_info=outcome.error,
+            )
+
+
+def _dispose(thread: UpdateThread) -> None:
+    """Sprząta zakończony wątek."""
+    if not thread.isFinished():
+        thread.wait(5000)
+    thread.deleteLater()

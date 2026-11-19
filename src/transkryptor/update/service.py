@@ -1,14 +1,15 @@
-"""Przebieg „sprawdź → pobierz” z jednym wynikiem dla warstwy UI.
+"""Sprawdzenie i pobranie aktualizacji - dwa osobne kroki dla warstwy UI.
 
-Kolejność:
+1. :meth:`UpdateService.check` pobiera podpis najnowszego wydania (kilkaset
+   bajtów, bez API GitHuba i jego limitu) i odczytuje wersję z zaufanego
+   komentarza. Nic więcej nie jest pobierane.
+2. :meth:`UpdateService.download` pobiera i weryfikuje artefakt - dopiero
+   na wyraźne polecenie użytkownika („Pobierz i zainstaluj”). W środowisku
+   deweloperskim sprawdzenie zwraca tylko informację o nowej wersji.
 
-1. Pobranie podpisu najnowszego wydania (kilkaset bajtów, bez API GitHuba
-   i jego limitu) i odczyt wersji z zaufanego komentarza.
-2. Nowsza wersja → pobranie i weryfikacja artefaktu; w środowisku
-   deweloperskim → tylko informacja o nowej wersji.
-
-Przebieg nie ma stanu między uruchomieniami, więc może się powtarzać
-dowolnie często (start i okresowe sprawdzenie w ``ui/update_controller.py``).
+Kroki nie mają stanu między uruchomieniami, więc sprawdzenie może się
+powtarzać dowolnie często (start i okresowe sprawdzenie w
+``ui/update_controller.py``).
 
 Serwis jest synchroniczny; wątek tła zapewnia ``ui/update_controller.py``.
 """
@@ -46,18 +47,9 @@ from transkryptor.update.releases import (
 TIMEOUT = httpx.Timeout(30.0, connect=10.0)
 
 
-class UpdateStage(Enum):
-    """Etap przebiegu zgłaszany warstwie UI (ekran startowy)."""
-
-    CHECKING = "checking"
-    DOWNLOADING = "downloading"
-
-
-StageCallback = Callable[[UpdateStage, ReleaseInfo | None], None]
-
-
 class UpdateStatus(Enum):
     UP_TO_DATE = "up_to_date"
+    DOWNLOADABLE = "downloadable"  # nowa wersja czeka na zgodę na pobranie
     READY = "ready"  # nowa wersja pobrana i zweryfikowana
     AVAILABLE = "available"  # nowa wersja jest, ale bez samoaktualizacji
     OFFLINE = "offline"
@@ -78,7 +70,7 @@ def default_client() -> httpx.Client:
 
 
 class UpdateService:
-    """Sprawdza najnowsze wydanie i pobiera je, gdy to możliwe."""
+    """Sprawdza najnowsze wydanie i pobiera je na żądanie."""
 
     def __init__(
         self,
@@ -97,15 +89,8 @@ class UpdateService:
             can_self_update(platform=platform) if self_update is None else self_update
         )
 
-    def run(
-        self,
-        should_cancel: Callable[[], bool] = lambda: False,
-        on_progress: DownloadProgress | None = None,
-        on_stage: StageCallback | None = None,
-    ) -> UpdateOutcome:
-        """Jeden przebieg; ``on_stage`` i ``on_progress`` zasilają ekran startowy."""
-        stage = on_stage or (lambda _stage, _release: None)
-        stage(UpdateStage.CHECKING, None)
+    def check(self) -> UpdateOutcome:
+        """Tylko sprawdzenie wersji - bez pobierania artefaktu."""
         with self._client_factory() as client:
             try:
                 release = fetch_latest(client, self._platform)
@@ -114,14 +99,22 @@ class UpdateService:
             except UpdateError as error:
                 return UpdateOutcome(UpdateStatus.ERROR, error=error)
 
-            if release is None or not is_newer(release.version, self.current_version):
-                if self._self_update:
-                    clear_downloads(self._download_root)
-                return UpdateOutcome(UpdateStatus.UP_TO_DATE, release)
-            if not self._self_update or release.artifact_suffix is None:
-                return UpdateOutcome(UpdateStatus.AVAILABLE, release)
+        if release is None or not is_newer(release.version, self.current_version):
+            if self._self_update:
+                clear_downloads(self._download_root)
+            return UpdateOutcome(UpdateStatus.UP_TO_DATE, release)
+        if not self._self_update or release.artifact_suffix is None:
+            return UpdateOutcome(UpdateStatus.AVAILABLE, release)
+        return UpdateOutcome(UpdateStatus.DOWNLOADABLE, release)
 
-            stage(UpdateStage.DOWNLOADING, release)
+    def download(
+        self,
+        release: ReleaseInfo,
+        should_cancel: Callable[[], bool] = lambda: False,
+        on_progress: DownloadProgress | None = None,
+    ) -> UpdateOutcome:
+        """Pobranie i weryfikacja wydania wskazanego przez :meth:`check`."""
+        with self._client_factory() as client:
             try:
                 artifact = download_release(
                     release,
@@ -141,4 +134,4 @@ class UpdateService:
                     else UpdateError(user_message=tr("update.error.save", reason=error))
                 )
                 return UpdateOutcome(UpdateStatus.ERROR, release, error=failure)
-            return UpdateOutcome(UpdateStatus.READY, release, artifact)
+        return UpdateOutcome(UpdateStatus.READY, release, artifact)
