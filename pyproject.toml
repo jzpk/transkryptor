@@ -1,7 +1,7 @@
 [project]
 name = "transkryptor"
 version = "0.10.1"
-description = "Lokalna aplikacja desktopowa do ręcznej transkrypcji fonetycznej języka polskiego"
+description = "Lokalna aplikacja desktopowa do ręcznej transkrypcji nagrań gwarowych"
 readme = "README.md"
 license = "GPL-3.0-or-later"
 requires-python = ">=3.12,<3.13"

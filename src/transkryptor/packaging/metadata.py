@@ -21,7 +21,7 @@ APP_SLUG = "transkryptor"
 VERSION = __version__
 
 # Krótki opis używany w instalatorze, pliku .desktop i notach wydania.
-SUMMARY = "Lokalna aplikacja do ręcznej transkrypcji fonetycznej języka polskiego"
+SUMMARY = "Lokalna aplikacja do ręcznej transkrypcji nagrań gwarowych"
 PUBLISHER = "Projekt Transkryptor"
 LICENSE_ID = "GPL-3.0-or-later"
 
