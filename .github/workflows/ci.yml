@@ -1,14 +1,15 @@
-# Kontrola jakości przy każdej zmianie: lint, formatowanie, typy i testy.
+# Kontrola jakości przy każdej zmianie: lint, formatowanie, typy, testy,
+# audyt zależności i audyt samych workflow.
 #
-# Push na main ze scalenia PR nie powtarza lintu ani testów - ten sam kod
-# przeszedł je już w PR (job „scalony-pr”). Audyt zależności działa zawsze,
-# bo nowe podatności pojawiają się niezależnie od kodu. Bezpośredni push na
-# main jest sprawdzany w całości.
+# Każdy przebieg sprawdza wszystko - także push na main ze scalenia PR
+# (scalenie przez bypass rulesetu nie musiało mieć zielonych testów).
+# Workflow „Wydanie” wywołuje ten plik (workflow_call) jako bramkę przed
+# wydaniem, więc test albo podatność wykryta po ostatnim CI też je zatrzyma.
 #
 # Testy end-to-end (tests/e2e) nie biegną tutaj - zwykły pytest je pomija,
-# a uruchamia je workflow wydania (release.yml) zamiast testów jednostkowych.
-# Akcje są przypięte do SHA commitów (aktualizuje je Dependabot,
-# .github/dependabot.yml).
+# a uruchamia je workflow wydania (release.yml). Cache uv jest wyłączony
+# (zatrucie cache, zizmor: cache-poisoning). Akcje są przypięte do SHA
+# commitów (aktualizuje je Dependabot, .github/dependabot.yml).
 name: CI
 
 on:
@@ -17,42 +18,14 @@ on:
       - main
       - "release/**"
   pull_request:
+  workflow_call:
 
 permissions:
   contents: read
 
 jobs:
-  # Commit wypchnięty na main, który jest commitem scalenia PR (merge, squash
-  # albo ostatni commit rebase), pomija lint i testy. Błąd API nie pomija
-  # niczego - kontrole wtedy się wykonują.
-  scalony-pr:
-    name: Scalenie PR
-    runs-on: ubuntu-22.04
-    permissions:
-      contents: read
-      pull-requests: read
-    outputs:
-      pominac: ${{ steps.sprawdzenie.outputs.pominac }}
-    steps:
-      - id: sprawdzenie
-        if: github.event_name == 'push'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          numer=$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" \
-            --jq "[.[] | select(.merged_at != null and .merge_commit_sha == \"$GITHUB_SHA\")][0].number // empty" \
-            || true)
-          if [ -n "$numer" ]; then
-            echo "Commit $GITHUB_SHA to scalenie PR #$numer - kontrole przeszły w PR."
-            echo "pominac=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "pominac=false" >> "$GITHUB_OUTPUT"
-          fi
-
   jakosc:
     name: Ruff, black, mypy
-    needs: scalony-pr
-    if: needs.scalony-pr.outputs.pominac != 'true'
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -62,7 +35,7 @@ jobs:
       - name: Instalacja uv
         uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
-          enable-cache: true
+          enable-cache: false
 
       - name: Środowisko z uv.lock
         run: uv sync --locked
@@ -78,8 +51,6 @@ jobs:
 
   testy:
     name: Testy
-    needs: scalony-pr
-    if: needs.scalony-pr.outputs.pominac != 'true'
     runs-on: ubuntu-22.04
     # Zawieszony test (np. zakleszczenie Qt Multimedia) nie może blokować
     # runnera przez domyślne 6 godzin.
@@ -92,7 +63,7 @@ jobs:
       - name: Instalacja uv
         uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
-          enable-cache: true
+          enable-cache: false
 
       - name: Środowisko z uv.lock
         run: uv sync --locked
@@ -116,8 +87,6 @@ jobs:
 
   testy-windows:
     name: Testy (Windows, bez Qt)
-    needs: scalony-pr
-    if: needs.scalony-pr.outputs.pominac != 'true'
     runs-on: windows-2022
     timeout-minutes: 20
     steps:
@@ -128,7 +97,7 @@ jobs:
       - name: Instalacja uv
         uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
-          enable-cache: true
+          enable-cache: false
 
       - name: Środowisko z uv.lock
         run: uv sync --locked
@@ -152,9 +121,38 @@ jobs:
 
       - name: Instalacja uv
         uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: false
 
       # Wszystkie grupy (także narzędzia budowania wydania) z uv.lock, z hashami.
       - name: pip-audit
         run: |
           uv export --locked --all-groups --no-emit-project --format requirements-txt -o "$RUNNER_TEMP/requirements.txt"
           uvx pip-audit@2.9.0 --strict --disable-pip --requirement "$RUNNER_TEMP/requirements.txt"
+
+  # actionlint: składnia, wyrażenia i shellcheck skryptów run:. zizmor:
+  # audyt bezpieczeństwa (wstrzyknięcia, tokeny w .git/config, cache
+  # w jobach wydania, nieprzypięte akcje). Wersje przypięte; ta sama
+  # zasada co dla zależności - nie najnowsze z dnia publikacji.
+  workflowy:
+    name: Audyt workflow
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Instalacja uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: false
+
+      - name: actionlint
+        run: uvx --with shellcheck-py==0.11.0.1 --from actionlint-py==1.7.12.25 actionlint
+
+      # Token tylko do odczytu: zizmor sprawdza przez API m.in. znane
+      # podatności przypiętych akcji i SHA spoza ich repozytoriów.
+      - name: zizmor
+        run: uvx zizmor@1.32.0 --format=github .github/workflows
+        env:
+          GH_TOKEN: ${{ github.token }}

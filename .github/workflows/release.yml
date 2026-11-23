@@ -6,7 +6,7 @@
 # - gałąź main + minor/major - następna wersja (0.9.0); ten sam push zakłada
 #   gałąź release/X.Y nowej serii na commicie wydania.
 # Reguły (np. patch z main tylko, dopóki nie ma release/X.Y) sprawdza
-# src/transkryptor/packaging/branches.py. Workflow po zielonych testach e2e
+# src/transkryptor/packaging/branches.py. Workflow po zielonym CI i e2e
 # podbija wersję w pyproject.toml, uv.lock i src/transkryptor/__init__.py,
 # składa fragmenty changelog.d/*.md w sekcję wersji w CHANGELOG.md (brak
 # fragmentów przerywa wydanie), commituje na wybraną gałąź i nadaje tag
@@ -16,7 +16,7 @@
 # main (job „scalenie”), a poprawka starszej serii (np. 0.8.4 po 0.9.0) nie
 # zostaje „najnowszym wydaniem” i nie wdraża strony. Commit wydania ma w opisie
 # [skip ci]: jego push nie uruchamia ponownie CI ani tego workflow - kod
-# przeszedł już testy (jednostkowe w CI, e2e na początku przebiegu), a commit
+# przeszedł już testy (CI i e2e na początku tego przebiegu), a commit
 # zmienia tylko numer wersji i nagłówek changeloga. Zainstalowane aplikacje
 # znajdują wydania przez GitHub Releases API (src/transkryptor/update/).
 #
@@ -30,8 +30,10 @@
 # minisign z sekretu environment „Release” (wymagane zatwierdzenie). Job ten
 # nie uruchamia kodu repozytorium ani zależności Pythona - sumy i noty
 # powstają wcześniej w jobie „sumy”, a weryfikacja i publikacja w jobie
-# „publikacja”. Checkout poza jobem „wersja” (push commitu wydania) nie
-# zostawia tokenu w .git/config (persist-credentials: false). Aplikacja
+# „publikacja”. Żaden checkout nie zostawia tokenu w .git/config
+# (persist-credentials: false) - RELEASE_PAT dostaje tylko polecenie git push
+# w jobach „wersja” i „scalenie”. Joby budujące artefakty nie używają cache
+# (zatrucie cache z innych przebiegów). Aplikacja
 # instaluje tylko aktualizacje pasujące do klucza publicznego
 # z src/transkryptor/update/keys.py. Akcje są przypięte do SHA commitów,
 # a pobierane narzędzia (appimagetool, Inno Setup, minisign) do wersji
@@ -75,11 +77,20 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # Testy jednostkowe nie są tu powtarzane: ten sam commit przeszedł je w CI
-  # (PR i push na main). Bramka wydania to testy end-to-end (tests/e2e) -
-  # całe ścieżki pracy w oknie programu i regresja formatów wyjścia względem
-  # plików wzorcowych - oraz szybki lint i typy dla drogi awaryjnej (tag na
-  # commicie, którego CI mogło nie sprawdzić).
+  # Bramka wydania, część 1: pełne CI (ci.yml - lint, typy, testy na Linuksie
+  # i Windows, audyt zależności i workflow) na commicie wydania. Nie polega
+  # na tym, że CI przeszło wcześniej: scalenie przez bypass rulesetu albo tag
+  # z drogi awaryjnej mogły go nie mieć, a podatność w zależności mogła zostać
+  # opublikowana po ostatnim przebiegu.
+  ci:
+    name: CI
+    # Składnia ./ zamiast $/ - zna ją actionlint i dokumentacja reusable workflows.
+    uses: ./.github/workflows/ci.yml # zizmor: ignore[self-repository]
+    permissions:
+      contents: read
+
+  # Bramka wydania, część 2: testy end-to-end (tests/e2e) - całe ścieżki pracy
+  # w oknie programu i regresja formatów wyjścia względem plików wzorcowych.
   e2e:
     name: Testy end-to-end
     runs-on: ubuntu-22.04
@@ -94,19 +105,10 @@ jobs:
       - name: Instalacja uv
         uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
-          enable-cache: true
+          enable-cache: false
 
       - name: Środowisko z uv.lock
         run: uv sync --locked
-
-      - name: Ruff
-        run: uv run ruff check --output-format=github .
-
-      - name: Black
-        run: uv run black --check --diff .
-
-      - name: Mypy
-        run: uv run mypy
 
       # Testy działają w trybie offscreen, ale wtyczka platformy Qt i tak
       # linkuje się z tymi bibliotekami. libpulse0: import
@@ -126,7 +128,7 @@ jobs:
 
   wersja:
     name: Wersja i tag
-    needs: e2e
+    needs: [ci, e2e]
     runs-on: ubuntu-22.04
     permissions:
       contents: write
@@ -138,9 +140,12 @@ jobs:
       release-branch: ${{ steps.wersja.outputs.release-branch }}
     steps:
       # Pełna historia z tagami: porównanie z poprzednimi wydaniami (latest).
+      # Bez tokenu w .git/config: kod repozytorium uruchamiany w tym jobie
+      # (packaging.branches, changelog, uv) nie widzi RELEASE_PAT - dostaje go
+      # tylko sam git push.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          token: ${{ secrets.RELEASE_PAT }}
+          persist-credentials: false
           fetch-depth: 0
 
       # Droga awaryjna: tag musi wskazywać commit zawarty w main albo
@@ -166,6 +171,8 @@ jobs:
 
       - name: Instalacja uv
         uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: false
 
       # Push przez RELEASE_PAT omija regułę wymaganych testów na main
       # i release/*.
@@ -179,6 +186,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         env:
           BUMP: ${{ inputs.bump }}
+          RELEASE_PAT: ${{ secrets.RELEASE_PAT }}
         run: |
           CURRENT="$(uv version --short)"
           SERIES="$(PYTHONPATH=src python3 -m transkryptor.packaging.branches series "$CURRENT")"
@@ -205,8 +213,13 @@ jobs:
             NEW_SERIES="$(PYTHONPATH=src python3 -m transkryptor.packaging.branches series "$VERSION")"
             REFS="$REFS HEAD:refs/heads/$NEW_SERIES"
           fi
+          # Token tylko w nagłówku tego jednego polecenia (jak actions/checkout),
+          # nie w adresie remote ani w .git/config.
+          AUTH="$(printf 'x-access-token:%s' "$RELEASE_PAT" | base64 -w0)"
+          echo "::add-mask::$AUTH"
           # shellcheck disable=SC2086 # REFS to lista refów rozdzielona spacjami
-          git push --atomic origin $REFS
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $AUTH" \
+            push --atomic origin $REFS
 
       - name: Zgodność wersji z tagiem
         id: wersja
@@ -231,10 +244,12 @@ jobs:
           case "$GITHUB_EVENT_NAME:$GITHUB_REF_NAME" in
             workflow_dispatch:release/*) BRANCH="$GITHUB_REF_NAME" ;;
           esac
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
-          echo "latest=$LATEST" >> "$GITHUB_OUTPUT"
-          echo "release-branch=$BRANCH" >> "$GITHUB_OUTPUT"
+          {
+            echo "version=$VERSION"
+            echo "tag=v$VERSION"
+            echo "latest=$LATEST"
+            echo "release-branch=$BRANCH"
+          } >> "$GITHUB_OUTPUT"
 
   linux:
     name: AppImage (Linux)
@@ -249,7 +264,7 @@ jobs:
       - name: Instalacja uv
         uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
-          enable-cache: true
+          enable-cache: false
 
       - name: Środowisko budowania
         run: uv sync --locked --group packaging
@@ -280,7 +295,8 @@ jobs:
 
       - name: Sprawdzenie artefaktu
         run: |
-          dist/Transkryptor-*-x86_64.AppImage --self-test
+          set -- dist/Transkryptor-*-x86_64.AppImage
+          "$1" --self-test
           (cd dist && sha256sum --check SHA256SUMS.txt)
         env:
           QT_QPA_PLATFORM: offscreen
@@ -304,7 +320,7 @@ jobs:
       - name: Instalacja uv
         uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
-          enable-cache: true
+          enable-cache: false
 
       - name: Środowisko budowania
         run: uv sync --locked --group packaging
@@ -403,7 +419,7 @@ jobs:
       - name: Instalacja uv
         uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
-          enable-cache: true
+          enable-cache: false
 
       - name: Środowisko z uv.lock
         run: uv sync --locked
@@ -424,6 +440,25 @@ jobs:
           ls -l dist
         env:
           TAG: ${{ needs.wersja.outputs.tag }}
+
+      # Zatwierdzający podpis widzi w podsumowaniu przebiegu, co podpisze:
+      # commit taga i sumy artefaktów. Porównuje je z SHA taga na GitHubie
+      # (albo z sumami zbudowanymi lokalnie), zanim kliknie „Approve”.
+      - name: Podsumowanie dla zatwierdzającego
+        env:
+          TAG: ${{ needs.wersja.outputs.tag }}
+        run: |
+          {
+            echo "## Do podpisu: $TAG"
+            echo
+            echo "Commit: \`$(git rev-parse HEAD)\`"
+            echo
+            echo "SHA256SUMS.txt:"
+            echo
+            echo '```'
+            cat dist/SHA256SUMS.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -495,6 +530,8 @@ jobs:
             exit 1
           fi
           printf 'untrusted comment: minisign secret key\n%s\n' "$KEY" > "$RUNNER_TEMP/minisign.key"
+          echo "Podpisywane sumy (te same co w podsumowaniu joba sumy):"
+          cat dist/SHA256SUMS.txt
           "$RUNNER_TEMP/minisign-linux/x86_64/minisign" -S \
             -s "$RUNNER_TEMP/minisign.key" -m dist/SHA256SUMS.txt -t "$COMMENT"
 
@@ -523,7 +560,7 @@ jobs:
       - name: Instalacja uv
         uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
-          enable-cache: true
+          enable-cache: false
 
       - name: Środowisko z uv.lock
         run: uv sync --locked
@@ -620,21 +657,26 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: main
-          token: ${{ secrets.RELEASE_PAT }}
+          persist-credentials: false
           fetch-depth: 0
 
       - name: Scalenie i push
         env:
           BRANCH: ${{ needs.wersja.outputs.release-branch }}
+          RELEASE_PAT: ${{ secrets.RELEASE_PAT }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # shellcheck disable=SC1111 # „Strona” to nazwa workflow w komunikacie
           if ! git merge --no-ff "origin/$BRANCH" -m "chore: merge $BRANCH into main"; then
             git merge --abort
             echo "::error::Konflikt przy scalaniu $BRANCH do main - wydanie jest opublikowane; scal lokalnie: ./merge-forward.sh ${BRANCH#release/}, wypchnij main i wdróż stronę w repozytorium strony (Actions → „Strona”)"
             exit 1
           fi
-          git push origin HEAD:main
+          AUTH="$(printf 'x-access-token:%s' "$RELEASE_PAT" | base64 -w0)"
+          echo "::add-mask::$AUTH"
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $AUTH" \
+            push origin HEAD:main
 
   # Strona projektu (prywatne repozytorium transkryptor-webpage) z nowymi
   # linkami pobierania i historią zmian. Workflow strony buduje ją z danych
@@ -662,6 +704,7 @@ jobs:
           SITE_REPO: ${{ vars.SITE_REPO || 'jzpk/transkryptor-webpage' }}
           VERSION: ${{ needs.wersja.outputs.version }}
         run: |
+          # shellcheck disable=SC1111 # „Strona” to nazwa workflow w komunikacie
           if [ -z "$GH_TOKEN" ]; then
             echo "::error::Brak sekretu SITE_DISPATCH_TOKEN - wdróż stronę ręcznie w $SITE_REPO (Actions → „Strona”)."
             exit 1

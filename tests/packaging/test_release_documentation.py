@@ -122,11 +122,12 @@ def test_signing_job_uses_the_application_trusted_comment() -> None:
     assert f'COMMENT="{expected}"' in signing
 
 
-def test_checkouts_do_not_persist_tokens_outside_the_release_push() -> None:
-    """Token zostaje w .git/config tylko w jobach, które pushują.
+def test_checkouts_never_persist_tokens() -> None:
+    """Token nie zostaje w .git/config w żadnym jobie (zizmor: artipacked).
 
-    ``wersja`` pushuje commit wydania i tag, ``scalenie`` - scalenie gałęzi
-    wydania do main (sam git, bez kodu repozytorium).
+    ``wersja`` i ``scalenie`` pushują, ale RELEASE_PAT dostaje tylko samo
+    polecenie ``git push`` (nagłówek ``http.extraheader``), a nie kod
+    repozytorium uruchamiany wcześniej w tym samym jobie.
     """
     for workflow in WORKFLOW.parent.glob("*.yml"):
         text = workflow.read_text(encoding="utf-8")
@@ -135,22 +136,67 @@ def test_checkouts_do_not_persist_tokens_outside_the_release_push() -> None:
             if "actions/checkout" not in job:
                 continue
             step = job.split("actions/checkout", 1)[1].split("- name:", 1)[0]
-            if workflow == WORKFLOW and match.group(1) in ("wersja", "scalenie"):
-                assert "secrets.RELEASE_PAT" in step
-                continue
             assert (
                 "persist-credentials: false" in step
             ), f"{workflow.name}: {match.group(1)}"
+            assert "token:" not in step, f"{workflow.name}: {match.group(1)}"
 
 
-def test_release_runs_only_end_to_end_tests_and_ci_only_unit_tests() -> None:
-    """Testy jednostkowe biegną w CI, a bramka wydania to testy e2e."""
+def test_release_token_reaches_only_the_push_steps() -> None:
+    text = WORKFLOW.read_text(encoding="utf-8")
+    assert text.count("secrets.RELEASE_PAT") == 2
+    for name in ("wersja", "scalenie"):
+        job = _job(text, name)
+        step = job.split("RELEASE_PAT: ${{ secrets.RELEASE_PAT }}", 1)[1]
+        step = step.split("- name:", 1)[0]
+        assert "http.https://github.com/.extraheader" in step, name
+        assert "git -c" in step and "push" in step, name
+
+
+def test_workflows_do_not_use_the_uv_cache() -> None:
+    """Cache z innych przebiegów mógłby podmienić pliki w jobach wydania.
+
+    setup-uv domyślnie (auto) włącza cache na runnerach GitHuba, więc każdy
+    krok musi go wyłączyć jawnie.
+    """
+    for workflow in WORKFLOW.parent.glob("*.yml"):
+        steps = workflow.read_text(encoding="utf-8").split("uses: astral-sh/setup-uv@")
+        for step in steps[1:]:
+            block = step.split("- ", 1)[0]
+            assert "enable-cache: false" in block, workflow.name
+
+
+def test_release_runs_full_ci_and_end_to_end_tests_before_tagging() -> None:
+    """Bramka wydania: całe ci.yml (testy, audyt zależności) i testy e2e.
+
+    Wydanie nie polega na wcześniejszym przebiegu CI - commit mógł trafić
+    na main przez bypass bez testów, a podatność pojawić się później.
+    """
     release = WORKFLOW.read_text(encoding="utf-8")
-    gate = _job(release, "e2e")
-    assert "uv run pytest --e2e tests/e2e" in gate
-    assert release.count("pytest") == 1
-    assert "needs: e2e" in _job(release, "wersja")
+    assert "uses: ./.github/workflows/ci.yml" in _job(release, "ci")
+    assert "uv run pytest --e2e tests/e2e" in _job(release, "e2e")
+    assert "needs: [ci, e2e]" in _job(release, "wersja")
 
     ci = (WORKFLOW.parent / "ci.yml").read_text(encoding="utf-8")
+    assert "workflow_call:" in ci
     assert "uv run pytest" in ci
+    assert "pip-audit" in ci
     assert "--e2e" not in ci
+    # Żaden job nie jest pomijany warunkiem (np. „to już przeszło w PR”).
+    assert "\n    if:" not in ci
+
+
+def test_ci_audits_the_workflows() -> None:
+    job = _job((WORKFLOW.parent / "ci.yml").read_text(encoding="utf-8"), "workflowy")
+    assert re.search(r"actionlint-py==[\d.]+ actionlint", job)
+    assert re.search(r"zizmor@[\d.]+ ", job)
+
+
+def test_approver_sees_what_will_be_signed() -> None:
+    """Przed zatwierdzeniem podpisu podsumowanie pokazuje commit i sumy."""
+    text = WORKFLOW.read_text(encoding="utf-8")
+    sums = _job(text, "sumy")
+    assert "GITHUB_STEP_SUMMARY" in sums
+    assert "git rev-parse HEAD" in sums
+    assert "cat dist/SHA256SUMS.txt" in sums
+    assert "cat dist/SHA256SUMS.txt" in _job(text, "podpis")
