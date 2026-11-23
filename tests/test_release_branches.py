@@ -43,6 +43,7 @@ class Repo:
             "GIT_COMMITTER_NAME": "Test",
             "GIT_COMMITTER_EMAIL": "test@example.invalid",
             "TRANSKRYPTOR_CHECKS": "true",
+            "TRANSKRYPTOR_TESTING": "1",
         }
 
     def run(self, *args: str, cwd: Path | None = None) -> subprocess.CompletedProcess:
@@ -207,3 +208,13 @@ def test_integrate_refuses_unknown_targets(repo, tmp_path) -> None:
     worktree = _agent_fix(repo, tmp_path, "fix-c")
     assert repo.run("./integrate.sh", "develop", cwd=worktree).returncode == 1
     assert repo.run("./integrate.sh", "release/0.9", cwd=worktree).returncode == 1
+
+
+def test_checks_override_requires_the_testing_flag(repo, tmp_path) -> None:
+    """Sam TRANSKRYPTOR_CHECKS (np. „true”) nie może wyłączyć sprawdzeń."""
+    worktree = _agent_fix(repo, tmp_path, "fix-d")
+    del repo.env["TRANSKRYPTOR_TESTING"]
+    result = repo.run("./integrate.sh", "release/0.8", cwd=worktree)
+    assert result.returncode == 1
+    assert "TRANSKRYPTOR_TESTING=1" in result.stderr
+    assert repo.show("release/0.8", "fix-d.txt") is None

@@ -5,6 +5,8 @@
 # odbywa się tylko fast-forwardem: przez `git merge --ff-only` w worktree,
 # w którym jest wybrana (żeby jej pliki się zgadzały), a gdy nigdzie nie jest
 # wybrana - przez `git update-ref` z kontrolą starej wartości.
+#
+# Blokada używa flock(1) z util-linux - skrypty działają na Linuksie.
 
 # Katalog worktree, w którym wybrana jest gałąź $1 (pusty, gdy żaden).
 branch_worktree() {
@@ -14,12 +16,18 @@ branch_worktree() {
     '
 }
 
-# Sprawdzenia przed scaleniem: lint, formatowanie, typy, testy. Kod 1, gdy
-# któreś się nie powiodło (wykonuje wszystkie). TRANSKRYPTOR_CHECKS zastępuje
-# je jednym poleceniem - test skryptów na sztucznym repozytorium
-# (tests/test_release_branches.py) nie ma czego lintować.
+# Sprawdzenia przed scaleniem: lint, formatowanie, typy, testy i testy e2e
+# (te same kroki co w CLAUDE.md). Kod 1, gdy któreś się nie powiodło
+# (wykonuje wszystkie). TRANSKRYPTOR_CHECKS zastępuje je jednym poleceniem
+# tylko razem z TRANSKRYPTOR_TESTING=1 - test skryptów na sztucznym
+# repozytorium (tests/test_release_branches.py) nie ma czego lintować,
+# a zmienna ustawiona przypadkiem nie może wyłączyć sprawdzeń.
 run_checks() {
     if [ -n "${TRANSKRYPTOR_CHECKS:-}" ]; then
+        if [ "${TRANSKRYPTOR_TESTING:-}" != "1" ]; then
+            echo "TRANSKRYPTOR_CHECKS działa tylko z TRANSKRYPTOR_TESTING=1." >&2
+            return 1
+        fi
         sh -c "$TRANSKRYPTOR_CHECKS"
         return
     fi
@@ -28,6 +36,7 @@ run_checks() {
     _step format uv run black --check .
     _step mypy uv run mypy
     _step test uv run pytest -q
+    _step e2e uv run pytest -q --e2e tests/e2e
     if [ -n "$failed" ]; then
         echo "Niepowodzenie:$failed." >&2
         return 1
