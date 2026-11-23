@@ -31,8 +31,10 @@
 # nie uruchamia kodu repozytorium ani zależności Pythona - sumy i noty
 # powstają wcześniej w jobie „sumy”, a weryfikacja i publikacja w jobie
 # „publikacja”. Żaden checkout nie zostawia tokenu w .git/config
-# (persist-credentials: false) - RELEASE_PAT dostaje tylko polecenie git push
-# w jobach „wersja” i „scalenie”. Joby budujące artefakty nie używają cache
+# (persist-credentials: false). Pushe (joby „wersja” i „scalenie”) robi GitHub
+# App wydań tokenem ważnym godzinę, wydanym w kroku tuż przed git push, tylko
+# z Contents: write dla tego repozytorium. Klucz App i token strony są
+# w environment „Release-push” (tylko main, release/* i tagi v*). Joby budujące artefakty nie używają cache
 # (zatrucie cache z innych przebiegów). Aplikacja
 # instaluje tylko aktualizacje pasujące do klucza publicznego
 # z src/transkryptor/update/keys.py. Akcje są przypięte do SHA commitów,
@@ -130,6 +132,7 @@ jobs:
     name: Wersja i tag
     needs: [ci, e2e]
     runs-on: ubuntu-22.04
+    environment: Release-push
     permissions:
       contents: write
     outputs:
@@ -141,8 +144,8 @@ jobs:
     steps:
       # Pełna historia z tagami: porównanie z poprzednimi wydaniami (latest).
       # Bez tokenu w .git/config: kod repozytorium uruchamiany w tym jobie
-      # (packaging.branches, changelog, uv) nie widzi RELEASE_PAT - dostaje go
-      # tylko sam git push.
+      # (packaging.branches, changelog, uv) nie widzi tokenu wydań - powstaje
+      # dopiero po tych krokach i dostaje go tylko sam git push.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -174,19 +177,14 @@ jobs:
         with:
           enable-cache: false
 
-      # Push przez RELEASE_PAT omija regułę wymaganych testów na main
-      # i release/*.
       # [skip ci] w opisie commita: push gałęzi i taga nie uruchamia CI ani
       # drugiego przebiegu tego workflow - budowanie i publikacja dzieją się
-      # w tym przebiegu (joby linux, windows, publikacja). RELEASE_PAT to
-      # fine-grained PAT ograniczony do tego repozytorium (Contents: read and
-      # write) z krótką ważnością.
-      # --atomic: odrzucony push na main nie może zostawić osieroconego taga.
+      # w tym przebiegu (joby linux, windows, publikacja).
       - name: Podbicie wersji, commit i tag
+        id: podbicie
         if: github.event_name == 'workflow_dispatch'
         env:
           BUMP: ${{ inputs.bump }}
-          RELEASE_PAT: ${{ secrets.RELEASE_PAT }}
         run: |
           CURRENT="$(uv version --short)"
           SERIES="$(PYTHONPATH=src python3 -m transkryptor.packaging.branches series "$CURRENT")"
@@ -213,13 +211,7 @@ jobs:
             NEW_SERIES="$(PYTHONPATH=src python3 -m transkryptor.packaging.branches series "$VERSION")"
             REFS="$REFS HEAD:refs/heads/$NEW_SERIES"
           fi
-          # Token tylko w nagłówku tego jednego polecenia (jak actions/checkout),
-          # nie w adresie remote ani w .git/config.
-          AUTH="$(printf 'x-access-token:%s' "$RELEASE_PAT" | base64 -w0)"
-          echo "::add-mask::$AUTH"
-          # shellcheck disable=SC2086 # REFS to lista refów rozdzielona spacjami
-          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $AUTH" \
-            push --atomic origin $REFS
+          echo "refs=$REFS" >> "$GITHUB_OUTPUT"
 
       - name: Zgodność wersji z tagiem
         id: wersja
@@ -250,6 +242,34 @@ jobs:
             echo "latest=$LATEST"
             echo "release-branch=$BRANCH"
           } >> "$GITHUB_OUTPUT"
+
+      # App wydań jest bypass actorem rulesetów main/release/* i tagów v*,
+      # więc jej push omija regułę wymaganych testów (testy przeszły w jobach
+      # ci i e2e tego przebiegu). Akcja unieważnia token na końcu joba.
+      - name: Token wydań (GitHub App)
+        id: token
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          app-id: ${{ vars.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          repositories: transkryptor
+          permission-contents: write
+
+      # --atomic: odrzucony push na main nie może zostawić osieroconego taga.
+      - name: Push commitu wydania i taga
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          TOKEN: ${{ steps.token.outputs.token }}
+          REFS: ${{ steps.podbicie.outputs.refs }}
+        run: |
+          # Token tylko w nagłówku tego jednego polecenia (jak actions/checkout),
+          # nie w adresie remote ani w .git/config.
+          AUTH="$(printf 'x-access-token:%s' "$TOKEN" | base64 -w0)"
+          echo "::add-mask::$AUTH"
+          # shellcheck disable=SC2086 # REFS to lista refów rozdzielona spacjami
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $AUTH" \
+            push --atomic origin $REFS
 
   linux:
     name: AppImage (Linux)
@@ -651,6 +671,7 @@ jobs:
     needs: [wersja, publikacja]
     if: needs.wersja.outputs.release-branch != ''
     runs-on: ubuntu-22.04
+    environment: Release-push
     permissions:
       contents: read
     steps:
@@ -660,10 +681,9 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
-      - name: Scalenie i push
+      - name: Scalenie
         env:
           BRANCH: ${{ needs.wersja.outputs.release-branch }}
-          RELEASE_PAT: ${{ secrets.RELEASE_PAT }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -673,7 +693,25 @@ jobs:
             echo "::error::Konflikt przy scalaniu $BRANCH do main - wydanie jest opublikowane; scal lokalnie: ./merge-forward.sh ${BRANCH#release/}, wypchnij main i wdróż stronę w repozytorium strony (Actions → „Strona”)"
             exit 1
           fi
-          AUTH="$(printf 'x-access-token:%s' "$RELEASE_PAT" | base64 -w0)"
+
+      - name: Token wydań (GitHub App)
+        id: token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          app-id: ${{ vars.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          repositories: transkryptor
+          permission-contents: write
+
+      # App bez uprawnienia Workflows: scalenie zmieniające .github/workflows
+      # zostanie odrzucone - wtedy ./merge-forward.sh X.Y lokalnie i push main.
+      - name: Push scalenia
+        env:
+          TOKEN: ${{ steps.token.outputs.token }}
+        run: |
+          # Token tylko w nagłówku tego jednego polecenia (jak actions/checkout),
+          # nie w adresie remote ani w .git/config.
+          AUTH="$(printf 'x-access-token:%s' "$TOKEN" | base64 -w0)"
           echo "::add-mask::$AUTH"
           git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $AUTH" \
             push origin HEAD:main
@@ -684,10 +722,11 @@ jobs:
   # z release/X.Y czeka na scalenie do main; bez scalenia (konflikt) strona
   # nie jest przebudowywana - pokazałaby poprzednie wydanie. Poprawka
   # starszej serii nie zmienia strony najnowszego wydania. Sekret
-  # SITE_DISPATCH_TOKEN: token z uprawnieniem „Contents: write” wyłącznie do
-  # repozytorium strony (wymagane przez repository_dispatch). Błąd tutaj nie
-  # cofa wydania - stronę wdraża się wtedy w repozytorium strony (Actions →
-  # „Strona” → Run workflow).
+  # SITE_WORKFLOW_TOKEN (environment Release-push): fine-grained PAT
+  # wyłącznie do repozytorium strony z uprawnieniem „Actions: write” - może
+  # tylko uruchomić workflow „Strona”, bez zapisu do kodu strony. Błąd tutaj
+  # nie cofa wydania - stronę wdraża się wtedy w repozytorium strony
+  # (Actions → „Strona” → Run workflow).
   strona:
     name: Strona projektu
     needs: [wersja, publikacja, scalenie]
@@ -697,18 +736,17 @@ jobs:
       && needs.wersja.outputs.latest == 'true'
       && (needs.scalenie.result == 'success' || needs.wersja.outputs.release-branch == '')
     runs-on: ubuntu-22.04
+    environment: Release-push
+    permissions: {}
     steps:
       - name: Przebudowa strony
         env:
-          GH_TOKEN: ${{ secrets.SITE_DISPATCH_TOKEN }}
+          GH_TOKEN: ${{ secrets.SITE_WORKFLOW_TOKEN }}
           SITE_REPO: ${{ vars.SITE_REPO || 'jzpk/transkryptor-webpage' }}
-          VERSION: ${{ needs.wersja.outputs.version }}
         run: |
           # shellcheck disable=SC1111 # „Strona” to nazwa workflow w komunikacie
           if [ -z "$GH_TOKEN" ]; then
-            echo "::error::Brak sekretu SITE_DISPATCH_TOKEN - wdróż stronę ręcznie w $SITE_REPO (Actions → „Strona”)."
+            echo "::error::Brak sekretu SITE_WORKFLOW_TOKEN - wdróż stronę ręcznie w $SITE_REPO (Actions → „Strona”)."
             exit 1
           fi
-          gh api "repos/$SITE_REPO/dispatches" \
-            -f event_type=release-published \
-            -f "client_payload[version]=$VERSION"
+          gh api "repos/$SITE_REPO/actions/workflows/strona.yml/dispatches" -f ref=main
