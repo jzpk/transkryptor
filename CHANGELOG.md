@@ -6,6 +6,57 @@ workflow „Wydanie” złoży je w sekcję z numerem wersji i datą, a jej tre�
 trafi do sekcji „Nowości w tej wersji” not wydania. Brak fragmentów blokuje
 wydanie.
 
+## 0.11.0 - 2026-11-23
+
+- **Słowa według pytań kwestionariusza:** nowe polecenie „Słowa według
+  pytań…” w menu eksportu dzieli odpowiedzi informatorów według pytań
+  kwestionariusza i wypisuje ich słowa w formie słownikowej - rzeczowniki
+  albo inne wybrane części mowy, także te spoza pól tematycznych, których
+  dotąd nie było widać. Słowa wieloznaczne liczą się w jednej części mowy
+  („Większa dokładność”) albo we wszystkich możliwych („Pełniejsza lista”,
+  oznaczone ≈), a słowa nierozpoznane (np. formy gwarowe) są wyróżnione.
+  Przy każdym pytaniu widać akapit, w którym je odnaleziono; „Zmień akapit…”
+  wskaże go ręcznie, także akapitem z kursorem w edytorze, a wskazanie
+  zapisuje się w projekcie. Pytania nieodnalezione w tekście są wypisane
+  osobno razem z pytaniem, do którego liczą się ich odpowiedzi. Okno
+  dołącza inne projekty i zapisuje tabelę do CSV albo XLSX.
+
+- **Wnioski z poprawek szkicu:** nowe polecenie „Wnioski z poprawek
+  szkicu…” (menu „Otwórz”, zaraz za „Porównaj z…”) porównuje szkic ASR
+  z poprawionym tekstem i zbiera wszystkie wnioski naraz: propozycje reguł
+  zapisu z gotowym wzorcem, poprawkami w kontekście i liczbą miejsc, które
+  pasują do wzorca, ale nie zostały poprawione; słowa, które model zapisuje
+  źle zawsze tak samo, do dodania do słownika ASR projektu albo globalnego;
+  wstawki pominięte i dodane przez model; usuwaną interpunkcję, zdania
+  zmieniane na małą literę i rozwijane skróty - z przyciskiem włączającym
+  odpowiednie ustawienie zapisu szkicu - oraz zmiany mówców. Raport zapiszesz
+  do CSV albo XLSX. Projekt zapamiętuje szkic po wstawieniu; w starszych
+  projektach szkic jest odtwarzany z wyniku ASR (wnioski są wtedy
+  przybliżone). Przycisk propozycji reguły w pasku stanu ma pozycję
+  „Wszystkie propozycje…”.
+
+- **Uczenie z całego korpusu:** okno „Korpus” ma zakładkę „Wnioski”, która
+  porównuje szkice wszystkich projektów folderu z ich tekstem. Wzorce zbyt
+  rzadkie w jednym wywiadzie sumują się między projektami (przy każdej
+  propozycji widać liczbę projektów), a zaznaczone propozycje trafiają
+  prosto do aktywnego profilu notacji, który zespół może wyeksportować.
+
+- **Odrzucone propozycje reguł są pamiętane:** odrzucenie propozycji reguły
+  (w pasku stanu albo w oknie wniosków) zapisuje się w profilu notacji -
+  propozycja nie wraca po ponownym uruchomieniu programu i trafia do
+  eksportu profilu. Dotąd odrzucenie działało tylko do zamknięcia programu.
+  Zmiana samego indeksu górnego przy tym samym tekście też liczy się teraz
+  jako poprawka szkicu.
+
+- **Aktualizacja tylko za zgodą:** program nadal sprawdza przy starcie
+  i co kilka godzin, czy jest nowa wersja, ale już jej sam nie pobiera.
+  W pasku stanu pojawia się informacja „Dostępna jest nowa wersja”
+  z przyciskiem „Pobierz i zainstaluj” - dopiero on pobiera aktualizację
+  (z paskiem postępu) i uruchamia program ponownie, żeby ją zainstalować.
+  Wyjątkiem jest ostrzeżenie o luce bezpieczeństwa w używanej wersji:
+  wtedy poprawka pobiera się sama, a program pyta, czy zainstalować ją
+  od razu.
+
 ## 0.10.1 - 2026-11-19
 
 - **Ostrzeżenia o lukach bezpieczeństwa:** gdy w używanej wersji zostanie
