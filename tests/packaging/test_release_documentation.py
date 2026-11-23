@@ -110,7 +110,7 @@ def test_signing_job_runs_no_repository_or_python_dependency_code() -> None:
     assert "secrets.MINISIGN_SECRET_KEY" in signing
     for forbidden in ("actions/checkout", "setup-uv", "uv ", "python"):
         assert forbidden not in signing, forbidden
-    assert text.count("environment: Release") == 1
+    assert len(re.findall(r"environment: Release$", text, re.M)) == 1
     assert text.count("MINISIGN_SECRET_KEY: ${{ secrets") == 1
 
 
@@ -125,7 +125,7 @@ def test_signing_job_uses_the_application_trusted_comment() -> None:
 def test_checkouts_never_persist_tokens() -> None:
     """Token nie zostaje w .git/config w żadnym jobie (zizmor: artipacked).
 
-    ``wersja`` i ``scalenie`` pushują, ale RELEASE_PAT dostaje tylko samo
+    ``wersja`` i ``scalenie`` pushują, ale token App wydań dostaje tylko samo
     polecenie ``git push`` (nagłówek ``http.extraheader``), a nie kod
     repozytorium uruchamiany wcześniej w tym samym jobie.
     """
@@ -142,15 +142,56 @@ def test_checkouts_never_persist_tokens() -> None:
             assert "token:" not in step, f"{workflow.name}: {match.group(1)}"
 
 
-def test_release_token_reaches_only_the_push_steps() -> None:
+APP_ACTION = "actions/create-github-app-token@"
+
+
+def _steps(job: str) -> list[str]:
+    return job.split("\n      - ")[1:]
+
+
+def test_release_pushes_use_a_short_lived_app_token() -> None:
+    """Pushe wydania robi GitHub App (token ważny godzinę), nie PAT.
+
+    Token powstaje po krokach uruchamiających kod repozytorium i trafia
+    tylko do kroku z ``git push``.
+    """
     text = WORKFLOW.read_text(encoding="utf-8")
-    assert text.count("secrets.RELEASE_PAT") == 2
+    assert "RELEASE_PAT" not in text
+    assert "secrets.RELEASE_APP_PRIVATE_KEY" in text
     for name in ("wersja", "scalenie"):
         job = _job(text, name)
-        step = job.split("RELEASE_PAT: ${{ secrets.RELEASE_PAT }}", 1)[1]
-        step = step.split("- name:", 1)[0]
-        assert "http.https://github.com/.extraheader" in step, name
-        assert "git -c" in step and "push" in step, name
+        assert "environment: Release-push" in job, name
+        steps = _steps(job)
+        minted = [i for i, step in enumerate(steps) if APP_ACTION in step]
+        assert len(minted) == 1, name
+        token = steps[minted[0]]
+        assert "permission-contents: write" in token, name
+        assert "repositories: transkryptor\n" in token, name
+        users = [s for s in steps if "steps.token.outputs.token" in s]
+        assert len(users) == 1, name
+        assert "push" in users[0] and "http.https://github.com/.extraheader" in users[0]
+        # Wszystko, co uruchamia kod repozytorium, biegnie przed wydaniem tokenu.
+        after = steps[minted[0] + 1 :]
+        assert not any("python" in step or "uv " in step for step in after), name
+
+
+def test_release_secrets_live_in_environments() -> None:
+    """Sekrety repozytorium są dostępne z każdej gałęzi; environment - nie."""
+    text = WORKFLOW.read_text(encoding="utf-8")
+    for match in re.finditer(r"^  ([\w-]+):\n", text, re.M):
+        job = _job(text, match.group(1))
+        if "secrets." in job:
+            assert "    environment: " in job, match.group(1)
+
+
+def test_site_rebuild_only_runs_the_site_workflow() -> None:
+    """Token strony ma Actions: write (workflow_dispatch), nie Contents: write."""
+    job = _job(WORKFLOW.read_text(encoding="utf-8"), "strona")
+    assert "secrets.SITE_WORKFLOW_TOKEN" in job
+    assert "/actions/workflows/strona.yml/dispatches" in job
+    assert (
+        "repository_dispatch" not in job and '"repos/$SITE_REPO/dispatches"' not in job
+    )
 
 
 def test_workflows_do_not_use_the_uv_cache() -> None:
