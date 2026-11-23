@@ -2,6 +2,10 @@
 # podmienia SHA i komentarz z wersją), pakiety z uv.lock oraz obrazy bazowe
 # Dockerfile'ów (przypięte do digestu).
 #
+# cooldown: nowa wersja czeka 7 dni, zanim Dependabot ją zaproponuje -
+# przejęte wydania pakietów i akcji są zwykle wykrywane i wycofywane w tym
+# czasie. Aktualizacje bezpieczeństwa nie czekają.
+#
 # Sumy narzędzi pobieranych w workflow wydania i Dockerfile'ach
 # (appimagetool, Inno Setup, minisign, Python NuGet) aktualizuje się ręcznie
 # razem z wersją.
@@ -11,6 +15,8 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
     groups:
       akcje:
         patterns: ["*"]
@@ -19,6 +25,8 @@ updates:
     directory: /packaging/docker
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
     groups:
       obrazy:
         patterns: ["*"]
@@ -34,6 +42,8 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
     groups:
       zaleznosci:
         patterns: ["*"]
