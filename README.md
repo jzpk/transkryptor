@@ -92,7 +92,7 @@ i `release/**` oraz w PR: ruff, black, mypy, testy i audyt zależności.
 | `src/transkryptor/packaging` | narzędzie wydania: budowanie artefaktów, sumy, noty, changelog |
 | `src/transkryptor/i18n/locales` | tłumaczenia (`pl.json`, `en.json`) |
 | `tests` | testy; `tests/e2e` - testy end-to-end z plikami wzorcowymi |
-| `packaging` | spec PyInstallera i obrazy Docker do budowania artefaktów |
+| `packaging` | spec PyInstallera do budowania artefaktów |
 | `changelog.d` | fragmenty historii zmian do następnego wydania |
 
 Warstwy domenowe (`asr`, `corpus`, `document`, `notation`, `update`,

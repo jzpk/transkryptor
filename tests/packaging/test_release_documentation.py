@@ -32,21 +32,12 @@ def test_workflows_pin_actions_to_commit_shas() -> None:
                 assert re.fullmatch(r"[0-9a-f]{40}", ref), f"{workflow.name}: {line}"
 
 
-def test_downloaded_tools_are_pinned_to_the_same_checksums() -> None:
-    """Workflow i Dockerfile'e pobierają te same wersje z tymi samymi sumami."""
+def test_downloaded_tools_are_pinned_to_versions_and_checksums() -> None:
+    """Workflow pobiera narzędzia budowania w przypiętej wersji z sumą."""
     text = WORKFLOW.read_text(encoding="utf-8")
-    docker = REPO_ROOT / "packaging" / "docker"
-    pairs = {
-        "APPIMAGETOOL": docker / "linux.Dockerfile",
-        "INNO_SETUP": docker / "windows.Dockerfile",
-    }
-    for tool, dockerfile in pairs.items():
-        sha = re.search(rf"{tool}_SHA256: ([0-9a-f]{{64}})", text)
-        version = re.search(rf'{tool}_VERSION: "([^"]+)"', text)
-        assert sha and version, tool
-        recipe = dockerfile.read_text(encoding="utf-8")
-        assert f"{tool}_SHA256={sha.group(1)}" in recipe
-        assert f"{tool}_VERSION={version.group(1)}" in recipe
+    for tool in ("APPIMAGETOOL", "INNO_SETUP"):
+        assert re.search(rf"{tool}_SHA256: [0-9a-f]{{64}}", text), tool
+        assert re.search(rf'{tool}_VERSION: "[^"]+"', text), tool
     assert "continuous" not in text
 
 

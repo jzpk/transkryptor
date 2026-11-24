@@ -1,14 +1,12 @@
 # Aktualizacje zależności: akcje GitHub (przypięte do SHA - Dependabot
-# podmienia SHA i komentarz z wersją), pakiety z uv.lock oraz obrazy bazowe
-# Dockerfile'ów (przypięte do digestu).
+# podmienia SHA i komentarz z wersją) i pakiety z uv.lock.
 #
 # cooldown: nowa wersja czeka 7 dni, zanim Dependabot ją zaproponuje -
 # przejęte wydania pakietów i akcji są zwykle wykrywane i wycofywane w tym
 # czasie. Aktualizacje bezpieczeństwa nie czekają.
 #
-# Sumy narzędzi pobieranych w workflow wydania i Dockerfile'ach
-# (appimagetool, Inno Setup, minisign, Python NuGet) aktualizuje się ręcznie
-# razem z wersją.
+# Sumy narzędzi pobieranych w workflow wydania (appimagetool, Inno Setup,
+# minisign, Python NuGet) aktualizuje się ręcznie razem z wersją.
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -20,23 +18,6 @@ updates:
     groups:
       akcje:
         patterns: ["*"]
-
-  - package-ecosystem: docker
-    directory: /packaging/docker
-    schedule:
-      interval: weekly
-    cooldown:
-      default-days: 7
-    groups:
-      obrazy:
-        patterns: ["*"]
-    ignore:
-      # Ubuntu 22.04 wyznacza najstarszą obsługiwaną glibc (patrz
-      # linux.Dockerfile) - Dependabot odświeża tylko digest, nowsze wydania 
-      # zmienia się ręcznie razem z LINUX_GLIBC_BASELINE. Tag bookworm-slim
-      # nie jest wersją, więc tu też zmienia się tylko digest.
-      - dependency-name: ubuntu
-        update-types: ["version-update:semver-major", "version-update:semver-minor"]
 
   - package-ecosystem: uv
     directory: /
