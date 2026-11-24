@@ -86,7 +86,9 @@ któryś limit, najpierw wydziel część kodu, potem dopisuj funkcję.
   (`DATA_SCHEMAS` w `site.py` repozytorium strony), i zgłoś tam potrzebną
   zmianę; nowe pola dopisuj bez podbijania), tryb `site` w
   `packaging/issue_labels.py` (uruchamia go workflow strony) oraz adres
-  i parametry formularza w `feedback.py`.
+  i parametry formularza w `feedback.py`. Workflow strony uruchamia `site_data`
+  i `issue_labels` z taga ostatniego wydania, nie z `main` - zmiana działa
+  na stronie dopiero po wydaniu.
 - Lista „Czego dotyczy?” w formularzu zgłoszeń obejmuje główne obszary
   programu. Gdy dodajesz nowy obszar funkcji (albo zmieniasz nazwę lub
   usuwasz istniejący), przypomnij użytkownikowi o poprawce listy
