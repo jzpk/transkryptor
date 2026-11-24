@@ -246,12 +246,13 @@ jobs:
       # App wydań jest bypass actorem rulesetów main/release/* i tagów v*,
       # więc jej push omija regułę wymaganych testów (testy przeszły w jobach
       # ci i e2e tego przebiegu). Akcja unieważnia token na końcu joba.
+      # client-id przyjmuje też App ID (GitHub akceptuje oba jako wystawcę JWT).
       - name: Token wydań (GitHub App)
         id: token
         if: github.event_name == 'workflow_dispatch'
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
-          app-id: ${{ vars.RELEASE_APP_ID }}
+          client-id: ${{ vars.RELEASE_APP_ID }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
           repositories: transkryptor
           permission-contents: write
@@ -698,7 +699,7 @@ jobs:
         id: token
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
-          app-id: ${{ vars.RELEASE_APP_ID }}
+          client-id: ${{ vars.RELEASE_APP_ID }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
           repositories: transkryptor
           permission-contents: write
