@@ -83,6 +83,23 @@ class AsrController(QObject):
         panel.transcription_progress.connect(overlay.set_progress)
         overlay.cancel_requested.connect(panel.cancel_transcription)
 
+    @property
+    def panel(self) -> AsrPanel:
+        return self._panel
+
+    @property
+    def overlay(self) -> LoadingOverlay:
+        """Nakładka z postępem i anulowaniem na czas transkrypcji."""
+        return self._overlay
+
+    def remember_choice(self, model_key: str, speakers: int) -> None:
+        """Model i liczba mówców wybrane poza panelem (np. dla kolejki serii)."""
+        current = self._settings_store.current
+        asr = replace(current.asr, model_key=model_key, diarize_speakers=speakers)
+        if asr != current.asr:
+            self._settings_store.save(replace(current, asr=asr))
+        self._panel.select_model(model_key)
+
     # --- szkic i fragment ----------------------------------------------------
 
     def insert_draft(self, draft: TranscriptionResult | str) -> None:

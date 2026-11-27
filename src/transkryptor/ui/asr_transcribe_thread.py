@@ -2,16 +2,21 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from pathlib import Path
 
 from PySide6.QtCore import QThread, Signal
 
+from transkryptor import diagnostics
 from transkryptor.asr import engine
 from transkryptor.asr.engine import DecodingOptions
 from transkryptor.asr.models import AsrModelInfo
 from transkryptor.asr.results import TranscriptionResult
 from transkryptor.errors import AppError
+from transkryptor.i18n import tr
+
+logger = logging.getLogger(__name__)
 
 
 class TranscribeThread(QThread):
@@ -68,3 +73,36 @@ class TranscribeThread(QThread):
         if self._options is not None:
             extra["options"] = self._options
         return extra
+
+
+def log_start(model: AsrModelInfo, audio_path: Path, options: DecodingOptions) -> None:
+    # Bez treści kontekstu i słownika - to dane z wywiadu.
+    clip = options.clip
+    logger.info(
+        "Transcription started: model=%s, audio=%s, device=%s, chunked=%s, "
+        "word_timestamps=%s, diarize=%s, speakers=%s, clip=%s, prompt=%s, "
+        "hotwords=%s",
+        model.key,
+        diagnostics.file_summary(audio_path),
+        options.device,
+        options.chunked,
+        options.word_timestamps,
+        options.diarizes,
+        options.speakers or "auto",
+        "none" if clip is None else f"{clip[1] - clip[0]:.1f} s",
+        bool(options.initial_prompt),
+        bool(options.hotwords),
+    )
+
+
+def device_text(result: TranscriptionResult) -> str:
+    """Informacja, na czym liczono szkic; przejście z GPU na CPU (ACC-37)."""
+    if result.device_note:
+        text = tr("asr.device.fallback", reason=result.device_note)
+    elif result.device == "cuda":
+        text = tr("asr.device.gpu")
+    else:
+        text = tr("asr.device.cpu")
+    if result.diarization_note:
+        text += "\n" + tr("asr.diarize.failed", reason=result.diarization_note)
+    return text

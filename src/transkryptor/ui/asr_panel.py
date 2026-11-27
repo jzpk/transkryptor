@@ -28,7 +28,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from pathlib import Path
 
-from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtCore import QObject, QSize, Qt, Signal
 from PySide6.QtWidgets import QFrame, QScrollArea, QVBoxLayout, QWidget
 
 from transkryptor.asr.engine import DecodingOptions
@@ -41,6 +41,7 @@ from transkryptor.settings import AsrSettings
 from transkryptor.ui.asr_model_section import ModelSection
 from transkryptor.ui.asr_recording_box import RecordingFieldsBox
 from transkryptor.ui.asr_review_section import ReviewSection
+from transkryptor.ui.asr_transcribe_thread import TranscribeThread
 from transkryptor.ui.asr_transcription_section import TranscriptionSection
 from transkryptor.ui.asr_widgets import divider
 
@@ -274,6 +275,12 @@ class AsrPanel(QWidget):
 
     def is_transcribing(self) -> bool:
         return self.transcription.is_transcribing()
+
+    def create_transcription(
+        self, audio_path: Path, options: DecodingOptions, parent: QObject
+    ) -> TranscribeThread:
+        """Wątek transkrypcji wybranym modelem (np. kolejka szkiców serii)."""
+        return self.transcription.create_thread(audio_path, options, parent)
 
     def cancel_transcription(self) -> None:
         self.transcription.cancel_transcription()

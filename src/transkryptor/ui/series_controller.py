@@ -10,7 +10,9 @@ niego do projektu obok nagrania (``project_for``) - i otwiera kolejne
 nagranie folderu: jego projekt, gdy już jest, albo nową transkrypcję.
 Przycisk serii w pasku stanu pokazuje numer nagrania i postęp serii;
 jego menu pokazuje też folder serii w oknie „Korpus”, gdzie da się
-przeglądać, przeszukiwać i zestawiać wszystkie transkrypcje naraz.
+przeglądać, przeszukiwać i zestawiać wszystkie transkrypcje naraz, oraz
+„Przygotuj szkice dla serii…” - kolejkę szkiców ASR wszystkich nagrań bez
+szkicu (``ui/series_drafts.py``).
 """
 
 from __future__ import annotations
@@ -41,7 +43,9 @@ from transkryptor.corpus.series import (
 from transkryptor.errors import AppError
 from transkryptor.i18n import tr
 from transkryptor.ui import icons
+from transkryptor.ui.asr_controller import AsrController
 from transkryptor.ui.messages import show_error
+from transkryptor.ui.series_drafts import SeriesDrafts
 from transkryptor.ui.session import SessionController
 
 
@@ -55,6 +59,7 @@ class SeriesController(QObject):
         audio_path: Callable[[], Path | None],
         show_folder: Callable[[Path], object],
         show_status: Callable[[str], None],
+        asr: Callable[[], AsrController],
     ) -> None:
         super().__init__(window)
         self._window = window
@@ -63,6 +68,9 @@ class SeriesController(QObject):
         self._show_folder = show_folder
         self._show_status = show_status
         self._locked = False
+        self.drafts = SeriesDrafts(
+            window, session, asr, audio_path, self.open_recording
+        )
         self._build_actions()
         self._build_button()
         # Okna wyboru plików; testy podstawiają gotowe odpowiedzi.
@@ -87,6 +95,9 @@ class SeriesController(QObject):
         self.corpus_action = QAction(tr("series.corpus"), window)
         self.corpus_action.setToolTip(tr("series.corpus.tooltip"))
         self.corpus_action.triggered.connect(lambda _c=False: self.show_in_corpus())
+        self.drafts_action = QAction(tr("series.drafts"), window)
+        self.drafts_action.setToolTip(tr("series.drafts.tooltip"))
+        self.drafts_action.triggered.connect(lambda _c=False: self.prepare_drafts())
         # Polecenia menu „Otwórz”.
         self.open_actions = (self.import_action, self.open_folder_action)
 
@@ -101,6 +112,7 @@ class SeriesController(QObject):
         self.button.clicked.connect(self.open_next)
         menu = QMenu(self.button)
         menu.addAction(self.next_action)
+        menu.addAction(self.drafts_action)
         menu.addAction(self.corpus_action)
         self.button.setMenu(menu)
         self.button.hide()
@@ -118,6 +130,7 @@ class SeriesController(QObject):
         has_next = position is not None and position.next_recording is not None
         self.next_action.setEnabled(has_next and not self._locked)
         self.corpus_action.setEnabled(position is not None and not self._locked)
+        self.drafts_action.setEnabled(position is not None and not self._locked)
         self.button.setEnabled(not self._locked)
         if position is None:
             return
@@ -134,6 +147,14 @@ class SeriesController(QObject):
                 next=following.name if following else tr("series.button.last"),
             )
         )
+
+    @property
+    def busy(self) -> bool:
+        """Trwa kolejka szkiców serii."""
+        return self.drafts.busy
+
+    def on_media_available(self, _available: bool) -> None:
+        self.refresh()
 
     def set_locked(self, locked: bool) -> None:
         """Na czas transkrypcji polecenia serii są nieaktywne."""
@@ -202,6 +223,13 @@ class SeriesController(QObject):
         if not self._save_current(recording):
             return False
         return self.open_recording(position.next_recording)
+
+    def prepare_drafts(self) -> bool:
+        """„Przygotuj szkice dla serii…”: kolejka dla folderu bieżącego nagrania."""
+        recording = self._audio_path()
+        if self._locked or recording is None:
+            return False
+        return self.drafts.start(recording.parent)
 
     def show_in_corpus(self) -> None:
         recording = self._audio_path()
