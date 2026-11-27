@@ -150,3 +150,76 @@ def test_overview_needs_series(qtbot, add_window) -> None:
     window = add_window(MainWindow())
     assert not window.series.overview_action.isEnabled()
     assert window.series.show_overview() is None
+
+
+def _export_window(qtbot, add_window, tmp_path, target: str):
+    folder = tmp_path / "seria"
+    folder.mkdir()
+    for name in ("a1.mp3", "a2.mp3", "a3.mp3"):
+        shutil.copy(SAMPLE_MP3, folder / name)
+    window = _window(qtbot, add_window, tmp_path / "none.zip", folder)
+    window.series.folder_dialog()
+    window.editor.setPlainText("pierwszy")
+    window.series.open_next()
+    window.editor.setPlainText("drugi")
+    window.series.open_next()
+    exporter = window.series.exporter
+    summaries: list[tuple[str, str]] = []
+
+    def accept(dialog) -> int:
+        dialog.format_combo.setCurrentIndex(dialog.format_combo.findData("txt"))
+        dialog.target_combo.setCurrentIndex(dialog.target_combo.findData(target))
+        return dialog.DialogCode.Accepted
+
+    exporter.run_dialog = accept
+    exporter.show_summary = lambda text, details: summaries.append((text, details))
+    return window, folder, summaries
+
+
+def test_export_series_to_folder(qtbot, add_window, tmp_path) -> None:
+    window, folder, summaries = _export_window(qtbot, add_window, tmp_path, "folder")
+    out = tmp_path / "out"
+    out.mkdir()
+    exporter = window.series.exporter
+    exporter.choose_folder = lambda _start: out
+    assert window.series.export_action.isEnabled()
+    assert window.series.export_series()
+    assert window.series.busy
+    exporter.wait()
+    assert sorted(p.name for p in out.iterdir()) == ["a1.txt", "a2.txt"]
+    text, details = summaries[-1]
+    assert "2" in text and "a3.mp3" in details
+    # Drugi eksport do tego samego katalogu pyta o nadpisanie.
+    asked: list[list[str]] = []
+
+    def refuse(names: list[str]) -> bool:
+        asked.append(names)
+        return False
+
+    exporter.confirm_overwrite = refuse
+    assert not window.series.export_series()
+    assert asked == [["a1.txt", "a2.txt"]]
+
+
+def test_export_series_to_zip(qtbot, add_window, tmp_path) -> None:
+    window, folder, summaries = _export_window(qtbot, add_window, tmp_path, "zip")
+    archive = tmp_path / "seria.zip"
+    window.series.exporter.choose_archive = lambda _start, _name: archive
+    assert window.series.export_series()
+    window.series.exporter.wait()
+    with zipfile.ZipFile(archive) as handle:
+        assert sorted(handle.namelist()) == ["a1.txt", "a2.txt"]
+    assert sorted(p.name for p in tmp_path.iterdir() if p.name.startswith(".")) == []
+    assert summaries
+
+
+def test_cancelled_zip_export_writes_nothing(qtbot, add_window, tmp_path) -> None:
+    window, folder, summaries = _export_window(qtbot, add_window, tmp_path, "zip")
+    archive = tmp_path / "seria.zip"
+    exporter = window.series.exporter
+    exporter.choose_archive = lambda _start, _name: archive
+    assert window.series.export_series()
+    exporter.cancel()
+    exporter.wait()
+    assert not archive.exists()
+    assert not summaries
