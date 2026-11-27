@@ -638,6 +638,7 @@ class MainWindow(QMainWindow):
             self.corpus.open_dialog,
             self.show_status,
             lambda: self.asr,
+            lambda: self.settings_store.current,
         )
         self.player_bar.media_available_changed.connect(self.series.on_media_available)
         open_actions = [self.packs.open_action, *self.series.open_actions]
@@ -697,7 +698,7 @@ class MainWindow(QMainWindow):
             # Motyw „zgodny z systemem” podąża za przełączeniem trybu systemu.
             app.styleHints().colorSchemeChanged.connect(self._on_color_scheme_changed)
         self.asr_panel.seek_requested.connect(self.player_controller.seek_to_segment)
-        self.asr_panel.context_changed.connect(self._on_asr_context_changed)
+        self.asr_panel.context_changed.connect(self.session.asr_context_changed)
         self.sync.timestamps_edited.connect(self.session.project_data_changed)
         self.speakers.speakers_changed.connect(self._on_speakers_changed)
         self.speakers.legend_changed.connect(self.asr_panel.set_speakers_legend)
@@ -914,9 +915,6 @@ class MainWindow(QMainWindow):
         if player != current.player:
             self.settings_store.save(replace(current, player=player))
 
-    def _on_asr_context_changed(self) -> None:
-        self.session.asr_context_changed()
-
     def _on_color_scheme_changed(self, _scheme: Qt.ColorScheme) -> None:
         self._apply_theme(self.settings_store.current.appearance.theme)
 
@@ -1044,6 +1042,7 @@ class MainWindow(QMainWindow):
             self.waveform.shutdown()
             self.audio_filters.shutdown()
             self.corpus.shutdown()
+            self.series.shutdown()
             event.accept()
         else:
             event.ignore()

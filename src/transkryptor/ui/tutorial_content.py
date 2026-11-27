@@ -283,6 +283,7 @@ TUTORIALS: tuple[Tutorial, ...] = (
                 shortcuts=(("next", SERIES_NEXT_ID),),
             ),
             _step("series_drafts", "series_button", "toolbar_open", MORE),
+            _step("series_overview", "series_button", "toolbar_open", MORE),
         ),
     ),
     Tutorial(

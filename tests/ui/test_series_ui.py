@@ -120,3 +120,33 @@ def test_series_commands_are_registered_and_lockable(qtbot, add_window) -> None:
     assert not window.series.import_action.isEnabled()
     window.series.set_locked(False)
     assert window.series.import_action.isEnabled()
+
+
+def test_overview_lists_series_and_opens_recording(qtbot, add_window, tmp_path) -> None:
+    folder = tmp_path / "seria"
+    folder.mkdir()
+    for name in ("a1.mp3", "a2.mp3", "a3.mp3"):
+        shutil.copy(SAMPLE_MP3, folder / name)
+    window = _window(qtbot, add_window, tmp_path / "none.zip", folder)
+    window.series.folder_dialog()
+    window.editor.setPlainText("pierwszy")
+    window.session.write_project(folder / "a1.transkr")
+    assert window.series.overview_action.isEnabled()
+    dialog = window.series.show_overview()
+    assert dialog is not None
+    dialog.wait()
+    assert dialog.table.rowCount() == 3
+    assert dialog.overview is not None and len(dialog.overview.rows) == 3
+    assert "3" in dialog.summary_label.text()
+    status = dialog.table.item(1, dialog.table.STATUS)
+    assert status is not None and status.text() == "Bez projektu"
+    dialog.table.cellDoubleClicked.emit(2, 0)
+    dialog.wait()
+    assert _current(window) == "a3.mp3"
+    dialog.close()
+
+
+def test_overview_needs_series(qtbot, add_window) -> None:
+    window = add_window(MainWindow())
+    assert not window.series.overview_action.isEnabled()
+    assert window.series.show_overview() is None
