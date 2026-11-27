@@ -6,6 +6,13 @@ workflow „Wydanie” złoży je w sekcję z numerem wersji i datą, a jej tre�
 trafi do sekcji „Nowości w tej wersji” not wydania. Brak fragmentów blokuje
 wydanie.
 
+## 0.12.1 - 2026-11-27
+
+- **Seria nagrań w opisie samouczka:** opis samouczka „Organizacja pracy”
+  na liście samouczków i jego wstęp wspominają teraz o serii nagrań -
+  szkicach ASR, przeglądzie i eksporcie wielu nagrań naraz - więc łatwiej
+  go znaleźć, szukając przetwarzania wielu nagrań.
+
 ## 0.12.0 - 2026-11-27
 
 - **Seria nagrań:** wiele nagrań przepiszesz po kolei bez szukania plików.
