@@ -1,7 +1,8 @@
 """Seria nagrań w oknie: import ZIP, folder nagrań i „Następne nagranie”.
 
 „Importuj serię nagrań (ZIP)…” rozpakowuje nagrania z archiwum do folderu
-o nazwie archiwum we wskazanym katalogu (``corpus/series.py``) i otwiera
+o nazwie archiwum we wskazanym katalogu (``corpus/series.py``) - w wątku
+w tle, z postępem i przerwaniem (``ui/series_import.py``) - i otwiera
 pierwsze z nich. „Otwórz folder nagrań…” robi to samo dla folderu, który
 już ma nagrania - otwiera pierwsze bez projektu, więc wznawia pracę.
 
@@ -26,7 +27,6 @@ from pathlib import Path
 from PySide6.QtCore import QObject, Qt
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
-    QApplication,
     QFileDialog,
     QMenu,
     QMessageBox,
@@ -37,7 +37,6 @@ from PySide6.QtWidgets import (
 from transkryptor.corpus.series import (
     ZIP_SUFFIX,
     SeriesImport,
-    extract_series,
     first_unfinished,
     project_for,
     series_position,
@@ -53,6 +52,7 @@ from transkryptor.ui.export_controller import ExportController
 from transkryptor.ui.messages import show_error
 from transkryptor.ui.series_drafts import SeriesDrafts
 from transkryptor.ui.series_export import SeriesExporter
+from transkryptor.ui.series_import import SeriesImporter
 from transkryptor.ui.series_overview_dialog import SeriesOverviewDialog
 from transkryptor.ui.session import SessionController
 
@@ -84,6 +84,8 @@ class SeriesController(QObject):
         )
         self.overview: SeriesOverviewDialog | None = None
         self.exporter = SeriesExporter(window, exports, settings, show_status)
+        self.importer = SeriesImporter(window)
+        self.importer.finished.connect(self._on_imported)
         self._build_actions()
         self._build_button()
         # Okna wyboru plików; testy podstawiają gotowe odpowiedzi.
@@ -173,8 +175,8 @@ class SeriesController(QObject):
 
     @property
     def busy(self) -> bool:
-        """Trwa kolejka szkiców albo eksport serii."""
-        return self.drafts.busy or self.exporter.busy
+        """Trwa rozpakowanie, kolejka szkiców albo eksport serii."""
+        return self.importer.busy or self.drafts.busy or self.exporter.busy
 
     def on_media_available(self, _available: bool) -> None:
         self.refresh()
@@ -191,8 +193,11 @@ class SeriesController(QObject):
     # --- polecenia -------------------------------------------------------
 
     def import_dialog(self) -> bool:
-        """„Importuj serię nagrań (ZIP)…”; True - otwarto pierwsze nagranie."""
-        if not self._session.maybe_discard_changes():
+        """„Importuj serię nagrań (ZIP)…”; True - rozpakowanie ruszyło.
+
+        Pierwsze nagranie otwiera się po końcu rozpakowania w tle.
+        """
+        if self.busy or not self._session.maybe_discard_changes():
             return False
         archive = self.choose_archive()
         if archive is None:
@@ -200,9 +205,19 @@ class SeriesController(QObject):
         parent = self.choose_directory(tr("series.import.directory"), archive.parent)
         if parent is None:
             return False
-        result = self._extract(archive, parent / archive.stem)
+        return self.importer.start(archive, parent / archive.stem)
+
+    def _on_imported(
+        self, result: SeriesImport | None, error: BaseException | None
+    ) -> None:
+        if error is not None:
+            if not isinstance(error, AppError):
+                raise error
+            show_error(self._window, tr("series.import.error"), error)
+            return
         if result is None:
-            return False
+            self._show_status(tr("series.import.cancelled"))
+            return
         self._show_status(
             tr(
                 "series.import.done",
@@ -216,7 +231,7 @@ class SeriesController(QObject):
                 tr("series.import.skipped.title"),
                 tr("series.import.skipped.text", files="\n".join(result.skipped)),
             )
-        return self._open_first(list(result.recordings))
+        self._open_first(list(result.recordings))
 
     def folder_dialog(self) -> bool:
         """„Otwórz folder nagrań…”: pierwsze nagranie bez projektu."""
@@ -351,18 +366,6 @@ class SeriesController(QObject):
     def _open_first(self, recordings: list[Path]) -> bool:
         first = first_unfinished(recordings)
         return first is not None and self.open_recording(first)
-
-    def _extract(self, archive: Path, folder: Path) -> SeriesImport | None:
-        """Rozpakowanie (z kursorem oczekiwania); błąd - komunikat i None."""
-        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
-        try:
-            return extract_series(archive, folder)
-        except AppError as error:
-            failure = error
-        finally:
-            QApplication.restoreOverrideCursor()
-        show_error(self._window, tr("series.import.error"), failure)
-        return None
 
     def _choose_archive(self) -> Path | None:
         path, _selected = QFileDialog.getOpenFileName(

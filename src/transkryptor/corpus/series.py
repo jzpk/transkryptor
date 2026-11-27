@@ -14,6 +14,11 @@ je atomowo - przerwane rozpakowanie nie zostawia uciętego nagrania. Nagranie
 o tej samej nazwie i rozmiarze, które już jest w folderze (ponowny import
 tego samego archiwum), zostaje bez zmian; inny plik o tej nazwie dostaje
 nazwę z numerem (``wywiad (2).mp3``).
+
+Rozpakowanie zgłasza postęp (pliki i bajty) funkcji ``progress``; gdy ta
+zwróci False, przerywa się wyjątkiem :class:`ExtractionCancelled`. Plik
+w trakcie zapisu znika (zapis atomowy), a nagrania rozpakowane w całości
+zostają - ponowny import je pomija.
 """
 
 from __future__ import annotations
@@ -22,7 +27,7 @@ import math
 import re
 import shutil
 import zipfile
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
@@ -50,6 +55,24 @@ class SeriesImport:
     # Nowo rozpakowane nagrania (bez tych, które już były w folderze).
     extracted: tuple[Path, ...]
     skipped: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class ExtractStatus:
+    """Postęp rozpakowania: gotowe nagrania i bajty z wszystkich."""
+
+    files_done: int
+    files_total: int
+    bytes_done: int
+    bytes_total: int
+
+
+# ``progress(status)`` w trakcie rozpakowania; False - przerwij.
+ExtractProgress = Callable[[ExtractStatus], bool]
+
+
+class ExtractionCancelled(Exception):
+    """Rozpakowanie przerwane przez użytkownika."""
 
 
 @dataclass(frozen=True)
@@ -128,10 +151,13 @@ def first_unfinished(recordings: Sequence[Path]) -> Path | None:
 # --- rozpakowanie archiwum -----------------------------------------------------
 
 
-def extract_series(archive_path: Path, folder: Path) -> SeriesImport:
+def extract_series(
+    archive_path: Path, folder: Path, progress: ExtractProgress | None = None
+) -> SeriesImport:
     """Rozpakowuje nagrania z archiwum ZIP do ``folder`` (tworzy go, gdy trzeba).
 
-    Błąd odczytu archiwum, zapisu albo brak nagrań → ``ProjectError``.
+    Błąd odczytu archiwum, zapisu albo brak nagrań → ``ProjectError``;
+    przerwanie przez ``progress`` → :class:`ExtractionCancelled`.
     """
     try:
         folder.mkdir(parents=True, exist_ok=True)
@@ -140,7 +166,9 @@ def extract_series(archive_path: Path, folder: Path) -> SeriesImport:
             if not members:
                 raise _no_recordings(archive_path)
             _check_space(members, folder)
-            extracted = _extract_all(archive, members, folder)
+            extracted = _extract_all(
+                archive, members, folder, _Tracker(members, progress)
+            )
     except ProjectError:
         raise
     except SizeLimitError as exc:
@@ -194,8 +222,44 @@ def _check_space(members: Sequence[zipfile.ZipInfo], folder: Path) -> None:
         )
 
 
+class _Tracker:
+    """Liczy rozpakowane pliki i bajty i zgłasza je funkcji postępu."""
+
+    def __init__(
+        self, members: Sequence[zipfile.ZipInfo], progress: ExtractProgress | None
+    ) -> None:
+        self._progress = progress
+        self._files_total = len(members)
+        self._bytes_total = sum(info.file_size for info in members)
+        self._files = 0
+        self._bytes = 0
+        self._report()
+
+    def add_bytes(self, count: int) -> None:
+        self._bytes += count
+        self._report()
+
+    def file_done(self, size: int, written: int) -> None:
+        """Nagranie gotowe; ``size - written`` bajtów pominiętych (już było)."""
+        self._files += 1
+        self._bytes += size - written
+        self._report()
+
+    def _report(self) -> None:
+        if self._progress is None:
+            return
+        status = ExtractStatus(
+            self._files, self._files_total, self._bytes, self._bytes_total
+        )
+        if not self._progress(status):
+            raise ExtractionCancelled
+
+
 def _extract_all(
-    archive: zipfile.ZipFile, members: Sequence[zipfile.ZipInfo], folder: Path
+    archive: zipfile.ZipFile,
+    members: Sequence[zipfile.ZipInfo],
+    folder: Path,
+    tracker: _Tracker,
 ) -> list[Path]:
     taken: set[str] = set()
     extracted: list[Path] = []
@@ -204,9 +268,11 @@ def _extract_all(
         target = _target(folder, name, info.file_size, taken)
         taken.add(target.name.casefold())
         if target.is_file() and target.stat().st_size == info.file_size:
-            continue  # to samo nagranie z wcześniejszego importu
-        _extract(archive, info, target)
+            tracker.file_done(info.file_size, 0)  # nagranie z wcześniejszego importu
+            continue
+        written = _extract(archive, info, target, tracker)
         extracted.append(target)
+        tracker.file_done(info.file_size, written)
     return extracted
 
 
@@ -230,12 +296,22 @@ def _target(folder: Path, name: str, size: int, taken: set[str]) -> Path:
         number += 1
 
 
-def _extract(archive: zipfile.ZipFile, info: zipfile.ZipInfo, target: Path) -> None:
-    """Element archiwum zapisany atomowo; dłuższy niż w nagłówku → błąd."""
+def _extract(
+    archive: zipfile.ZipFile, info: zipfile.ZipInfo, target: Path, tracker: _Tracker
+) -> int:
+    """Element archiwum zapisany atomowo; dłuższy niż w nagłówku → błąd.
+
+    Zwraca liczbę zapisanych bajtów. Przerwanie w trakcie usuwa plik
+    tymczasowy - nie zostaje ucięte nagranie.
+    """
+    written = 0
     with archive.open(info) as source, atomic_output_raw(target) as handle:
         chunks = iter(lambda: source.read(_COPY_CHUNK), b"")
         for chunk in limited_chunks(chunks, info.file_size):
             handle.write(chunk)
+            written += len(chunk)
+            tracker.add_bytes(len(chunk))
+    return written
 
 
 def _no_recordings(path: Path) -> ProjectError:

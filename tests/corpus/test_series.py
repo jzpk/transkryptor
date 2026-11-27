@@ -8,6 +8,8 @@ from pathlib import Path
 import pytest
 
 from transkryptor.corpus.series import (
+    ExtractionCancelled,
+    ExtractStatus,
     extract_series,
     first_unfinished,
     project_for,
@@ -139,3 +141,42 @@ class TestExtract:
         archive.write_bytes(b"not a zip")
         with pytest.raises(ProjectError):
             extract_series(archive, tmp_path / "s")
+
+
+def _recorder(seen: list[ExtractStatus]):
+    def progress(status: ExtractStatus) -> bool:
+        seen.append(status)
+        return True
+
+    return progress
+
+
+class TestExtractProgress:
+    def test_reports_files_and_bytes(self, tmp_path: Path) -> None:
+        archive = _zip(tmp_path / "s.zip", {"a1.mp3": b"x" * 10, "a2.mp3": b"y" * 5})
+        seen: list[ExtractStatus] = []
+        extract_series(archive, tmp_path / "out", _recorder(seen))
+        assert seen[0] == ExtractStatus(0, 2, 0, 15)
+        assert seen[-1] == ExtractStatus(2, 2, 15, 15)
+        assert [s.bytes_done for s in seen] == sorted(s.bytes_done for s in seen)
+
+    def test_reimport_counts_existing_recordings(self, tmp_path: Path) -> None:
+        archive = _zip(tmp_path / "s.zip", {"a1.mp3": b"x" * 10})
+        extract_series(archive, tmp_path / "out")
+        seen: list[ExtractStatus] = []
+        extract_series(archive, tmp_path / "out", _recorder(seen))
+        assert seen[-1] == ExtractStatus(1, 1, 10, 10)
+
+    def test_cancel_keeps_finished_and_drops_partial(self, tmp_path: Path) -> None:
+        archive = _zip(
+            tmp_path / "s.zip", {"a1.mp3": b"x" * 10, "a2.mp3": b"y" * (3 << 20)}
+        )
+        folder = tmp_path / "out"
+
+        def progress(status: ExtractStatus) -> bool:
+            # Przerwij w trakcie drugiego nagrania (po pierwszej porcji).
+            return status.bytes_done <= 10
+
+        with pytest.raises(ExtractionCancelled):
+            extract_series(archive, folder, progress)
+        assert sorted(p.name for p in folder.iterdir()) == ["a1.mp3"]
