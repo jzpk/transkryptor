@@ -28,6 +28,13 @@ def _window(qtbot, add_window, archive: Path, target: Path) -> MainWindow:
     return window
 
 
+def _import(window: MainWindow) -> bool:
+    """Import serii z czekaniem na koniec rozpakowania w tle."""
+    started = window.series.import_dialog()
+    window.series.importer.wait()
+    return started
+
+
 def _current(window: MainWindow) -> str | None:
     path = window.player.source_path
     return path.name if path is not None else None
@@ -35,7 +42,7 @@ def _current(window: MainWindow) -> str | None:
 
 def test_import_opens_first_recording(qtbot, add_window, tmp_path) -> None:
     window = _window(qtbot, add_window, _series_zip(tmp_path), tmp_path / "out")
-    assert window.series.import_dialog()
+    assert _import(window)
     folder = tmp_path / "out" / "wywiady"
     assert sorted(p.name for p in folder.iterdir()) == ["w1.mp3", "w2.mp3", "w3.mp3"]
     assert _current(window) == "w1.mp3"
@@ -46,7 +53,7 @@ def test_import_opens_first_recording(qtbot, add_window, tmp_path) -> None:
 
 def test_next_saves_project_and_opens_next(qtbot, add_window, tmp_path) -> None:
     window = _window(qtbot, add_window, _series_zip(tmp_path), tmp_path / "out")
-    window.series.import_dialog()
+    _import(window)
     folder = tmp_path / "out" / "wywiady"
     window.editor.setPlainText("pierwszy wywiad")
     assert window.series.open_next()
@@ -64,7 +71,7 @@ def test_next_saves_project_and_opens_next(qtbot, add_window, tmp_path) -> None:
 
 def test_next_reopens_existing_project(qtbot, add_window, tmp_path) -> None:
     window = _window(qtbot, add_window, _series_zip(tmp_path, 2), tmp_path / "out")
-    window.series.import_dialog()
+    _import(window)
     folder = tmp_path / "out" / "wywiady"
     window.editor.setPlainText("jeden")
     window.series.open_next()
@@ -102,7 +109,7 @@ def test_empty_folder_is_reported(
 
 def test_show_in_corpus_uses_series_folder(qtbot, add_window, tmp_path) -> None:
     window = _window(qtbot, add_window, _series_zip(tmp_path, 2), tmp_path / "out")
-    window.series.import_dialog()
+    _import(window)
     window.series.show_in_corpus()
     dialog = window.corpus.dialog
     assert dialog is not None
@@ -223,3 +230,28 @@ def test_cancelled_zip_export_writes_nothing(qtbot, add_window, tmp_path) -> Non
     exporter.wait()
     assert not archive.exists()
     assert not summaries
+
+
+def test_import_runs_in_background_with_progress(qtbot, add_window, tmp_path) -> None:
+    window = _window(qtbot, add_window, _series_zip(tmp_path), tmp_path / "out")
+    assert window.series.import_dialog()
+    assert window.series.busy
+    assert not window.series.importer.overlay.isHidden()
+    # Drugi import nie rusza, dopóki trwa pierwszy.
+    assert not window.series.import_dialog()
+    window.series.importer.wait()
+    assert not window.series.busy
+    assert window.series.importer.overlay.isHidden()
+    assert _current(window) == "w1.mp3"
+
+
+def test_cancelled_import_leaves_no_partial_files(qtbot, add_window, tmp_path) -> None:
+    window = _window(qtbot, add_window, _series_zip(tmp_path), tmp_path / "out")
+    assert window.series.import_dialog()
+    window.series.importer.cancel()
+    window.series.importer.wait()
+    assert not window.series.busy
+    folder = tmp_path / "out" / "wywiady"
+    leftovers = [p.name for p in folder.iterdir() if p.name.startswith(".")]
+    assert leftovers == []
+    assert _current(window) is None

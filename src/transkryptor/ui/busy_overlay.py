@@ -145,6 +145,11 @@ class BusyOverlay(QWidget):
         self.spinner.set_progress(done / total)
         self.detail_label.setText(tr("busy.progress", done=done, total=total))
 
+    def set_detail(self, fraction: float, text: str) -> None:
+        """Postęp jako ułamek (0.0-1.0) z własnym opisem."""
+        self.spinner.set_progress(min(max(fraction, 0.0), 1.0))
+        self.detail_label.setText(text)
+
     def _on_cancel(self) -> None:
         self.cancel_button.setEnabled(False)
         self.detail_label.setText(tr("busy.cancelling"))
