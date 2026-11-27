@@ -553,7 +553,7 @@ class MainWindow(QMainWindow):
                 marker=self.notation.insert_marker,
                 settings=self._on_settings,
                 new_document=self._on_new_document,
-                export=self._on_export,
+                export=lambda: self.exporter.export(),
                 close=self.close,
                 open_project=self.session.open_project_dialog,
                 open_recent=lambda path: self.session.open_project(path),
@@ -639,6 +639,7 @@ class MainWindow(QMainWindow):
             self.show_status,
             lambda: self.asr,
             lambda: self.settings_store.current,
+            self.exporter,
         )
         self.player_bar.media_available_changed.connect(self.series.on_media_available)
         open_actions = [self.packs.open_action, *self.series.open_actions]
@@ -1025,9 +1026,6 @@ class MainWindow(QMainWindow):
     def draft_placement_box(self) -> tuple[QMessageBox, object, object]:
         """Dialog wyboru miejsca szkicu: (okno, „Zastąp całość”, „Dopisz”)."""
         return draft_placement_box(self)
-
-    def _on_export(self) -> None:
-        self.exporter.export()
 
     def maybe_discard_changes(self) -> bool:
         return self.session.maybe_discard_changes()

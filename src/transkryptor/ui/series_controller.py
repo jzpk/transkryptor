@@ -12,8 +12,10 @@ Przycisk serii w pasku stanu pokazuje numer nagrania i postęp serii;
 jego menu pokazuje też folder serii w oknie „Korpus”, gdzie da się
 przeglądać, przeszukiwać i zestawiać wszystkie transkrypcje naraz,
 „Przygotuj szkice dla serii…” - kolejkę szkiców ASR wszystkich nagrań bez
-szkicu (``ui/series_drafts.py``) - oraz „Przegląd serii” - tabelę stanu
-wszystkich nagrań (``ui/series_overview_dialog.py``).
+szkicu (``ui/series_drafts.py``), „Przegląd serii” - tabelę stanu
+wszystkich nagrań (``ui/series_overview_dialog.py``) - i „Eksportuj
+serię…”: wszystkie projekty serii jednym zestawem opcji
+(``ui/series_export.py``).
 """
 
 from __future__ import annotations
@@ -47,8 +49,10 @@ from transkryptor.i18n import tr
 from transkryptor.settings import Settings
 from transkryptor.ui import icons
 from transkryptor.ui.asr_controller import AsrController
+from transkryptor.ui.export_controller import ExportController
 from transkryptor.ui.messages import show_error
 from transkryptor.ui.series_drafts import SeriesDrafts
+from transkryptor.ui.series_export import SeriesExporter
 from transkryptor.ui.series_overview_dialog import SeriesOverviewDialog
 from transkryptor.ui.session import SessionController
 
@@ -65,6 +69,7 @@ class SeriesController(QObject):
         show_status: Callable[[str], None],
         asr: Callable[[], AsrController],
         settings: Callable[[], Settings],
+        exports: ExportController,
     ) -> None:
         super().__init__(window)
         self._window = window
@@ -78,6 +83,7 @@ class SeriesController(QObject):
             window, session, asr, audio_path, self.open_recording
         )
         self.overview: SeriesOverviewDialog | None = None
+        self.exporter = SeriesExporter(window, exports, settings, show_status)
         self._build_actions()
         self._build_button()
         # Okna wyboru plików; testy podstawiają gotowe odpowiedzi.
@@ -108,6 +114,9 @@ class SeriesController(QObject):
         self.overview_action = QAction(tr("series.overview"), window)
         self.overview_action.setToolTip(tr("series.overview.tooltip"))
         self.overview_action.triggered.connect(lambda _c=False: self.show_overview())
+        self.export_action = QAction(tr("series.export"), window)
+        self.export_action.setToolTip(tr("series.export.tooltip"))
+        self.export_action.triggered.connect(lambda _c=False: self.export_series())
         # Polecenia menu „Otwórz”.
         self.open_actions = (self.import_action, self.open_folder_action)
 
@@ -124,6 +133,7 @@ class SeriesController(QObject):
         menu.addAction(self.next_action)
         menu.addAction(self.drafts_action)
         menu.addAction(self.overview_action)
+        menu.addAction(self.export_action)
         menu.addAction(self.corpus_action)
         self.button.setMenu(menu)
         self.button.hide()
@@ -143,6 +153,7 @@ class SeriesController(QObject):
         self.corpus_action.setEnabled(position is not None and not self._locked)
         self.drafts_action.setEnabled(position is not None and not self._locked)
         self.overview_action.setEnabled(position is not None and not self._locked)
+        self.export_action.setEnabled(position is not None and not self._locked)
         self.button.setEnabled(not self._locked)
         if position is None:
             return
@@ -162,8 +173,8 @@ class SeriesController(QObject):
 
     @property
     def busy(self) -> bool:
-        """Trwa kolejka szkiców serii."""
-        return self.drafts.busy
+        """Trwa kolejka szkiców albo eksport serii."""
+        return self.drafts.busy or self.exporter.busy
 
     def on_media_available(self, _available: bool) -> None:
         self.refresh()
@@ -273,6 +284,13 @@ class SeriesController(QObject):
         dialog.raise_()
         dialog.activateWindow()
         return dialog
+
+    def export_series(self) -> bool:
+        """„Eksportuj serię…”: projekty folderu bieżącego nagrania."""
+        recording = self._audio_path()
+        if self._locked or recording is None:
+            return False
+        return self.exporter.start(recording.parent)
 
     def shutdown(self) -> None:
         """Zamyka przegląd serii (przerywa wczytywanie w tle)."""

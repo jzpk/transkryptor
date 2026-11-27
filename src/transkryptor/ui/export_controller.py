@@ -121,17 +121,29 @@ class ExportController(QObject):
     def has_times(self) -> bool:
         return any(anchor.source != "word" for anchor in self._sources.anchors())
 
-    def create_dialog(self) -> ExportDialog:
+    def initial_choice(self) -> tuple[str, ExportOptions]:
+        """Ostatni format i opcje okna eksportu (wybór na starcie)."""
         settings = self._settings()
+        return settings.last_format, ExportOptions(
+            superscript=settings.superscript_mode,
+            untimed=settings.untimed_mode,
+            parts_of_speech=self._sources.pos_selected(),
+        )
+
+    @property
+    def pos_available(self) -> bool:
+        return self._sources.pos_tagger() is not None
+
+    def fields(self) -> tuple[MetadataField, ...]:
+        return self._sources.fields()
+
+    def create_dialog(self) -> ExportDialog:
+        format_key, initial = self.initial_choice()
         return ExportDialog(
-            settings.last_format,
-            ExportOptions(
-                superscript=settings.superscript_mode,
-                untimed=settings.untimed_mode,
-                parts_of_speech=self._sources.pos_selected(),
-            ),
+            format_key,
+            initial,
             self.has_times(),
-            self._sources.pos_tagger() is not None,
+            self.pos_available,
             self._parent,
         )
 
@@ -146,16 +158,27 @@ class ExportController(QObject):
         self, exporter: Exporter, options: ExportOptions, anonymize: bool
     ) -> bool:
         """Zapamiętuje wybór okna i eksportuje."""
-        settings = self._settings()
+        self.remember(exporter, options)
+        return self._export(exporter, options, anonymize)
+
+    def remember(self, exporter: Exporter, options: ExportOptions) -> None:
+        """Format i opcje zostają wyborem na starcie następnego eksportu."""
         self._save_settings(
             replace(
-                settings,
+                self._settings(),
                 last_format=exporter.key,
                 superscript_mode=options.superscript,
                 untimed_mode=options.untimed,
             )
         )
-        return self._export(exporter, options, anonymize)
+
+    def file_options(self, options: ExportOptions) -> ExportOptions:
+        """Opcje zapisu z szablonem DOCX i krojem pisma z ustawień."""
+        return replace(
+            options,
+            template_path=self._settings().template_path,
+            font_family=self._sources.font_family(),
+        )
 
     def _export(
         self, exporter: Exporter, options: ExportOptions, anonymize: bool
@@ -187,13 +210,9 @@ class ExportController(QObject):
             len(document.text),
             anonymize,
         )
-        options = replace(
-            options,
-            template_path=self._settings().template_path,
-            font_family=self._sources.font_family(),
-        )
+        options = self.file_options(options)
         try:
-            export_document = self._highlighted(
+            export_document = self.highlight(
                 build_export_document(
                     document,
                     self._sources.fields(),
@@ -223,7 +242,7 @@ class ExportController(QObject):
             )
         return True
 
-    def _highlighted(
+    def highlight(
         self,
         document: ExportDocument,
         exporter: Exporter,

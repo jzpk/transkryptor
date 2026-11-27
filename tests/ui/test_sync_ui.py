@@ -238,7 +238,7 @@ class TestManualTimestamps:
             "getSaveFileName",
             staticmethod(lambda *a, **k: (str(target), "")),
         )
-        window._on_export()
+        window.exporter.export()
         paragraphs = [p.text for p in DocxDocument(str(target)).paragraphs]
         # Decyzja fazy 11: znaczniki niewidoczne w DOCX.
         assert paragraphs[-1] == "Pierwszy akapit tekstu. Drugi fragment."
@@ -326,7 +326,7 @@ class TestUncertainWords:
             "getSaveFileName",
             staticmethod(lambda *a, **k: (str(target), "")),
         )
-        window._on_export()
+        window.exporter.export()
         runs = [run for p in DocxDocument(str(target)).paragraphs for run in p.runs]
         assert runs and not any(run.underline for run in runs)
 

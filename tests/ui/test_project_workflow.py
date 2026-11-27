@@ -364,7 +364,7 @@ class TestSaveDialogSuffix:
         window.editor.setPlainText("tekst")
         save_dialog(monkeypatch, tmp_path / "eksport")
         answer_questions(monkeypatch, {tr("file.overwrite.title"): Button.No})
-        window._on_export()
+        window.exporter.export()
         assert target.read_bytes() == b"inny dokument"
         assert window.document.is_dirty
 
