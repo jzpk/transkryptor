@@ -10,9 +10,10 @@ niego do projektu obok nagrania (``project_for``) - i otwiera kolejne
 nagranie folderu: jego projekt, gdy już jest, albo nową transkrypcję.
 Przycisk serii w pasku stanu pokazuje numer nagrania i postęp serii;
 jego menu pokazuje też folder serii w oknie „Korpus”, gdzie da się
-przeglądać, przeszukiwać i zestawiać wszystkie transkrypcje naraz, oraz
+przeglądać, przeszukiwać i zestawiać wszystkie transkrypcje naraz,
 „Przygotuj szkice dla serii…” - kolejkę szkiców ASR wszystkich nagrań bez
-szkicu (``ui/series_drafts.py``).
+szkicu (``ui/series_drafts.py``) - oraz „Przegląd serii” - tabelę stanu
+wszystkich nagrań (``ui/series_overview_dialog.py``).
 """
 
 from __future__ import annotations
@@ -40,12 +41,15 @@ from transkryptor.corpus.series import (
     series_position,
     series_recordings,
 )
+from transkryptor.corpus.series_overview import ReadinessOptions
 from transkryptor.errors import AppError
 from transkryptor.i18n import tr
+from transkryptor.settings import Settings
 from transkryptor.ui import icons
 from transkryptor.ui.asr_controller import AsrController
 from transkryptor.ui.messages import show_error
 from transkryptor.ui.series_drafts import SeriesDrafts
+from transkryptor.ui.series_overview_dialog import SeriesOverviewDialog
 from transkryptor.ui.session import SessionController
 
 
@@ -60,6 +64,7 @@ class SeriesController(QObject):
         show_folder: Callable[[Path], object],
         show_status: Callable[[str], None],
         asr: Callable[[], AsrController],
+        settings: Callable[[], Settings],
     ) -> None:
         super().__init__(window)
         self._window = window
@@ -67,10 +72,12 @@ class SeriesController(QObject):
         self._audio_path = audio_path
         self._show_folder = show_folder
         self._show_status = show_status
+        self._settings = settings
         self._locked = False
         self.drafts = SeriesDrafts(
             window, session, asr, audio_path, self.open_recording
         )
+        self.overview: SeriesOverviewDialog | None = None
         self._build_actions()
         self._build_button()
         # Okna wyboru plików; testy podstawiają gotowe odpowiedzi.
@@ -98,6 +105,9 @@ class SeriesController(QObject):
         self.drafts_action = QAction(tr("series.drafts"), window)
         self.drafts_action.setToolTip(tr("series.drafts.tooltip"))
         self.drafts_action.triggered.connect(lambda _c=False: self.prepare_drafts())
+        self.overview_action = QAction(tr("series.overview"), window)
+        self.overview_action.setToolTip(tr("series.overview.tooltip"))
+        self.overview_action.triggered.connect(lambda _c=False: self.show_overview())
         # Polecenia menu „Otwórz”.
         self.open_actions = (self.import_action, self.open_folder_action)
 
@@ -113,6 +123,7 @@ class SeriesController(QObject):
         menu = QMenu(self.button)
         menu.addAction(self.next_action)
         menu.addAction(self.drafts_action)
+        menu.addAction(self.overview_action)
         menu.addAction(self.corpus_action)
         self.button.setMenu(menu)
         self.button.hide()
@@ -131,6 +142,7 @@ class SeriesController(QObject):
         self.next_action.setEnabled(has_next and not self._locked)
         self.corpus_action.setEnabled(position is not None and not self._locked)
         self.drafts_action.setEnabled(position is not None and not self._locked)
+        self.overview_action.setEnabled(position is not None and not self._locked)
         self.button.setEnabled(not self._locked)
         if position is None:
             return
@@ -161,6 +173,8 @@ class SeriesController(QObject):
         self._locked = locked
         self.import_action.setEnabled(not locked)
         self.open_folder_action.setEnabled(not locked)
+        if self.overview is not None:
+            self.overview.setEnabled(not locked)
         self.refresh()
 
     # --- polecenia -------------------------------------------------------
@@ -235,6 +249,42 @@ class SeriesController(QObject):
         recording = self._audio_path()
         if recording is not None:
             self._show_folder(recording.parent)
+
+    def show_overview(self) -> SeriesOverviewDialog | None:
+        """„Przegląd serii”: tabela stanu nagrań folderu bieżącego nagrania."""
+        recording = self._audio_path()
+        if recording is None:
+            return None
+        dialog = self.overview
+        if dialog is not None and dialog.folder != recording.parent:
+            dialog.close()
+            dialog.deleteLater()
+            dialog = None
+        if dialog is None:
+            dialog = self.overview = SeriesOverviewDialog(
+                recording.parent,
+                lambda: ReadinessOptions.from_settings(self._settings()),
+                self._window,
+            )
+            dialog.open_requested.connect(self._open_from_overview)
+        else:
+            dialog.refresh()
+        dialog.show()
+        dialog.raise_()
+        dialog.activateWindow()
+        return dialog
+
+    def shutdown(self) -> None:
+        """Zamyka przegląd serii (przerywa wczytywanie w tle)."""
+        if self.overview is not None:
+            self.overview.close()
+
+    def _open_from_overview(self, recording: Path) -> None:
+        """Dwuklik w przeglądzie: nagranie serii (pyta o niezapisane zmiany)."""
+        if self._locked or not self._session.maybe_discard_changes():
+            return
+        if self.open_recording(recording) and self.overview is not None:
+            self.overview.refresh()
 
     def open_recording(self, recording: Path) -> bool:
         """Projekt nagrania z folderu serii, a bez niego - nowa transkrypcja.
