@@ -36,7 +36,7 @@ def test_emoji_before_superscript_reaches_project_and_docx(window, tmp_path) -> 
     assert shown.selectedText() == "n"
     assert shown.charFormat().verticalAlignment() == SUPERSCRIPT
     project = tmp_path / "p.transkr"
-    window.session._write_project(project)
+    window.session.write_project(project)
     state = load_project(project)
     assert state.text == "😀 bendzie"
     assert list(state.superscript_ranges) == [(4, 5)]
@@ -49,7 +49,7 @@ def test_nbsp_round_trips_through_project_and_docx(window, tmp_path) -> None:
     window.editor.load_content("na pewno", [])
     window.editor.textCursor().insertText("x")
     project = tmp_path / "p.transkr"
-    window.session._write_project(project)
+    window.session.write_project(project)
     assert " " in load_project(project).text
     docx = tmp_path / "p.docx"
     export_docx(window.document, docx)
@@ -60,7 +60,7 @@ def test_save_right_after_typing_includes_change(window, tmp_path) -> None:
     window.editor.setPlainText("bendzie")
     window.editor.textCursor().insertText("x")
     project = tmp_path / "p.transkr"
-    window.session._write_project(project)  # bez czekania na debounce
+    window.session.write_project(project)  # bez czekania na debounce
     assert load_project(project).text == "xbendzie"
     assert not window.document.is_unsaved
 

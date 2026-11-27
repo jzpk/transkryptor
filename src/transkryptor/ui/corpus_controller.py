@@ -52,9 +52,15 @@ class CorpusController(QObject):
         """Dane i akcje zakładki „Wnioski” (kontroler wniosków z poprawek)."""
         self._insights = host
 
-    def open_dialog(self) -> CorpusDialog:
-        """Pokazuje okno korpusu (przy pierwszym otwarciu skanuje folder)."""
+    def open_dialog(self, folder: Path | None = None) -> CorpusDialog:
+        """Pokazuje okno korpusu (przy pierwszym otwarciu skanuje folder).
+
+        ``folder`` - folder do pokazania (np. seria nagrań); bez niego okno
+        zostaje przy swoim folderze, a za pierwszym razem - przy domyślnym.
+        """
         dialog = self.dialog
+        if dialog is not None and folder is not None and folder != dialog.folder:
+            dialog.set_folder(folder)
         if dialog is None:
             dialog = self.dialog = CorpusDialog(
                 CorpusHost(
@@ -67,7 +73,7 @@ class CorpusController(QObject):
                 self._window,
             )
             dialog.setEnabled(not self._locked)
-            dialog.set_folder(self.default_folder())
+            dialog.set_folder(folder or self.default_folder())
         dialog.show()
         dialog.raise_()
         dialog.activateWindow()

@@ -28,6 +28,7 @@ from transkryptor.ui.shortcuts import (
     PLAY_FROM_CURSOR,
     PLAY_PAUSE,
     PREVIOUS_GAP_ID,
+    SERIES_NEXT_ID,
     SUPERSCRIPT_ID,
     ZOOM_IN_ID,
     ZOOM_OUT_ID,
@@ -273,6 +274,14 @@ TUTORIALS: tuple[Tutorial, ...] = (
             _step("history", "toolbar_save", MORE),
             _step("pack_export", "toolbar_export"),
             _step("pack_open", "toolbar_open", MORE),
+            _step("series_import", "toolbar_open", MORE),
+            _step(
+                "series_next",
+                "series_button",
+                "toolbar_open",
+                MORE,
+                shortcuts=(("next", SERIES_NEXT_ID),),
+            ),
         ),
     ),
     Tutorial(

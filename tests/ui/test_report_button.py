@@ -15,7 +15,7 @@ def test_report_button_opens_the_form_on_the_site(
         return True
 
     monkeypatch.setattr(
-        "transkryptor.ui.main_window.QDesktopServices.openUrl", open_url
+        "transkryptor.ui.status_links.QDesktopServices.openUrl", open_url
     )
     window = add_window(MainWindow())
     button = window.report_button

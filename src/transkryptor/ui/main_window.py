@@ -8,8 +8,8 @@ ASR (``ui/review.py``), stan sesji, projekt i autozapis (``ui/session.py``,
 (``ui/export_controller.py``), odtwarzacz (``ui/player_controller.py``),
 wyszukiwanie (``ui/search_controller.py``) oraz organizację pracy:
 statystyki (``ui/stats_dialog.py``), migawki
-(``ui/snapshot_controller.py``) i paczkę do przekazania
-(``ui/pack_controller.py``). Okno uruchamia nieblokującą
+(``ui/snapshot_controller.py``), serię nagrań (``ui/series_controller.py``)
+i paczkę do przekazania (``ui/pack_controller.py``). Okno uruchamia nieblokującą
 walidację ``notation.validate`` z debounce - reguły pozostają w module
 ``notation``, UI je prezentuje - i stosuje ustawienia bez restartu.
 """
@@ -20,20 +20,18 @@ import logging
 from dataclasses import replace
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QTimer, QUrl
-from PySide6.QtGui import QAction, QCloseEvent, QDesktopServices
+from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QAction, QCloseEvent
 from PySide6.QtWidgets import (
     QApplication,
     QLabel,
     QMainWindow,
     QMessageBox,
     QSplitter,
-    QToolButton,
     QVBoxLayout,
     QWidget,
 )
 
-from transkryptor import __version__
 from transkryptor.asr.manager import ModelManager
 from transkryptor.asr.models import model_by_key
 from transkryptor.audio.player import AudioPlayer
@@ -42,7 +40,6 @@ from transkryptor.document.progress import covered_ms, covered_ranges
 from transkryptor.document.readiness import ReadinessReport, build_report
 from transkryptor.document.speakers import Speaker, informant_spans
 from transkryptor.errors import AppError
-from transkryptor.feedback import report_form_url
 from transkryptor.i18n import tr
 from transkryptor.notation.ellipsis import EllipsisStyle
 from transkryptor.notation.rules import PhoneticRule
@@ -53,7 +50,6 @@ from transkryptor.ui.analysis_tools import AnalysisTools
 from transkryptor.ui.asr_controller import AsrController
 from transkryptor.ui.asr_panel import AsrPanel
 from transkryptor.ui.audio_filters import AudioFilterController
-from transkryptor.ui.changelog_dialog import ChangelogDialog
 from transkryptor.ui.comments_controller import CommentsController
 from transkryptor.ui.compare_controller import CompareController
 from transkryptor.ui.corpus_controller import CorpusController
@@ -98,6 +94,7 @@ from transkryptor.ui.review import (
 from transkryptor.ui.rules_store import RulesStore
 from transkryptor.ui.search_bar import SearchBar
 from transkryptor.ui.search_controller import SearchController
+from transkryptor.ui.series_controller import SeriesController
 from transkryptor.ui.session import SessionController
 from transkryptor.ui.session_views import SessionViews
 from transkryptor.ui.settings_dialog import SettingsDialog
@@ -115,6 +112,7 @@ from transkryptor.ui.shortcuts import (
     PREVIOUS_COMMENT_ID,
     PREVIOUS_GAP_ID,
     PREVIOUS_UNCERTAIN_ID,
+    SERIES_NEXT_ID,
     SHORTCUT_ACTIONS_BY_ID,
     SUPERSCRIPT_ID,
     apply_shortcuts,
@@ -128,6 +126,7 @@ from transkryptor.ui.snapshot_controller import SnapshotController
 from transkryptor.ui.snippets import SnippetController
 from transkryptor.ui.speaker_controller import SpeakerController
 from transkryptor.ui.stats_dialog import ProgressController
+from transkryptor.ui.status_links import changelog_button, report_button
 from transkryptor.ui.sync_controller import SyncController
 from transkryptor.ui.theme import apply_theme, resolve_tokens, set_props, tokens
 from transkryptor.ui.toolbar import MainToolbar, ToolbarHandlers
@@ -632,7 +631,18 @@ class MainWindow(QMainWindow):
             self.show_status,
         )
         self.packs.accept_drops_on(self.editor.viewport())
-        self.main_toolbar.open_menu.add_actions([self.packs.open_action])
+        self.series = SeriesController(
+            self,
+            self.session,
+            lambda: self.player.source_path,
+            self.corpus.open_dialog,
+            self.show_status,
+        )
+        self.player_bar.media_available_changed.connect(
+            lambda _a: self.series.refresh()
+        )
+        open_actions = [self.packs.open_action, *self.series.open_actions]
+        self.main_toolbar.open_menu.add_actions(open_actions)
         self.main_toolbar.add_save_actions(self.snapshots.actions)
         self.main_toolbar.add_export_actions(
             [
@@ -645,48 +655,21 @@ class MainWindow(QMainWindow):
     def _build_status_bar(self) -> None:
         status = self.statusBar()
         status.setSizeGripEnabled(False)
-        # Lewy dolny róg: historia zmian. Na czas krótkiego komunikatu
-        # (``showMessage``) pasek stanu chowa przycisk i pokazuje tekst.
-        self.changelog_button = QToolButton()
-        self.changelog_button.setObjectName("changelog_button")
-        self.changelog_button.setText(tr("changelog.button", version=__version__))
-        self.changelog_button.setToolTip(tr("changelog.button.tooltip"))
-        self.changelog_button.setAutoRaise(True)
-        self.changelog_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        icons.set_icon(self.changelog_button, "info", "text_muted", "text_muted")
-        self.changelog_button.setToolButtonStyle(
-            Qt.ToolButtonStyle.ToolButtonTextBesideIcon
-        )
-        self.changelog_button.clicked.connect(self._on_changelog)
+        # Lewy dolny róg: historia zmian i formularz zgłoszeń (``status_links``).
+        self.changelog_button = changelog_button(self)
         status.addWidget(self.changelog_button)
-        # Obok: formularz zgłoszeń na stronie - bez konta na GitHubie.
-        self.report_button = QToolButton()
-        self.report_button.setObjectName("report_button")
-        self.report_button.setText(tr("report.button"))
-        self.report_button.setToolTip(tr("report.button.tooltip"))
-        self.report_button.setAutoRaise(True)
-        self.report_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        icons.set_icon(self.report_button, "comment", "text_muted", "text_muted")
-        self.report_button.setToolButtonStyle(
-            Qt.ToolButtonStyle.ToolButtonTextBesideIcon
-        )
-        self.report_button.clicked.connect(self._on_report)
+        self.report_button = report_button()
         status.addWidget(self.report_button)
         # Samouczki: menu z listą przewodników po oknie.
         status.addWidget(self.tutorials.button)
         # Propozycja reguły z powtarzalnych poprawek szkicu (ukryta bez niej).
         status.addPermanentWidget(self.learning.button)
+        status.addPermanentWidget(self.series.button)
         status.addPermanentWidget(self.profiles.switcher)
         status.addPermanentWidget(self.progress.goal_label)
         self.export_status_label = QLabel()
         self.export_status_label.setObjectName("export_status_label")
         status.addPermanentWidget(self.export_status_label)
-
-    def _on_changelog(self) -> None:
-        ChangelogDialog(self).exec()
-
-    def _on_report(self) -> None:
-        QDesktopServices.openUrl(QUrl(report_form_url()))
 
     def _connect_signals(self) -> None:
         self.editor.document().contentsChanged.connect(self._on_editor_changed)
@@ -829,6 +812,7 @@ class MainWindow(QMainWindow):
             project_id("settings"): self.settings_action,
             project_id("close"): self.close_action,
             project_id("corpus"): self.corpus_action,
+            SERIES_NEXT_ID: self.series.next_action,
         }
         for key, action in self.marker_actions.items():
             actions[marker_id(key)] = action
