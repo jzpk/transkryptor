@@ -6,6 +6,47 @@ workflow „Wydanie” złoży je w sekcję z numerem wersji i datą, a jej tre�
 trafi do sekcji „Nowości w tej wersji” not wydania. Brak fragmentów blokuje
 wydanie.
 
+## 0.12.0 - 2026-11-27
+
+- **Seria nagrań:** wiele nagrań przepiszesz po kolei bez szukania plików.
+  „Importuj serię nagrań (ZIP)…” w menu otwierania rozpakowuje nagrania
+  z archiwum do folderu serii i otwiera pierwsze, a „Otwórz folder
+  nagrań…” wznawia pracę od pierwszego nagrania bez projektu. Przycisk
+  serii w pasku stanu (albo Ctrl+Shift+N) zapisuje projekt obok nagrania
+  i otwiera następne. Z menu przycisku „Pokaż serię w korpusie” przejrzysz,
+  przeszukasz i zestawisz wszystkie transkrypcje serii naraz.
+
+- **Szkice ASR dla całej serii:** „Przygotuj szkice dla serii…” w menu
+  przycisku serii przepisuje po kolei wszystkie nagrania bez szkicu, np. na
+  noc. Model i liczbę mówców wybierasz raz na starcie, nakładka pokazuje
+  bieżące nagranie, postęp całej kolejki i szacowany czas, a komputer nie
+  przechodzi w uśpienie. Każdy szkic od razu zapisuje się w projekcie obok
+  nagrania, więc przerwanie nie traci gotowej pracy, a ponowne
+  uruchomienie pomija nagrania ze szkicem. Błąd jednego nagrania nie
+  zatrzymuje kolejki - trafia do podsumowania.
+
+- **Przegląd serii nagrań:** „Przegląd serii…” w menu przycisku serii
+  pokazuje w jednej tabeli stan wszystkich nagrań folderu: długość, stan
+  (bez projektu, szkic ASR, w trakcie, gotowe), pokrycie nagrania
+  transkrypcją, ostatnią edycję i czas pracy, a nad tabelą - ile nagrań
+  jest gotowych, łączną długość serii i część już przetranskrybowaną.
+  „Gotowe” to projekt bez pozycji w raporcie gotowości. Dwuklik w wierszu
+  otwiera nagranie.
+
+- **Eksport całej serii:** „Eksportuj serię…” w menu przycisku serii
+  zapisuje wszystkie projekty serii naraz, z jednym formatem i jednym
+  zestawem opcji (DOCX, ODT, PDF, TXT, ELAN, Praat, SRT/WebVTT, także
+  eksport anonimizowany) - do katalogu albo jednego archiwum ZIP. Nazwy
+  plików powstają od nazw nagrań. Nagrania bez projektu są pomijane,
+  a eksport można ograniczyć do gotowych projektów. Podsumowanie podaje
+  liczbę plików i pominięte nagrania z powodem.
+
+- **Import serii z ZIP-a w tle:** rozpakowanie archiwum z nagraniami nie
+  blokuje już okna. Nakładka pokazuje postęp (nagrania i megabajty),
+  a przycisk „Przerwij” zatrzymuje import bez uciętych plików - nagrania
+  rozpakowane w całości zostają w folderze serii i ponowny import je
+  pomija.
+
 ## 0.11.0 - 2026-11-23
 
 - **Słowa według pytań kwestionariusza:** nowe polecenie „Słowa według
