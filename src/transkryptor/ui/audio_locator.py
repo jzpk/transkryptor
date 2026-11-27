@@ -7,7 +7,7 @@ from pathlib import Path
 
 from PySide6.QtWidgets import QFileDialog, QMessageBox, QWidget
 
-from transkryptor.audio.player import file_dialog_filter as audio_filter
+from transkryptor.audio.formats import file_dialog_filter as audio_filter
 from transkryptor.document.project import ProjectState, resolve_audio
 from transkryptor.i18n import tr
 

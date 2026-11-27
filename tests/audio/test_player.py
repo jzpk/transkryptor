@@ -10,7 +10,8 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
 
-from transkryptor.audio.player import SUPPORTED_SUFFIXES, AudioPlayer
+from transkryptor.audio.formats import SUPPORTED_SUFFIXES
+from transkryptor.audio.player import AudioPlayer
 from transkryptor.errors import ImportAudioError
 
 SAMPLE_MP3 = "tests/fixtures/audio/sample.mp3"

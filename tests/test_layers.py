@@ -20,6 +20,7 @@ QT_FREE = (
     "notation",
     "update",
     "audio/envelope.py",
+    "audio/formats.py",
     "audio/spectrogram.py",
     "changes.py",
     "errors.py",

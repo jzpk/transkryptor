@@ -1,0 +1,282 @@
+"""Seria nagrań w oknie: import ZIP, folder nagrań i „Następne nagranie”.
+
+„Importuj serię nagrań (ZIP)…” rozpakowuje nagrania z archiwum do folderu
+o nazwie archiwum we wskazanym katalogu (``corpus/series.py``) i otwiera
+pierwsze z nich. „Otwórz folder nagrań…” robi to samo dla folderu, który
+już ma nagrania - otwiera pierwsze bez projektu, więc wznawia pracę.
+
+„Następne nagranie serii” zapisuje bieżącą pracę - do jej projektu, a bez
+niego do projektu obok nagrania (``project_for``) - i otwiera kolejne
+nagranie folderu: jego projekt, gdy już jest, albo nową transkrypcję.
+Przycisk serii w pasku stanu pokazuje numer nagrania i postęp serii;
+jego menu pokazuje też folder serii w oknie „Korpus”, gdzie da się
+przeglądać, przeszukiwać i zestawiać wszystkie transkrypcje naraz.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+from pathlib import Path
+
+from PySide6.QtCore import QObject, Qt
+from PySide6.QtGui import QAction
+from PySide6.QtWidgets import (
+    QApplication,
+    QFileDialog,
+    QMenu,
+    QMessageBox,
+    QToolButton,
+    QWidget,
+)
+
+from transkryptor.corpus.series import (
+    ZIP_SUFFIX,
+    SeriesImport,
+    extract_series,
+    first_unfinished,
+    project_for,
+    series_position,
+    series_recordings,
+)
+from transkryptor.errors import AppError
+from transkryptor.i18n import tr
+from transkryptor.ui import icons
+from transkryptor.ui.messages import show_error
+from transkryptor.ui.session import SessionController
+
+
+class SeriesController(QObject):
+    """Polecenia serii nagrań i przycisk serii w pasku stanu."""
+
+    def __init__(
+        self,
+        window: QWidget,
+        session: SessionController,
+        audio_path: Callable[[], Path | None],
+        show_folder: Callable[[Path], object],
+        show_status: Callable[[str], None],
+    ) -> None:
+        super().__init__(window)
+        self._window = window
+        self._session = session
+        self._audio_path = audio_path
+        self._show_folder = show_folder
+        self._show_status = show_status
+        self._locked = False
+        self._build_actions()
+        self._build_button()
+        # Okna wyboru plików; testy podstawiają gotowe odpowiedzi.
+        self.choose_archive: Callable[[], Path | None] = self._choose_archive
+        self.choose_directory: Callable[[str, Path], Path | None] = (
+            self._choose_directory
+        )
+        self.refresh()
+
+    def _build_actions(self) -> None:
+        window = self._window
+        self.import_action = QAction(tr("series.import"), window)
+        self.import_action.setToolTip(tr("series.import.tooltip"))
+        self.import_action.triggered.connect(lambda _c=False: self.import_dialog())
+        self.open_folder_action = QAction(tr("series.open_folder"), window)
+        self.open_folder_action.setToolTip(tr("series.open_folder.tooltip"))
+        self.open_folder_action.triggered.connect(lambda _c=False: self.folder_dialog())
+        self.next_action = QAction(tr("series.next"), window)
+        self.next_action.setToolTip(tr("series.next.tooltip"))
+        self.next_action.triggered.connect(lambda _c=False: self.open_next())
+        window.addAction(self.next_action)  # skrót działa bez przycisku
+        self.corpus_action = QAction(tr("series.corpus"), window)
+        self.corpus_action.setToolTip(tr("series.corpus.tooltip"))
+        self.corpus_action.triggered.connect(lambda _c=False: self.show_in_corpus())
+        # Polecenia menu „Otwórz”.
+        self.open_actions = (self.import_action, self.open_folder_action)
+
+    def _build_button(self) -> None:
+        self.button = QToolButton()
+        self.button.setObjectName("series_button")
+        self.button.setAutoRaise(True)
+        self.button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.button.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup)
+        icons.set_icon(self.button, "audio_file", "accent", "text_muted")
+        self.button.clicked.connect(self.open_next)
+        menu = QMenu(self.button)
+        menu.addAction(self.next_action)
+        menu.addAction(self.corpus_action)
+        self.button.setMenu(menu)
+        self.button.hide()
+        events = self._session.events
+        for signal in (events.state_changed, events.reset):
+            signal.connect(self.refresh)
+
+    # --- stan ------------------------------------------------------------
+
+    def refresh(self) -> None:
+        """Przycisk serii i dostępność poleceń dla bieżącego nagrania."""
+        recording = self._audio_path()
+        position = series_position(recording) if recording is not None else None
+        self.button.setVisible(position is not None)
+        has_next = position is not None and position.next_recording is not None
+        self.next_action.setEnabled(has_next and not self._locked)
+        self.corpus_action.setEnabled(position is not None and not self._locked)
+        self.button.setEnabled(not self._locked)
+        if position is None:
+            return
+        self.button.setText(
+            tr("series.button", number=position.number, total=position.total)
+        )
+        following = position.next_recording
+        self.button.setToolTip(
+            tr(
+                "series.button.tooltip",
+                folder=str(recording.parent) if recording else "",
+                done=position.done,
+                total=position.total,
+                next=following.name if following else tr("series.button.last"),
+            )
+        )
+
+    def set_locked(self, locked: bool) -> None:
+        """Na czas transkrypcji polecenia serii są nieaktywne."""
+        self._locked = locked
+        self.import_action.setEnabled(not locked)
+        self.open_folder_action.setEnabled(not locked)
+        self.refresh()
+
+    # --- polecenia -------------------------------------------------------
+
+    def import_dialog(self) -> bool:
+        """„Importuj serię nagrań (ZIP)…”; True - otwarto pierwsze nagranie."""
+        if not self._session.maybe_discard_changes():
+            return False
+        archive = self.choose_archive()
+        if archive is None:
+            return False
+        parent = self.choose_directory(tr("series.import.directory"), archive.parent)
+        if parent is None:
+            return False
+        result = self._extract(archive, parent / archive.stem)
+        if result is None:
+            return False
+        self._show_status(
+            tr(
+                "series.import.done",
+                count=len(result.recordings),
+                folder=result.folder.name,
+            )
+        )
+        if result.skipped:
+            QMessageBox.information(
+                self._window,
+                tr("series.import.skipped.title"),
+                tr("series.import.skipped.text", files="\n".join(result.skipped)),
+            )
+        return self._open_first(list(result.recordings))
+
+    def folder_dialog(self) -> bool:
+        """„Otwórz folder nagrań…”: pierwsze nagranie bez projektu."""
+        if not self._session.maybe_discard_changes():
+            return False
+        start = Path(self._session.save_location.start_dir())
+        folder = self.choose_directory(tr("series.open_folder.dialog"), start)
+        if folder is None:
+            return False
+        recordings = series_recordings(folder)
+        if not recordings:
+            QMessageBox.information(
+                self._window,
+                tr("series.open_folder.empty.title"),
+                tr("series.open_folder.empty.text", folder=str(folder)),
+            )
+            return False
+        return self._open_first(recordings)
+
+    def open_next(self) -> bool:
+        """Zapisuje bieżącą pracę i otwiera następne nagranie serii."""
+        if self._locked:
+            return False
+        recording = self._audio_path()
+        position = series_position(recording) if recording is not None else None
+        if recording is None or position is None or position.next_recording is None:
+            self._show_status(tr("series.next.none"))
+            return False
+        if not self._save_current(recording):
+            return False
+        return self.open_recording(position.next_recording)
+
+    def show_in_corpus(self) -> None:
+        recording = self._audio_path()
+        if recording is not None:
+            self._show_folder(recording.parent)
+
+    def open_recording(self, recording: Path) -> bool:
+        """Projekt nagrania z folderu serii, a bez niego - nowa transkrypcja.
+
+        Nie pyta o niezapisane zmiany - wołający już o nie zadbał.
+        """
+        project = project_for(recording, series_recordings(recording.parent))
+        if project.is_file():
+            opened = self._session.open_project(project, confirm=False)
+        else:
+            self._session.new_document(confirm=False)
+            self._session.import_audio(str(recording))
+            current = self._audio_path()
+            opened = current is not None and current.resolve() == recording.resolve()
+        self.refresh()
+        position = series_position(recording)
+        if opened and position is not None:
+            self._show_status(
+                tr(
+                    "series.opened",
+                    name=recording.name,
+                    number=position.number,
+                    total=position.total,
+                )
+            )
+        return opened
+
+    # --- etapy -----------------------------------------------------------
+
+    def _save_current(self, recording: Path) -> bool:
+        """Bieżąca praca do jej projektu albo do projektu obok nagrania.
+
+        Nietknięte nagranie bez projektu (sam podgląd) nie dostaje pliku -
+        nie liczy się jako gotowe. Istniejący, nieotwarty projekt o nazwie
+        nagrania nie jest nadpisywany bez pytania (okno „Zapisz jako”).
+        """
+        if self._session.project_path is not None:
+            return self._session.save_project()
+        if not self._session.has_unsaved_work:
+            return True
+        target = project_for(recording, series_recordings(recording.parent))
+        if target.exists():
+            return self._session.save_project_as()
+        return self._session.write_project(target)
+
+    def _open_first(self, recordings: list[Path]) -> bool:
+        first = first_unfinished(recordings)
+        return first is not None and self.open_recording(first)
+
+    def _extract(self, archive: Path, folder: Path) -> SeriesImport | None:
+        """Rozpakowanie (z kursorem oczekiwania); błąd - komunikat i None."""
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        try:
+            return extract_series(archive, folder)
+        except AppError as error:
+            failure = error
+        finally:
+            QApplication.restoreOverrideCursor()
+        show_error(self._window, tr("series.import.error"), failure)
+        return None
+
+    def _choose_archive(self) -> Path | None:
+        path, _selected = QFileDialog.getOpenFileName(
+            self._window,
+            tr("series.import.dialog"),
+            self._session.save_location.start_dir(),
+            tr("series.import.filter", patterns=f"*{ZIP_SUFFIX}"),
+        )
+        return Path(path) if path else None
+
+    def _choose_directory(self, title: str, start: Path) -> Path | None:
+        chosen = QFileDialog.getExistingDirectory(self._window, title, str(start))
+        return Path(chosen) if chosen else None

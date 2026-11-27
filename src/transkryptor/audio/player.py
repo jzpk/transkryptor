@@ -12,31 +12,9 @@ from pathlib import Path
 from PySide6.QtCore import QObject, QTimer, QUrl, Signal
 from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
 
+from transkryptor.audio.formats import SUPPORTED_FORMATS_LABEL, is_audio
 from transkryptor.errors import ImportAudioError
 from transkryptor.i18n import tr
-
-# Formaty dekodowane zarówno przez Qt Multimedia (odtwarzanie), jak i przez
-# PyAV/FFmpeg (ASR). Oba backendy korzystają z FFmpeg.
-SUPPORTED_SUFFIXES: tuple[str, ...] = (
-    ".mp3",
-    ".wav",
-    ".flac",
-    ".m4a",
-    ".aac",
-    ".ogg",
-    ".opus",
-    ".wma",
-)
-SUPPORTED_FORMATS_LABEL = ", ".join(
-    suffix.removeprefix(".").upper() for suffix in SUPPORTED_SUFFIXES
-)
-
-
-def file_dialog_filter() -> str:
-    """Filtr okna wyboru pliku dla obsługiwanych nagrań."""
-    patterns = " ".join(f"*{suffix}" for suffix in SUPPORTED_SUFFIXES)
-    return tr("player.file_filter", patterns=patterns)
-
 
 # ``positionChanged`` Qt Multimedia przychodzi z ograniczoną częstotliwością;
 # przy aktywnej pętli pozycja jest dodatkowo sprawdzana tym interwałem, aby
@@ -160,7 +138,7 @@ class AudioPlayer(QObject):
     def load(self, path: str | Path) -> None:
         """Ładuje nagranie audio. Przy błędzie zgłasza ImportAudioError."""
         candidate = Path(path)
-        if candidate.suffix.lower() not in SUPPORTED_SUFFIXES:
+        if not is_audio(candidate):
             raise ImportAudioError(
                 user_message=tr(
                     "player.error.unsupported",

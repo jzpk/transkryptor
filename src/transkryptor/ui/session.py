@@ -225,8 +225,8 @@ class SessionController(QObject):
         self.document.touch()
         self.events.state_changed.emit()
 
-    def new_document(self) -> None:
-        if not self.maybe_discard_changes():
+    def new_document(self, confirm: bool = True) -> None:
+        if confirm and not self.maybe_discard_changes():
             return
         self.before_replace()
         self._player.stop_and_unload()
@@ -331,7 +331,7 @@ class SessionController(QObject):
         """Zapisuje projekt (bez pliku - pyta o nazwę); False = nie zapisano."""
         if self.project_path is None:
             return self.save_project_as()
-        return self._write_project(self.project_path)
+        return self.write_project(self.project_path)
 
     def save_project_as(self) -> bool:
         path = self.save_location.ask(
@@ -343,7 +343,7 @@ class SessionController(QObject):
         )
         if path is None:
             return False
-        return self._write_project(path)
+        return self.write_project(path)
 
     def _default_project_name(self) -> str:
         """Nazwa pliku projektu; folder wybiera ``SaveLocation``."""
@@ -357,7 +357,7 @@ class SessionController(QObject):
             return source.with_suffix(PROJECT_SUFFIX).name
         return f"{tr('session.default_project_name')}{PROJECT_SUFFIX}"
 
-    def _write_project(self, path: Path) -> bool:
+    def write_project(self, path: Path) -> bool:
         self.wait_for_audio_hash()
         state = self.capture_state()
         logger.info("Saving project: %d characters of text", len(state.text))

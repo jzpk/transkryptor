@@ -88,7 +88,7 @@ def test_project_round_trip_and_docx_labels(add_window, tmp_path) -> None:
     assign(window, 1, 2)
     assign(window, 2, 3)
     path = tmp_path / "wywiad.transkr"
-    assert window.session._write_project(path)
+    assert window.session.write_project(path)
 
     reopened = add_window(MainWindow())
     assert reopened.session.open_project(path)

@@ -57,6 +57,7 @@ def lock_window(window: MainWindow, locked: bool) -> None:
     window.corpus.set_locked(locked)
     window.learning.set_locked(locked)
     window.packs.set_locked(locked)
+    window.series.set_locked(locked)
     window.coverage.set_locked(locked)
     window.profiles.set_locked(locked)
     window.analysis.set_locked(locked)

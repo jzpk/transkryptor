@@ -32,11 +32,8 @@ from PySide6.QtWidgets import (
     QWidgetAction,
 )
 
-from transkryptor.audio.player import (
-    SUPPORTED_FORMATS_LABEL,
-    AudioPlayer,
-    file_dialog_filter,
-)
+from transkryptor.audio.formats import SUPPORTED_FORMATS_LABEL, file_dialog_filter
+from transkryptor.audio.player import AudioPlayer
 from transkryptor.audio.processing import CHANNELS
 from transkryptor.document.project import PlayerState
 from transkryptor.i18n import tr

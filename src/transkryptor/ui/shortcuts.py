@@ -43,6 +43,8 @@ EXPORT_SHORTCUT = "Ctrl+E"
 CLOSE_SHORTCUT = "Ctrl+W"
 # Okno „Korpus” - jak „szukaj w plikach” w edytorach kodu.
 CORPUS_SHORTCUT = "Ctrl+Shift+F"
+# Następne nagranie serii (zapis bieżącego i otwarcie kolejnego).
+SERIES_NEXT_SHORTCUT = "Ctrl+Shift+N"
 
 # Wyszukiwanie i zamiana (faza 07). Esc zamyka pasek - tylko z fokusem w pasku.
 FIND_SHORTCUT = "Ctrl+F"
@@ -157,6 +159,8 @@ def project_id(key: str) -> str:
     return f"project.{key}"
 
 
+# Seria nagrań: zapis bieżącego i następne nagranie folderu (``ui/series_controller``).
+SERIES_NEXT_ID = project_id("series_next")
 # Mówcy (faza 12): n-ty mówca z listy dokumentu i usunięcie mówcy akapitu.
 SPEAKER_COUNT = 9
 SPEAKER_CLEAR_ID = "speaker.clear"
@@ -244,6 +248,7 @@ SHORTCUT_ACTIONS: tuple[ShortcutDef, ...] = (
     ShortcutDef(
         project_id("corpus"), "toolbar.corpus", (CORPUS_SHORTCUT,), GROUP_PROJECT
     ),
+    ShortcutDef(SERIES_NEXT_ID, "series.next", (SERIES_NEXT_SHORTCUT,), GROUP_PROJECT),
     *(
         ShortcutDef(
             speaker_id(number),
