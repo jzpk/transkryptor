@@ -36,7 +36,6 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from transkryptor import diagnostics
 from transkryptor.asr.engine import (
     DIARIZED_ASR_SHARE,
     PROMPT_MAX_CHARS,
@@ -44,7 +43,7 @@ from transkryptor.asr.engine import (
     build_hotwords,
     compose_prompt,
 )
-from transkryptor.asr.models import DIARIZATION_MODEL, AsrModelInfo, format_size
+from transkryptor.asr.models import DIARIZATION_MODEL, format_size
 from transkryptor.asr.results import (
     SegmentResult,
     TranscriptionResult,
@@ -66,7 +65,11 @@ from transkryptor.ui.asr_speakers_box import (
     COUNT_QA_LAYOUT,
     SpeakersBox,
 )
-from transkryptor.ui.asr_transcribe_thread import TranscribeThread
+from transkryptor.ui.asr_transcribe_thread import (
+    TranscribeThread,
+    device_text,
+    log_start,
+)
 from transkryptor.ui.asr_widgets import AutoHideLabel, Collapsible, step
 from transkryptor.ui.messages import show_error
 from transkryptor.ui.theme import set_props, tokens
@@ -484,17 +487,8 @@ class TranscriptionSection(QObject):
             self.reinsert_draft_button.setEnabled(False)
         options = replace(self.decoding_options(), clip=clip)
         self._diarizing = options.diarizes
-        model = self._models.model
-        _log_start(model, audio_path, options, clip)
         self._transcribe_started = time.monotonic()
-        thread = TranscribeThread(
-            audio_path,
-            self._models.model_dir,
-            self._transcribe_impl,
-            self,
-            model=model,
-            options=options,
-        )
+        thread = self.create_thread(audio_path, options, self)
         if not self._fragment_mode:
             thread.segment_ready.connect(self._on_segment_ready)
         thread.progressed.connect(self._on_transcribe_progress)
@@ -502,10 +496,29 @@ class TranscriptionSection(QObject):
         thread.failed.connect(self._on_transcribe_failed)
         thread.cancelled.connect(self._on_transcribe_cancelled)
         self._transcribe_thread = thread
-        self._running_model_key = model.key
+        self._running_model_key = self._models.model.key
         self._models.set_transcribing(True)
         thread.start()
         self.transcription_started.emit()
+
+    def set_transcribe_impl(self, impl: Callable[..., TranscriptionResult]) -> None:
+        """Silnik transkrypcji zamiast podprocesu roboczego (np. testy)."""
+        self._transcribe_impl = impl
+
+    def create_thread(
+        self, audio_path: Path, options: DecodingOptions, parent: QObject
+    ) -> TranscribeThread:
+        """Wątek transkrypcji wybranym modelem, tym samym silnikiem co panel."""
+        model = self._models.model
+        log_start(model, audio_path, options)
+        return TranscribeThread(
+            audio_path,
+            self._models.model_dir,
+            self._transcribe_impl,
+            parent,
+            model=model,
+            options=options,
+        )
 
     def _confirm_memory(self) -> bool:
         """Ostrzega, gdy model wymaga więcej RAM, niż ma komputer."""
@@ -548,7 +561,7 @@ class TranscriptionSection(QObject):
         )
         self._finish_transcribe()
         if self._fragment_mode:
-            self.device_label.setText(_device_text(result))
+            self.device_label.setText(device_text(result))
             if not result.text.strip():
                 self.transcribe_status_label.setText(tr("asr.no_speech"))
                 return
@@ -559,7 +572,7 @@ class TranscriptionSection(QObject):
         self._last_result = result
         self._last_model_key = self._running_model_key
         self.result_changed.emit()
-        self.device_label.setText(_device_text(result))
+        self.device_label.setText(device_text(result))
         if not result.text.strip():
             self.transcribe_status_label.setText(tr("asr.no_speech"))
             return
@@ -642,40 +655,3 @@ class TranscriptionSection(QObject):
         if self._transcribe_thread is not None:
             self._transcribe_thread.cancel()
             self.cancel_transcribe_button.setEnabled(False)
-
-
-def _log_start(
-    model: AsrModelInfo,
-    audio_path: Path,
-    options: DecodingOptions,
-    clip: tuple[float, float] | None,
-) -> None:
-    # Bez treści kontekstu i słownika - to dane z wywiadu.
-    logger.info(
-        "Transcription started: model=%s, audio=%s, device=%s, chunked=%s, "
-        "word_timestamps=%s, diarize=%s, speakers=%s, clip=%s, prompt=%s, "
-        "hotwords=%s",
-        model.key,
-        diagnostics.file_summary(audio_path),
-        options.device,
-        options.chunked,
-        options.word_timestamps,
-        options.diarizes,
-        options.speakers or "auto",
-        "none" if clip is None else f"{clip[1] - clip[0]:.1f} s",
-        bool(options.initial_prompt),
-        bool(options.hotwords),
-    )
-
-
-def _device_text(result: TranscriptionResult) -> str:
-    """Informacja, na czym liczono szkic; przejście z GPU na CPU (ACC-37)."""
-    if result.device_note:
-        text = tr("asr.device.fallback", reason=result.device_note)
-    elif result.device == "cuda":
-        text = tr("asr.device.gpu")
-    else:
-        text = tr("asr.device.cpu")
-    if result.diarization_note:
-        text += "\n" + tr("asr.diarize.failed", reason=result.diarization_note)
-    return text

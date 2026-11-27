@@ -18,10 +18,10 @@ FUNCTION_LIMIT = 100
 # Moduł → największa dozwolona liczba linii (do stopniowego skracania).
 MODULE_EXCEPTIONS = {
     "settings.py": 608,
-    "ui/asr_transcription_section.py": 681,
+    "ui/asr_transcription_section.py": 657,
     "ui/corpus_dialog.py": 861,
     "ui/editor.py": 678,
-    "ui/main_window.py": 1102,
+    "ui/main_window.py": 1101,
     "ui/player_bar.py": 627,
     "ui/session.py": 528,
     "ui/settings_pages.py": 518,

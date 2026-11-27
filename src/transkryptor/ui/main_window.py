@@ -637,10 +637,9 @@ class MainWindow(QMainWindow):
             lambda: self.player.source_path,
             self.corpus.open_dialog,
             self.show_status,
+            lambda: self.asr,
         )
-        self.player_bar.media_available_changed.connect(
-            lambda _a: self.series.refresh()
-        )
+        self.player_bar.media_available_changed.connect(self.series.on_media_available)
         open_actions = [self.packs.open_action, *self.series.open_actions]
         self.main_toolbar.open_menu.add_actions(open_actions)
         self.main_toolbar.add_save_actions(self.snapshots.actions)
@@ -1037,8 +1036,8 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event: QCloseEvent) -> None:
         """ACC-10: ostrzeżenie przed utratą pracy przy zamknięciu."""
-        # Wyszukiwanie w korpusie ma przycisk „Przerwij” - okno czeka na nie.
-        if self.corpus.busy:
+        # Praca korpusu i serii nagrań ma przycisk „Przerwij” - okno czeka na nią.
+        if self.corpus.busy or self.series.busy:
             event.ignore()
             return
         if self.session.can_close():
